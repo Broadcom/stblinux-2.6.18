@@ -1,0 +1,31 @@
+2005-02-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* NEWS: Mention "-mhint.b=[ok|warning|error]".
+
+	* config/tc-ia64.c (md): Add hint_b.
+	(emit_one_bundle): Handle md.hint_b for "hint".
+	(md_parse_option): Accepted "-mhint.b=[ok|warning|error]".
+	(md_show_usage): Add "-mhint.b=[ok|warning|error]".
+	(ia64_init): Set md.hint_b to error.
+	(md_assemble): Handle md.hint_b for "hint.b".
+
+	* doc/as.texinfo: Add "-mhint.b=[ok|warning|error]".
+	* doc/c-ia64.texi: Likewise.
+
+2005-02-17  James E Wilson  <wilson@specifixinc.com>
+
+	* config/tc-ia64.c (emit_one_bundle): Stop filling a bundle if we
+	see an instruction that specifies a template.
+	(remove_marked_resource): Set CURR_SLOT.user_template to -1
+	when inserting srlz.i/srlz.d.
+
+2005-02-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/all.texi: Add IA64.
+	* doc/as.texinfo: Likewise.
+
+	* doc/c-ia64.texi: Fix typoes.
+
+2001-10-21  H.J. Lu <hjl@gnu.org>
+
+	* configure: Rebuid for ../libtool.m4 change.

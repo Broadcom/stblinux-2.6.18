@@ -1,0 +1,388 @@
+This file contains any messages produced by compilers while
+running configure, to aid debugging if configure makes a mistake.
+
+configure:642: checking host system type
+configure:676: checking for gcc
+configure:789: checking whether the C compiler (mipsel-linux-gcc -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include) works
+configure:805: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include  -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:831: checking whether the C compiler (mipsel-linux-gcc -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include) is a cross-compiler
+configure:836: checking whether we are using GNU C
+configure:845: mipsel-linux-gcc -E conftest.c
+configure:864: checking whether mipsel-linux-gcc accepts -g
+configure:913: checking how to run the C preprocessor
+configure:934: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:994: checking for linux/fs.h
+configure:1004: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1449: checking whether make sets ${MAKE}
+configure:1478: checking for ranlib
+configure:1506: checking for POSIXized ISC
+configure:1527: checking for ANSI C header files
+configure:1540: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1631: checking for working const
+configure:1685: mipsel-linux-gcc -c -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include  conftest.c 1>&5
+configure:1706: checking for inline
+configure:1720: mipsel-linux-gcc -c -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include  conftest.c 1>&5
+configure:1746: checking for off_t
+configure:1779: checking for size_t
+configure:1814: checking for working alloca.h
+configure:1826: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:1847: checking for alloca
+configure:1880: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2049: checking for unistd.h
+configure:2059: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2088: checking for getpagesize
+configure:2116: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2141: checking for working mmap
+configure:2317: checking for argz.h
+configure:2327: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2323:18: argz.h: No such file or directory
+configure: failed program was:
+#line 2322 "configure"
+#include "confdefs.h"
+#include <argz.h>
+configure:2317: checking for limits.h
+configure:2327: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2317: checking for locale.h
+configure:2327: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2317: checking for nl_types.h
+configure:2327: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2317: checking for malloc.h
+configure:2327: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2317: checking for string.h
+configure:2327: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2317: checking for unistd.h
+configure:2317: checking for sys/param.h
+configure:2327: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2357: checking for getcwd
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2357: checking for munmap
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2357: checking for putenv
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2357: checking for setenv
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2357: checking for setlocale
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2357: checking for strchr
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2369: warning: conflicting types for built-in function 'strchr'
+configure:2357: checking for strcasecmp
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2357: checking for strdup
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2369: warning: conflicting types for built-in function 'strdup'
+configure:2357: checking for __argz_count
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+/tmp/ccSTThTT.o: In function `main':conftest.c:(.text+0x18): undefined reference to `__argz_count'
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 2362 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char __argz_count(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char __argz_count();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub___argz_count) || defined (__stub_____argz_count)
+choke me
+#else
+__argz_count();
+#endif
+
+; return 0; }
+configure:2357: checking for __argz_stringify
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+/tmp/ccSQjNE3.o: In function `main':conftest.c:(.text+0x18): undefined reference to `__argz_stringify'
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 2362 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char __argz_stringify(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char __argz_stringify();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub___argz_stringify) || defined (__stub_____argz_stringify)
+choke me
+#else
+__argz_stringify();
+#endif
+
+; return 0; }
+configure:2357: checking for __argz_next
+configure:2385: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+/tmp/ccQwHzrb.o: In function `main':conftest.c:(.text+0x18): undefined reference to `__argz_next'
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 2362 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char __argz_next(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char __argz_next();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub___argz_next) || defined (__stub_____argz_next)
+choke me
+#else
+__argz_next();
+#endif
+
+; return 0; }
+configure:2414: checking for stpcpy
+configure:2442: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2426: warning: conflicting types for built-in function 'stpcpy'
+configure:2476: checking for LC_MESSAGES
+configure:2488: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:2509: checking whether NLS is requested
+configure:3428: checking whether make sets ${MAKE}
+configure:3457: checking for ln
+configure:3491: checking whether ln -s works
+configure:3514: checking for mv
+configure:3550: checking for cp
+configure:3586: checking for rm
+configure:3622: checking for chmod
+configure:3658: checking for awk
+configure:3694: checking for sed
+configure:3730: checking for perl
+configure:3766: checking for ldconfig
+configure:3800: checking build system type
+configure:3826: checking for ar
+configure:3893: checking for ranlib
+configure:3960: checking for strip
+configure:4036: checking for a BSD compatible install
+configure:4098: checking for gcc
+configure:4132: checking for stdlib.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for unistd.h
+configure:4132: checking for stdarg.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for errno.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for malloc.h
+configure:4132: checking for mntent.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for paths.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for dirent.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for getopt.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for setjmp.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for signal.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for termios.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for linux/fd.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for linux/major.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for sys/disklabel.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4138:27: sys/disklabel.h: No such file or directory
+configure: failed program was:
+#line 4137 "configure"
+#include "confdefs.h"
+#include <sys/disklabel.h>
+configure:4132: checking for sys/ioctl.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for sys/mkdev.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4138:23: sys/mkdev.h: No such file or directory
+configure: failed program was:
+#line 4137 "configure"
+#include "confdefs.h"
+#include <sys/mkdev.h>
+configure:4132: checking for sys/mount.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for sys/sockio.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4138:24: sys/sockio.h: No such file or directory
+configure: failed program was:
+#line 4137 "configure"
+#include "confdefs.h"
+#include <sys/sockio.h>
+configure:4132: checking for sys/sysmacros.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for sys/time.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for sys/stat.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for sys/types.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for net/if.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4132: checking for netinet/in.h
+configure:4142: mipsel-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:4169: checking for vprintf
+configure:4197: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4181: warning: conflicting types for built-in function 'vprintf'
+configure:4274: checking whether llseek declared in unistd.h
+configure:4286: mipsel-linux-gcc -c -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include  conftest.c 1>&5
+configure:4306: checking whether lseek64 declared in unistd.h
+configure:4320: mipsel-linux-gcc -c -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include  conftest.c 1>&5
+configure: In function `main':
+configure:4316: error: conflicting types for 'lseek64'
+/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include/unistd.h:296: error: previous declaration of 'lseek64' was here
+configure: failed program was:
+#line 4311 "configure"
+#include "confdefs.h"
+#define _LARGEFILE_SOURCE
+#define _LARGEFILE64_SOURCE
+#include <unistd.h>
+int main() {
+extern int lseek64(int);
+; return 0; }
+configure:4348: checking size of short
+configure:4388: checking size of int
+configure:4428: checking size of long
+configure:4468: checking size of long long
+configure:4516: checking whether byte ordering is bigendian
+configure:4534: mipsel-linux-gcc -c -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include  conftest.c 1>&5
+configure:4549: mipsel-linux-gcc -c -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include  conftest.c 1>&5
+configure: In function `main':
+configure:4544: error: `not' undeclared (first use in this function)
+configure:4544: error: (Each undeclared identifier is reported only once
+configure:4544: error: for each function it appears in.)
+configure:4544: error: syntax error before "big"
+configure: failed program was:
+#line 4538 "configure"
+#include "confdefs.h"
+#include <sys/types.h>
+#include <sys/param.h>
+int main() {
+
+#if BYTE_ORDER != BIG_ENDIAN
+ not big endian
+#endif
+; return 0; }
+configure:4606: checking whether struct stat has a st_flags field
+configure:4618: mipsel-linux-gcc -c -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include  conftest.c 1>&5
+configure: In function `main':
+configure:4614: error: structure has no member named `st_flags'
+configure: failed program was:
+#line 4611 "configure"
+#include "confdefs.h"
+#include <sys/stat.h>
+int main() {
+struct stat stat; stat.st_flags = 0;
+; return 0; }
+configure:4668: checking for chflags
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+/tmp/ccqwya0o.o: In function `main':conftest.c:(.text+0x18): undefined reference to `chflags'
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 4673 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char chflags(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char chflags();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_chflags) || defined (__stub___chflags)
+choke me
+#else
+chflags();
+#endif
+
+; return 0; }
+configure:4668: checking for getrusage
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for llseek
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for lseek64
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for open64
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for getmntinfo
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+/tmp/cc23fdQU.o: In function `main':conftest.c:(.text+0x18): undefined reference to `getmntinfo'
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 4673 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char getmntinfo(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char getmntinfo();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_getmntinfo) || defined (__stub___getmntinfo)
+choke me
+#else
+getmntinfo();
+#endif
+
+; return 0; }
+configure:4668: checking for strcasecmp
+configure:4668: checking for srandom
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for fchown
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for mallinfo
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for fdatasync
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for strnlen
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for sysconf
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4668: checking for pathconf
+configure:4696: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:4722: checking for socket in -lsocket
+configure:4741: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   conftest.c -lsocket   1>&5
+/opt/toolchains-2.6.12_3.4.6/crosstools_linux-2.6.12.0_gcc-3.4.6-19_uclibc-0.9.28-20050817-20061010/bin/../lib/gcc/mipsel-linux-uclibc/3.4.6/../../../../mipsel-linux-uclibc/bin/ld: cannot find -lsocket
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 4730 "configure"
+#include "confdefs.h"
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char socket();
+
+int main() {
+socket()
+; return 0; }
+configure:4763: checking for optreset
+configure:4847: checking whether linker accepts -static
+configure:4860: mipsel-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include   -static conftest.c  1>&5

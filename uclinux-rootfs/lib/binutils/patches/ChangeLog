@@ -1,0 +1,142 @@
+2004-08-13  H.J. Lu  <hjl@gnu.org>
+
+	* bfd-abort.patch: Removed.
+
+	* README: Don't apply bfd-abort.patch.
+
+2004-05-29  H.J. Lu  <hjl@gnu.org>
+
+	* bfd-ia64-merge.patch: Removed.
+
+	* README: Don't apply bfd-ia64-merge.patch.
+
+2004-05-28  H.J. Lu  <hjl@gnu.org>
+
+	* gas-ia64-auto.patch: Removed.
+	* gas-ia64-ar.patch: Likewise.
+
+	* README: Don't apply gas-ia64-auto.patch and gas-ia64-ar.patch.
+
+2004-05-27  H.J. Lu  <hjl@gnu.org>
+
+	* apply_demangler: Removed.
+	* demangler.patch: Likewise.
+	* ld-test-link.patch: Likewise.
+
+	* bfd-ia64-merge.patch: New file.
+	* gas-ia64-auto.patch: Likewise.
+	* gas-ia64-ar.patch: Likewise.
+
+	* README: Apply bfd-ia64-merge.patch, gas-ia64-auto.patch and
+	gas-ia64-ar.patch.
+
+2004-05-19  H.J. Lu  <hjl@gnu.org>
+
+	* ld-eh-frame-ro.patch: Removed.
+
+	* README: Don't apply ld-eh-frame-ro.patch.
+
+2004-05-14  H.J. Lu  <hjl@gnu.org>
+
+	* ld-eh-frame-ro.patch: Updated.
+
+2004-05-14  H.J. Lu  <hjl@gnu.org>
+
+	* ld-eh-frame-ro.patch: New. Handle RO/RW .eh_frame and
+	.gcc_except_table sections.
+
+	* README: Apply ld-eh-frame-ro.patch.
+
+2004-04-23  H.J. Lu  <hjl@gnu.org>
+
+	* README: Don't apply bfd-elf-mix.patch.
+
+2004-04-22  H.J. Lu  <hjl@gnu.org>
+
+	* bfd-abort.patch: New file. Abort on NULL BFD.
+
+	* bfd-elf-mix.patch: New file. Improve ELF linker with non-ELF
+	inputs.
+
+	* README: Apply bfd-abort.patch and bfd-elf-mix.patch.
+
+2004-01-07  H.J. Lu  <hjl@gnu.org>
+
+	* README: Don't apply libtool-dso.patch.
+
+2003-12-04  H.J. Lu  <hjl@gnu.org>
+
+	* libtool-dso.patch: Updated.
+
+2003-10-14  H.J. Lu  <hjl@gnu.org>
+
+	* demangler.patch: Updated.
+
+2003-10-01  H.J. Lu  <hjl@gnu.org>
+
+	* demangler.patch: Updated.
+
+2003-09-30  H.J. Lu  <hjl@gnu.org>
+
+	* demangler.patch: Fix multilib support.
+
+2003-09-03  H.J. Lu  <hjl@gnu.org>
+
+	* libtool-dso.patch: Updated.
+
+2003-08-28  H.J. Lu  <hjl@gnu.org>
+
+	* demangler.patch: Updated.
+
+	* apply_demangler: Use autoconf instead of autoconf-2.13.
+
+2003-08-15  H.J. Lu  <hjl@gnu.org>
+
+	* libtool-dso.patch: Updated.
+
+2003-08-12  H.J. Lu  <hjl@gnu.org>
+
+	* demangler.patch: Updated.
+
+2003-07-23  H.J. Lu  <hjl@gnu.org>
+
+	* demangler.patch: Updated.
+
+2003-07-22  H.J. Lu  <hjl@gnu.org>
+
+	* demangler.patch: Support relative source directory.
+
+2003-07-22  H.J. Lu  <hjl@gnu.org>
+
+	* demangler.patch: Support single directory build.
+
+2003-07-21  H.J. Lu <hjl@gnu.org>
+
+	* demangler.patch: New. A new C++ demangler.
+
+	* apply_demangler: New. A script to apply the new demangler.
+
+2003-07-14  H.J. Lu <hjl@gnu.org>
+
+	* libtool-dso.patch: Updated.
+
+2003-06-11  H.J. Lu <hjl@gnu.org>
+
+	* libtool-dso.patch: Updated.
+
+2003-05-30  H.J. Lu <hjl@gnu.org>
+
+	* README: Don't apply ld-test-link.patch.
+
+2003-05-25  H.J. Lu <hjl@gnu.org>
+
+	* libtool-dso.patch: New. Fix brain dead libtool.
+
+	* README: Apply libtool-dso.patch.
+
+2003-05-23  H.J. Lu <hjl@gnu.org>
+
+	* ld-test-link.patch: New file. Fix "make check" in ld for
+	non-system compiler.
+
+	* README: New file. Apply ld-test-link.patch.

@@ -1,0 +1,65 @@
+include $(ROOTDIR)/config.arch
+
+TOOL_DIR_PREFIX=$(shell dirname $(shell which $(CC)))/..
+UCLIBC_INC = ../../uClibc/include
+UCLIBC_LIB = ../../uClibc/lib
+ifneq (,$(findstring linux,$(CROSS)))
+	TARGET=$(CROSS:linux-=linux)
+	TARGET_ARCH ?= $(CROSS:-linux-=)
+else
+	ifneq (,$(findstring uclibc,$(CROSS)))
+		TARGET_ARCH ?= $(CROSS:-uclibc-=)
+		TARGET=$(TARGET_ARCH)-linux
+	else
+		echo "FIXME: Cannot determine target architecture"
+		exit 99
+	endif
+endif
+
+
+all:
+#		./configure --target=$(MACHINE)-linux
+#	make -f Makefile
+	( \
+	export CC=$(CROSS)gcc; \
+	export AS=$(CROSS)as; \
+	export LD=$(CROSS)ld; \
+	export CPP="$$CC -E"; \
+	export AR=$(CROSS)ar; \
+	export NM=$(CROSS)nm; \
+	export STRIP=$(CROSS)strip; \
+	export OBJCOPY=$(CROSS)objcopy; \
+	export OBJDUMP=$(CROSS)objdump; \
+	export RANLIB=$(CROSS)ranlib; \
+	export CC_FOR_BUILD=gcc; \
+	export STD_INC="$(TOOL_DIR_PREFIX)/$(TARGET)/include"; \
+	export GCC_INC="$(TOOL_DIR_PREFIX)/$(TARGET)/include"; \
+	test -f config.cache && rm -f config.cache; \
+	CFLAGS='$(filter-out -fno-builtin, $(CFLAGS))'  \
+	./configure 				\
+		--target=$(TARGET)		\
+		--host=i386-pc-linux-gnu	\
+		--build=i386-pc-linux-gnu	\
+		--prefix=$(ROOTDIR)/romfs/	\
+		--includedir=$(UCLIBC_INC)/	\
+		--libdir=$(ROOTDIR)/romfs/lib/	\
+		--srcdir=. \
+		--cache-file=cross-build/config.cache.brcmstb.$(TARGET_ARCH) \
+	)
+	make -f Makefile
+	# make -f Makefile lib/termcap/libtermcap.so
+
+clean:
+	make -f Makefile clean
+
+distclean: clean
+	-rm config.cache
+	make -C ./builtins distclean
+	make -f Makefile distclean
+	rm Makefile
+
+romfs:
+	$(ROMFSINST) -e CONFIG_USER_BASH_BASH	bash	/bin/bash
+	$(ROMFSINST) -e CONFIG_USER_BASH_BASH -s /bin/bash /bin/sh
+	$(ROMFSINST) -e CONFIG_USER_BASH_BASH lib/termcap/libtermcap.so /lib/libtermcap.so
+

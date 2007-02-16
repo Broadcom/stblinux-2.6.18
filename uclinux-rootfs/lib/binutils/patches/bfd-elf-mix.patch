@@ -1,0 +1,124 @@
+2004-04-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* elf.c (_bfd_elf_link_hash_copy_indirect): Also copy
+	ELF_LINK_NON_ELF.
+
+	* elf32-i386.c (ELIMINATE_COPY_RELOCS): Add hash as an argument.
+	FALSE if the ELF_LINK_NON_ELF bit is set. Update usages.
+
+	* elflink.c (_bfd_elf_link_create_dynamic_sections): Clear
+	the ELF_LINK_NON_ELF bit on _DYNAMIC.
+	(_bfd_elf_fix_symbol_flags): Increment PLT count for dynamic
+	function symbols referenced by non-ELF files. Set the
+	ELF_LINK_NON_GOT_REF bit for dynamic object symbols
+	referenced by non-ELF files.
+
+--- bfd/elf.c.mix	2004-04-22 11:08:27.000000000 -0700
++++ bfd/elf.c	2004-04-22 16:25:06.000000000 -0700
+@@ -1360,6 +1360,7 @@ _bfd_elf_link_hash_copy_indirect (const 
+ 				   | ELF_LINK_HASH_REF_REGULAR
+ 				   | ELF_LINK_HASH_REF_REGULAR_NONWEAK
+ 				   | ELF_LINK_NON_GOT_REF
++				   | ELF_LINK_NON_ELF
+ 				   | ELF_LINK_HASH_NEEDS_PLT
+ 				   | ELF_LINK_POINTER_EQUALITY_NEEDED);
+ 
+--- bfd/elf32-i386.c.mix	2004-04-22 08:19:28.000000000 -0700
++++ bfd/elf32-i386.c	2004-04-22 14:50:20.000000000 -0700
+@@ -464,7 +464,8 @@ elf_i386_grok_psinfo (bfd *abfd, Elf_Int
+    copying dynamic variables from a shared lib into an app's dynbss
+    section, and instead use a dynamic relocation to point into the
+    shared lib.  */
+-#define ELIMINATE_COPY_RELOCS 1
++#define ELIMINATE_COPY_RELOCS(h) \
++  (!(h) || !((h)->elf_link_hash_flags & ELF_LINK_NON_ELF))
+ 
+ /* The size in bytes of an entry in the procedure linkage table.  */
+ 
+@@ -782,7 +783,7 @@ elf_i386_copy_indirect_symbol (const str
+       eind->tls_type = GOT_UNKNOWN;
+     }
+ 
+-  if (ELIMINATE_COPY_RELOCS
++  if (ELIMINATE_COPY_RELOCS (dir)
+       && ind->root.type != bfd_link_hash_indirect
+       && (dir->elf_link_hash_flags & ELF_LINK_HASH_DYNAMIC_ADJUSTED) != 0)
+     /* If called to transfer flags for a weakdef during processing
+@@ -1056,7 +1057,7 @@ elf_i386_check_relocs (bfd *abfd,
+ 			   || h->root.type == bfd_link_hash_defweak
+ 			   || (h->elf_link_hash_flags
+ 			       & ELF_LINK_HASH_DEF_REGULAR) == 0))))
+-	      || (ELIMINATE_COPY_RELOCS
++	      || (ELIMINATE_COPY_RELOCS (h)
+ 		  && !info->shared
+ 		  && (sec->flags & SEC_ALLOC) != 0
+ 		  && h != NULL
+@@ -1361,7 +1362,7 @@ elf_i386_adjust_dynamic_symbol (struct b
+ 		  || h->weakdef->root.type == bfd_link_hash_defweak);
+       h->root.u.def.section = h->weakdef->root.u.def.section;
+       h->root.u.def.value = h->weakdef->root.u.def.value;
+-      if (ELIMINATE_COPY_RELOCS || info->nocopyreloc)
++      if (ELIMINATE_COPY_RELOCS (h) || info->nocopyreloc)
+ 	h->elf_link_hash_flags
+ 	  = ((h->elf_link_hash_flags & ~ELF_LINK_NON_GOT_REF)
+ 	     | (h->weakdef->elf_link_hash_flags & ELF_LINK_NON_GOT_REF));
+@@ -1390,7 +1391,7 @@ elf_i386_adjust_dynamic_symbol (struct b
+       return TRUE;
+     }
+ 
+-  if (ELIMINATE_COPY_RELOCS)
++  if (ELIMINATE_COPY_RELOCS (h))
+     {
+       struct elf_i386_link_hash_entry * eh;
+       struct elf_i386_dyn_relocs *p;
+@@ -1628,7 +1629,7 @@ allocate_dynrelocs (struct elf_link_hash
+ 	  && h->root.type == bfd_link_hash_undefweak)
+ 	eh->dyn_relocs = NULL;
+     }
+-  else if (ELIMINATE_COPY_RELOCS)
++  else if (ELIMINATE_COPY_RELOCS (h))
+     {
+       /* For the non-shared case, discard space for relocs against
+ 	 symbols which turn out to need copy relocs or are not
+@@ -2321,7 +2322,7 @@ elf_i386_relocate_section (bfd *output_b
+ 		   || h->root.type != bfd_link_hash_undefweak)
+ 	       && (r_type != R_386_PC32
+ 		   || !SYMBOL_CALLS_LOCAL (info, h)))
+-	      || (ELIMINATE_COPY_RELOCS
++	      || (ELIMINATE_COPY_RELOCS (h)
+ 		  && !info->shared
+ 		  && h != NULL
+ 		  && h->dynindx != -1
+--- bfd/elflink.c.mix	2004-04-22 08:20:09.000000000 -0700
++++ bfd/elflink.c	2004-04-22 18:05:35.000000000 -0700
+@@ -218,6 +218,7 @@ _bfd_elf_link_create_dynamic_sections (b
+     return FALSE;
+   h = (struct elf_link_hash_entry *) bh;
+   h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
++  h->elf_link_hash_flags &= ~ELF_LINK_NON_ELF;
+   h->type = STT_OBJECT;
+ 
+   if (! info->executable
+@@ -2087,6 +2088,22 @@ _bfd_elf_fix_symbol_flags (struct elf_li
+ 	      eif->failed = TRUE;
+ 	      return FALSE;
+ 	    }
++
++	  switch (h->type)
++	    {
++	    case STT_OBJECT:
++	      /* It doesn't use GOT.  */
++	      h->elf_link_hash_flags |= ELF_LINK_NON_GOT_REF;
++	      break;
++
++	    case STT_FUNC:
++	      /* We need it to keep the PLT entry.  */
++	      h->plt.refcount++;
++	      break;
++
++	    default:
++	      break;
++	    }
+ 	}
+     }
+   else

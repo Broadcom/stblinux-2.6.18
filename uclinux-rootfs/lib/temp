@@ -1,0 +1,17 @@
+./
+./libatm
+./libjpeg
+./libpam
+./soft-fp
+./directfb
+./libm
+./binutils
+./zlib
+./libc
+./libpcap
+./libc++
+./libgmp
+./libg
+./libnet
+./libpng
+./freetype

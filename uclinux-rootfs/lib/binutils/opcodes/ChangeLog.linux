@@ -1,0 +1,8 @@
+2005-02-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dis-buf.c (perror_memory): Use sprintf_vma to print out
+	address.
+
+2001-10-21  H.J. Lu <hjl@gnu.org>
+
+	* configure: Rebuid for ../libtool.m4 change.
