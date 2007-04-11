@@ -1,0 +1,21 @@
+board.o: board.c \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h
+hw_init.o: hw_init.S \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/asm.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/mipsregs.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/regdef.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/stackframe.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/cacheops.h
+irq.o: irq.c \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/init.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/sched.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/interrupt.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/irq.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/io.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/irq.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/mipsregs.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/addrspace.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97319/bcm97319.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97319/bcmintrnum.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/remote/debug.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/gdb-stub.h

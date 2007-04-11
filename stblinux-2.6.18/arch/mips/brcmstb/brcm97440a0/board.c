@@ -1,7 +1,7 @@
 /*
- * arch/mips/brcmstb/brcm97038/board.c
+ * arch/mips/brcmstb/brcm97400a0/board.c
  *
- * Copyright (C) 2004-2005 Broadcom Corporation
+ * Copyright (C) 2004-2006 Broadcom Corporation
  *
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,6 +23,7 @@
  * when         who    what
  * ----         ---    ----
  * 03-31-2004   THT    Created
+ * 09-21-2006	TDT	   Added to 2.6.18 kernel
  */
 
 #include <linux/config.h>
@@ -125,7 +126,7 @@ get_RAM_size(void)
 		once++;
 		dramSize = board_init_once();
 		if (dramSize != DRAM_SIZE) {
-			printk("Board strapped at %d MB, default is %d MB\n", (dramSize>>20), (DRAM_SIZE>>20));
+			printk("Board strapped at %ld MB, default is %d MB\n", (dramSize>>20), (DRAM_SIZE>>20));
 		}
 	}
     if (dramSize)

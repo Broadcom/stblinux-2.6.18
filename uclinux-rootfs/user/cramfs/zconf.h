@@ -1,1 +1,1 @@
-/myviews/jipeng-stblnx2612-3.0/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/zlib/zconf.h
+/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/zlib/zconf.h

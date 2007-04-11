@@ -134,7 +134,7 @@ static void BCM3300_reg_setup(struct op_counter_config *ctr)
 			control |=  
 				BCM3300_COUNTER_EVENT(i,ctr[i].event) |
 				BCM3300_COUNTER_ENABLE(i); 
-#if USE_OVERFLOW_INTERRUPT
+#ifdef USE_OVERFLOW_INTERRUPT
 			 control |= BCM3300_COUNTER_OVERFLOW(i);
 #endif
 			if (cinx) write_c0_perf_control(1,control);
@@ -195,7 +195,7 @@ static irqreturn_t BCM3300_perfcount_handler(int irq, void * dev_id,
 		case 2: counter = read_c0_perf_counter(2); break;
 		case 3: counter = read_c0_perf_counter(3); break;
 		}
-#if USE_OVERFLOW_INTERRUPT
+#ifdef USE_OVERFLOW_INTERRUPT
 		if (control & BCM3300_COUNTER_OVERFLOW(i) && counter<0) {
 #else
 		if (control & BCM3300_COUNTER_ENABLE(i) && counter<0) {

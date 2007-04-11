@@ -77,7 +77,7 @@ replace_line()
 		touch "$TMPR"
 	fi
 	echo "$2" >> "$TMPR"
-	cp "$TMPR" "$3"
+	cp -f "$TMPR" "$3"
 	rm -f "$TMPR"
 }
 
@@ -222,8 +222,6 @@ if [ "$PASS" != "final" ]; then
 	rm -f config.arch
 	ln -s "vendors/$VENDOR/$PRODUCT/config.arch" config.arch
 
-	#THT 9/30/04: Now that we know the architecture, source it.
-	#. config.arch
 	export ARCH=`grep "^[ ]*\<ARCH\>[ ]*=[ ]\(.*\)" config.arch | awk '{print $3}'`
 	export TARGET_ARCH=`grep "^[ ]*\<MACHINE\>[ ]*=[ ]\(.*\)" config.arch | awk '{print $3}'`
 	export CROSS_COMPILE=`grep "^[ ]*\<CROSS_COMPILE\>[ ]*=[ ]\(.*\)" config.arch | awk '{print $3}'`
@@ -313,15 +311,13 @@ if [ "$PASS" != "final" ]; then
 	fi
 
 	if [ "uClibc" = "$LIBCBASEDIR" ]; then
-		if [ ! -f lib/$LIBCDIR/.config ] || var_isset CONFIG_DEFAULTS_OVERRIDE; then
+#		if [ ! -f lib/$LIBCDIR/.config ] || var_isset CONFIG_DEFAULTS_OVERRIDE; then
 			if [ -f "vendors/$VENDOR/$PRODUCT/config.$LIBCBASEDIR" ]; then
-#				cp -f "vendors/$VENDOR/$PRODUCT/config.$LIBCBASEDIR" \
-#						lib/$LIBCDIR/.config
 				cp -f "vendors/$VENDOR/$PRODUCT/config.$LIBCBASEDIR" \
 						$LIBCBASEDIR/.config
 				# THT PR9961: For now just tag on, but will make a target
 				# for uClibc in later releases.
-				$MAKEARCH -C $LIBCBASEDIR oldconfig
+				$MAKEARCH TARGET_ARCH=${ARCH} -C $LIBCBASEDIR oldconfig
 				echo "*** Next, you must run 'make dep'."
 			else
 				echo; echo; echo; echo
@@ -335,7 +331,7 @@ if [ "$PASS" != "final" ]; then
 				echo "Once you have done that start the config process again."
 				exit 1
 			fi
-		fi
+#		fi
 	fi
 
 	# THT: Copy busybox config over, regardless of setting.
@@ -400,9 +396,9 @@ if [ "$PASS" = "final" ]; then
 		if [ -f modules/.config ]; then
 			if [ -f "vendors/$VENDOR/$PRODUCT/config.modules$TMP" ]
 			then
-				cp modules/.config "vendors/$VENDOR/$PRODUCT/config.modules$TMP"
+				cp -f modules/.config "vendors/$VENDOR/$PRODUCT/config.modules$TMP"
 			else
-				cp modules/.config "vendors/$VENDOR/$PRODUCT/config.modules"
+				cp -f modules/.config "vendors/$VENDOR/$PRODUCT/config.modules"
 			fi
 		fi
 		if [ -f "$LIBCDIR/.config" ]; then

@@ -50,6 +50,8 @@
 extern void breakpoint(void);
 #endif
 
+#define USE_UARTA_AS_DEFAULT
+
 /* define front end and backend int bit groups */
 #define  BCM_UPG_IRQ0_IRQEN   BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_IRQ0_IRQEN)
 #define  BCM_UPG_IRQ0_IRQSTAT   BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_IRQ0_IRQSTAT)
@@ -241,7 +243,8 @@ static void brcm_uart_enable(unsigned int irq)
 	unsigned long flags;
 
 	local_irq_save(flags);
-#if 1 // Use UARTA as UART0
+#ifdef USE_UARTA_AS_DEFAULT 
+	// Use UARTA as UART0 and UARTB as UART1
 	if (irq == BCM_LINUX_UARTA_IRQ)
 	{
 		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_CLEAR_UPG_UART0_CPU_INTR_MASK;
@@ -254,7 +257,7 @@ static void brcm_uart_enable(unsigned int irq)
 		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_ub_irqen_MASK;
 	}
 #else
-    // Use UARTB as UART0
+    // Use UARTB as UART0 and UARTC as UART1
 	if (irq == BCM_LINUX_UARTA_IRQ)
 	{
 		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_MASK;
@@ -279,10 +282,10 @@ static void brcm_uart_disable(unsigned int irq)
 	unsigned long flags;
 
 	local_irq_save(flags);
-#if 1 // Use UARTA as UART0
+#ifdef USE_UARTA_AS_DEFAULT 
 	if (irq == BCM_LINUX_UARTA_IRQ)
 	{
-		CPUINT1C->IntrW0MaskSet = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_SET_UPG_UART0_CPU_INTR_SHIFT;
+		CPUINT1C->IntrW0MaskSet = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_SET_UPG_UART0_CPU_INTR_MASK;
 		//*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) &= ~(BCHP_IRQ0_IRQEN_uarta_irqen_MASK);
 	}
 	else if (irq == BCM_LINUX_UARTB_IRQ)
@@ -331,16 +334,77 @@ static struct irq_chip brcm_uart_type = {
 };
 
 /*
+ * Performance functions
+ */
+#ifdef CONFIG_OPROFILE
+static int performance_enabled = 0;
+static void brcm_mips_performance_enable(unsigned int irq)
+{
+	/* Interrupt line shared with timer so don't really enable/disable it */
+	performance_enabled = 1;
+}
+
+static void brcm_mips_performance_disable(unsigned int irq)
+{
+	/* Interrupt line shared with timer so don't really enable/disable it */
+	performance_enabled = 0;
+}
+
+static void brcm_mips_performance_ack(unsigned int irq)
+{
+	/* Already done in brcm_irq_dispatch */
+}
+
+static unsigned int brcm_mips_performance_startup(unsigned int irq)
+{ 
+	brcm_mips_performance_enable(irq);
+
+	return 0; /* never anything pending */
+}
+
+static void brcm_mips_performance_end(unsigned int irq)
+{
+	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
+		brcm_mips_performance_enable(irq);
+}
+
+static struct irq_chip brcm_mips_performance_type = {
+	typename: "BCM MIPS PERF",
+	startup: brcm_mips_performance_startup,
+	shutdown: brcm_mips_performance_disable,
+	enable: brcm_mips_performance_enable,
+	disable: brcm_mips_performance_disable,
+	ack: brcm_mips_performance_ack,
+	end: brcm_mips_performance_end,
+	NULL
+};
+
+void brcm_mips_performance_dispatch(struct pt_regs *regs)
+{
+	if(performance_enabled)  do_IRQ(BCM_LINUX_PERFCOUNT_IRQ, regs);
+}
+
+#endif
+
+#ifdef CONFIG_OPROFILE
+int test_all_counters(void);
+#endif
+/*
  * IRQ7 functions
  */
-//int ticks[2] = {0,0};
-
 void brcm_mips_int7_dispatch(struct pt_regs *regs)
 {		
+#ifdef CONFIG_OPROFILE
+	if( performance_enabled && test_all_counters() ) 
+	{
+		brcm_mips_performance_dispatch(regs);
+	}
+#endif
 #ifdef CONFIG_SMP
-	int cpu = smp_processor_id();
-	//if(ticks[cpu]++%2000==0) uart_putc('0'+cpu);
-	do_IRQ(cpu ? BCM_LINUX_SYSTIMER_1_IRQ : BCM_LINUX_SYSTIMER_IRQ, regs);
+	{
+		int cpu = smp_processor_id();
+		do_IRQ(cpu ? BCM_LINUX_SYSTIMER_1_IRQ : BCM_LINUX_SYSTIMER_IRQ, regs);
+	}
 #else
 	do_IRQ(BCM_LINUX_SYSTIMER_IRQ, regs);
 #endif
@@ -432,6 +496,7 @@ static struct irq_chip brcm_mips_int2_type = {
 };
 
 static int g_brcm_intc_cnt[64];
+static int g_intcnt = 0;
 static int gDebugPendingIrq0, gDebugPendingIrq1;
 void brcm_mips_int2_dispatch(struct pt_regs *regs)
 {
@@ -455,17 +520,32 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 		shift = irq-1;
 		if ((0x1 << shift) & pendingIrqs)
 		{
-#if 1 // Use UARTA as UART0
+#ifdef USE_UARTA_AS_DEFAULT 
+// Use UARTA as UART0 & UARTB as UART1
 			if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_UART0_CPU_INTR_SHIFT) {
 				do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
 			}
+			else if ((shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) 
+					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ubirq_MASK) 
+					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ub_irqen_MASK) )
+			{
+//printk("@@@@@@@UARTB IRQ %d\n", irq);				
+				do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
+			}
 #else
-    // Use UARTB as UART0
+    // Use UARTB as UART0 and UAETC as UART1
 			if ((shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) 
 					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ubirq_MASK) 
 					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ub_irqen_MASK) )
 			{
 				do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
+			}
+			else if ((shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) 
+					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ucirq_MASK) 
+					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_uc_irqen_MASK) )
+			{
+//printk("@@@@@@@UARTB IRQ %d\n", irq);				
+				do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
 			}
 #endif
 			else if (irq == BCM_LINUX_CPU_ENET_IRQ)
@@ -476,13 +556,7 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 				else
 					printk("unsolicited ENET interrupt!!!\n");
 			}
-			else if ((shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ucirq_MASK) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_uc_irqen_MASK) )
-			{
-//printk("@@@@@@@UARTB IRQ %d\n", irq);				
-				do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
-			}
+
 			else
 				do_IRQ(irq, regs);
 		}
@@ -755,6 +829,16 @@ void __init brcm_irq_setup(void)
         irq_desc[BCM_LINUX_SCB_IRQ].chip = &brcm_intc_type;
 
 #endif
+
+#ifdef CONFIG_OPROFILE
+	/* profile IRQ */
+	irq_desc[BCM_LINUX_PERFCOUNT_IRQ].status = IRQ_DISABLED;
+	irq_desc[BCM_LINUX_PERFCOUNT_IRQ].action = 0;
+	irq_desc[BCM_LINUX_PERFCOUNT_IRQ].depth = 1;
+	irq_desc[BCM_LINUX_PERFCOUNT_IRQ].chip = &brcm_mips_performance_type;
+	//brcm_mips_performance_enable(0);
+#endif
+	
 	noirqdebug = 1; // THT Disable spurious interrupt checking, as UARTA would cause in BE, (USB also).
 	
 	brcm_mips_int2_enable(0);

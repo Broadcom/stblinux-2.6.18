@@ -9,7 +9,6 @@
  * Copyright 2000 MontaVista Software Inc.
  * Author: MontaVista Software, Inc.
  *         	stevel@mvista.com or support@mvista.com
- * Copyright 2004, 05 Ralf Baechle (ralf@linux-mips.org)
  *
  *  This program is free software; you can distribute it and/or modify it
  *  under the terms of the GNU General Public License (Version 2) as
@@ -32,7 +31,6 @@
 #ifndef _GT64240ETH_H
 #define _GT64240ETH_H
 
-#include <linux/config.h>
 #include <asm/gt64240.h>
 
 #define ETHERNET_PORTS_DIFFERENCE_OFFSETS	0x400
@@ -110,10 +108,10 @@
 #define REV_GT64240A 0x10
 
 #define GT64240ETH_READ(gp, offset)					\
-	MV_READ((gp)->port_offset + (offset))
+	GT_READ((gp)->port_offset + (offset))
 
 #define GT64240ETH_WRITE(gp, offset, data)				\
-	MV_WRITE((gp)->port_offset + (offset), (data))
+	GT_WRITE((gp)->port_offset + (offset), (data))
 
 #define GT64240ETH_SETBIT(gp, offset, bits)				\
 	GT64240ETH_WRITE((gp), (offset),				\
@@ -123,8 +121,8 @@
 	GT64240ETH_WRITE((gp), (offset),				\
 	                 GT64240ETH_READ((gp), (offset)) & ~(bits))
 
-#define GT64240_READ(ofs)		MV_READ(ofs)
-#define GT64240_WRITE(ofs, data)	MV_WRITE((ofs), (data))
+#define GT64240_READ(ofs)		GT_READ(ofs)
+#define GT64240_WRITE(ofs, data)	GT_WRITE((ofs), (data))
 
 /* Bit definitions of the SMI Reg */
 enum {

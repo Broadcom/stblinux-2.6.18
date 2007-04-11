@@ -51,6 +51,11 @@
 #include <asm/brcmstb/brcm97401b0/bchp_hif_cpu_intr1.h>
 #include <asm/brcmstb/brcm97401b0/bcmintrnum.h>
 
+#elif defined( CONFIG_MIPS_BCM7402C0 )
+#include <asm/brcmstb/brcm97401c0/boardmap.h>
+#include <asm/brcmstb/brcm97401c0/bchp_hif_cpu_intr1.h>
+#include <asm/brcmstb/brcm97401c0/bcmintrnum.h>
+
 #else
 #error "Wrong platform"
 #endif

@@ -1,7 +1,7 @@
 /*
- * arch/mips/brcmstb/brcm97038/board.c
+ * arch/mips/brcmstb/brcm97400a0/board.c
  *
- * Copyright (C) 2004-2005 Broadcom Corporation
+ * Copyright (C) 2004-2006 Broadcom Corporation
  *
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,6 +23,7 @@
  * when         who    what
  * ----         ---    ----
  * 03-31-2004   THT    Created
+ * 09-21-2006	TDT	   Added to 2.6.18 kernel
  */
 
 #include <linux/config.h>
@@ -57,8 +58,7 @@
 static unsigned long
 board_init_once(void)
 {
-	int i;
-	unsigned long regval;
+ 	unsigned long regval;
 	unsigned long memSize = 1<<4;
 	unsigned long board_strap;
 	unsigned long pci_memwin_size;
@@ -76,7 +76,7 @@ board_init_once(void)
 
 	board_strap = (regval & STRAP_DDR_CONFIGURATION_MASK) >> STRAP_DDR_CONFIGURATION_SHIFT;
 	pci_memwin_size = (regval & STRAP_PCI_MEMWIN_SIZE_MASK) >> STRAP_PCI_MEMWIN_SIZE_SHIFT;
-printk("board_init_once: regval=%08x, ddr_strap=%x, %d chips, pci_size=%x\n", regval, board_strap, NUM_DDR, pci_memwin_size);
+printk("board_init_once: regval=%08lx, ddr_strap=%lx, %d chips, pci_size=%lx\n", regval, board_strap, NUM_DDR, pci_memwin_size);
 
 	switch (board_strap & 3) {
 	case 0:
@@ -93,7 +93,7 @@ printk("board_init_once: regval=%08x, ddr_strap=%x, %d chips, pci_size=%x\n", re
 		break;
 	}
 	
-	printk("Detected %d MB on board\n", (memSize >>20));
+	printk("Detected %ld MB on board\n", (memSize >>20));
 	return memSize;
 }
 
@@ -108,7 +108,7 @@ get_RAM_size(void)
 		once++;
 		dramSize = board_init_once();
 		if (dramSize != DRAM_SIZE) {
-			printk("Board strapped at %d MB, default is %d MB\n", (dramSize>>20), (DRAM_SIZE>>20));
+			printk("Board strapped at %ld MB, default is %d MB\n", (dramSize>>20), (DRAM_SIZE>>20));
 		}
 	}
     if (dramSize)

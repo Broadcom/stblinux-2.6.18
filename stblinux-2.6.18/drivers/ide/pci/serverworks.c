@@ -494,6 +494,9 @@ static unsigned int __devinit init_chipset_svwks (struct pci_dev *dev, const cha
 #elif defined( CONFIG_MIPS_BCM7401 )
 #define FIXED_REV	0x74010010	/****** FIX ME Done *********/
 		volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+#elif defined( CONFIG_MIPS_BCM7403 )
+#define FIXED_REV       0x74030010      /****** FIX ME Done *********/
+static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
 #elif defined( CONFIG_MIPS_BCM7118 )
 #define FIXED_REV	0
 		volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
@@ -903,9 +906,9 @@ static int __devinit init_setup_csb6 (struct pci_dev *dev, ide_pci_device_t *d)
 }
 
 
-#if defined( CONFIG_MIPS_BCM7038C0 ) || defined( CONFIG_MIPS_BCM7400 )  \
-	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7440 ) \
-    || defined( CONFIG_MIPS_BCM7118A0 )
+#if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 )  \
+ || defined( CONFIG_MIPS_BCM7401 ) 	|| defined( CONFIG_MIPS_BCM7440 ) \
+ || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 )
 
 #define CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE   0x10520000
 #define SATA_IO_BASE KSEG1ADDR(CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE)
@@ -1048,18 +1051,18 @@ static ide_pci_device_t serverworks_chipsets[] __devinitdata = {
 		.autodma	= AUTODMA,
 		.bootable	= ON_BOARD,
 	},
-#if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) \
-	|| defined( CONFIG_MIPS_BCM7401 )  || defined( CONFIG_MIPS_BCM7440 ) \
-    || defined( CONFIG_MIPS_BCM7118A0 )
+#if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 )  \
+ || defined( CONFIG_MIPS_BCM7401 ) 	|| defined( CONFIG_MIPS_BCM7440 ) \
+ || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 )
 	{ /* 4 */
 		//.vendor		= PCI_VENDOR_ID_SERVERWORKS,
 		//.device		= PCI_DEVICE_ID_SERVERWORKS_BCM7038,
 		.name		= "Broadcom BCM7038 SATA IDE",
 		.init_setup	= init_setup_svwks,
 		.init_chipset	= init_chipset_svwks,
-#if defined( CONFIG_MIPS_BCM7038C0 ) || defined( CONFIG_MIPS_BCM7400 )  \
-	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7440 ) \
-    || defined( CONFIG_MIPS_BCM7118A0 )
+#if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 )  \
+ || defined( CONFIG_MIPS_BCM7401 ) 	|| defined( CONFIG_MIPS_BCM7440 ) \
+ || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 )
 		.init_iops	= bcm7038c0_hwif_iops,
 #else
 		.init_iops	= NULL,

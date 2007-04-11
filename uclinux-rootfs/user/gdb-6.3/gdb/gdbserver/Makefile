@@ -21,8 +21,8 @@
 prefix = /usr
 exec_prefix = ${prefix}
 
-host_alias = mipsel-linux
-target_alias = mipsel-linux
+host_alias = mips-linux
+target_alias = mips-linux
 program_transform_name = s,x,x,
 bindir = ${exec_prefix}/bin
 libdir = ${exec_prefix}/lib
@@ -49,7 +49,7 @@ INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644
 
-CC = mipsel-linux-gcc
+CC = mips-linux-gcc
 
 # Directory containing source files.  Don't clean up the spacing,
 # this exact string is matched for by the "configure" script.
@@ -94,7 +94,7 @@ WARN_CFLAGS = -Wall
 
 # CFLAGS is specifically reserved for setting from the command line
 # when running make.  I.E.  "make CFLAGS=-Wmissing-prototypes".
-CFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include
+CFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
 
 # INTERNAL_CFLAGS is the aggregate of all other *CFLAGS macros.
 INTERNAL_CFLAGS =  $(WARN_CFLAGS) ${CFLAGS} ${GLOBAL_CFLAGS} \
@@ -102,7 +102,7 @@ INTERNAL_CFLAGS =  $(WARN_CFLAGS) ${CFLAGS} ${GLOBAL_CFLAGS} \
 
 # LDFLAGS is specifically reserved for setting from the command line
 # when running make.
-LDFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include
+LDFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
 INTERNAL_LDFLAGS = $(LDFLAGS) 
 
 # Perhaps should come from parent Makefile

@@ -1053,9 +1053,7 @@ asmlinkage long sys32_newuname(struct new_utsname __user * name)
 asmlinkage int sys32_personality(unsigned long personality)
 {
 	int ret;
-	personality &= 0xffffffff;
-	if (personality(current->personality) == PER_LINUX32 &&
-	    personality == PER_LINUX)
+	if (current->personality == PER_LINUX32 && personality == PER_LINUX)
 		personality = PER_LINUX32;
 	ret = sys_personality(personality);
 	if (ret == PER_LINUX32)
@@ -1297,4 +1295,10 @@ _sys32_clone(nabi_no_regargs struct pt_regs regs)
 	child_tidptr = (int __user *) __dummy4;
 	return do_fork(clone_flags, newsp, &regs, 0,
 	               parent_tidptr, child_tidptr);
+}
+
+extern asmlinkage void sys_set_thread_area(u32 addr);
+asmlinkage void sys32_set_thread_area(u32 addr)
+{
+	sys_set_thread_area(AA(addr));
 }

@@ -204,7 +204,7 @@ static void k2_sata_tf_load(struct ata_port *ap, const struct ata_taskfile *tf)
 	unsigned int is_addr = tf->flags & ATA_TFLAG_ISADDR;
 
 	if (tf->ctl != ap->last_ctl) {
-		writeb(tf->ctl, ioaddr->ctl_addr);
+		writeb(tf->ctl, (void *)ioaddr->ctl_addr);
 		ap->last_ctl = tf->ctl;
 		ata_wait_idle(ap);
 	}
@@ -223,7 +223,7 @@ static void k2_sata_tf_load(struct ata_port *ap, const struct ata_taskfile *tf)
 	}
 
 	if (tf->flags & ATA_TFLAG_DEVICE)
-		writeb(tf->device, ioaddr->device_addr);
+		writeb(tf->device, (void *)ioaddr->device_addr);
 
 	ata_wait_idle(ap);
 }
@@ -452,6 +452,69 @@ static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_
 {
 	unsigned int reg;
 	
+	if(dev->device == PCI_DEVICE_ID_SERVERWORKS_BCM7400B0)
+	{
+		volatile uint16_t tmp;
+		volatile uint32_t tmp32;
+		int port,i;
+
+		//dump bridge regs
+		for (i=0;i<9; i++) { //skip after this
+			printk("Addr %x Value %x\n", 
+			((uint32_t *)(0xB0500200 + i*4)),*((uint32_t *)(0xB0500200 + i*4)));
+		}
+
+		//program VCO step bit [12:10] start with 111
+		mdio_write_reg(0,0x13,0x1c00);
+
+		printk("mdio_write_reg(0,0x13,0x1c00) done\n");
+
+		udelay(100000);
+
+		//start pll tuner
+		mdio_write_reg(0,0x13,0x1e00); // 
+
+		printk("mdio_write_reg(0,0x13,0x1e00) done\n");
+		udelay(10000); // wait
+
+		printk("Checking lock \n");
+		//check lock bit
+
+		do {
+			tmp = mdio_read_reg(0,0x7);
+			printk("Wait for PLL lock mdio_read_reg(0,0x7) returns %08x\n", tmp);
+		} while((tmp & 0x8000) != 0x8000);
+
+		printk("PLL locked\n");
+		//do analog reset
+		mdio_write_reg(0,0x4,8);
+		printk("mdio_write_reg(0,0x4,8) done\n");
+		udelay(10000); // wait
+		mdio_write_reg(0,0x4,0);
+
+		printk("mdio_write_reg(0,0x4,0) done\n");
+		for(port = 0; port < 2; port++)
+		{
+			printk("Reset port %d addr %x\n", port, MMIO_OFS + 0x48 + port*0x100);
+			*((uint32_t *)(MMIO_OFS + 0x48 + port*0x100)) = 1;
+			udelay(10000); // wait
+			//reset deskew TX FIFO
+			//1. select port
+			mdio_write_reg(0,7,1<port);
+			//toggle reset bit
+			mdio_write_reg(0,0xd,0x8000);
+			udelay(10000); // wait
+			mdio_write_reg(0,0xd,0x0000);
+			udelay(10000); // wait
+			*((uint32_t *)(MMIO_OFS + 0x48 + port*0x100)) = 0;
+
+			//enable 4G support
+			tmp32 = *((uint32_t *)(MMIO_OFS + 0x84 + port*0x100));
+			*((uint32_t *)(MMIO_OFS + 0x84 + port*0x100)) = tmp32 | 0x00000400;
+
+		}
+	}
+	
 	// For the BCM7038, let the PCI configuration in brcmpci_fixups.c hold.
 	if (dev->device != PCI_DEVICE_ID_SERVERWORKS_BCM7038) 
 	{
@@ -460,23 +523,30 @@ static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_
 	}	
 	else
     	{
-		int err;
         	int port;
 	        uint32_t mmio_reg;
 
-// Which revisions of the chip have the fix.
 #ifdef CONFIG_MIPS_BCM7038
 #define FIXED_REV       0x70380024      //BCM7038C4,  BCM7438A0 (0x7438_0000) would also pass the test
-        	volatile unsigned int* pSundryRev = (volatile unsigned int*) 0xb0404000;
+static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
 #elif defined( CONFIG_MIPS_BCM7400 )
 #define FIXED_REV       0x74000001      /****** FIX ME *********/
-        	volatile unsigned int* pSundryRev = (volatile unsigned int*) 0xb0404000;
+static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+#elif defined( CONFIG_MIPS_BCM7440 )
+#define FIXED_REV       0
+static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
 #elif defined( CONFIG_MIPS_BCM7401 )
 #define FIXED_REV       0x74010010      /****** FIX ME Done *********/
-	        volatile unsigned int* pSundryRev = (volatile unsigned int*) 0xb0404000;
+static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+#elif defined( CONFIG_MIPS_BCM7403 )
+#define FIXED_REV       0x74030010      /****** FIX ME Done *********/
+static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+#elif defined( CONFIG_MIPS_BCM7118 )
+#define FIXED_REV       0
+static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
 #endif
 
-printk("SUNDRY revision = %08x\n", *pSundryRev);
+	printk("SUNDRY revision = %08lx\n", *pSundryRev);
 
         if (*pSundryRev >= FIXED_REV) {
 			/*
@@ -644,17 +714,20 @@ err_out:
 
 /* 0x240 is device ID for Apple K2 device
  * 0x241 is device ID for Serverworks Frodo4
- * 0x242 is device ID for Serverworks Frodo8
+ * 0x242 is device ID for Serverworks Frodo8 (same as 7038)
  * 0x24a is device ID for BCM5785 (aka HT1000) HT southbridge integrated SATA
  * controller
+ * 0x8602 is device ID for BCM7400B0 SATA2
+ *
+ * driver_data element is number of ports (4x number of channels??)
  * */
 static const struct pci_device_id k2_sata_pci_tbl[] = {
 	{ PCI_VDEVICE(SERVERWORKS, 0x0240), 4 },
 	{ PCI_VDEVICE(SERVERWORKS, 0x0241), 4 },
-	{ PCI_VDEVICE(SERVERWORKS, 0x0242), 8 },
+	{ PCI_VDEVICE(SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_BCM7038), 8 },
 	{ PCI_VDEVICE(SERVERWORKS, 0x024a), 4 },
 	{ PCI_VDEVICE(SERVERWORKS, 0x024b), 4 },
-
+	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_SERVERWORKS_BCM7400B0), 8 },
 	{ }
 };
 

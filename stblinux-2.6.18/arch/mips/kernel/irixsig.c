@@ -17,7 +17,6 @@
 
 #include <asm/ptrace.h>
 #include <asm/uaccess.h>
-#include <asm/unistd.h>
 
 #undef DEBUG_SIG
 
@@ -173,12 +172,11 @@ static inline int handle_signal(unsigned long sig, siginfo_t *info,
 	return ret;
 }
 
-void do_irix_signal(struct pt_regs *regs)
+asmlinkage int do_irix_signal(sigset_t *oldset, struct pt_regs *regs)
 {
 	struct k_sigaction ka;
 	siginfo_t info;
 	int signr;
-	sigset_t *oldset;
 
 	/*
 	 * We want the common case to go fast, which is why we may in certain
@@ -186,28 +184,19 @@ void do_irix_signal(struct pt_regs *regs)
 	 * if so.
 	 */
 	if (!user_mode(regs))
-		return;
+		return 1;
 
-	if (test_thread_flag(TIF_RESTORE_SIGMASK))
-		oldset = &current->saved_sigmask;
-	else
+	if (try_to_freeze())
+		goto no_signal;
+
+	if (!oldset)
 		oldset = &current->blocked;
 
 	signr = get_signal_to_deliver(&info, &ka, regs, NULL);
-	if (signr > 0) {
-		/* Whee!  Actually deliver the signal.  */
-		if (handle_signal(signr, &info, &ka, oldset, regs) == 0) {
-			/* a signal was successfully delivered; the saved
-			 * sigmask will have been stored in the signal frame,
-			 * and will be restored by sigreturn, so we can simply
-			 * clear the TIF_RESTORE_SIGMASK flag */
-			if (test_thread_flag(TIF_RESTORE_SIGMASK))
-				clear_thread_flag(TIF_RESTORE_SIGMASK);
-		}
+	if (signr > 0)
+		return handle_signal(signr, &info, &ka, oldset, regs);
 
-		return;
-	}
-
+no_signal:
 	/*
 	 * Who's code doesn't conform to the restartable syscall convention
 	 * dies here!!!  The li instruction, a single machine instruction,
@@ -219,22 +208,8 @@ void do_irix_signal(struct pt_regs *regs)
 		    regs->regs[2] == ERESTARTNOINTR) {
 			regs->cp0_epc -= 8;
 		}
-		if (regs->regs[2] == ERESTART_RESTARTBLOCK) {
-			regs->regs[2] = __NR_restart_syscall;
-			regs->regs[7] = regs->regs[26];
-			regs->cp0_epc -= 4;
-		}
-		regs->regs[0] = 0;	/* Don't deal with this again.  */
 	}
-
-	/*
-	* If there's no signal to deliver, we just put the saved sigmask
-	* back
-	*/
-	if (test_thread_flag(TIF_RESTORE_SIGMASK)) {
-		clear_thread_flag(TIF_RESTORE_SIGMASK);
-		sigprocmask(SIG_SETMASK, &current->saved_sigmask, NULL);
-	}
+	return 0;
 }
 
 asmlinkage void
@@ -438,7 +413,7 @@ asmlinkage int irix_sigprocmask(int how, irix_sigset_t __user *new,
 
 asmlinkage int irix_sigsuspend(struct pt_regs *regs)
 {
-	sigset_t newset;
+	sigset_t saveset, newset;
 	sigset_t __user *uset;
 
 	uset = (sigset_t __user *) regs->regs[4];
@@ -447,15 +422,18 @@ asmlinkage int irix_sigsuspend(struct pt_regs *regs)
 	sigdelsetmask(&newset, ~_BLOCKABLE);
 
 	spin_lock_irq(&current->sighand->siglock);
-	current->saved_sigmask = current->blocked;
+	saveset = current->blocked;
 	current->blocked = newset;
 	recalc_sigpending();
 	spin_unlock_irq(&current->sighand->siglock);
 
-	current->state = TASK_INTERRUPTIBLE;
-	schedule();
-	set_thread_flag(TIF_RESTORE_SIGMASK);
-	return -ERESTARTNOHAND;
+	regs->regs[2] = -EINTR;
+	while (1) {
+		current->state = TASK_INTERRUPTIBLE;
+		schedule();
+		if (do_irix_signal(&saveset, regs))
+			return -EINTR;
+	}
 }
 
 /* hate hate hate... */

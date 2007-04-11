@@ -254,21 +254,27 @@ static void brcm_machine_restart(char *command)
 #if defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7400 ) \
 	|| defined( CONFIG_MIPS_BCM3560 ) || defined( CONFIG_MIPS_BCM7038C0 ) \
 	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7402S ) \
-	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 ) 
+	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 )  \
+        || defined( CONFIG_MIPS_BCM7403 )
 #define SUN_TOP_CTRL_RESET_CTRL		0xb0404008
 #define MASTER_RESET_ENABLE 		(1<<3)
   
   #if defined( CONFIG_MIPS_BCM7401A0 ) || defined( CONFIG_MIPS_BCM3560 ) \
- 	|| defined( CONFIG_MIPS_BCM7038C0 ) || defined( CONFIG_MIPS_BCM7402S ) \
-	|| defined( CONFIG_MIPS_BCM7118A0 )
+ 	|| defined( CONFIG_MIPS_BCM7038C0 ) || defined( CONFIG_MIPS_BCM7402S )
   #define SUN_TOP_CTRL_SW_RESET		0xb0404010
   
   #elif defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401B0 ) \
   	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7440 ) \
-	|| defined(CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7118A0 )
+	|| defined(CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7118A0 ) \
+        || defined(CONFIG_MIPS_BCM7403A0)
   #define SUN_TOP_CTRL_SW_RESET		0xb0404014
   #endif
 #define CHIP_MASTER_RESET 			(1<<31)
+
+// jipeng - fixup for 3563
+#if defined( CONFIG_MIPS_BCM3563 )
+#define SUN_TOP_CTRL_SW_RESET		0xb0404014
+#endif
 
 	volatile unsigned long* ulp;
 
@@ -277,7 +283,6 @@ static void brcm_machine_restart(char *command)
 	smp_send_stop();
 	udelay(10);
 #endif
-
 	ulp = (volatile unsigned long*) SUN_TOP_CTRL_RESET_CTRL;
 	*ulp |= MASTER_RESET_ENABLE;
 	ulp = (volatile unsigned long*) SUN_TOP_CTRL_SW_RESET;
@@ -349,7 +354,8 @@ void __init plat_mem_setup(void)
 #elif defined( CONFIG_MIPS_BCM7038B0 )  || defined( CONFIG_MIPS_BCM7038C0 ) \
 	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM3560 ) \
 	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
-	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 )
+	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 ) \
+        || defined( CONFIG_MIPS_BCM7403 )
 	
 	set_io_port_base(0xf0000000);  /* start of PCI IO space. */
 #elif defined( CONFIG_MIPS_BCM7329 )

@@ -84,6 +84,7 @@ BUILD_PREFIX=$(ROOTDIR)/romfs/$(TARGET_PREFIX)
 OPROFILE_DIR=$(ROOTDIR)/user/oprofile
 endif
 
+# PR26147 - Remove ttyS1 as only ttyS0 and ttyS64 are supported
 DEVICES = \
 	tty,c,5,0		console,c,5,1		ptmx,c,5,2 \
 	ram0,b,1,0		ram1,b,1,1		mem,c,1,1 \
@@ -92,12 +93,16 @@ DEVICES = \
 	\
 	tty0,c,4,0		tty1,c,4,1		tty2,c,4,2 \
 	tty3,c,4,3		tty4,c,4,4		tty5,c,4,5 \
-	ttyS0,c,4,64		ttyS1,c,4,65 \
+	ttyS0,c,4,64		\
 	ttyS64,c,4,128 \
 	\
 	hda,b,3,0		hda1,b,3,1		hda2,b,3,2 \
 	hda3,b,3,3		hda4,b,3,4		hda5,b,3,5 \
 	hda6,b,3,6 \
+	\
+	hdb,b,3,64		hdb1,b,3,65		hdb2,b,3,66 \
+	hdb3,b,3,67		hdb4,b,3,68		hdb5,b,3,69 \
+	hdb6,b,3,70 \
 	\
 	hdc,b,22,0		hdc1,b,22,1		hdc2,b,22,2 \
 	hdc3,b,22,3		hdc4,b,22,4		hdc5,b,22,5 \

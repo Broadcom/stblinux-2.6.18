@@ -15,6 +15,7 @@ else
 		exit 99
 	endif
 endif
+CACHE_FILE=cross-build/config.cache.brcmstb.$(TARGET_ARCH)
 
 
 all:
@@ -35,19 +36,19 @@ all:
 	export STD_INC="$(TOOL_DIR_PREFIX)/$(TARGET)/include"; \
 	export GCC_INC="$(TOOL_DIR_PREFIX)/$(TARGET)/include"; \
 	test -f config.cache && rm -f config.cache; \
-	CFLAGS='$(filter-out -fno-builtin, $(CFLAGS))'  \
+	test -f Makefile && rm -f Makefile; \
+	CFLAGS='$(filter-out -fno-builtin, $(CFLAGS))';  \
 	./configure 				\
 		--target=$(TARGET)		\
 		--host=i386-pc-linux-gnu	\
 		--build=i386-pc-linux-gnu	\
 		--prefix=$(ROOTDIR)/romfs/	\
 		--includedir=$(UCLIBC_INC)/	\
-		--libdir=$(ROOTDIR)/romfs/lib/	\
-		--srcdir=. \
-		--cache-file=cross-build/config.cache.brcmstb.$(TARGET_ARCH) \
+		--libdir=$(ROOTDIR)/lib/libtermcap	\
+		--srcdir=.			\
+		--cache-file=$(CACHE_FILE);	\
 	)
 	make -f Makefile
-	# make -f Makefile lib/termcap/libtermcap.so
 
 clean:
 	make -f Makefile clean

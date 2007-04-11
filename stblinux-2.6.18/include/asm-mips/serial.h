@@ -120,8 +120,7 @@
 	_BRCM_16550_INIT(BRCM_SERIAL2_IRQ, BRCM_SERIAL2_BASE),	
 	
 #elif defined(CONFIG_MIPS_BCM7401B0) || defined(CONFIG_MIPS_BCM7402) || \
-      defined(CONFIG_MIPS_BCM7401C0)
-
+      defined(CONFIG_MIPS_BCM7401C0) || defined(CONFIG_MIPS_BCM7403A0)
 
   /* 2 legacy bcm3250 UARTs +  1 16550A compatible UART */
 #define BRCM_SERIAL_PORT_DEFNS				\

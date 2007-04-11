@@ -41,11 +41,13 @@
   #endif
 
 #define DRAM_SIZE	(64 << 20)
+#define NUM_DDR	2
 
 #else /* 97038c0 proper */
 #ifndef DRAM_SIZE
 #define DRAM_SIZE	(128 << 20)
 #endif
+#define NUM_DDR 4
 #endif
 
 
@@ -83,6 +85,9 @@ board_init_once2(void)
 
 #define SUN_TOP_CTRL_STRAP_VALUE 0xb0404018
 
+#define STRAP_PCI_MEMWIN_SIZE_SHIFT 7
+#define STRAP_PCI_MEMWIN_SIZE_MASK 0x00000018	/* Bit 7 & 8 */
+
 #define STRAP_DDR_CONFIGURATION_SHIFT 	13
 #define STRAP_DDR_CONFIGURATION_MASK  	0x0000E000
 
@@ -94,19 +99,45 @@ board_init_once(void)
 	unsigned long regval;
 	unsigned long memSize = 1<<4;
 	unsigned long board_strap, ddr_mode_shift;
+	unsigned long pci_memwin_size;
+	
+	volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+	unsigned long chipId = (*pSundryRev) >> 16;
 	
 	regval = *((volatile unsigned long *) SUN_TOP_CTRL_STRAP_VALUE) ;
 
-	/* Bit 15: 		0 = 64 bit DDR mode
+	/* For non 7438 chips:
+	 * Bit 15: 		0 = 64 bit DDR mode
 	 *       		1 = 32 bit DDR mode
 	 * Bit 14:13:	0 = Reserved
 	 *         		1 = 8Mx16bit part
 	 *				2 = 16Mx16bit part
 	 *				3 = 32Mx16bit part
+	 * For 7438 chip:
+	 * Bit 15:		1: 64 bit DDR 512Mbit X 8 chips
+	 * Bit 14-13 are dont-care.
 	 */
 
 	board_strap = (regval & STRAP_DDR_CONFIGURATION_MASK) >> STRAP_DDR_CONFIGURATION_SHIFT;
-printk("board_init_once: regval=%08x, strap_option=%x\n", regval, board_strap);
+	pci_memwin_size = (regval & STRAP_PCI_MEMWIN_SIZE_MASK) >> STRAP_PCI_MEMWIN_SIZE_SHIFT;
+
+	switch (chipId) {
+	case 0x7438:
+		if (board_strap & 4) {
+			printk("board_init_once: regval=%08x, ddr_strap=%x, %d chips, pci_size=%x\n", regval, board_strap, 8, pci_memwin_size);
+			memSize = 512 << 20; // 512MB
+			printk("Detected %d MB on board\n", (memSize >>20));
+			return memSize;
+		}
+		/* Else fall thru, using 16bitX parts as descripted above. */
+		break;
+		
+	default:
+		break;
+	}
+		
+		
+printk("board_init_once: regval=%08x, ddr_strap=%x, %d chips, pci_size=%x\n", regval, board_strap, NUM_DDR, pci_memwin_size);
 
 	switch (board_strap & 4) {
 	case 0:
@@ -116,34 +147,29 @@ printk("board_init_once: regval=%08x, strap_option=%x\n", regval, board_strap);
 		ddr_mode_shift = 1; // 32 bit
 		break;
 	default:
+        /* Should do assert here */
 		ddr_mode_shift = 0;
 		printk("board_init_once: Invalid strapping option read %08x\n", regval);
 		break;
 	}
 
-	/* The 7401 board has 4 chips */
+	/* The 97038 board has 4 chips, the 97398 board has 2 chips */
 	if (ddr_mode_shift > 0) {
-		switch (board_strap & 3) {
-		case 1:
-			memSize = 1 << (ddr_mode_shift + 24); //16MB*4 for 64bit or 16MB*2 for 32bit
-			break;
-		case 2:
-			memSize = 1 << (ddr_mode_shift + 25); //32MB*4
-			break;
-		case 3:
-			memSize = 1 << (ddr_mode_shift + 26); // 64MB*4
-			break;
-		default:
-			memSize = 0;
-			printk("board_init_once: Invalid strapping option read %08x\n", regval);
-			break;
-		}
+		unsigned long bit12_13 = (board_strap & 3);
+		unsigned long partSize = (8 << 20) << bit12_13;  // 16 MB if strap value is 1
+
+
+		memSize = NUM_DDR*partSize;
+
+	}
+    else {
+        /* Should never get here */
+		memSize = 0;
+		printk("board_init_once: Invalid strapping option read %08x\n", regval);
 	}
 	
 	printk("Detected %d MB on board\n", (memSize >>20));
 	return memSize;
-
-	/* Restore value */
 }
 
 

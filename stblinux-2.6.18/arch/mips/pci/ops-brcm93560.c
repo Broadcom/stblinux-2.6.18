@@ -56,6 +56,11 @@
 #include <asm/brcmstb/brcm93560b0/bchp_hif_cpu_intr1.h>
 #include <asm/brcmstb/brcm93560b0/bcmintrnum.h>
 
+#elif defined( CONFIG_MIPS_BCM3563 )
+#include <asm/brcmstb/brcm93563/boardmap.h>
+#include <asm/brcmstb/brcm93563/bchp_hif_cpu_intr1.h>
+#include <asm/brcmstb/brcm93563/bcmintrnum.h>
+
 #else
 #error "Invalid platform"
 #endif

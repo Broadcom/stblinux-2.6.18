@@ -24,6 +24,7 @@
  * 12-23-2005   RYH    Add bcmrac support
  * 05-22-2006   THT    Implement memory hole
  */
+#include <linux/config.h>
 #include <linux/ctype.h>
 #include <linux/init.h>
 #include <linux/mm.h>
@@ -50,6 +51,27 @@ EXPORT_SYMBOL(bcm7401Cx_rev);
 int bcm7118Ax_rev = 0xFF;
 EXPORT_SYMBOL(bcm7118Ax_rev);
 
+
+/* 7403Ax revision to decide whether A0 workaround is needed or not */
+int bcm7403Ax_rev = 0xFF;
+EXPORT_SYMBOL(bcm7403Ax_rev);
+
+#define MAX_HWADDR	16
+#define HW_ADDR_LEN	6
+
+int gNumHwAddrs = 0;
+EXPORT_SYMBOL(gNumHwAddrs);
+
+#ifdef CONFIG_MTD_BRCMNAND
+static unsigned char privHwAddrs[MAX_HWADDR][HW_ADDR_LEN];
+unsigned char* gHwAddrs[MAX_HWADDR];
+
+
+#else
+unsigned char** gHwAddrs = NULL;
+#endif // CONFIG_MTD_BRCMNAND
+EXPORT_SYMBOL(gHwAddrs);
+
 //#define TEST_ROUNDROBIN_DISABLE
 
 unsigned long get_RAM_size(void);
@@ -71,7 +93,6 @@ unsigned long g_board_RAM_size = 0;	//Updated by get_RAM_size();;
 
 #define RW_KARGS " rw"
 #define DEFAULT_KARGS CONSOLE_KARGS RW_KARGS
-
 
 #ifdef CONFIG_MIPS_BRCM97XXX
 #include "asm/brcmstb/common/cfe_call.h"	/* CFE interface */
@@ -168,6 +189,7 @@ void __init prom_init(void)
 	int hasCfeParms = 0;
 	int res = -1;
 	char msg[COMMAND_LINE_SIZE];
+	unsigned long board_RAM_size = 0;	//Updated by get_RAM_size();;
 	extern void determineBootFromFlashOrRom(void);
 
 
@@ -297,6 +319,9 @@ void __init prom_init(void)
 		mips_machtype  = MACH_BRCM_7401;
 #elif defined( CONFIG_MIPS_BCM7401 )	
 		mips_machtype  = MACH_BRCM_7401;
+#elif defined( CONFIG_MIPS_BCM7403 )  
+                mips_machtype  = MACH_BRCM_7403;
+
 #endif
 #ifdef CONFIG_MIPS_BCM7400
 		mips_machtype  = MACH_BRCM_7400;
@@ -308,8 +333,8 @@ void __init prom_init(void)
 		mips_machtype  = MACH_BRCM_7440;
 #endif
 
-#if  defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7401C0 )	\
-     ||	defined( CONFIG_MIPS_BCM7402C0 )
+#if  	defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7401C0 )	\
+     ||	defined( CONFIG_MIPS_BCM7402C0 ) || defined( CONFIG_MIPS_BCM3563 )
 // jipeng - need set bus to async mode before enabling the following	
 	if(!(read_c0_diag4() & 0x400000))
 	{
@@ -327,7 +352,24 @@ void __init prom_init(void)
 		*pMemMap = 0x264;
 		// Enable Split Mode
 		*pSplit = 1;
-		sprintf(msg, "gathering mode: 0x%08lx at 0x0xb000040c\nsplit mode: 0x%08lx at 0xb0000410\n", *pMemMap, *pSplit);
+		sprintf(msg, "gathering mode: 0x%08x at 0x0xb000040c\nsplit mode: 0x%08x at 0xb0000410\n", *pMemMap, *pSplit);
+		uart_puts(msg);
+	}
+#elif defined( CONFIG_MIPS_BCM7440A0 )
+	if(!(read_c0_diag4() & 0x400000))
+	{
+		int	val=read_c0_diag4();
+		write_c0_diag4(val | 0x400000);
+		sprintf(msg, "CP0 reg 22 sel 0 to 5: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", read_c0_diag(), read_c0_diag1(), read_c0_diag2(), read_c0_diag3(), read_c0_diag4(), read_c0_diag5());
+		uart_puts(msg);
+	}
+	
+	{
+		volatile unsigned long* pMemMap = (volatile unsigned long*) 0xb000040c;
+		
+		// Enable write gathering 
+		*pMemMap = 0x2803;
+		sprintf(msg, "gathering mode: 0x%08x at 0x0xb000040c\n", *pMemMap);
 		uart_puts(msg);
 	}
 #endif
@@ -336,8 +378,37 @@ void __init prom_init(void)
 #ifdef CONFIG_MIPS_BRCM97XXX
 /* For the 97xxx series STB, process CFE boot parms */
 
-	res = get_cfe_boot_parms(cfeBootParms);
-	hasCfeParms = !res;
+  #ifdef CONFIG_MTD_BRCMNAND
+  	{	
+  		int i;
+
+		for (i=0; i<MAX_HWADDR; i++) {
+			gHwAddrs[i] = &privHwAddrs[i][0];
+		}
+  	}
+  #endif
+  
+	res = get_cfe_boot_parms(cfeBootParms, &gNumHwAddrs, gHwAddrs);
+  //printk("get_cfe_boot_parms returns %d, strlen(cfeBootParms)=%d\n", res, strlen(cfeBootParms));
+	hasCfeParms = ((res == 0 ) || (res == -2));
+	// Make sure cfeBootParms is not empty or contains all white space
+	if (hasCfeParms) {
+		int i;
+		
+		hasCfeParms = 0;
+		for (i=0; i < strlen(cfeBootParms); i++) {
+			if (isspace(cfeBootParms[i])) {
+				continue;
+			}
+			else if (cfeBootParms[i] == '\0') {
+				break; // and leave hasCfeParms false
+			}
+			else {
+				hasCfeParms = 1;
+				break;
+			}
+		}
+	}
 
 	/* RYH - RAC */
 	{
@@ -459,6 +530,7 @@ void __init prom_init(void)
 
 #elif defined(CONFIG_CMDLINE)
 		char* p;
+		int appendConsoleNeeded = 1;
 
 #ifdef CONFIG_MIPS_BRCM97XXX
 
@@ -471,12 +543,17 @@ void __init prom_init(void)
 			strcpy(arcs_cmdline, cfeBootParms);
 			strcat(arcs_cmdline, " ");
 			strcat(arcs_cmdline, CONFIG_CMDLINE);
+			appendConsoleNeeded = 0;
 		}
-		else
+		else {
 			strcpy(arcs_cmdline, CONFIG_CMDLINE);
+			appendConsoleNeeded = 0;
+		}
 #else
 		strcpy(arcs_cmdline, CONFIG_CMDLINE);
+		appendConsoleNeeded = 0;
 #endif
+		
 		uart_puts("Default command line = \n");
 		uart_puts(CONFIG_CMDLINE);
 		uart_puts("\n");
@@ -492,7 +569,7 @@ void __init prom_init(void)
 			strcpy(arcs_cmdline,
 				"root=/dev/hda1" DEFAULT_KARGS);
 		}
-		else {
+		else if (appendConsoleNeeded) {
 			/* Make sure that the boot params specify a console */
 			appendConsoleArg(arcs_cmdline);
 		}
@@ -527,7 +604,7 @@ void __init prom_init(void)
 #ifdef CONFIG_DISCONTIGMEM
 			add_memory_region(512<<20, (ramSizeMB - 256)<<20, BOOT_MEM_RAM);
 #else
-			uart_puts("Extra RAM beyong 256MB ignored.  Please use a kernel that supports NUMA\n");
+			uart_puts("Extra RAM beyond 256MB ignored.  Please use a kernel that supports NUMA\n");
 #endif
 		}
 	} 
@@ -576,6 +653,7 @@ void __init prom_init(void)
 
 
 	       	case CPU_BMIPS4350:
+	       	case CPU_BMIPS4380:
 
                     // RYH - BHTD patch 01/08/07
                     {
@@ -632,6 +710,13 @@ void __init prom_init(void)
 			sprintf(msg, "Sundry 0x%08x, chipId 0x%08x, bcm7118Ax 0x%02x\n",  pSundryRev, chipId, bcm7118Ax_rev);
 			uart_puts(msg);
 		}
+		else if(chipId == 0x7403)
+		{
+			bcm7403Ax_rev = (*pSundryRev) & 0xFF;
+			sprintf(msg, "Sundry 0x%08x, chipId 0x%08x, bcm7403Ax %02x\n",  pSundryRev, chipId, bcm7403Ax_rev);
+			uart_puts(msg);
+		}
+
 	}
 }
 

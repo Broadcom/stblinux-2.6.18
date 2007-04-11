@@ -40,6 +40,8 @@ static inline const char *msk2str(unsigned int mask)
 		return "256Mb";
 #endif
 	}
+
+	return "unknown";
 }
 
 #define BARRIER()					\

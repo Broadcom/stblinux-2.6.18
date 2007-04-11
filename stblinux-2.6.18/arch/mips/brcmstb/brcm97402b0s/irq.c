@@ -597,7 +597,7 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 
 void dump_INTC_regs(void)
 {
-	unsigned int pendingIrqs,pendingIrqs1, mask1,mask2;
+	unsigned int pendingIrqs,pendingIrqs1;
 
 
 	pendingIrqs = CPUINT1C->IntrW0Status;
@@ -690,7 +690,7 @@ printk("timer irq %d end %d\n",BCM_LINUX_SYSTIMER_IRQ, BCHP_HIF_CPU_INTR1_INTR_W
 	irq_desc[BCM_LINUX_SYSTIMER_IRQ].status = IRQ_DISABLED;
 	irq_desc[BCM_LINUX_SYSTIMER_IRQ].action = 0;
 	irq_desc[BCM_LINUX_SYSTIMER_IRQ].depth = 1;
-	irq_desc[BCM_LINUX_SYSTIMER_IRQ].handler = &brcm_mips_int7_type;
+	irq_desc[BCM_LINUX_SYSTIMER_IRQ].chip = &brcm_mips_int7_type;
 
 	/* Install all the 7xxx IRQs */
 	for (irq = 1; irq <= 32; irq++) 
@@ -698,7 +698,7 @@ printk("timer irq %d end %d\n",BCM_LINUX_SYSTIMER_IRQ, BCHP_HIF_CPU_INTR1_INTR_W
 		irq_desc[irq].status = IRQ_DISABLED;
 		irq_desc[irq].action = 0;
 		irq_desc[irq].depth = 1;
-		irq_desc[irq].handler = &brcm_intc_type;
+		irq_desc[irq].chip = &brcm_intc_type;
 		g_brcm_intc_cnt[irq -1] = 0;
 	}
 	for (irq = 32+1; irq <= 32+32; irq++)
@@ -706,7 +706,7 @@ printk("timer irq %d end %d\n",BCM_LINUX_SYSTIMER_IRQ, BCHP_HIF_CPU_INTR1_INTR_W
 		irq_desc[irq].status = IRQ_DISABLED;
 		irq_desc[irq].action = 0;
 		irq_desc[irq].depth = 1;
-		irq_desc[irq].handler = &brcm_intc_type;
+		irq_desc[irq].chip = &brcm_intc_type;
 		g_brcm_intc_cnt[irq -1] = 0;
 	}
 
@@ -714,12 +714,12 @@ printk("timer irq %d end %d\n",BCM_LINUX_SYSTIMER_IRQ, BCHP_HIF_CPU_INTR1_INTR_W
 	irq_desc[BCM_LINUX_UARTA_IRQ].status = IRQ_DISABLED;
 	irq_desc[BCM_LINUX_UARTA_IRQ].action = 0;
 	irq_desc[BCM_LINUX_UARTA_IRQ].depth = 1;
-	irq_desc[BCM_LINUX_UARTA_IRQ].handler = &brcm_uart_type;
+	irq_desc[BCM_LINUX_UARTA_IRQ].chip = &brcm_uart_type;
 
 	irq_desc[BCM_LINUX_UARTB_IRQ].status = IRQ_DISABLED;
 	irq_desc[BCM_LINUX_UARTB_IRQ].action = 0;
 	irq_desc[BCM_LINUX_UARTB_IRQ].depth = 1;
-	irq_desc[BCM_LINUX_UARTB_IRQ].handler = &brcm_uart_type;
+	irq_desc[BCM_LINUX_UARTB_IRQ].chip = &brcm_uart_type;
 
 
 #if 0
@@ -727,12 +727,12 @@ printk("timer irq %d end %d\n",BCM_LINUX_SYSTIMER_IRQ, BCHP_HIF_CPU_INTR1_INTR_W
         irq_desc[BCM_LINUX_SCA_IRQ].status = IRQ_DISABLED;
         irq_desc[BCM_LINUX_SCA_IRQ].action = 0;
         irq_desc[BCM_LINUX_SCA_IRQ].depth = 1;
-        irq_desc[BCM_LINUX_SCA_IRQ].handler = &brcm_intc_type;
+        irq_desc[BCM_LINUX_SCA_IRQ].chip = &brcm_intc_type;
         
         irq_desc[BCM_LINUX_SCB_IRQ].status = IRQ_DISABLED;
         irq_desc[BCM_LINUX_SCB_IRQ].action = 0;
         irq_desc[BCM_LINUX_SCB_IRQ].depth = 1;
-        irq_desc[BCM_LINUX_SCB_IRQ].handler = &brcm_intc_type;
+        irq_desc[BCM_LINUX_SCB_IRQ].chip = &brcm_intc_type;
 
 #endif
 
@@ -741,7 +741,7 @@ printk("timer irq %d end %d\n",BCM_LINUX_SYSTIMER_IRQ, BCHP_HIF_CPU_INTR1_INTR_W
 	irq_desc[BCM_PERFCOUNT_IRQ].status = IRQ_DISABLED;
 	irq_desc[BCM_PERFCOUNT_IRQ].action = 0;
 	irq_desc[BCM_PERFCOUNT_IRQ].depth = 1;
-	irq_desc[BCM_PERFCOUNT_IRQ].handler = &brcm_mips_performance_type;
+	irq_desc[BCM_PERFCOUNT_IRQ].chip = &brcm_mips_performance_type;
 	brcm_mips_performance_enable(0);
 #endif
 

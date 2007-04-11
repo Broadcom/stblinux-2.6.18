@@ -20,7 +20,6 @@
 #include <linux/spinlock.h>
 #include <linux/kallsyms.h>
 #include <linux/bootmem.h>
-#include <linux/interrupt.h>
 
 #include <asm/bootinfo.h>
 #include <asm/branch.h>
@@ -65,7 +64,7 @@ extern asmlinkage void handle_mcheck(void);
 extern asmlinkage void handle_reserved(void);
 
 extern int fpu_emulator_cop1Handler(struct pt_regs *xcp,
-	struct mips_fpu_struct *ctx, int has_fpu);
+	struct mips_fpu_struct *ctx);
 
 void (*board_be_init)(void);
 int (*board_be_handler)(struct pt_regs *regs, int is_fixup);
@@ -73,68 +72,28 @@ void (*board_nmi_handler_setup)(void);
 void (*board_ejtag_handler_setup)(void);
 void (*board_bind_eic_interrupt)(int irq, int regset);
 
-
-static void show_raw_backtrace(unsigned long reg29)
-{
-	unsigned long *sp = (unsigned long *)reg29;
-	unsigned long addr;
-
-	printk("Call Trace:");
-#ifdef CONFIG_KALLSYMS
-	printk("\n");
-#endif
-	while (!kstack_end(sp)) {
-		addr = *sp++;
-		if (__kernel_text_address(addr))
-			print_ip_sym(addr);
-	}
-	printk("\n");
-}
-
-#ifdef CONFIG_KALLSYMS
-static int raw_show_trace;
-static int __init set_raw_show_trace(char *str)
-{
-	raw_show_trace = 1;
-	return 1;
-}
-__setup("raw_show_trace", set_raw_show_trace);
-
-extern unsigned long unwind_stack(struct task_struct *task, unsigned long *sp,
-				  unsigned long pc, unsigned long ra);
-
-static void show_backtrace(struct task_struct *task, struct pt_regs *regs)
-{
-	unsigned long sp = regs->regs[29];
-	unsigned long ra = regs->regs[31];
-	unsigned long pc = regs->cp0_epc;
-
-	if (raw_show_trace || !__kernel_text_address(pc)) {
-		show_raw_backtrace(sp);
-		return;
-	}
-	printk("Call Trace:\n");
-	do {
-		print_ip_sym(pc);
-		pc = unwind_stack(task, &sp, pc, ra);
-		ra = 0;
-	} while (pc);
-	printk("\n");
-}
-#else
-#define show_backtrace(task, r) show_raw_backtrace((r)->regs[29]);
-#endif
+/*
+ * These constant is for searching for possible module text segments.
+ * MODULE_RANGE is a guess of how much space is likely to be vmalloced.
+ */
+#define MODULE_RANGE (8*1024*1024)
 
 /*
  * This routine abuses get_user()/put_user() to reference pointers
  * with at least a bit of error checking ...
  */
-static void show_stacktrace(struct task_struct *task, struct pt_regs *regs)
+void show_stack(struct task_struct *task, unsigned long *sp)
 {
 	const int field = 2 * sizeof(unsigned long);
 	long stackdata;
 	int i;
-	unsigned long *sp = (unsigned long *)regs->regs[29];
+
+	if (!sp) {
+		if (task && task != current)
+			sp = (unsigned long *) task->thread.reg29;
+		else
+			sp = (unsigned long *) &sp;
+	}
 
 	printk("Stack :");
 	i = 0;
@@ -155,48 +114,32 @@ static void show_stacktrace(struct task_struct *task, struct pt_regs *regs)
 		i++;
 	}
 	printk("\n");
-	show_backtrace(task, regs);
 }
 
-static __always_inline void prepare_frametrace(struct pt_regs *regs)
+void show_trace(struct task_struct *task, unsigned long *stack)
 {
-	__asm__ __volatile__(
-		".set push\n\t"
-		".set noat\n\t"
-#ifdef CONFIG_64BIT
-		"1: dla $1, 1b\n\t"
-		"sd $1, %0\n\t"
-		"sd $29, %1\n\t"
-		"sd $31, %2\n\t"
-#else
-		"1: la $1, 1b\n\t"
-		"sw $1, %0\n\t"
-		"sw $29, %1\n\t"
-		"sw $31, %2\n\t"
+	const int field = 2 * sizeof(unsigned long);
+	unsigned long addr;
+
+	if (!stack) {
+		if (task && task != current)
+			stack = (unsigned long *) task->thread.reg29;
+		else
+			stack = (unsigned long *) &stack;
+	}
+
+	printk("Call Trace:");
+#ifdef CONFIG_KALLSYMS
+	printk("\n");
 #endif
-		".set pop\n\t"
-		: "=m" (regs->cp0_epc),
-		"=m" (regs->regs[29]), "=m" (regs->regs[31])
-		: : "memory");
-}
-
-void show_stack(struct task_struct *task, unsigned long *sp)
-{
-	struct pt_regs regs;
-	if (sp) {
-		regs.regs[29] = (unsigned long)sp;
-		regs.regs[31] = 0;
-		regs.cp0_epc = 0;
-	} else {
-		if (task && task != current) {
-			regs.regs[29] = task->thread.reg29;
-			regs.regs[31] = 0;
-			regs.cp0_epc = task->thread.reg31;
-		} else {
-			prepare_frametrace(&regs);
+	while (!kstack_end(stack)) {
+		addr = *stack++;
+		if (__kernel_text_address(addr)) {
+			printk(" [<%0*lx>] ", field, addr);
+			print_symbol("%s\n", addr);
 		}
 	}
-	show_stacktrace(task, &regs);
+	printk("\n");
 }
 
 /*
@@ -204,15 +147,9 @@ void show_stack(struct task_struct *task, unsigned long *sp)
  */
 void dump_stack(void)
 {
-	struct pt_regs regs;
+	unsigned long stack;
 
-	/*
-	 * Remove any garbage that may be in regs (specially func
-	 * addresses) to avoid show_raw_backtrace() to report them
-	 */
-	memset(&regs, 0, sizeof(regs));
-	prepare_frametrace(&regs);
-	show_backtrace(current, &regs);
+	show_trace(current, &stack);
 }
 
 EXPORT_SYMBOL(dump_stack);
@@ -331,7 +268,8 @@ void show_registers(struct pt_regs *regs)
 	print_modules();
 	printk("Process %s (pid: %d, threadinfo=%p, task=%p)\n",
 	        current->comm, current->pid, current_thread_info(), current);
-	show_stacktrace(current, regs);
+	show_stack(current, (long *) regs->regs[29]);
+	show_trace(current, (long *) regs->regs[29]);
 	show_code((unsigned int *) regs->cp0_epc);
 	printk("\n");
 }
@@ -354,16 +292,6 @@ NORET_TYPE void ATTRIB_NORET die(const char * str, struct pt_regs * regs)
 	printk("%s[#%d]:\n", str, ++die_counter);
 	show_registers(regs);
 	spin_unlock_irq(&die_lock);
-
-	if (in_interrupt())
-		panic("Fatal exception in interrupt");
-
-	if (panic_on_oops) {
-		printk(KERN_EMERG "Fatal exception: panic in 5 seconds\n");
-		ssleep(5);
-		panic("Fatal exception");
-	}
-
 	do_exit(SIGSEGV);
 }
 
@@ -456,6 +384,12 @@ static inline int get_insn_opcode(struct pt_regs *regs, unsigned int *opcode)
 #define RD     0x0000f800
 #define FUNC   0x0000003f
 #define RDHWR  0x0000003b
+
+/*
+ * mfc0 emulation
+ */
+
+#define MFC0   0x40000000
 
 /*
  * The ll_bit is cleared by r*_switch.S
@@ -600,12 +534,16 @@ static inline int simulate_rdhwr(struct pt_regs *regs)
 {
 	struct thread_info *ti = task_thread_info(current);
 	unsigned int opcode;
+	int rd, rt;
 
 	if (unlikely(get_insn_opcode(regs, &opcode)))
 		return -EFAULT;
 
 	if (unlikely(compute_return_epc(regs)))
 		return -EFAULT;
+	
+	rd = (opcode & RD) >> 11;
+	rt = (opcode & RT) >> 16;
 
 	if ((opcode & OPCODE) == SPEC3 && (opcode & FUNC) == RDHWR) {
 		int rd = (opcode & RD) >> 11;
@@ -616,6 +554,34 @@ static inline int simulate_rdhwr(struct pt_regs *regs)
 				return 0;
 			default:
 				return -EFAULT;
+		}
+	}
+
+	/*
+	 * allow some CP0 registers to be read from user programs
+	 */
+
+#define CP0_OFF(reg, idx) (((reg) << 11) | (idx))
+#define EMU_MFC0(reg, idx) \
+	case CP0_OFF(reg, idx): \
+		regs->regs[rt] = __read_32bit_c0_register($ ## reg, idx); \
+		return(0)
+
+	if ((opcode & OPCODE) == MFC0) {
+		switch(opcode & OFFSET)
+		{
+			EMU_MFC0(15, 0);
+
+			EMU_MFC0(16, 0);
+			EMU_MFC0(16, 1);
+
+			EMU_MFC0(22, 0);
+			EMU_MFC0(22, 1);
+			EMU_MFC0(22, 2);
+			EMU_MFC0(22, 3);
+			EMU_MFC0(22, 4);
+			EMU_MFC0(22, 5);
+			EMU_MFC0(22, 6);
 		}
 	}
 
@@ -673,7 +639,7 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		preempt_enable();
 
 		/* Run the emulator */
-		sig = fpu_emulator_cop1Handler (regs, &current->thread.fpu, 1);
+		sig = fpu_emulator_cop1Handler (regs, &current->thread.fpu);
 
 		preempt_disable();
 
@@ -823,13 +789,11 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 			set_used_math();
 		}
 
-		if (cpu_has_fpu) {
-			preempt_enable();
-		} else {
-			int sig;
-			preempt_enable();
-			sig = fpu_emulator_cop1Handler(regs,
-						&current->thread.fpu, 0);
+		preempt_enable();
+
+		if (!cpu_has_fpu) {
+			int sig = fpu_emulator_cop1Handler(regs,
+						&current->thread.fpu);
 			if (sig)
 				force_sig(sig, current);
 #ifdef CONFIG_MIPS_MT_FPAFF

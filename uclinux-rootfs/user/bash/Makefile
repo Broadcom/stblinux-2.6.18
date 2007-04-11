@@ -21,11 +21,11 @@
 all: .made
 
 # Include some boilerplate Gnu makefile definitions.
-prefix = /home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/romfs/
+prefix = /myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs/
 
 exec_prefix = ${prefix}
 bindir = ${exec_prefix}/bin
-libdir = /home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/romfs/lib/
+libdir = /myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/libtermcap
 infodir = ${prefix}/info
 includedir = ../../uClibc/include/
 
@@ -40,20 +40,20 @@ man3dir = $(mandir)/$(manpfx)$(man3ext)
 htmldir = 
 
 topdir = .
-BUILD_DIR = /home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/user/bash
+BUILD_DIR = /myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
 srcdir = .
 VPATH = .:.
 
 
-CC = mipsel-linux-gcc
+CC = mips-linux-gcc
 CC_FOR_BUILD = gcc
 YACC = bison -y
 SHELL = /bin/sh
 CP = cp
 RM = rm -f
-AR = mipsel-linux-ar
+AR = mips-linux-ar
 ARFLAGS = cr
-RANLIB = mipsel-linux-ranlib
+RANLIB = mips-linux-ranlib
 
 INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
@@ -98,14 +98,14 @@ PROFILE_FLAGS=
 # The GNU coding standards don't recognize the possibility that
 # other information besides optimization and debugging might be
 # passed to cc.  A different name should have been used.
-CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include
+CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
 CPPFLAGS = 
 LOCAL_CFLAGS =  ${DEBUG}
 DEFS = -DHAVE_CONFIG_H
 LOCAL_DEFS = -DSHELL
 LOCAL_LIBS = 
 LIBS = $(BUILTINS_LIB) $(LIBRARIES) -ldl 
-LDFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include $(STATIC_LD) $(LOCAL_LDFLAGS) $(PROFILE_FLAGS) $(CFLAGS)
+LDFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include $(STATIC_LD) $(LOCAL_LDFLAGS) $(PROFILE_FLAGS) $(CFLAGS)
 STATIC_LD = 
 LOCAL_LDFLAGS = -rdynamic
 

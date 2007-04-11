@@ -27,7 +27,7 @@ case  `uname -m` in
 #JFFS=jffs
 #IMAGE="jffs-`uname -m`.img"
 #;;
-3560*|7*|97*)
+356*|7*|97*)
 FSTYPE=jffs2
 IMAGE="jffs2-`uname -m`${DOCSIS}${ENDIAN}.img"
 ;;
@@ -94,7 +94,7 @@ echo ""
 # Format /dev/hda4 with EXT2 on HD systems (bcm937xx and bcm97038),
 # and with ext3 on all others
    case `uname -m` in
-   3560*|7112|7312|7319|7328|7402*)
+   356*|7112|7312|7319|7328|7402*)
         echo "HD install not applicable to diskless STBs"
     exit 1
     ;;
@@ -165,7 +165,7 @@ TMP_HARDDRIVE=""
    tune2fs -i 0 /dev/${HARDDRIVE}3 2> /dev/null
 
    case `uname -m` in
-   3560*|7112|7312|7319|7328)
+   356*|7112|7312|7319|7328)
     echo "HD install not applicable to diskless STBs"
     exit 1
     ;;
@@ -276,7 +276,7 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4 ]; then
      MTD_DEV="/dev/mtdblock1"
      ;;
 
-  3560*|7*|97*)
+  356*|7*|97*)
      FDEV="/dev/mtd0"
      MTD_DEV="/dev/mtdblock0"
 
@@ -285,7 +285,7 @@ esac
 
 
    case "`uname -m`" in
-   93730|3560*|7*|97*)
+   93730|356*|7*|97*)
 
      echo ""
 
@@ -302,13 +302,43 @@ esac
 
      FDIR=${CUR_REL}
 
-     echo "Erasing flash sectors $FDEV..."
+     FLASH_TYPE=`flash_info "$FDEV" |grep Type|cut -f2 -d ':' | cut -f2 -d' ' `
+     ERASE_SIZE=`flash_info "$FDEV" |grep Erase|cut -f2 -d ':' | cut -f2 -d' ' `
+
+     echo "Erasing $FLASH_TYPE flash with $ERASE_SIZE kB erase sectors on $FDEV..."
      eraseall $ERASE_FLAG "$FDEV"
 
      test -d /mnt/flash || mkdir -p /mnt/flash
 
-     echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:/tftpboot/${CUR_REL}"
-     tftp -gr ${CUR_REL}/${IMAGE} -l ${FDEV} ${TFTP_SERVER} &> tftp.err
+     # THT 011207: Change to allow support for both NOR and NAND flash co-existing on a board
+     # using the same kernel, depending on the chip select
+     case "$FLASH_TYPE" in
+     NAND*)
+     	case "$RESPONSE" in
+	1|2)
+    		IMAGE="jffs2-${ERASE_SIZE}k-`uname -m`${DOCSIS}${ENDIAN}.img"
+
+     		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:/tftpboot/${CUR_REL}"
+     		tftp -gr ${CUR_REL}/${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
+        		nandwrite -p ${FDEV} /tmp/${IMAGE}
+		;;
+
+	4)
+  		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:/tftpboot/${CUR_REL}"
+     		tftp -gr ${CUR_REL}/${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
+        		nandwrite ${FDEV} /tmp/${IMAGE}
+		# For NAND flash, we can't mount /dev/romblock so quit now
+		echo "Copied rootfs to flash complete.  You may now safely reboot"
+      		exit 0
+		;;
+	esac
+     ;;
+
+     NOR*) # NOR flashes
+    	echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:/tftpboot/${CUR_REL}"
+    	tftp -gr ${CUR_REL}/${IMAGE} -l ${FDEV} ${TFTP_SERVER} &> tftp.err
+     ;;
+     esac
      
      if [ `wc -l < tftp.err` -eq "0" ]; then
         rm tftp.err
@@ -320,8 +350,10 @@ esac
 
      sleep 2
 
-     echo "Mounting root file system $FSTYPE as $MTD_DEV..."
-     mount -t $FSTYPE "$MTD_DEV" /mnt/flash
+     if [ $RESPONSE -eq 1 -o  $RESPONSE -eq 2 ]; then
+     	echo "Mounting root file system $FSTYPE as $MTD_DEV..."
+     	mount -t $FSTYPE "$MTD_DEV" /mnt/flash
+     fi
      ;;
 
    *)

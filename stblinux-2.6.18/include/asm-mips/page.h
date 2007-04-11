@@ -135,11 +135,12 @@ static __inline__ unsigned long __pa(unsigned long x)
 {
   #if defined( CONFIG_MIPS_BCM7038A0 )
 	if (((((unsigned long) (x)) >= 0xd0000000) && (((unsigned long) (x)) <= 0xe060000b)))
-  #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 )
+  #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 )	\
+     || defined( CONFIG_MIPS_BCM7118 )
 	if (((((unsigned long) (x)) >= 0xd0000000) && (((unsigned long) (x)) <= 0xf060000b)))
 
-  #elif defined( CONFIG_MIPS_BCM3560 ) \
-  	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) 
+  #elif defined( CONFIG_MIPS_BCM3560 ) || defined( CONFIG_MIPS_BCM7401 ) \
+     || defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7403 ) 
     /* 
      * 0xff40_0000-0xff4f_ffff on 3560 & 7401 contains the (non-cacheable) core registers space
      * (RAC is on it)
@@ -158,12 +159,13 @@ static __inline__ void* __va(unsigned long x)
 {
   #if defined( CONFIG_MIPS_BCM7038A0 )
 	if ((( (x) >= 0xd0000000) && ( (x) <= 0xe060000b)))
-  #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 )
+  #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 )	\
+     || defined( CONFIG_MIPS_BCM7118 )
 	
 	if ((( (x) >= 0xd0000000) && ( (x) <= 0xf060000b)))
 		
-  #elif defined( CONFIG_MIPS_BCM3560 ) \
-  	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) 
+  #elif defined( CONFIG_MIPS_BCM3560 ) || defined( CONFIG_MIPS_BCM7401 ) \
+     || defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7403 )
   	if (((((unsigned long) (x)) >= 0xd0000000) && (((unsigned long) (x)) <= 0xf060000b)) ||
 		(((unsigned long) (x)) >= 0xff400000))
   #else

@@ -6,5 +6,5 @@
 # unless it's something special (ie not a .c file).
 #
 
-obj-y += iomap.o
 
+obj-$(CONFIG_LONG_LONG_SUPPORT) += udivdi3.o

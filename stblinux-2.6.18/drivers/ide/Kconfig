@@ -752,7 +752,8 @@ endif
 
 config BLK_DEV_IDE_BCM7XXX
 	tristate "Broadcom BCM7XXX onboard IDE support"
-	depends on MIPS_BCM7110 || MIPS_BCM7115 || MIPS_BCM7314 ||MIPS_BCM7315 || MIPS_BCM7317 || MIPS_BCM7318 || MIPS_BCM7320 || MIPS_BCM7440
+# jipeng - since we moved to libata based driver, this dependency is no longer valid
+#	depends on MIPS_BCM7110 || MIPS_BCM7115 || MIPS_BCM7314 ||MIPS_BCM7315 || MIPS_BCM7317 || MIPS_BCM7318 || MIPS_BCM7320 || MIPS_BCM7440
 	select BLK_DEV_IDEDMA
 	help 
 	  Say Y here for Broadcom STB with PATA interface, 

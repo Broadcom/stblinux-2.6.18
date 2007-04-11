@@ -872,7 +872,7 @@ u16 bcm71xx_inw (unsigned long port)
 u16 val;
 
 	port = __swizzle_addr_w(port);
-	val = ioswabw(*(volatile u16 *)(mips_io_port_base + port));
+	val = ioswabw(0, *(volatile u16 *)(mips_io_port_base + port));
 //printk("bcm71xx_inw(%08x) = %04x\n", port, val);
 	return val;
 }
@@ -889,7 +889,7 @@ void bcm71xx_outw (u16 val, unsigned long port)
 {
 	do {
 		*(volatile u16 *)(mips_io_port_base + __swizzle_addr_w(port)) =
-			ioswabw(val);
+			ioswabw(0, val);
 	} while(0);
 }
 

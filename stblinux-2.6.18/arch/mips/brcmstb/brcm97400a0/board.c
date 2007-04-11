@@ -33,6 +33,7 @@
 #include <asm/brcmstb/common/brcmstb.h>
 #include <asm/brcmstb/brcm97400a0/bchp_pci_cfg.h>
 
+#ifdef CONFIG_MIPS_BRCM_IKOS
 
 #ifdef DRAM_SIZE
 #undef DRAM_SIZE
@@ -40,39 +41,6 @@
 
 // For Ikos
 #define DRAM_SIZE	(32 << 20)
-
-
-
-#if 0
-
-// Find out how the memory size is strapped on the board
-static unsigned long
-board_init_once2(void)
-{
-	int i;
-	unsigned long regval;
-	unsigned long memSize = 1<<4;
-	
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) = 0xffffffff;
-	regval = *((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) ;
-
-
-	for (i=4; i<32; i++) {
-		if (regval & memSize) {
-			break;
-		}
-		memSize <<= 1;
-	}
-//printk("board_init_once: regval=%08x, shift=%d, memSize=%x\n", regval, i, memSize);	
-	
-	printk("Detected %d MB on board\n", (memSize >>20));
-
-
-// THT: DO the same thing for Win1
-	return memSize;
-
-	/* Restore value */
-}
 #endif
 
 #define NUM_DDR 4
@@ -114,16 +82,16 @@ printk("board_init_once: regval=%08lx, ddr_strap=%lx, %d chips, pci_size=%lx\n",
 	case 0:
 		memSize = (16 << 20)*NUM_DDR; 
 		break;
-		case 1:
+	case 1:
 		memSize = (32 << 20)*NUM_DDR; 
-			break;
-		case 2:
+		break;
+	case 2:
 		memSize = (64 << 20)*NUM_DDR; 
-			break;
-		case 3:
+		break;
+	case 3:
 		memSize = (128 << 20)*NUM_DDR; 
-			break;
-		}
+		break;
+	}
 	
 	printk("Detected %ld MB on board\n", (memSize >>20));
 	return memSize;

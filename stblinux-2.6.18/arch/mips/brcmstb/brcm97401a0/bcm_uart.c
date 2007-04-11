@@ -169,30 +169,30 @@ uart_init(unsigned long uClock)
 {
     unsigned long uBaudRate;
 
-#if 0
+#if 1
 // MUX for UARTC is bit 11:9 (001'b) and bit 20:18 (001'b)
 // Do this until CFE initializes it correctly.  UARTB initialization is done by the CFE
 #define SUN_TOP_CTRL_PIN_MUX_CTRL_8	(0xb04040a4)
 	volatile unsigned long* pSunTopMuxCtrl8 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_8;
 
-	*pSunTopMuxCtrl9 &= 0xffe3f1ff;	// Clear it
-	*pSunTopMuxCtrl9 |= 0x00040200;  // Write 001'b and 001'b at 11:9 and 20:18
+	*pSunTopMuxCtrl8 &= 0xffe3f1ff;	// Clear it
+	*pSunTopMuxCtrl8 |= 0x00040200;  // Write 001'b and 001'b at 11:9 and 20:18
 #endif
 
     // Make sure clock is ticking
     //INTC->blkEnables = INTC->blkEnables | UART_CLK_EN;
 
 	// Calculate BaudRate register value => PeriphClk / UartBaud / 16
-    uBaudRate = uClock / (DFLT_BAUDRATE * 16);
+        uBaudRate = uClock / (DFLT_BAUDRATE * 16);
 	//uBaudRate++;
 
 	// Set the BAUD rate
 	stUart->uBaudRateLo = (uBaudRate & 0xFF);
 	stUart->uBaudRateHi = ((uBaudRate >> 8) & 0xFF);
-//	stUartB->uBaudRateLo = (uBaudRate & 0xFF);
-//	stUartB->uBaudRateHi = ((uBaudRate >> 8) & 0xFF);
+  	stUartB->uBaudRateLo = (uBaudRate & 0xFF);
+  	stUartB->uBaudRateHi = ((uBaudRate >> 8) & 0xFF);
 
 	// Enable the UART, 8N1, Tx & Rx enabled
 	stUart->uControl = 0x16;
-//	stUartB->uControl = 0x16;
+  	stUartB->uControl = 0x16;
 }

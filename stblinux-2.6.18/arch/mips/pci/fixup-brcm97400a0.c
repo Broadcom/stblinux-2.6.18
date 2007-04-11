@@ -26,9 +26,9 @@
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Revision Log
- * who when    what
- * tht  080904 New way of doing it in 2.6 kernel
- * tht  041004 Adapted from sample codes from kernel tree
+ * who      when    what
+ * tht      080904  New way of doing it in 2.6 kernel
+ * tht      041004  Adapted from sample codes from kernel tree
  * jipeng   032806  Add support 3255 IRQ for 97455/97456 
  */
 #include <linux/types.h>
@@ -325,13 +325,13 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 	/* Primary */
 	pci_read_config_dword(dev, PCI_BASE_ADDRESS_4, &regData);
 	regData &= 0xfffffc; // Mask off  Reserved & Res Type bits.
-	printk("SATA: Primary Bus Master Status Register offset = %08x + %08x = %08x\n", 
+	printk("SATA: Primary Bus Master Status Register offset = %08lx + %08x = %08lx\n", 
 			SATA_IO_BASE, regData, SATA_IO_BASE+regData);
 
 	regData += 2; // Offset 302H for primary
-		printk("SATA: before init Primary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
-		*((volatile unsigned char *)(SATA_IO_BASE+regData)) |= 0x20; // Both Prim and Sec DMA Capable
-		printk("SATA: after init Primary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
+	printk("SATA: before init Primary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
+	*((volatile unsigned char *)(SATA_IO_BASE+regData)) |= 0x20; // Both Prim and Sec DMA Capable
+	printk("SATA: after init Primary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
 
 
 //	if (use_secondary_sata) 
@@ -343,9 +343,9 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 				SATA_IO_BASE, regData, SATA_IO_BASE+regData);
 
 		regData += 0xa; // Offset 30AH for secondary
-			printk("SATA: before init Secondary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
-			*((volatile unsigned char *)(SATA_IO_BASE+regData)) |= 0x60; // Both Prim and Sec DMA Capable
-			printk("SATA: after init Secondary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));			
+		printk("SATA: before init Secondary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
+		*((volatile unsigned char *)(SATA_IO_BASE+regData)) |= 0x60; // Both Prim and Sec DMA Capable
+		printk("SATA: after init Secondary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));			
 	}
 
 

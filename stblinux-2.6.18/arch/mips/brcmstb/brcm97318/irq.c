@@ -215,7 +215,7 @@ static void brcm_intc_ack(unsigned int irq)
 /*
  * THT: These INTC disable the interrupt before calling the IRQ handler
  */
-static struct hw_interrupt_type brcm_intc_type = {
+static struct irq_chip brcm_intc_type = {
 	typename: "BCM INTC",
 	startup: brcm_intc_startup,
 	shutdown: brcm_intc_disable,
@@ -241,7 +241,7 @@ static void brcm_intc2_ack(unsigned int irq)
  * THT: These INTC DO NOT disable the interrupt before calling the IRQ handler
  */
 
-static struct hw_interrupt_type brcm_intc2_type = {
+static struct irq_chip brcm_intc2_type = {
 	typename: "BCM INTC2",
 	startup: brcm_intc_startup,
 	shutdown: brcm_intc_disable,
@@ -293,7 +293,7 @@ static void brcm_uart_end(unsigned int irq)
 		brcm_uart_enable(irq);
 }
 
-static struct hw_interrupt_type brcm_uart_type = {
+static struct irq_chip brcm_uart_type = {
 	typename: "BCM UART",
 	startup: brcm_uart_startup,
 	shutdown: brcm_uart_disable,
@@ -338,7 +338,7 @@ static void brcm_mips_performance_end(unsigned int irq)
 		brcm_mips_performance_enable(irq);
 }
 
-static struct hw_interrupt_type brcm_mips_performance_type = {
+static struct irq_chip brcm_mips_performance_type = {
 	typename: "BCM MIPS PERF",
 	startup: brcm_mips_performance_startup,
 	shutdown: brcm_mips_performance_disable,
@@ -436,7 +436,7 @@ static void brcm_mips_int7_end(unsigned int irq)
 		brcm_mips_int7_enable(irq);
 }
 
-static struct hw_interrupt_type brcm_mips_int7_type = {
+static struct irq_chip brcm_mips_int7_type = {
 	typename: "BCM MIPS TIMER INT",
 	startup: brcm_mips_int7_startup,
 	shutdown: brcm_mips_int7_disable,
@@ -482,7 +482,7 @@ static void brcm_mips_int2_end(unsigned int irq)
 		brcm_mips_int2_enable(irq);
 }
 
-static struct hw_interrupt_type brcm_mips_int2_type = {
+static struct irq_chip brcm_mips_int2_type = {
 	typename: "BCM MIPS INT2",
 	startup: brcm_mips_int2_startup,
 	shutdown: brcm_mips_int2_disable,
@@ -593,7 +593,7 @@ static void brcm_mips_int3_end(unsigned int irq)
                 brcm_mips_int3_enable(irq);
 }
 
-static struct hw_interrupt_type brcm_mips_int3_type = {
+static struct irq_chip brcm_mips_int3_type = {
         typename: "BCM MIPS INT3",
         startup: brcm_mips_int3_startup,
         shutdown: brcm_mips_int3_disable,
@@ -651,7 +651,7 @@ static void brcm_mips_int4_end(unsigned int irq)
 		brcm_mips_int4_enable(irq);
 }
 
-static struct hw_interrupt_type brcm_mips_int4_type = {
+static struct irq_chip brcm_mips_int4_type = {
         typename: "BCM MIPS INT4",
         startup: brcm_mips_int4_startup,
         shutdown: brcm_mips_int4_disable,
@@ -693,7 +693,6 @@ void brcm_mips_int6_dispatch(struct pt_regs *regs)
 void __init brcm_irq_setup(void)
 {
 	int irq;
-	extern asmlinkage void brcmIRQ(void);
 
 	INTC->IrqMask = 0UL;
 	INTC->IrqStatus = 0UL;
@@ -702,16 +701,15 @@ void __init brcm_irq_setup(void)
 	INTC->extIrqConfig &= ~0x0f;
 	INTC->extIrqConfig |= 0x0b;
 	
-	set_except_vector(0, brcmIRQ);
 	/* IMHO we do not need to do the following here, the request IRQ would take care of it. */
 	//change_c0_status(ST0_IM, IE_IRQ0 | IE_IRQ5);  // right now we only care about IRQ0 and 5.
-	change_c0_status(ST0_IE, ST0_IE);
+	change_c0_status(ST0_IE, 0);
 	
 	/* Setup timer interrupt */
 	irq_desc[BCM_LINUX_SYSTIMER_IRQ].status = IRQ_DISABLED;
 	irq_desc[BCM_LINUX_SYSTIMER_IRQ].action = 0;
 	irq_desc[BCM_LINUX_SYSTIMER_IRQ].depth = 1;
-	irq_desc[BCM_LINUX_SYSTIMER_IRQ].handler = &brcm_mips_int7_type;
+	irq_desc[BCM_LINUX_SYSTIMER_IRQ].chip = &brcm_mips_int7_type;
 	/* Install all the 7xxx IRQs */
  	/* IRQs from 1 to 32 - 0 reserved for main IRQ and 60 for timer */
 	for (irq = 1; irq <= 32; ++irq)
@@ -719,42 +717,42 @@ void __init brcm_irq_setup(void)
 		irq_desc[irq].status = IRQ_DISABLED;
 		irq_desc[irq].action = 0;
 		irq_desc[irq].depth = 1;
-		irq_desc[irq].handler = &brcm_intc_type;
+		irq_desc[irq].chip = &brcm_intc_type;
 		g_brcm_intc_cnt[irq -1] = 0;
 	}
 	/* Handle the Serial IRQs differently so they can have unique IRQs */
 	irq_desc[BCM_LINUX_UARTA_IRQ].status = IRQ_DISABLED;
 	irq_desc[BCM_LINUX_UARTA_IRQ].action = 0;
 	irq_desc[BCM_LINUX_UARTA_IRQ].depth = 1;
-	irq_desc[BCM_LINUX_UARTA_IRQ].handler = &brcm_uart_type;
+	irq_desc[BCM_LINUX_UARTA_IRQ].chip = &brcm_uart_type;
 
 	/* Set up soft modem interrupts. */
         irq_desc[BCM_LINUX_SOFT_MODEM_DMA_IRQS].status = IRQ_DISABLED;
         irq_desc[BCM_LINUX_SOFT_MODEM_DMA_IRQS].action = 0;
         irq_desc[BCM_LINUX_SOFT_MODEM_DMA_IRQS].depth = 1;
-        irq_desc[BCM_LINUX_SOFT_MODEM_DMA_IRQS].handler = &brcm_intc_type;
+        irq_desc[BCM_LINUX_SOFT_MODEM_DMA_IRQS].chip = &brcm_intc_type;
 
         /* Set up smartcard interrupts. */
         irq_desc[BCM_LINUX_SCA_IRQ].status = IRQ_DISABLED;
         irq_desc[BCM_LINUX_SCA_IRQ].action = 0;
         irq_desc[BCM_LINUX_SCA_IRQ].depth = 1;
-        irq_desc[BCM_LINUX_SCA_IRQ].handler = &brcm_intc2_type;
+        irq_desc[BCM_LINUX_SCA_IRQ].chip = &brcm_intc2_type;
         
         irq_desc[BCM_LINUX_SCB_IRQ].status = IRQ_DISABLED;
         irq_desc[BCM_LINUX_SCB_IRQ].action = 0;
         irq_desc[BCM_LINUX_SCB_IRQ].depth = 1;
-        irq_desc[BCM_LINUX_SCB_IRQ].handler = &brcm_intc2_type;
+        irq_desc[BCM_LINUX_SCB_IRQ].chip = &brcm_intc2_type;
 
 		/* Set up EXT_1 and EXT_2 interrupts */
         irq_desc[BCM_LINUX_EXT_1_IRQ].status = IRQ_DISABLED;
         irq_desc[BCM_LINUX_EXT_1_IRQ].action = 0;
         irq_desc[BCM_LINUX_EXT_1_IRQ].depth = 1;
-        irq_desc[BCM_LINUX_EXT_1_IRQ].handler = &brcm_mips_int3_type;
+        irq_desc[BCM_LINUX_EXT_1_IRQ].chip = &brcm_mips_int3_type;
 
         irq_desc[BCM_LINUX_EXT_2_IRQ].status = IRQ_DISABLED;
         irq_desc[BCM_LINUX_EXT_2_IRQ].action = 0;
         irq_desc[BCM_LINUX_EXT_2_IRQ].depth = 1;
-        irq_desc[BCM_LINUX_EXT_2_IRQ].handler = &brcm_mips_int4_type;
+        irq_desc[BCM_LINUX_EXT_2_IRQ].chip = &brcm_mips_int4_type;
 
 
 #ifdef CONFIG_OPROFILE
@@ -762,7 +760,7 @@ void __init brcm_irq_setup(void)
 	irq_desc[BCM_PERFCOUNT_IRQ].status = IRQ_DISABLED;
 	irq_desc[BCM_PERFCOUNT_IRQ].action = 0;
 	irq_desc[BCM_PERFCOUNT_IRQ].depth = 1;
-	irq_desc[BCM_PERFCOUNT_IRQ].handler = &brcm_mips_performance_type;
+	irq_desc[BCM_PERFCOUNT_IRQ].chip = &brcm_mips_performance_type;
 	brcm_mips_performance_enable(0);
 #endif
 	
@@ -779,8 +777,18 @@ void __init arch_init_irq(void)
 	irq_setup();
 }
 
+asmlinkage void plat_irq_dispatch(struct pt_regs *regs)
+{
+        unsigned int pending = read_c0_cause() & read_c0_status();
 
+        if (pending & STATUSF_IP7)
+                brcm_mips_int7_dispatch(regs);
+        else if (pending & STATUSF_IP2)
+                brcm_mips_int2_dispatch(regs);
+        else
+                spurious_interrupt(regs);
 
+}
 
 #if 1
 void irq_display_intr_mask(void)

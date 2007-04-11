@@ -21,6 +21,9 @@
 #include <asm/mipsregs.h>
 #include <asm/system.h>
 
+int bcm7118A0_boardtype = 0;
+EXPORT_SYMBOL(bcm7118A0_boardtype);
+
 /*
  * Not all of the MIPS CPUs have the "wait" instruction available. Moreover,
  * the implementation of the "wait" feature differs between CPU families. This
@@ -127,6 +130,7 @@ static inline void check_wait(void)
 /* PR22851 - All Broadcom CPUs have wait */
 	case CPU_BMIPS3300:
 	case CPU_BMIPS4350:
+	case CPU_BMIPS4380:
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;
@@ -780,7 +784,12 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
 	case PRID_IMP_BCM7118:
                 c->cputype = CPU_BCM7118;
                 c->tlbsize = 32;
-                printk("MIPs 7118 id = %x\n", c->processor_id);
+		if( *((volatile unsigned long *)0xb0040000) == 0x1c )
+		{
+			printk("7118RNG board found\n");
+			bcm7118A0_boardtype = 1;
+		}
+		printk("MIPs 7118 id = %x\n", c->processor_id);
                 break;
 #endif
 #ifdef CONFIG_MIPS_BCM7312
@@ -839,11 +848,24 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
                 printk("MIPs 7401 id = %x\n", c->processor_id);
                 break;
 #endif
+#if defined( CONFIG_MIPS_BCM7403 )
+	case PRID_IMP_BCM7403 :
+		c->cputype = CPU_BCM7403;
+		c->tlbsize = 32;
+		printk("MIPs 7403 id = %x\n", c->processor_id);
+		break;
+#endif
+
 #ifdef CONFIG_MIPS_BCM7400
 	case PRID_IMP_BCM7400:
+#ifdef CONFIG_MIPS_BCM7400B0
+                c->cputype = CPU_BMIPS4380;
+                printk("MIPs 7400B0 id = %x\n", c->processor_id);
+#else
                 c->cputype = CPU_BCM7400;
-                c->tlbsize = 32;
                 printk("MIPs 7400 id = %x\n", c->processor_id);
+#endif
+                c->tlbsize = 32;
                 break;
 #endif
 #ifdef CONFIG_MIPS_BCM7440
@@ -872,10 +894,14 @@ __init void cpu_probe(void)
 	c->cputype	= CPU_UNKNOWN;
 
 	c->processor_id = read_c0_prid();
+
+printk("c->processor_id == %08x\n", c->processor_id);
+
 	switch (c->processor_id & 0xff0000) {
 	case PRID_COMP_LEGACY:
 		cpu_probe_legacy(c);
 		break;
+/* BRCM MIPS5K go here */
 	case PRID_COMP_MIPS:
 		cpu_probe_mips(c);
 		break;

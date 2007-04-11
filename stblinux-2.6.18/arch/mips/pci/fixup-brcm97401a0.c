@@ -26,9 +26,9 @@
  *  675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * Revision Log
- * who when    what
- * tht  080904 New way of doing it in 2.6 kernel
- * tht  041004 Adapted from sample codes from kernel tree
+ * who      when    what
+ * tht      080904  New way of doing it in 2.6 kernel
+ * tht      041004  Adapted from sample codes from kernel tree
  * jipeng   032806  Add support 3255 IRQ for 97455/97456
  */
 #include <linux/types.h>
@@ -39,7 +39,8 @@
 #include <linux/ioport.h>
 #include <asm/io.h>
 
-#if defined(CONFIG_MIPS_BCM97455) || defined(CONFIG_MIPS_BCM97455B0) || defined(CONFIG_MIPS_BCM97455C0)
+#if defined(CONFIG_MIPS_BCM97455) || defined(CONFIG_MIPS_BCM97455B0) || defined(CONFIG_MIPS_BCM97455C0)	\
+ || defined(CONFIG_MIPS_BCM97458A0)
 #include <asm/brcmstb/brcm97455/boardmap.h>
 #include <asm/brcmstb/brcm97455/bchp_hif_cpu_intr1.h>
 #include <asm/brcmstb/brcm97455/bcmintrnum.h>
@@ -59,13 +60,18 @@
 #include <asm/brcmstb/brcm97118a0/boardmap.h>
 #include <asm/brcmstb/brcm97118a0/bchp_hif_cpu_intr1.h>
 #include <asm/brcmstb/brcm97118a0/bcmintrnum.h>
+#elif defined(CONFIG_MIPS_BCM7403A0) 
+#include <asm/brcmstb/brcm97403a0/boardmap.h>
+#include <asm/brcmstb/brcm97403a0/bchp_hif_cpu_intr1.h>
+#include <asm/brcmstb/brcm97403a0/bcmintrnum.h>
+
 #endif
 
-//#undef DEBUG
+//#define DEBUG
 
 //#define USE_SECONDARY_SATA        // Turn on 2nd channel, and turn on DMA for 2nd channel
-//#define USE_7038B0_WAR		// Will no longer needed with B1 rev.
-//#define USE_TURN_OFF_SATA2_WAR  // when not defined, turn on 2nd channel only, no DMA
+//#define USE_7038B0_WAR		    // Will no longer needed with B1 rev.
+//#define USE_TURN_OFF_SATA2_WAR    // when not defined, turn on 2nd channel only, no DMA
 
 
 /* from PCI spec, Maybe we can put this in some include file. */
@@ -85,13 +91,11 @@
 #define PCI_SATA_PHYS_MEM_WIN5_SIZE 0x2000
 
 // SATA mem is now on different window, so expansion starts where the OLD Bx 7041 was
-#define PCI_EXPANSION_PHYS_MEM_WIN0_BASE 0xd1000000
+#define PCI_EXPANSION_PHYS_MEM_WIN0_BASE		0xd1000000
+#define PCI_EXPANSION_PHYS_IO_WIN0_BASE 		0x400
 
-
-#define PCI_EXPANSION_PHYS_IO_WIN0_BASE 0x400
-
-#define CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE  0x10510000
-#define CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE   0x10520000
+#define CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE  	0x10510000
+#define CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE   	0x10520000
 
 #define SATA_IO_BASE	KSEG1ADDR(CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE)
 #define SATA_MEM_BASE	KSEG1ADDR(CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE)
@@ -101,21 +105,21 @@
 static char irq_tab_brcm97401a0[] __initdata = {
 //[slot]  = IRQ
   [PCI_DEVICE_ID_SATA] = BCM_LINUX_SATA_IRQ,    /* SATA controller */
-#if defined(CONFIG_MIPS_BCM97455) || defined(CONFIG_MIPS_BCM97455B0) || defined(CONFIG_MIPS_BCM97455C0)
+#if defined(CONFIG_MIPS_BCM97455) || defined(CONFIG_MIPS_BCM97455B0) || defined(CONFIG_MIPS_BCM97455C0)	\
+ || defined(CONFIG_MIPS_BCM97458A0)
   [PCI_DEVICE_ID_3255] = BCM_LINUX_3255_IRQ,    /* 3255 */  
 #endif  
   [PCI_DEVICE_ID_EXT]  = BCM_LINUX_EXT_PCI_IRQ, /* On-board PCI slot */
-  [PCI_DEVICE_ID_MINI] = BCM_LINUX_MINI_PCI_IRQ,					    
+  [PCI_DEVICE_ID_MINI] = BCM_LINUX_MINI_PCI_IRQ,
   [PCI_DEVICE_ID_1394] = BCM_LINUX_1394_IRQ,                 
 };
-
 
 int __init pcibios_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 {
 #ifdef DEBUG	
     printk("pcibios_map_irq: slot %d pin %d IRQ %d\n", slot, pin, irq_tab_brcm97401a0[slot]);
 #endif
-	return irq_tab_brcm97401a0[slot];
+    return irq_tab_brcm97401a0[slot];
 }
 
 /* Do platform specific device initialization at pci_enable_device() time */
@@ -123,8 +127,6 @@ int pcibios_plat_dev_init(struct pci_dev *dev)
 {
 	return 0;
 }
-
-
 
 // global to allow multiple slots
 static u32 memAddr = PCI_EXPANSION_PHYS_MEM_WIN0_BASE;
@@ -144,16 +146,16 @@ static void brcm_pcibios_fixup_plugnplay(struct pci_dev *dev)
 	u32 mask;
 	int slot;
 	u32 regData;
-		
+#ifdef DEBUG	
+    printk("brcm_pcibios_fixup_plugnplay: dev->bus->number %d\n", dev->bus->number);
+#endif
 
-#ifndef	CONFIG_MIPS_BCM7118A0
 	/*
 	* Make sure that it is in the PCI slot, otherwise we punt.
 	*/
 	if (dev->bus->number != 0)
 		return;
-#endif
-
+	
 	slot = PCI_SLOT(dev->devfn);
 
 #if 0

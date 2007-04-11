@@ -24,6 +24,8 @@
  * ----       ---    ----
  * 10-21-2005   THT  Created
  */
+ 
+#include <linux/config.h> // For CONFIG_SMP
 #include <asm/asm.h>
 #include <asm/mipsregs.h>
 #include <asm/regdef.h>
@@ -58,11 +60,12 @@ LEAF(_RAC_init)
     or $3, $3, $4
     sw $3, 0x0($2)
 
+#if 0 // THT: Moved to RAC_enable
     li $2, 0xb1f00004
     li $3, 0x2fff0000
     sw $3, 0x0($2)
 
-#if 0
+
     li $2, 0xb1f00000       /*enable D and I RAC for Thread 0*/
     lw $4, 0x0($2)
     li $3, 0xf
@@ -89,3 +92,46 @@ LEAF(_RAC_init)
 	.set 	pop
     .set    reorder
 	.end    _RAC_init
+
+
+LEAF(_RAC_enable)
+    .set    noreorder
+    .set push
+    .set mips32
+   
+
+	# Save ra.  LOADREL can stomp on it.
+	move t3, ra
+
+	li $2, 0xb1f00004		/*To set the address range of the RAC*/
+    li $3, 0x2fff0000
+    sw $3, 0x0($2)
+
+
+    li $2, 0xb1f00000       /*enable D and I RAC for Thread 0*/
+    lw $4, 0x0($2)
+    li $3, 0xf
+    or $4, $4, $3
+    li $3, 0xffffffdf       /*Write 0 to bit 5*/
+    and $4, $4, $3
+    sw $4, 0x0($2)
+
+#ifdef CONFIG_SMP
+    li $2, 0xb1f00008       /*enable D and I RAC for Thread  1*/
+    lw $4, 0x0($2)
+    li $3, 0xf
+    or $4, $4, $3
+    sw $4, 0x0($2)
+#endif
+
+# Restore ra
+	move ra, t3
+
+	j ra
+	nop
+
+    .set mips0
+	.set 	pop
+    .set    reorder
+	.end    _RAC_enable
+

@@ -38,6 +38,8 @@
 
 #include <asm/inst.h>
 #include <asm/bootinfo.h>
+#include <asm/cpu.h>
+#include <asm/cpu-features.h>
 #include <asm/processor.h>
 #include <asm/ptrace.h>
 #include <asm/signal.h>
@@ -1231,8 +1233,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 	return 0;
 }
 
-int fpu_emulator_cop1Handler(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
-	int has_fpu)
+int fpu_emulator_cop1Handler(struct pt_regs *xcp, struct mips_fpu_struct *ctx)
 {
 	unsigned long oldepc, prevepc;
 	mips_instruction insn;
@@ -1262,7 +1263,7 @@ int fpu_emulator_cop1Handler(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 			ieee754_csr.rm = mips_rm[ieee754_csr.rm];
 		}
 
-		if (has_fpu)
+		if (cpu_has_fpu)
 			break;
 		if (sig)
 			break;

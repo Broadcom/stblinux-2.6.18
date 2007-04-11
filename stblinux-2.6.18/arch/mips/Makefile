@@ -60,11 +60,11 @@ vmlinux-32		= vmlinux.32
 vmlinux-64		= vmlinux
 
 cflags-y		+= -mabi=64
-ifdef CONFIG_BUILD_ELF64
-cflags-y		+= $(call cc-option,-mno-explicit-relocs)
-else
-cflags-y		+= $(call cc-option,-msym32)
-endif
+	ifdef CONFIG_BUILD_ELF64
+	cflags-y		+= $(call cc-option,-mno-explicit-relocs)
+	else
+	cflags-y		+= $(call cc-option,-msym32)
+	endif
 endif
 
 
@@ -131,9 +131,9 @@ cflags-$(CONFIG_CPU_R10000)	+= $(call cc-option,-march=r10000,-march=r8000) \
 			-Wa,--trap
 
 ifdef CONFIG_CPU_SB1
-ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
-MODFLAGS	+= -msb1-pass1-workarounds
-endif
+	ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
+	MODFLAGS	+= -msb1-pass1-workarounds
+	endif
 endif
 
 #
@@ -400,11 +400,7 @@ load-$(CONFIG_BASLER_EXCITE)	+= 0x80100000
 #
 core-$(CONFIG_MOMENCO_JAGUAR_ATX)	+= arch/mips/momentum/jaguar_atx/
 cflags-$(CONFIG_MOMENCO_JAGUAR_ATX)	+= -Iinclude/asm-mips/mach-ja
-#ifdef CONFIG_JAGUAR_DMALOW
-#load-$(CONFIG_MOMENCO_JAGUAR_ATX)	+= 0xffffffff88000000
-#else
 load-$(CONFIG_MOMENCO_JAGUAR_ATX)	+= 0xffffffff80100000
-#endif
 
 #
 # NEC DDB
@@ -510,14 +506,14 @@ endif
 ifdef CONFIG_SGI_IP27
 core-$(CONFIG_SGI_IP27)		+= arch/mips/sgi-ip27/
 cflags-$(CONFIG_SGI_IP27)	+= -Iinclude/asm-mips/mach-ip27
-ifdef CONFIG_MAPPED_KERNEL
-load-$(CONFIG_SGI_IP27)		+= 0xc00000004001c000
-OBJCOPYFLAGS			:= --change-addresses=0x3fffffff80000000
-dataoffset-$(CONFIG_SGI_IP27)	+= 0x01000000
-else
-load-$(CONFIG_SGI_IP27)		+= 0xa80000000001c000
-OBJCOPYFLAGS			:= --change-addresses=0x57ffffff80000000
-endif
+	ifdef CONFIG_MAPPED_KERNEL
+	load-$(CONFIG_SGI_IP27)		+= 0xc00000004001c000
+	OBJCOPYFLAGS			:= --change-addresses=0x3fffffff80000000
+	dataoffset-$(CONFIG_SGI_IP27)	+= 0x01000000
+	else
+	load-$(CONFIG_SGI_IP27)		+= 0xa80000000001c000
+	OBJCOPYFLAGS			:= --change-addresses=0x57ffffff80000000
+	endif
 endif
 
 #
@@ -632,6 +628,29 @@ endif
 
 #
 #
+# BCM93563
+#
+core-$(CONFIG_MIPS_BCM3563) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM3563) += arch/mips/brcmstb/brcm93563/
+cflags-$(CONFIG_MIPS_BCM3563)	+= -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM3563) := 0x80001000
+ifdef CONFIG_MIPS_BCM3563
+UTS_MACHINE:= 3563
+endif
+
+#
+# Broadcom BCM93730
+#
+core-$(CONFIG_BCM93730) += arch/mips/brcm-boards/common arch/mips/brcm-boards/bcm93730
+libs-$(CONFIG_BCM93730) += arch/mips/brcm-boards/common/brcmstb.a arch/mips/brcm-boards/bcm93730/bcm93730.a
+cflags-$(CONFIG_MIPS_BCM93730)	+= -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_BCM93730) := 0x80001000
+ifdef CONFIG_MIPS_BCM93730
+UTS_MACHINE:= 93730
+endif
+
+#
+#
 # BCM97038B0
 #
 core-$(CONFIG_MIPS_BCM7038B0) += arch/mips/brcmstb/common/
@@ -651,11 +670,11 @@ core-$(CONFIG_MIPS_BCM7038C0) += arch/mips/brcmstb/brcm97038c0/
 cflags-$(CONFIG_MIPS_BCM7038C0)	+= -Iinclude/asm-mips/mach-brcmstb
 load-$(CONFIG_MIPS_BCM7038C0) := 0x80001000
 ifdef CONFIG_MIPS_BCM7038C0
-  ifdef CONFIG_MIPS_BCM97398
-    UTS_MACHINE:= 97398
-  else
-    UTS_MACHINE:= 7038c0
-  endif
+	ifdef CONFIG_MIPS_BCM97398
+	UTS_MACHINE:= 97398
+	else
+	UTS_MACHINE:= 7038c0
+	endif
 endif
 
 #
@@ -814,7 +833,6 @@ UTS_MACHINE:=7329
 endif
 
 #
-#
 # BCM97400A0 & BCM97456
 #
 ifeq ($(CONFIG_MIPS_BCM97456),y)
@@ -825,9 +843,9 @@ else
 core-$(CONFIG_MIPS_BCM7400A0) += arch/mips/brcmstb/brcm97400a0/
 ifdef CONFIG_MIPS_BCM7400A0
 	ifdef CONFIG_MIPS_BCM7400AX_NAND
-		UTS_MACHINE:=7400a0N
+	UTS_MACHINE:=7400a0N
 	else
-		UTS_MACHINE:=7400a0
+	UTS_MACHINE:=7400a0
 	endif
 endif
 endif
@@ -835,6 +853,28 @@ endif
 core-$(CONFIG_MIPS_BCM7400A0) += arch/mips/brcmstb/common/
 cflags-$(CONFIG_MIPS_BCM7400A0)	+= -Iinclude/asm-mips/mach-brcmstb
 load-$(CONFIG_MIPS_BCM7400A0) := 0x80001000
+
+#
+# BCM97400B0 & BCM97456B0
+#
+ifeq ($(CONFIG_MIPS_BCM97456B0),y)
+# BCM97456B0
+core-$(CONFIG_MIPS_BCM97456B0) += arch/mips/brcmstb/brcm97456b0/
+UTS_MACHINE:=97456b0
+else
+core-$(CONFIG_MIPS_BCM7400B0) += arch/mips/brcmstb/brcm97400b0/
+ifdef CONFIG_MIPS_BCM7400B0
+	ifdef CONFIG_MIPS_BCM7400BX_NAND
+	UTS_MACHINE:=7400b0N
+	else
+	UTS_MACHINE:=7400b0
+	endif
+endif
+endif
+
+core-$(CONFIG_MIPS_BCM7400B0) += arch/mips/brcmstb/common/
+cflags-$(CONFIG_MIPS_BCM7400B0)	+= -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7400B0) := 0x80001000
 
 #
 #
@@ -865,17 +905,20 @@ core-$(CONFIG_MIPS_BCM7402A0) += arch/mips/brcmstb/brcm97401b0/
 cflags-$(CONFIG_MIPS_BCM7402A0)	+= -Iinclude/asm-mips/mach-brcmstb
 load-$(CONFIG_MIPS_BCM7402A0) := 0x80001000
 else
-   ifdef CONFIG_MIPS_BCM97455B0
-   core-$(CONFIG_MIPS_BCM97455B0) += arch/mips/brcmstb/common/
-   core-$(CONFIG_MIPS_BCM97455B0) += arch/mips/brcmstb/brcm97401b0/
-   cflags-$(CONFIG_MIPS_BCM97455B0)	+= -Iinclude/asm-mips/mach-brcmstb
-   load-$(CONFIG_MIPS_BCM97455B0) := 0x80001000
-   else
-   core-$(CONFIG_MIPS_BCM7401BX) += arch/mips/brcmstb/common/
-   core-$(CONFIG_MIPS_BCM7401BX) += arch/mips/brcmstb/brcm97401b0/
-   cflags-$(CONFIG_MIPS_BCM7401BX)	+= -Iinclude/asm-mips/mach-brcmstb
-   load-$(CONFIG_MIPS_BCM7401BX) := 0x80001000
-   endif
+	ifdef CONFIG_MIPS_BCM97455B0
+	core-$(CONFIG_MIPS_BCM97455B0) += arch/mips/brcmstb/common/
+	core-$(CONFIG_MIPS_BCM97455B0) += arch/mips/brcmstb/brcm97401b0/
+	cflags-$(CONFIG_MIPS_BCM97455B0)	+= -Iinclude/asm-mips/mach-brcmstb
+	load-$(CONFIG_MIPS_BCM97455B0) := 0x80001000
+	else
+	core-$(CONFIG_MIPS_BCM7401B0) += arch/mips/brcmstb/common/
+	core-$(CONFIG_MIPS_BCM7401B0) += arch/mips/brcmstb/brcm97401b0/
+	cflags-$(CONFIG_MIPS_BCM7401B0)	+= -Iinclude/asm-mips/mach-brcmstb
+	load-$(CONFIG_MIPS_BCM7401B0) := 0x80001000
+	endif
+endif
+ifdef CONFIG_MIPS_BCM7402A0
+    UTS_MACHINE:=7402
 endif
 ifdef CONFIG_MIPS_BCM7401B0
     UTS_MACHINE:=7401b0
@@ -885,14 +928,35 @@ ifdef CONFIG_MIPS_BCM97455B0
 endif
 
 #
-# BCM97401C0
+# BCM97401C0 & 7402C0
 #
-core-$(CONFIG_MIPS_BCM7401C0) += arch/mips/brcmstb/common/
-core-$(CONFIG_MIPS_BCM7401C0) += arch/mips/brcmstb/brcm97401c0/
-cflags-$(CONFIG_MIPS_BCM7401C0)	+= -Iinclude/asm-mips/mach-brcmstb
-load-$(CONFIG_MIPS_BCM7401C0) := 0x80001000
+ifdef CONFIG_MIPS_BCM7402C0
+core-$(CONFIG_MIPS_BCM7402C0) 		+= arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7402C0) 		+= arch/mips/brcmstb/brcm97401c0/
+cflags-$(CONFIG_MIPS_BCM7402C0)		+= -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7402C0) 		:= 0x80001000
+else
+   	ifdef CONFIG_MIPS_BCM97455C0
+   	core-$(CONFIG_MIPS_BCM97455C0) 		+= arch/mips/brcmstb/common/
+   	core-$(CONFIG_MIPS_BCM97455C0) 		+= arch/mips/brcmstb/brcm97401c0/
+	cflags-$(CONFIG_MIPS_BCM97455C0)	+= -Iinclude/asm-mips/mach-brcmstb
+   	load-$(CONFIG_MIPS_BCM97455C0) 		:= 0x80001000
+   	else
+   	# THT: Changed to 7401C0 from 7401CX to also pick up the NAND version
+   	core-$(CONFIG_MIPS_BCM7401C0) 		+= arch/mips/brcmstb/common/
+	core-$(CONFIG_MIPS_BCM7401C0) 		+= arch/mips/brcmstb/brcm97401c0/
+	cflags-$(CONFIG_MIPS_BCM7401C0)		+= -Iinclude/asm-mips/mach-brcmstb
+   	load-$(CONFIG_MIPS_BCM7401C0) 		:= 0x80001000
+   	endif
+endif
+ifdef CONFIG_MIPS_BCM7402C0
+    UTS_MACHINE:=7402c0
+endif
 ifdef CONFIG_MIPS_BCM7401C0
-UTS_MACHINE:=7401c0
+    UTS_MACHINE:=7401c0
+endif
+ifdef CONFIG_MIPS_BCM97455C0
+    UTS_MACHINE:=97455c0
 endif
 
 #
@@ -911,10 +975,10 @@ endif
 #
 #  BCM97402B0S (PCI Slave)
 #
-core-$(CONFIG_MIPS_BCM7402B0S) += arch/mips/brcmstb/common/
-core-$(CONFIG_MIPS_BCM7402B0S) += arch/mips/brcmstb/brcm97402b0s/
+core-$(CONFIG_MIPS_BCM7402B0S) 		+= arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7402B0S) 		+= arch/mips/brcmstb/brcm97402b0s/
 cflags-$(CONFIG_MIPS_BCM7402B0S)	+= -Iinclude/asm-mips/mach-brcmstb
-load-$(CONFIG_MIPS_BCM7402B0S) := 0x80001000
+load-$(CONFIG_MIPS_BCM7402B0S) 		:= 0x80001000
 ifdef CONFIG_MIPS_BCM7402B0S
 UTS_MACHINE:=7402b0s
 endif
@@ -923,29 +987,41 @@ endif
 #
 # BCM97440A0
 #
-
-core-$(CONFIG_MIPS_BCM7440A0) += arch/mips/brcmstb/brcm97440a0/
 core-$(CONFIG_MIPS_BCM7440A0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7440A0) += arch/mips/brcmstb/brcm97440a0/
 cflags-$(CONFIG_MIPS_BCM7440A0)	+= -Iinclude/asm-mips/mach-brcmstb
 load-$(CONFIG_MIPS_BCM7440A0) := 0x80001000
 ifdef CONFIG_MIPS_BCM7440A0
 UTS_MACHINE:=7440a0
 endif
 
-#core-$(CONFIG_LONG_LONG_SUPPORT)       += arch/mips/brcmstb/lib/
-# LIBS          += arch/mips/brcmstb/lib/lib_brcm_bsp.a
+#
+#
+# BCM97403A0
+#
 
-core-y       			+= arch/mips/brcmstb/lib/
+core-$(CONFIG_MIPS_BCM7403A0) += arch/mips/brcmstb/brcm97403a0/
+core-$(CONFIG_MIPS_BCM7403A0) += arch/mips/brcmstb/common/
+cflags-$(CONFIG_MIPS_BCM7403A0)	+= -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7403A0) := 0x80001000
+ifdef CONFIG_MIPS_BCM7403A0
+UTS_MACHINE:=7403a0
+endif
+
+# PR10860 - Allow long long divide support for modules
+# THT: Think this is no longer needed, as gcc-3.4.x support long long in kernel modes.
+core-$(CONFIG_LONG_LONG_SUPPORT)       += arch/mips/brcmstb/lib/
+# LIBS          += arch/mips/brcmstb/lib/lib_brcm_bsp.a
 
 cflags-y			+= -Iinclude/asm-mips/mach-generic
 drivers-$(CONFIG_PCI)		+= arch/mips/pci/
 
 ifdef CONFIG_32BIT
-ifdef CONFIG_CPU_LITTLE_ENDIAN
-JIFFIES			= jiffies_64
-else
-JIFFIES			= jiffies_64 + 4
-endif
+	ifdef CONFIG_CPU_LITTLE_ENDIAN
+	JIFFIES			= jiffies_64
+	else
+	JIFFIES			= jiffies_64 + 4
+	endif
 else
 JIFFIES			= jiffies_64
 endif
@@ -959,9 +1035,9 @@ ifdef CONFIG_MIPS
 CHECKFLAGS += $(shell $(CC) $(CFLAGS) -dM -E -xc /dev/null | \
 	egrep -vw '__GNUC_(MAJOR|MINOR|PATCHLEVEL)__' | \
 	sed -e 's/^\#define /-D/' -e "s/ /='/" -e "s/$$/'/")
-ifdef CONFIG_64BIT
-CHECKFLAGS		+= -m64
-endif
+	ifdef CONFIG_64BIT
+	CHECKFLAGS		+= -m64
+	endif
 endif
 
 OBJCOPYFLAGS		+= --remove-section=.reginfo
@@ -1057,3 +1133,4 @@ archclean:
 CLEAN_FILES += vmlinux.32 \
 	       vmlinux.64 \
 	       vmlinux.ecoff
+

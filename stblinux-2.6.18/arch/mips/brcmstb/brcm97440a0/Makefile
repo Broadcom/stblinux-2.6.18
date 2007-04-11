@@ -1,7 +1,7 @@
 #
-# Makefile for BCM97038B0 board
+# Makefile for BCM97400a0 board
 #
-# Copyright (C) 2005 Broadcom Corporation
+# Copyright (C) 2005-2006 Broadcom Corporation
 #
 #
 # This program is free software; you can redistribute it and/or modify

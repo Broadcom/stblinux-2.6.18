@@ -1,5 +1,5 @@
 /*
- * arch/mips/brcmstb/brcm97038/board.c
+ * arch/mips/brcmstb/brcm97118a0/board.c
  *
  * Copyright (C) 2004-2005 Broadcom Corporation
  *
@@ -20,9 +20,6 @@
  *
  * Board Specific routines for Broadcom eval boards
  *
- * when         who    what
- * ----         ---    ----
- * 03-31-2004   THT    Created
  */
 
 #include <linux/config.h>
@@ -37,6 +34,7 @@
 #define DRAM_SIZE	(256 << 20)
 #endif
 
+#define MBYTES		(1<<20)
 #define NUM_DDR 1
 
 #define SUN_TOP_CTRL_STRAP_VALUE 0xb040401c
@@ -45,7 +43,7 @@
 #define STRAP_PCI_MEMWIN_SIZE_MASK 0x00000180	/* Bit 7 & 8 */
 
 #define STRAP_DDR_CONFIGURATION_SHIFT 	13
-#define STRAP_DDR_CONFIGURATION_MASK  	0x0000E000  /* Bits 13-15 */
+#define STRAP_DDR_CONFIGURATION_MASK  	0x00006000  /* Bits 13-14 */
 
 
 static unsigned long
@@ -59,8 +57,7 @@ board_init_once(void)
 	
 	regval = *((volatile unsigned long *) SUN_TOP_CTRL_STRAP_VALUE) ;
 
-	/* Bit 15: 		0 = 64 bit DDR mode
-	 *       		1 = 32 bit DDR mode
+	/*
 	 * Bit 14:13:	0 = 64Mx16bit part
 	 *         		1 = 8Mx16bit part
 	 *				2 = 16Mx16bit part
@@ -71,40 +68,19 @@ board_init_once(void)
 	pci_memwin_size = (regval & STRAP_PCI_MEMWIN_SIZE_MASK) >> STRAP_PCI_MEMWIN_SIZE_SHIFT;
 	printk("board_init_once: regval=%08x, ddr_strap=%x, %d chips, pci_size=%x\n", regval, board_strap, NUM_DDR, pci_memwin_size);
 
-	switch (board_strap & 4) {
+	switch (board_strap) {
 	case 0:
-		ddr_mode_shift = 2; // 64 bit
+		memSize = NUM_DDR*256*MBYTES;
 		break;
-	case 4:
-		ddr_mode_shift = 1; // 32 bit
+	case 1:
+		memSize = NUM_DDR*32*MBYTES;
 		break;
-	default:
-        /* Should do assert here */
-		ddr_mode_shift = 0;
-		printk("board_init_once: Invalid strapping option read %08x\n", regval);
+	case 2:
+		memSize = NUM_DDR*64*MBYTES;
 		break;
-	}
-
-	/* The 7401 board has 4 chips */
-	if (ddr_mode_shift > 0) {
-		unsigned long bit14_13 = (board_strap & 3);
-		unsigned long partSize;
-
-     		switch(bit14_13) {
-		case 0:
-			partSize = (128 << 20);
-			break;
-		default:
- 			partSize = (8 << 20) << bit14_13;  // 16 MB if strap value is 1
-     		}
-
-		memSize = NUM_DDR*partSize;
-
-	}
-    else {
-        /* Should never get here */
-			memSize = 0;
-			printk("board_init_once: Invalid strapping option read %08x\n", regval);
+	case 3:
+		memSize = NUM_DDR*128*MBYTES;
+		break;
 	}
 	
 	printk("Detected %d MB on board\n", (memSize >>20));

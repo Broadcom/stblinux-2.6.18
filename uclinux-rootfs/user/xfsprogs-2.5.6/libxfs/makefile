@@ -39,7 +39,9 @@ BUILD_OBJS = $(patsubst %,build/%,$(OBJS))
 
 LDSHARED=$(CC) --shared -Wl,-soname,$(LIBXFS)
 
-all: build $(ROOTDIR)/romfs/lib/$(LIBXFS) $(BUILD_LIBXFS)
+# jipeng - remove $(BUILD_LIBXFS) to avoid building host side binary 
+#all: build $(ROOTDIR)/romfs/lib/$(LIBXFS) $(BUILD_LIBXFS)
+all: build $(ROOTDIR)/romfs/lib/$(LIBXFS)
 
 .PHONY:
 build:

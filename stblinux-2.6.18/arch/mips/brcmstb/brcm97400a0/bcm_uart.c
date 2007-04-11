@@ -36,14 +36,12 @@ when	who what
 
 #include <linux/config.h>
 #include <linux/types.h>
+#include "asm/brcmstb/common/serial.h"
 #include <linux/serial.h>
 #include <linux/serial_reg.h>
 #include <asm/serial.h>
 #include <asm/io.h>
 #include <linux/module.h>
-
-#include "asm/brcmstb/common/serial.h"
-
 
 static int shift = 2;
 

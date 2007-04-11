@@ -68,6 +68,10 @@
 #include <asm/brcmstb/brcm97111/bcm97111.h>
 #define WINDOW_ADDR PHYS_FLASH_BASE			/*0x1d000000*/
 
+#elif defined(CONFIG_MIPS_BCM7118)
+#include <asm/brcmstb/common/brcmstb.h>
+#define WINDOW_ADDR CPU_PHYS_FLASH_BASE
+
 #elif defined(CONFIG_MIPS_BCM7312)
 #include <asm/brcmstb/brcm97312/bcm97312.h>
 #define WINDOW_ADDR PHYS_FLASH_BASE			/* 0x1e000000 */
@@ -106,8 +110,13 @@
 #include <asm/brcmstb/common/brcmstb.h>
 #define WINDOW_ADDR CPU_PHYS_FLASH_BASE
 
-#elif defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7402)
+#elif defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7402) || \
+      defined(CONFIG_MIPS_BCM7403)
 /* Both A0 and B0 revs */
+#include <asm/brcmstb/common/brcmstb.h>
+#define WINDOW_ADDR CPU_PHYS_FLASH_BASE
+
+#elif defined(CONFIG_MIPS_BCM7440)
 #include <asm/brcmstb/common/brcmstb.h>
 #define WINDOW_ADDR CPU_PHYS_FLASH_BASE
 

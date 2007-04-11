@@ -20,6 +20,7 @@
 #include <asm/pgtable.h>
 #include <asm/system.h>
 
+extern int bcm7118A0_boardtype;
 extern void build_tlb_refill_handler(void);
 
 /*
@@ -36,7 +37,7 @@ extern void build_tlb_refill_handler(void);
 #if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM3560 ) \
 	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401 ) \
 	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7118 ) \
-	|| defined( CONFIG_MIPS_BCM7440 )
+	|| defined( CONFIG_MIPS_BCM7440 ) || defined( CONFIG_MIPS_BCM7403 )
 
 #ifdef CONFIG_MIPS_BCM7038A0
 #include <asm/brcmstb/brcm97038/bchp_pci_cfg.h>
@@ -58,9 +59,18 @@ extern void build_tlb_refill_handler(void);
 #include <asm/brcmstb/brcm93560b0/bchp_pci_cfg.h>
 #include <asm/brcmstb/brcm93560b0/boardmap.h>
 
+#elif defined(CONFIG_MIPS_BCM3563)
+#include <asm/brcmstb/brcm93563/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm93563/boardmap.h>
+
 #elif defined(CONFIG_MIPS_BCM7400A0)
 #include <asm/brcmstb/brcm97400a0/bchp_pci_cfg.h>
 #include <asm/brcmstb/brcm97400a0/boardmap.h>
+
+#elif defined(CONFIG_MIPS_BCM7400B0)
+#include <asm/brcmstb/brcm97400b0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97400b0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97400b0/boardmap.h>
 
 #elif defined(CONFIG_MIPS_BCM7401B0) || defined(CONFIG_MIPS_BCM7402A0)
 #include <asm/brcmstb/brcm97401b0/bchp_pci_cfg.h>
@@ -86,6 +96,12 @@ extern void build_tlb_refill_handler(void);
 #elif defined(CONFIG_MIPS_BCM7440A0)
 #include <asm/brcmstb/brcm97440a0/bchp_pci_cfg.h>
 #include <asm/brcmstb/brcm97440a0/boardmap.h>
+
+#elif defined(CONFIG_MIPS_BCM7403A0)
+#include <asm/brcmstb/brcm97403a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97403a0/boardmap.h>
+
+
 
 #else
 #error "Unsupported Chip revision"
@@ -135,7 +151,8 @@ extern void build_tlb_refill_handler(void);
 //#define PCI_DEV_NUM_3250        (PCI_DEVICE_ID_3250 << 11)
 //#define PCI_DEV_NUM_SATA        (PCI_DEVICE_ID_SATA << 11)
 
-#if	defined( CONFIG_MIPS_BRCM97XXX ) && defined( CONFIG_SATA_SVW )
+//#if	defined( CONFIG_MIPS_BRCM97XXX ) && defined( CONFIG_SATA_SVW )
+#if	defined( CONFIG_MIPS_BRCM97XXX )
 #if	defined( CONFIG_CPU_BIG_ENDIAN )
 #define	CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN	2
 #else
@@ -262,6 +279,10 @@ void local_init_tlb(void)
 	BARRIER;
 	write_c0_entryhi(old_ctx);
 	// THT: Write it the wired entries here, before releasing the lock
+#if defined (CONFIG_MIPS_BCM7403)
+	write_c0_random(0x0000001F);
+#endif
+
 	write_c0_wired(wired+17);
 
 #endif /* Use 16MB or 64MB page size */
@@ -279,6 +300,10 @@ void local_flush_tlb_all(void)
 	unsigned long flags;
 	unsigned long old_ctx;
 	int entry;
+
+#ifdef DEBUG_TLB
+	printk("[tlball]");
+#endif
 
 	local_irq_save(flags);
 	/* Save old context and create impossible VPN2 value */
@@ -313,6 +338,9 @@ void local_flush_tlb_mm(struct mm_struct *mm)
 	cpu = smp_processor_id();
 
 	if (cpu_context(cpu, mm) != 0) {
+#ifdef DEBUG_TLB
+		printk("[tlbmm<%d>]", cpu_context(cpu, mm));
+#endif
 		drop_mmu_context(mm, cpu);
 	}
 
@@ -329,6 +357,10 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 		unsigned long flags;
 		int size;
 
+#ifdef DEBUG_TLB
+		printk("[tlbrange<%02x,%08lx,%08lx>]",
+		       cpu_asid(cpu, mm), start, end);
+#endif
 		size = (end - start + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 		size = (size + 1) >> 1;
 		local_irq_save(flags);
@@ -415,6 +447,10 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 		unsigned long flags;
 		int oldpid, newpid, idx;
 
+#ifdef DEBUG_TLB
+		printk("[tlbpage<%d,%08lx>]", cpu_context(cpu, vma->vm_mm),
+		       page);
+#endif
 		newpid = cpu_asid(cpu, vma->vm_mm);
 		page &= (PAGE_MASK << 1);
 		local_irq_save(flags);
@@ -569,6 +605,9 @@ void __init add_wired_entry(unsigned long entrylo0, unsigned long entrylo1,
 	old_ctx = read_c0_entryhi();
 	old_pagemask = read_c0_pagemask();
 	wired = read_c0_wired();
+#if defined (CONFIG_MIPS_BCM7403)
+	write_c0_random(0x0000001F);
+#endif
 	write_c0_wired(wired + 1);
 	write_c0_index(wired);
 	BARRIER;
@@ -665,6 +704,9 @@ void __init tlb_init(void)
 	 */
 	probe_tlb(config);
 	write_c0_pagemask(PM_DEFAULT_MASK);
+#if defined (CONFIG_MIPS_BCM7403)
+	write_c0_random(0x0000001F);
+#endif
 	write_c0_wired(0);
 	temp_tlb_entry = current_cpu_data.tlbsize - 1;
 	local_flush_tlb_all();
@@ -860,6 +902,13 @@ void __init tlb_init(void)
 	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
 	printk("$$$$$$$$$$external dev id %08x\n", *((volatile unsigned long *)0xf0600008));
 
+#ifdef CONFIG_SATA_SVW
+
+#ifdef	CONFIG_MIPS_BCM7118A0
+	if( bcm7118A0_boardtype == 1)
+	goto done1;
+#endif	/* CONFIG_MIPS_BCM7118A0 */
+
 /* 2nd PCI Bridge for SATA on 7038C0 */
 /*
  * Set BCM7038 PCI Bus Bridge Command
@@ -928,7 +977,9 @@ void __init tlb_init(void)
 		// do a pci config read.
 	*((volatile unsigned long *)0xb0500204) = PCI_DEV_NUM_SATA;
 	printk("$$$$$$$$$$SATA dev id %08x\n", *((volatile unsigned long *)0xb0500208));
+#endif /* CONFIG_SATA_SVW */
 
+done1:
 
 #elif defined (CONFIG_MIPS_BCM7329)
 #define PCI_CFG_MEMORY_BASE_W 0xbafe9010
@@ -1005,7 +1056,116 @@ printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
 	*((volatile unsigned long *)PCI_CFG_CPU_2_PCI_IO_WIN) = 0x00000000;
 	//*((volatile unsigned long *)PCI_REG_PCI_CTRL) |= 0x04;
 
-#elif defined( CONFIG_MIPS_BCM7400) || defined( CONFIG_MIPS_BCM7440 )
+#elif defined( CONFIG_MIPS_BCM7400B0)
+
+	local_init_tlb();
+
+	// tht 3/01/07: The external PCI bus remains the same between 7400A0/7440A0-B0 and 7400B0.
+  
+#define MIPS_PCI_SATA_XCFG_INDEX     (0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)
+#define MIPS_PCI_SATA_XCFG_DATA      (0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)
+
+	// THT & Chanshine: Setup PCIX Bridge
+	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_REVISION)) = 0x100;     // 10500200H	
+
+printk("######### SUN_TOP_CTRL_SW_RESET @%08x = %08x\n", 
+	0xb0000000+0x00404014, *((volatile unsigned long *)(0xb0000000+0x00404014)));
+
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_CTRL)) = 0x33;     // 10500204H=PERR|SERR|BM|MEM
+	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)) = 0x80000000|4; //10500208=4
+	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)) = 0x2100147;  //1050020c
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE)) = 1; //10500210
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE)) = 0; //10500214
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE)) = 0xb0510000; //10500218
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE)) = 0; //1050021c
+	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER)) = 0; //10500220
+
+
+printk("######### PCI-X Bridge RevID @%08x = %08x\n", 
+	0xb0000000+BCHP_PCIX_BRIDGE_REVISION, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_REVISION)));
+printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_SATA_CFG_INDEX @%08x = %08x\n", 
+	0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)));
+printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_SATA_CFG_DATA @%08x = %08x\n", 
+	0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)));
+printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE @%08x = %08x\n", 
+	0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE)));
+printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE @%08x = %08x\n", 
+	0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE)));
+printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE @%08x = %08x\n", 
+	0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE)));
+printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE @%08x = %08x\n", 
+	0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE)));
+printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_RETRY_TIMER @%08x = %08x\n", 
+	0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER)));
+		
+
+
+		// do a pci config read.
+*((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX) = 0x80000000|PCI_DEV_NUM_SATA;
+	printk("$$$$$$$$$$SATA dev id @%08x = %08x\n", MIPS_PCI_SATA_XCFG_DATA, *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_DATA));
+
+#if 0
+if (0) {
+	int i;
+	unsigned int addr;
+
+	for(i=0; i<16;i++) {
+	*((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX) = 0x80000000|i<<2; //PCI_DEV_NUM_SATA;
+	printk("$$$$$$$$$$SATA dev id[%d] @%08x = %08x\n", i, *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX), *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_DATA));
+		}
+
+	for (addr=0xb0520000; addr<0xb052003c; addr+=4) {
+		printk("$$$$$$$$$$SATACFG[%08x] = %08x\n", addr, *((volatile unsigned long *) addr));
+	}
+}
+#endif	
+
+/**************************************************************************
+ * External PCI, same as 7400A0
+ ***************************************************************************/
+
+    
+// QY & THT: 11/13/03 This is here because CFE does not do it
+	// first set up pci host.
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_STATUS_COMMAND)) |= (PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0)) = CPU2PCI_PCI_PHYS_MEM_WIN0_BASE;
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1)) = CPU2PCI_PCI_PHYS_MEM_WIN1_BASE;
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2)) = CPU2PCI_PCI_PHYS_MEM_WIN2_BASE;
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3)) = CPU2PCI_PCI_PHYS_MEM_WIN3_BASE;
+
+#ifdef CONFIG_CPU_LITTLE_ENDIAN
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000000;
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200000;
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400000;
+#else
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000002;
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200002;
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400002;
+#endif
+
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_GISB_BASE_W)) = 0x10000000;
+
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) = 0x00000000;
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W1)) = 0x08000000;
+	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W2)) = 0x04000000;
+
+#ifndef CONFIG_CPU_LITTLE_ENDIAN
+	// TDT - Swap memory base w0 when running big endian
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
+		&= ~BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_MASK;
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
+		|= 2<<BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_SHIFT;
+#endif
+
+	// do a pci config read.
+	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_1394;
+	printk("$$$$$$$$$$ 1394 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
+	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_MINI;
+	printk("$$$$$$$$$$ mini slot dev id %08x\n", *((volatile unsigned long *)0xf0600008));
+	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
+	printk("$$$$$$$$$$ external dev id %08x\n", *((volatile unsigned long *)0xf0600008));
+
+#elif defined( CONFIG_MIPS_BCM7400A0) || defined( CONFIG_MIPS_BCM7440 )
 	local_init_tlb();
 	// THT Done in local_init_tlb write_c0_wired(17);
     
@@ -1053,6 +1213,12 @@ printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
 /*
  * Set BCM7038 PCI Bus Bridge Command
  */
+#ifdef CONFIG_SATA_SVW
+
+#ifdef	CONFIG_MIPS_BCM7118A0
+	if( bcm7118A0_boardtype == 1)
+	goto done2;
+#endif	/* CONFIG_MIPS_BCM7118A0 */
 
 //#define PCI_BUS_MASTER  BCHP_PCI_CFG_STATUS_COMMAND_BUS_MASTER_MASK
 //#define PCI_IO_ENABLE   BCHP_PCI_CFG_STATUS_COMMAND_MEMORY_SPACE_MASK
@@ -1117,11 +1283,13 @@ printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
 		// do a pci config read.
 	*((volatile unsigned long *)0xb0500204) = PCI_DEV_NUM_SATA;
 	printk("$$$$$$$$$$SATA dev id %08lx\n", *((volatile unsigned long *)0xb0500208));
+#endif /* CONFIG_SATA_SVW */
 	
+done2:
 
 #elif ((defined( CONFIG_MIPS_BCM7401) || defined( CONFIG_MIPS_BCM7402A0) \
-     || defined( CONFIG_MIPS_BCM7402C0 ) || defined(CONFIG_MIPS_BCM7118)) \
-	 && !defined( CONFIG_MIPS_BCM7402S ))
+     || defined( CONFIG_MIPS_BCM7402C0 ) || defined(CONFIG_MIPS_BCM7118) \
+     || defined( CONFIG_MIPS_BCM7403)) && !defined( CONFIG_BRCM_PCI_SLAVE ))
 	local_init_tlb();
 	// THT Done in local_init_tlb write_c0_wired(17);
     
@@ -1170,7 +1338,12 @@ printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
  * Set BCM7038 PCI Bus Bridge Command
  */
 
-  #ifndef CONFIG_MIPS_BCM7402
+#ifdef CONFIG_SATA_SVW
+
+#ifdef	CONFIG_MIPS_BCM7118A0
+	if( bcm7118A0_boardtype == 1)
+	goto done3;
+#endif	/* CONFIG_MIPS_BCM7118A0 */
 
 //#define PCI_BUS_MASTER  BCHP_PCI_CFG_STATUS_COMMAND_BUS_MASTER_MASK
 //#define PCI_IO_ENABLE   BCHP_PCI_CFG_STATUS_COMMAND_MEMORY_SPACE_MASK
@@ -1231,8 +1404,9 @@ printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
 	*((volatile unsigned long *)0xb0500204) = PCI_DEV_NUM_SATA;
 	printk("$$$$$$$$$$SATA dev id %08lx\n", *((volatile unsigned long *)0xb0500208));
 
-  #endif /* !7402 */
+  #endif /* CONFIG_SATA_SVW */
 #endif /* 7401 */
 
+done3:
 	build_tlb_refill_handler();
 }

@@ -302,16 +302,8 @@ typedef struct EmacRegisters {
 #define EMAC_TX_THRESHOLD       0x34
 #define EMAC_MIB_CONTROL        0x38
 
-
-#define EMAC ((volatile EmacRegisters * const) ENET_MAC_ADR_BASE)
-
 #endif /* _ASMLANGUAGE */
 
-
-#define DMA_BASE			EMAC_DMA_BASE
-
-#define NUM_CHANS_PER_EMAC          2
-#define NUM_EMAC                    2
 #define EMAC_RX_CHAN               0
 #define EMAC_TX_CHAN               1
 

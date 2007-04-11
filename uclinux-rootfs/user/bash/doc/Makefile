@@ -25,7 +25,7 @@ topdir = ..
 srcdir = .
 VPATH = .:.
 
-prefix = /home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/romfs/
+prefix = /myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs/
 exec_prefix = ${prefix}
 
 infodir = ${prefix}/info
@@ -43,7 +43,7 @@ man3dir = $(mandir)/$(manpfx)$(man3ext)
 
 INSTALL = /usr/bin/install -c
 INSTALL_DATA = ${INSTALL} -m 644
-BUILD_DIR = /home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/user/bash
+BUILD_DIR = /myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
 
 # bad style
 RL_LIBDIR = $(topdir)/lib/readline

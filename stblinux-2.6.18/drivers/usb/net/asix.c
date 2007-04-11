@@ -22,6 +22,8 @@
 // #define	DEBUG			// error path messages, extra info
 // #define	VERBOSE			// more; success messages
 
+#define BRCM_FIX
+
 #include <linux/module.h>
 #include <linux/kmod.h>
 #include <linux/sched.h>
@@ -620,12 +622,27 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
 	if ((ret = asix_set_sw_mii(dev)) < 0)
 		goto out2;
 
+#ifdef BRCM_FIX		//for adapters with external PHY
+	if (((ret = asix_read_cmd(dev, AX_CMD_READ_MII_REG,
+	      			0x0010, 2, 2, buf)) < 0)) {
+		dbg("Read PHY register 2 failed: %d", ret);
+		goto out2;
+	}
+	if (le16_to_cpu(*((u16 *)buf)) != 0x003b) {	//assume external PHY
+		if ((ret = asix_write_cmd(dev, AX_CMD_SW_PHY_SELECT,
+					0, 0, 0, buf)) < 0) {
+			dbg("Select PHY #0 failed: %d", ret);
+			goto out2;
+		}
+	}
+#else
 	if (((ret = asix_read_cmd(dev, AX_CMD_READ_MII_REG,
 	      			0x0010, 2, 2, buf)) < 0)
 			|| (*((u16 *)buf) != 0x003b)) {
 		dbg("Read PHY register 2 must be 0x3b00: %d", ret);
 		goto out2;
 	}
+#endif
 
 	/* Initialize MII structure */
 	dev->mii.dev = dev->net;
@@ -775,7 +792,11 @@ static struct sk_buff *ax88772_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
 	}
 
 	skb_push(skb, 4);
+#ifdef BRCM_FIX
+	packet_len = cpu_to_le32((((skb->len - 4) ^ 0x0000ffff) << 16) + (skb->len - 4));
+#else
 	packet_len = (((skb->len - 4) ^ 0x0000ffff) << 16) + (skb->len - 4);
+#endif
 	memcpy(skb->data, &packet_len, sizeof(packet_len));
 
 	if ((skb->len % 512) == 0) {
@@ -870,6 +891,10 @@ static const struct usb_device_id	products [] = {
 	// DLink DUB-E100
 	USB_DEVICE (0x2001, 0x1a00),
 	.driver_info =  (unsigned long) &dlink_dub_e100_info,
+}, {
+	// DLink DUB-E100, Rev. B
+	USB_DEVICE (0x2001, 0x3c05),
+	.driver_info =  (unsigned long) &ax88772_info,
 }, {
 	// Intellinet, ST Lab USB Ethernet
 	USB_DEVICE (0x0b95, 0x1720),

@@ -23,8 +23,57 @@
 #include <asm/page.h>
 #include <asm/mipsregs.h>
 #include <asm/stackframe.h>
-
 #include <kernel-entry-init.h>
+
+#ifdef CONFIG_BRCM_PCI_SLAVE
+	#if defined( CONFIG_MIPS_BCM7402S ) 
+	#include <asm/brcmstb/brcm97401a0/bcmmips.h>
+	#include <asm/brcmstb/brcm97401a0/bcmuart.h>
+
+
+	#define BCHP_SUN_TOP_CTRL_SW_RESET 	            	0x00404010
+	#define BCHP_SUN_TOP_CTRL_SEMAPHORE_8          		0x00404048
+	#define BCHP_SUN_GISB_ARB_TIMER                      	0x0040600c
+	#define BCHP_SUN_GISB_ARB_REQ_MASK               	0x00406008
+	#define BCHP_FMISC_SOFT_RESET                        	0x00104000 
+	#define BCHP_MEMC_0_DDR_PLL_FREQ_DIVIDER_RESET		0x0010683c
+	#define BCHP_MEMC_0_DDR_PLL_FREQ_CNTL            	0x00106818
+	#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_5         	0x00404098
+	#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_8         	0x004040a4 
+
+	#define BCHP_SUN_TOP_CTRL_RESET_CTRL			0x00404008
+	//#define BCHP_SUN_TOP_CTRL_SW_RESET			0x00404014
+	#define BCHP_VCXO_0_RM_CONTROL                   	0x00181700 		/* Rate Manager Controls */
+	#define UART_ADR_BASE					0xb04001a0		// UARTB
+
+	#elif defined( CONFIG_MIPS_BCM7402B0S )
+	#include <asm/brcmstb/brcm97401b0/bcmmips.h>
+	#include <asm/brcmstb/brcm97401b0/bcmuart.h>
+	#define BCHP_SUN_TOP_CTRL_SW_RESET 	            	0x00404014
+	#define BCHP_SUN_TOP_CTRL_SEMAPHORE_8          		0x00404050
+	#define BCHP_SUN_GISB_ARB_TIMER                      	0x0040600c
+	#define BCHP_SUN_GISB_ARB_REQ_MASK               	0x00406008
+	#define BCHP_FMISC_SOFT_RESET                        	0x00104000 
+	#define BCHP_MEMC_0_DDR_PLL_FREQ_DIVIDER_RESET		0x0010683c
+	#define BCHP_MEMC_0_DDR_PLL_FREQ_CNTL            	0x00106818
+	#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_7         	0x004040b0 
+	#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10         	0x004040bc 
+
+	#define BCHP_SUN_TOP_CTRL_RESET_CTRL			0x00404008
+	//#define BCHP_SUN_TOP_CTRL_SW_RESET			0x00404014
+	#define BCHP_VCXO_0_RM_CONTROL                   	0x00181700 		/* Rate Manager Controls */
+	//#define UART_ADR_BASE					0xb04001a0		// UARTB
+
+	#define BAUD_VAL(x)     				(((XTALFREQ/8/(x) + 1)/2) - 1)
+	#define BAUD_VAL_LO(x)  				(BAUD_VAL(x) & 0xff)
+	#define BAUD_VAL_HI(x)  				((BAUD_VAL(x) >> 8) & 0xff)
+
+	#define BAUD_115200_LO  				BAUD_VAL_LO(115200)
+	#define BAUD_115200_HI  				BAUD_VAL_HI(115200)
+
+	#endif /* 7402s, 7402b0s */
+
+#endif /* CONFIG_BRCM_PCI_SLAVE */
 
 	.macro	ARC64_TWIDDLE_PC
 #if defined(CONFIG_ARC64) || defined(CONFIG_MAPPED_KERNEL)
@@ -156,10 +205,66 @@ EXPORT(_stext)
 NESTED(kernel_entry, 16, sp)			# kernel entry point
 
 	kernel_entry_setup			# cpu specific setup
+#ifdef CONFIG_BRCM_PCI_SLAVE
+//xxx:
+        li      a0, '7'
+        li      t0, UART_ADR_BASE
+        li      t2, TXDREGEMT
+1:      lw      t1, UART_TXSTAT(t0)
+        and     t1, t1, t2
+        bne     t1, t2, 1b
+        nop
+        sw      a0, UART_TXDATA(t0)
+ 
+        nop
+        //b	xxx
+        nop
+        
+	bal		pci_slave_init
+	nop
 
+return_from_pci_slave_init:
+
+#else
 	setup_c0_status_pri
+#endif
 
-	ARC64_TWIDDLE_PC
+#ifdef CONFIG_MIPS_BRCM97XXX
+	#ifdef CONFIG_SMP
+	.extern  g_boot_config
+	# Check to see which TP we are running on.
+	mfc0    $8, $22, 3
+	srl     $8, $8, 31
+	beqz     $8, 1f
+	nop
+	
+	# ---------------------------------	
+	# We are in TP1
+	# ---------------------------------	
+	InTp1:	
+	# struct BootConfig {
+	#     unsigned long signature;   //  0
+	#     unsigned long ncpus;       //  4
+	#     unsigned long func_addr;   //  8
+	#     unsigned long sp;          // 12
+	#     unsigned long gp;          // 16
+	#     unsigned long arg;         // 20
+	# }
+	la       t0,	g_boot_config	# grab boot config data...
+	lw       sp,	12(t0)
+	lw       gp,	16(t0)
+	lw       t1,	 8(t0)
+	lw       a0,	20(t0)
+	jr       t1
+	nop
+	#endif // SMP
+
+	#ifndef CONFIG_BRCM_PCI_SLAVE
+	1:	jal	cfe_start
+	nop
+	#endif
+
+#endif // BRCM97XXX
 
 #ifdef CONFIG_MIPS_MT_SMTC
 	/*
@@ -257,3 +362,10 @@ NESTED(smp_bootstrap, 16, sp)
 	page	invalid_pmd_table, _PMD_ORDER
 #endif
 	page	invalid_pte_table, _PTE_ORDER
+
+
+#ifdef CONFIG_BRCM_PCI_SLAVE
+#include "../brcmstb/common/reset.S"
+#include "../brcmstb/common/cacheALib.S"
+#endif
+

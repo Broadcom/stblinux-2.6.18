@@ -1,0 +1,257 @@
+This file contains any messages produced by compilers while
+running configure, to aid debugging if configure makes a mistake.
+
+configure:592: checking host system type
+configure:613: checking target system type
+configure:631: checking build system type
+configure:665: checking for a BSD compatible install
+configure:718: checking whether build environment is sane
+configure:775: checking whether make sets ${MAKE}
+configure:821: checking for working aclocal
+configure:834: checking for working autoconf
+configure:847: checking for working automake
+configure:860: checking for working autoheader
+configure:873: checking for working makeinfo
+configure:891: checking for gcc
+configure:1004: checking whether the C compiler (mips-linux-gcc -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include) works
+configure:1020: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:1046: checking whether the C compiler (mips-linux-gcc -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include) is a cross-compiler
+configure:1051: checking whether we are using GNU C
+configure:1060: mips-linux-gcc -E conftest.c
+configure:1079: checking whether mips-linux-gcc accepts -g
+configure:1111: checking for POSIXized ISC
+configure:1135: checking for gcc
+configure:1248: checking whether the C compiler (mips-linux-gcc -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include) works
+configure:1264: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:1290: checking whether the C compiler (mips-linux-gcc -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include) is a cross-compiler
+configure:1295: checking whether we are using GNU C
+configure:1323: checking whether mips-linux-gcc accepts -g
+configure:1355: checking how to run the C preprocessor
+configure:1376: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1436: checking whether mips-linux-gcc needs -traditional
+configure:1485: checking for mips-linux-gcc option to accept ANSI C
+configure:1538: mips-linux-gcc  -c -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  conftest.c 1>&5
+configure:1564: checking for function prototypes
+configure:1795: checking for ranlib
+configure:1834: checking for ld used by GCC
+configure:1896: checking if the linker (mips-linux-ld) is GNU ld
+GNU ld version 2.17.50.0.12 20070128
+configure:1912: checking for BSD-compatible nm
+configure:1948: checking whether ln -s works
+ltconfig:603: checking for object suffix
+ltconfig:604: mips-linux-gcc -c -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  conftest.c 1>&5
+ltconfig:629: checking for executable suffix
+ltconfig:630: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+ltconfig:776: checking if mips-linux-gcc PIC flag -fPIC works
+ltconfig:777: mips-linux-gcc -c -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include -fPIC -DPIC  conftest.c 1>&5
+ltconfig:829: checking if mips-linux-gcc supports -c -o file.o
+ltconfig:830: mips-linux-gcc -c -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include -o out/conftest2.o  conftest.c 1>&5
+ltconfig:862: checking if mips-linux-gcc supports -c -o file.lo
+ltconfig:863: mips-linux-gcc -c -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include -c -o conftest.lo  conftest.c 1>&5
+ltconfig:914: checking if mips-linux-gcc supports -fno-rtti -fno-exceptions
+ltconfig:915: mips-linux-gcc -c -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include -fno-rtti -fno-exceptions -c conftest.c  conftest.c 1>&5
+ltconfig:958: checking if mips-linux-gcc static flag -static works
+ltconfig:959: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -static conftest.c  1>&5
+GNU ld version 2.17.50.0.12 20070128
+ltconfig:1635: checking if global_symbol_pipe works
+ltconfig:1636: mips-linux-gcc -c -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  conftest.c 1>&5
+ltconfig:1639: eval "/usr/bin/nm -B conftest.o | sed -n -e 's/^.*[ 	]\([ABCDGISTW]\)[ 	][ 	]*\(\)\([_A-Za-z][_A-Za-z0-9]*\)$/\1 \2\3 \3/p' > conftest.nm"
+ltconfig:1691: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include -fno-builtin  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c conftstm.o 1>&5
+configure:2150: checking for a BSD compatible install
+configure:2233: checking for alloca.h
+configure:2243: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2233: checking for libintl.h
+configure:2243: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2239:21: libintl.h: No such file or directory
+configure: failed program was:
+#line 2238 "configure"
+#include "confdefs.h"
+#include <libintl.h>
+configure:2233: checking for mcheck.h
+configure:2243: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2239:20: mcheck.h: No such file or directory
+configure: failed program was:
+#line 2238 "configure"
+#include "confdefs.h"
+#include <mcheck.h>
+configure:2233: checking for unistd.h
+configure:2243: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:2270: checking for /usr/ucblib in LIBS
+configure:2286: checking for GNU xgettext
+configure:2296: checking for strerror
+configure:2324: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:2296: checking for mtrace
+configure:2324: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+/tmp/ccS4WiNG.o: In function `main':
+/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/popt-1.6/configure:2318: undefined reference to `mtrace'
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 2301 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char mtrace(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char mtrace();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_mtrace) || defined (__stub___mtrace)
+choke me
+#else
+mtrace();
+#endif
+
+; return 0; }
+configure:2349: checking for setreuid
+configure:2377: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:2440: checking for working const
+configure:2494: mips-linux-gcc -c -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  conftest.c 1>&5
+configure:2515: checking for inline
+configure:2529: mips-linux-gcc -c -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  conftest.c 1>&5
+configure:2555: checking for off_t
+configure:2588: checking for size_t
+configure:2623: checking for working alloca.h
+configure:2656: checking for alloca
+configure:2689: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:2858: checking for unistd.h
+configure:2897: checking for getpagesize
+configure:2925: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:2950: checking for working mmap
+configure:3126: checking for argz.h
+configure:3136: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:3132:18: argz.h: No such file or directory
+configure: failed program was:
+#line 3131 "configure"
+#include "confdefs.h"
+#include <argz.h>
+configure:3126: checking for limits.h
+configure:3136: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:3126: checking for locale.h
+configure:3136: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:3126: checking for nl_types.h
+configure:3136: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:3126: checking for malloc.h
+configure:3136: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:3126: checking for string.h
+configure:3136: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:3126: checking for unistd.h
+configure:3126: checking for sys/param.h
+configure:3136: mips-linux-gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:3166: checking for getcwd
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3166: checking for munmap
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3166: checking for putenv
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3166: checking for setenv
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3166: checking for setlocale
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3166: checking for strchr
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3166: checking for strcasecmp
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3166: checking for strdup
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3166: checking for __argz_count
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+/tmp/ccMWJ8l3.o: In function `main':
+/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/popt-1.6/configure:3188: undefined reference to `__argz_count'
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 3171 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char __argz_count(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char __argz_count();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub___argz_count) || defined (__stub_____argz_count)
+choke me
+#else
+__argz_count();
+#endif
+
+; return 0; }
+configure:3166: checking for __argz_stringify
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+/tmp/ccmoOD1d.o: In function `main':
+/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/popt-1.6/configure:3188: undefined reference to `__argz_stringify'
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 3171 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char __argz_stringify(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char __argz_stringify();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub___argz_stringify) || defined (__stub_____argz_stringify)
+choke me
+#else
+__argz_stringify();
+#endif
+
+; return 0; }
+configure:3166: checking for __argz_next
+configure:3194: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+/tmp/cc0dErmj.o: In function `main':
+/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/popt-1.6/configure:3188: undefined reference to `__argz_next'
+collect2: ld returned 1 exit status
+configure: failed program was:
+#line 3171 "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char __argz_next(); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+/* We use char because int might match the return type of a gcc2
+    builtin and then its argument prototype would still apply.  */
+char __argz_next();
+
+int main() {
+
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub___argz_next) || defined (__stub_____argz_next)
+choke me
+#else
+__argz_next();
+#endif
+
+; return 0; }
+configure:3223: checking for stpcpy
+configure:3251: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3285: checking for LC_MESSAGES
+configure:3297: mips-linux-gcc -o conftest -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include  -O2 -g  -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include conftest.c  1>&5
+configure:3318: checking whether NLS is requested
+configure:3338: checking whether included gettext is requested
+configure:3357: checking for libintl.h
+configure:3698: checking whether catgets can be used
+configure:3970: checking for msgfmt
+configure:4004: checking for gmsgfmt
+configure:4040: checking for xgettext
+configure:4133: checking for catalogs to be installed

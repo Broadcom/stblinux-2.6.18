@@ -25,10 +25,13 @@ BFD_INCLUDE=-I$(ROOTDIR)/lib/binutils/bfd -I$(ROOTDIR)/lib/binutils/include
 MY_CFLAGS += $(BFD_INCLUDE) -I$(ROOTDIR)/user/popt $(GCC_INC)
 MY_CPPFLAGS += $(MY_CFLAGS)
 MY_CXXFLAGS = $(GXX_INC) $(MY_CFLAGS)
-MY_LDFLAGS += -Bstatic -L$(ROOTDIR)/user/popt/.libs -L$(ROOTDIR)/user/popt/intl \
+MY_LDFLAGS += \
+	-Bstatic -L$(ROOTDIR)/lib/binutils/intl \
+	-L$(ROOTDIR)/user/popt/.libs \
 	-L$(ROOTDIR)/lib/binutils/bfd \
 	-L$(ROOTDIR)/lib/binutils/libiberty \
 	-L$(ROOTDIR)/uClibc/lib
+
 TARGET_PREFIX=/usr/local/share/oprofile/
 BUILD_PREFIX=$(ROOTDIR)/romfs/$(TARGET_PREFIX)
 
@@ -55,7 +58,7 @@ all:
 		--with-linux=$(ROOTDIR)/$(LINUX_DIR) \
 		--with-module-dir=$(ROOTDIR)/romfs/lib/modules \
 		--with-package=yes \
-		--with-binutils=$(ROOTDIR)/lib/bin-utils \
+		--with-binutils=$(ROOTDIR)/lib/binutils \
 #		--cache-file=config.cache.brcmstb.$(TARGET_ARCH)
 	make -f Makefile
 

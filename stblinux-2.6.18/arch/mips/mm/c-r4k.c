@@ -32,6 +32,7 @@
 static unsigned long icache_size, dcache_size, scache_size;
 
 /* RYH */
+static int rac_set = 0;
 extern int par_val;
 extern char cfeBootParms[]; 
 extern unsigned long rac_config0, rac_config1, rac_address_range;
@@ -84,7 +85,7 @@ void bcm_local_inv_rac_all(void)
 #ifndef CONFIG_SMP
 	if (*((volatile unsigned long *)rac_config0) & 0x02)	/* check RAC_D bit in RAC Config Register for TP0 */
 #else
-	if ((*((volatile unsigned long *)rac_config0) & 0x02) || (*((volatile unsigned long *)0xbfa00008) & 0x02))
+	if ((*((volatile unsigned long *)rac_config0) & 0x02) || (*((volatile unsigned long *)rac_config1) & 0x02))
 #endif
 	{
 		unsigned long flags;
@@ -165,6 +166,12 @@ static inline void r4k_blast_dcache_page_dc32(unsigned long addr)
 	blast_dcache32_page(addr);
 }
 
+static inline void r4k_blast_dcache_page_dc64(unsigned long addr)
+{
+	R4600_HIT_CACHEOP_WAR_IMPL;
+	blast_dcache64_page(addr);
+}
+
 static inline void r4k_blast_dcache_page_setup(void)
 {
 	unsigned long  dc_lsize = cpu_dcache_line_size();
@@ -175,6 +182,8 @@ static inline void r4k_blast_dcache_page_setup(void)
 		r4k_blast_dcache_page = blast_dcache16_page;
 	else if (dc_lsize == 32)
 		r4k_blast_dcache_page = r4k_blast_dcache_page_dc32;
+	else if (dc_lsize == 64)
+		r4k_blast_dcache_page = r4k_blast_dcache_page_dc64;
 }
 
 static void (* r4k_blast_dcache_page_indexed)(unsigned long addr);
@@ -189,6 +198,8 @@ static inline void r4k_blast_dcache_page_indexed_setup(void)
 		r4k_blast_dcache_page_indexed = blast_dcache16_page_indexed;
 	else if (dc_lsize == 32)
 		r4k_blast_dcache_page_indexed = blast_dcache32_page_indexed;
+	else if (dc_lsize == 64)
+		r4k_blast_dcache_page_indexed = blast_dcache64_page_indexed;
 }
 
 static void (* r4k_blast_dcache)(void);
@@ -203,6 +214,8 @@ static inline void r4k_blast_dcache_setup(void)
 		r4k_blast_dcache = blast_dcache16;
 	else if (dc_lsize == 32)
 		r4k_blast_dcache = blast_dcache32;
+	else if (dc_lsize == 64)
+		r4k_blast_dcache = blast_dcache64;
 }
 
 /* force code alignment (used for TX49XX_ICACHE_INDEX_INV_WAR) */
@@ -1487,10 +1500,15 @@ void __init r4k_cache_init(void)
 #else
 #define ICACHE_DCACHE_ENABLED 0xC0000000
 		unsigned int reg;
+		char msg[256];
 
 /* RYH  5/19/06 */
         /* if ( strstr(cfeBootParms,"bcmrac") ) */
+	if( !rac_set )
+	{
+		rac_set = 1;
 		rac_setting(par_val);
+	}
 
 #if 0
 #ifdef CONFIG_MIPS_BCM7038B0
@@ -1505,12 +1523,9 @@ void __init r4k_cache_init(void)
 
     	*((volatile unsigned long *)0xb0000404) =
 0xf7;//0xf7;//0x93;//0x9f;//0x77;//0x5f; //0xd3;//0xdf;
-		{
-			char msg[256];
-			sprintf(msg, "after init RAC %08x\n", *((volatile unsigned long
+		sprintf(msg, "after init RAC %08x\n", *((volatile unsigned long
 *)0xb0000404));
-			uart_puts(msg);
-		}
+		uart_puts(msg);
 #endif
 #endif
 

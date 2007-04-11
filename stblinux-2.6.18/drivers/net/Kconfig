@@ -24,6 +24,9 @@ config NETDEVICES
 
 	  If unsure, say Y.
 
+config NETIF_DMA 
+	tristate "Netif_dma support"
+	depends on NET
 
 config IFB
 	tristate "Intermediate Functional Block support"
@@ -214,7 +217,7 @@ config BCMINTEMAC
 config BCMINTEMAC_7038
 	tristate "Broadcom Internal Ethernet (ISB) support"
 	depends on NET_ETHERNET
-	depends on MIPS_BCM7038 || MIPS_BCM7318 || MIPS_BCM7401 || MIPS_BCM7400 || MIPS_BCM7402 || MIPS_BCM7402S
+	depends on MIPS_BCM7038 || MIPS_BCM7318 || MIPS_BCM7401 || MIPS_BCM7400 || MIPS_BCM7402 || MIPS_BCM7402S || MIPS_BCM7440 || MIPS_BCM7402B0S || MIPS_BCM7403
 	select CRC32
 	help 
 	  Broadcom Internal MAC 100 Mbps Ethernet controller 

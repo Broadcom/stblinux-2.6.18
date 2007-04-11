@@ -47,7 +47,7 @@ endif
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.12-0 we only support a few platforms
-CHIPS=7038c0 97398 7318 7400a0 7400a0-smp 7401a0 7401b0 7401c0
+CHIPS=7038c0 97398 7318 7400a0 7400a0-smp 7401a0 7401b0 7401c0 7118a0 7403a0 97401c0-sw1
 PLATFORMS=$(addsuffix _be,$(CHIPS))
 XFS_PLATFORMS = 7038c0_be-xfs 97398_be-xfs
 ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS)
@@ -80,7 +80,7 @@ KERNEL_DIR=linux-2.6.x
 CROSS_COMPILE=mips-linux-
 CC=$(CROSS_COMPILE)gcc
 MAKEARCH=make ARCH=mips CROSS_COMPILE=$(CROSS_COMPILE) CC=$(CC)
-#jipeng
+
 LINUXDIR_VER=
 ROOTFS_VER=
 ifeq ($@,) 
@@ -112,7 +112,9 @@ vercheck:
 	@if [ "$(LINUXDIR_VER)" == "$(ROOTFS_VER)" ]; then	\
 		echo "build binary images for version $(VERSION)";	\
 	else	\
-		echo "Error: Kernel version $(LINUXDIR_VER) mismatch with rootfs version $(ROOTFS_VER)"; exit 1;	\
+		echo "Error: Kernel version $(LINUXDIR_VER) mismatch with rootfs version $(ROOTFS_VER)"; \
+		echo "Check ${KERNEL_DIR}/Makefile and ./version"; \
+		exit 1;	\
 	fi
 
 install: rootfs
@@ -120,20 +122,25 @@ install: rootfs
 rootfs:
 	# Make the rootfs images, need root access
 	su -m -c '$(shell for i in $(ALL_PLATFORMS); do \
-		echo "make -f build-be.mk rootfs-$$i; "; \
+		[ -e images/$$i/initramfs_data.cpio.gz ] && \
+			echo "make -f build-be.mk rootfs-$$i; "; \
 	done)' $(ROOT)
 	# Copy to TFTP server.  Here this script assumes that only normal users
 	# can write to the server (NFS mounted), your mileage may vary.
 	@if [ $(MYUID) -ne 0 ]; then \
 		for i in $(ALL_PLATFORMS); do \
-			cp images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img; \
-			cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
+			[ -e images/$$i/initramfs_data.cpio.gz ] && \
+				cp -f images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img && \
+				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
 		done; \
+		true; \
 	else \
 		for i in $(ALL_PLATFORMS); do \
-			su -m -c "cp images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img && \
-				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img" $(WHOAMI); \
+			su -m -c "[ -e images/$$i/initramfs_data.cpio.gz ] && \
+				cp -f images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img && \
+				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img" $(WHOAMI); \
 		done; \
+		true; \
 	fi
 
 .PHONY: $(ALL_PLATFORMS) $(BB_INITRD_PLATFORMS) $(BB_PLATFORMS) \
@@ -171,8 +178,8 @@ $(ROOTFS_PLATFORMS):
 		PLATFORM=$(subst rootfs-,,$@)\
 		ARCH_CONFIG=$(shell pwd)/vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config.arch\
 		images' $(ROOT) 
-	su -m -c "cp images/$(subst rootfs-,,$@)/jffs2.img $(TFTPDIR)/jffs2-$(subst rootfs-,,$@).img" $(WHOAMI)
-	su -m -c "cp images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img" $(WHOAMI)
+	su -m -c "cp -f images/$(subst rootfs-,,$@)/jffs2.img $(TFTPDIR)/jffs2-$(subst rootfs-,,$@).img" $(WHOAMI)
+	su -m -c "cp -f images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img" $(WHOAMI)
 
 # The echo Done at the end is to prevent make from reporting errors.
 $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS):
@@ -189,7 +196,8 @@ $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS):
 		cd $${CONFIG_LINUXDIR} && $(MAKEARCH) silentoldconfig; \
 	)
 	$(MAKEARCH) defaultconfig
-	$(MAKEARCH) BRCM_VERSION=$(VERSION)
+# PR25899 - show targets - following make command should specific target all
+	$(MAKEARCH) BRCM_VERSION=$(VERSION) all
 	test -d $(TFTPDIR) || mkdir -p $(TFTPDIR)
 	if [ "$(subst vmlinuz-initrd-,,$@)" == "937xx_be" -o \
          "$(subst vmlinuz-initrd-,,$@)" == "937xx_be-xfs" ]; then \
@@ -201,14 +209,14 @@ $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS):
 
 $(BB_PLATFORMS) $(XFS_BB_PLATFORMS):
 	if [ "x$(KERNEL_DEFCONFIG)" != "x" ]; then	\
-		test -f $(KERNEL_DEFCONFIG) && 	cp $(KERNEL_DEFCONFIG) $(KERNEL_DIR)/.config	\
+		test -f $(KERNEL_DEFCONFIG) && 	cp -f $(KERNEL_DEFCONFIG) $(KERNEL_DIR)/.config	\
 		|| exit 1;	\
 	else	\
 		if test -f $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$@)_defconfig; then	\
-			cp $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$@)_defconfig $(KERNEL_DIR)/.config;	\
+			cp -f $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$@)_defconfig $(KERNEL_DIR)/.config;	\
 		else	\
 			test -f $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$@)_defconfig	\
-			&& cp $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$@)_defconfig $(KERNEL_DIR)/.config	\
+			&& cp -f $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$@)_defconfig $(KERNEL_DIR)/.config	\
 			|| exit 1;	\
 		fi;	\
 	fi;	\
@@ -263,6 +271,7 @@ $(OPROF_INITRD_PLATFORMS) :
 	# Set locale stuffs.  We will need
 	. .config; export LANG="C"; export LC_MESSAGES="C"; export LC_CTYPE="C"; export LC_ALL="C"; \
 		test -f "$$CONFIG_LINUXDIR"/.config && rm -f "$$CONFIG_LINUXDIR"/.config; \
+		sh config/setconfig oprofile defaults; \
 		sed -e "s/CONFIG_INITRAMFS_ROOT_UID=0/CONFIG_INITRAMFS_ROOT_UID=$(MYUID)/"\
 			vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config."$$CONFIG_LINUXDIR"  \
 		| sed -e "s/CONFIG_INITRAMFS_ROOT_GID=0/CONFIG_INITRAMFS_ROOT_GID=$(MYGID)/" \
@@ -277,7 +286,8 @@ $(OPROF_INITRD_PLATFORMS) :
 		| sed -e "s/# CONFIG_USER_PROFILE_POFT is not set/CONFIG_USER_PROFILE_POFT=y/" > config/.config; \
 		(cd "$$CONFIG_LINUXDIR" && $(MAKEARCH) silentoldconfig);
 	$(MAKEARCH) oprofile
-	$(MAKEARCH) BRCM_VERSION=$(VERSION)
+# PR25899 - show targets - following make command should specific target all
+	$(MAKEARCH) BRCM_VERSION=$(VERSION) all
 	test -d $(TFTPDIR) || mkdir -p $(TFTPDIR)
 	if [ "$(subst -opf,,$(subst vmlinuz-initrd-,,$@))" == "937xx_be" -o \
        "$(subst -opf,,$(subst vmlinuz-initrd-,,$@))" == "937xx_be-xfs" ]; then \
@@ -286,6 +296,7 @@ $(OPROF_INITRD_PLATFORMS) :
 		cp -f images/$(subst -opf,,$(subst vmlinuz-initrd-,,$@))/vmlinuz $(TFTPDIR)/$@ ;\
 	fi
 	echo "Done building $@"
+
 
 $(OPROF_PLATFORMS) :
 	-test -f $(KERNEL_DIR)/.config && rm -f $(KERNEL_DIR)/.config
@@ -318,3 +329,34 @@ distclean:
 	rm -f $(ALL_PLATFORMS) $(BB_INITRD_PLATFORMS) $(BB_PLATFORMS)
 	# Requires root access to clean the images directory
 	su -m -c '$(MAKEARCH) $@' $(ROOT)
+
+# PR25899 - Show available targets
+show_targets:
+	@echo "========================================================================="
+	@echo "Big Endian Targets are (make -f build-be.mk {target} where {target} is): "
+	@echo "========================================================================="
+	@for i in $(ALL_PLATFORMS); do \
+		echo "vmlinuz-"$$i; \
+ 	done
+	@for i in $(ALL_PLATFORMS); do \
+		echo "vmlinuz-initrd-"$$i; \
+ 	done
+	@for i in $(ALL_PLATFORMS); do \
+		echo "vmlinuz-"$$i"-kgdb"; \
+ 	done
+	@for i in $(ALL_PLATFORMS); do \
+		echo "vmlinuz-initrd-"$$i"-kgdb"; \
+ 	done
+	@for i in $(ALL_PLATFORMS); do \
+		echo "vmlinuz-"$$i"-opf"; \
+ 	done
+	@for i in $(ALL_PLATFORMS); do \
+		echo "vmlinuz-initrd-"$$i"-opf"; \
+ 	done
+	@for i in $(ALL_PLATFORMS); do \
+		echo "rootfs-"$$i; \
+ 	done
+	@for i in $(ALL_PLATFORMS); do \
+		echo "cramfs-"$$i; \
+ 	done
+ 

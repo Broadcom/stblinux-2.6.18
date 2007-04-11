@@ -22,13 +22,17 @@
  *
  * when       who    what
  * ----       ---    ----
- * 20060830   THT  Created
+ * 06-09-2006 RYH    Full implementation of 7400a0 RAC
  */
 
 #include <linux/init.h>
+#include <linux/kernel.h>
 #include <asm/mipsregs.h>
 #include <asm/bug.h>
 
+static __init int RAC_init(void);
+void uart_puts(const char *);
+extern asmlinkage void _RAC_init(void);
 
 #if 1
 /*
@@ -46,9 +50,9 @@ static __init int RAC_init(void)
 
 	gRAC_init_called = 1;
 	cba = __read_32bit_c0_register($22, 6);
-	printk("======> Before RAC_init:$22s5=%08x, $22s6(CBA)=%08x \n", __read_32bit_c0_register($22, 5), cba);
+	printk("======> Before RAC_init:$22s5=%08x, $22s6(CBA)=%08lx \n", __read_32bit_c0_register($22, 5), cba);
 	if (cba == 0x11f0000c) {
-		printk("@B1F0_001C=%08x, @B1F0_0004=%08x, @B1F0_0000=%08x, @B1F0_0008=%08x\n",
+		printk("@B1F0_001C=%08lx, @B1F0_0004=%08lx, @B1F0_0000=%08lx, @B1F0_0008=%08lx\n",
 			*((volatile unsigned long*) 0xB1F0001C), 
 			*((volatile unsigned long*) 0xB1F00004),
 			*((volatile unsigned long*) 0xB1F00000),
@@ -96,10 +100,10 @@ int rac_setting(int value)
 	rac_config1 = cba + 0xA0000000 + RAC_CONFIGURATION1_REGISTER;
 	rac_address_range = cba + 0xA0000000 + RAC_ADDRESS_RANGE_REGISTER;
 
-	printk("CBA = %08x    VALUE = %d    PAR_VAL2 = %08x\n", cba, value, par_val2); 
-	printk("RAC0 = %08x    RAC1 = %x    RAC_RANGE = %08x\n", rac_config0, rac_config1, rac_address_range); 
+	printk("CBA = %08lx    VALUE = %d    PAR_VAL2 = %08x\n", cba, value, par_val2); 
+	printk("RAC0 = %08lx    RAC1 = %lx    RAC_RANGE = %08lx\n", rac_config0, rac_config1, rac_address_range); 
 
-	sprintf(msg, "before init RAC 0x%08x    0x%08x    0x%08x\n", 
+	sprintf(msg, "before init RAC 0x%08lx    0x%08lx    0x%08lx\n", 
 			*((volatile unsigned long *)(rac_config0)), 
 			*((volatile unsigned long *)(rac_config1)), 
 			*((volatile unsigned long *)(rac_address_range)));
@@ -140,13 +144,13 @@ int rac_setting(int value)
 	}
 
 	rac_value |= DEFAULT_RAC_CONFIGURATION;
-	printk("RAC_VALUE = %08x\n", rac_value);
+	printk("RAC_VALUE = %08lx\n", rac_value);
 
 	*((volatile unsigned long *)(rac_config0)) |= rac_value;
 	*((volatile unsigned long *)(rac_config1)) |= rac_value;
 	*((volatile unsigned long *)(rac_address_range)) = par_val2;  /* 0x04000000; 64M for 7401a0 */
 
-	sprintf(msg, "after init RAC 0x%08x    0x%08x    0x%08x\n", 
+	sprintf(msg, "after init RAC 0x%08lx    0x%08lx    0x%08lx\n", 
 			*((volatile unsigned long *)(rac_config0)), 
 			*((volatile unsigned long *)(rac_config1)), 
 			*((volatile unsigned long *)(rac_address_range)));

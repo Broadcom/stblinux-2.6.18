@@ -19,6 +19,7 @@ LDFLAGS += -L$(ROOTDIR)/romfs/lib
 
 
 # THT Took out uuid.  Library now available in romfs/lib:wq
+# jipeng - remove libxfs to avoid building host side utils
 DIRS =  libdisk libxfs libxlog fsck mkfs repair
 
 all:

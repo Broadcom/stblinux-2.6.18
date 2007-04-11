@@ -24,8 +24,8 @@
  * Modified for brcm from ohci-lh7a404.c by ttruong@broadcom.com
  *
  */
-#include <linux/platform_device.h>
 
+#include <linux/platform_device.h>
 
 extern int usb_disabled(void);
 
@@ -33,64 +33,17 @@ extern int usb_disabled(void);
 
 static void brcm_ehci_hw_init(struct platform_device *dev)
 {
-	// Init BRCM USB setup registers for board and HC specific issues
-   	writel( BRCM_USB_SETUP_REG_VAL, BrcmUsbSetupReg );
+	printk(/*KERN_DEBUG*/ __FILE__
+			": starting brcm EHCI USB Controller\n");
 
-#ifdef CONFIG_MIPS_BCM7317
-    //straighten out frame length
-    writel( 0x000c0020, (volatile u32 *) 0xfffe81f8 );
-
-    //set generic_ctl_8 (USB_UTMICTRL.clock_60_invert) & 7 bit sync_det_length
-    writel( ((readl( (volatile u32 *) 0xfffe81ec ) & ~(7 << 16)) | 0x00060100),
-            (volatile u32 *) 0xfffe81ec );
-
-#ifdef CONFIG_USB_BRCM_EXT_XTAL
-    writel( 0xfd, (volatile u32 *) 0xfffe81f4 );
-#endif
-#endif
-
-#if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) \
-	|| defined( CONFIG_MIPS_BCM3560B0 ) \
-	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
-	|| defined( CONFIG_MIPS_BCM7440 ) 
-
-  	{
-  		unsigned long hcBaseAddr = (unsigned long) dev->resource[0].start;
-
-printk("brcm_ehci_hw_init: Reset at %08x\n", KSEG1ADDR(hcBaseAddr + 0x10));
-
-	   /* This fix the lockup  during reboot */
-	   *((volatile u32 *) KSEG1ADDR(hcBaseAddr + 0x10)) = 2;
-  	}
-#endif
+	// Init common registers for board and HC specific issues
+	brcm_usb_init();
 }
 
 static void brcm_stop_ehci(struct platform_device *dev)
 {
 	printk(KERN_DEBUG __FILE__
 	       ": stopping brcm EHCI USB Controller\n");
-}
-
-
-
-/*-------------------------------------------------------------------------*/
-
-static int __devinit
-ehci_brcm_reset (struct usb_hcd *hcd)
-{
-	struct ehci_hcd		*ehci = hcd_to_ehci (hcd);
-	ehci->caps = (struct ehci_caps *) hcd->regs;
-	ehci->regs = (struct ehci_regs *) (hcd->regs + 
-				HC_LENGTH (readl (&ehci->caps->hc_capbase)));
-	dbg_hcs_params (ehci, "reset");
-	dbg_hcc_params (ehci, "reset");
-
-	/* cache this readonly data; minimize PCI reads */
-	ehci->hcs_params = readl (&ehci->caps->hcs_params);
-
-	/* force HC to halt state */
-	return ehci_halt (ehci);
-	
 }
 
 /*-------------------------------------------------------------------------*/
@@ -141,8 +94,6 @@ static int usb_hcd_brcm_probe (const struct hc_driver *driver,
 
 
 	brcm_ehci_hw_init(dev);
-	ehci_brcm_reset (hcd);
-	ehci_init(hcd);
 
 	retval = usb_add_hcd(hcd, dev->resource[1].start, SA_SHIRQ|SA_INTERRUPT);
 	if (retval == 0) {
@@ -184,17 +135,52 @@ static void usb_hcd_brcm_remove (struct usb_hcd *hcd, struct platform_device *de
 /*-------------------------------------------------------------------------*/
 
 static int __devinit
+ehci_brcm_reset (struct usb_hcd *hcd)
+{
+	struct ehci_hcd		*ehci = hcd_to_ehci (hcd);
+
+	ehci->caps = (struct ehci_caps *) hcd->regs;
+	ehci->regs = (struct ehci_regs *) (hcd->regs + 
+				HC_LENGTH (readl (&ehci->caps->hc_capbase)));
+	dbg_hcs_params (ehci, "reset");
+	dbg_hcc_params (ehci, "reset");
+
+	/* cache this readonly data; minimize PCI reads */
+	ehci->hcs_params = readl (&ehci->caps->hcs_params);
+
+#ifdef RESET_ON_START
+	/* This fixes the lockup during reboot due to prior interrupts */
+	writel (CMD_RESET, &ehci->regs->command);
+#endif
+
+	/* force HC to halt state */
+	return ehci_halt (ehci);
+	
+}
+
+
+/*-------------------------------------------------------------------------*/
+
+static int __devinit
 ehci_brcm_start (struct usb_hcd *hcd)
 {
 	int retval;
 
-	retval = ehci_brcm_reset(hcd);
-	if (0 == retval) {
-        	if ((retval = ehci_run (hcd)) < 0) {
-				printk ("can't start %s", hcd->self.bus_name);
-				return retval;
-        	}
+	/* device structure init */
+	if ((retval = ehci_init(hcd)) < 0)
+		return retval;
+
+	if ((retval = ehci_run (hcd)) < 0)
+	{
+		if(hcd)
+		{
+			printk ("can't start %s", hcd->self.bus_name);
+			ehci_stop (hcd);
+		}
+		else
+			printk("FATAL ERROR: \n");
 	}
+
 	return retval;
 }
 
@@ -217,8 +203,8 @@ static const struct hc_driver ehci_brcm_hc_driver = {
 	.reset =	    ehci_brcm_reset,
 	.start =		ehci_brcm_start,
 #ifdef	CONFIG_PM
-	 suspend:		ehci_suspend, 
-	 resume:		ehci_resume,   
+	 suspend:		ehci_bus_suspend, 
+	 resume:		ehci_bus_resume,   
 #endif /*CONFIG_PM*/
 	.stop =			ehci_stop,
 
@@ -240,8 +226,8 @@ static const struct hc_driver ehci_brcm_hc_driver = {
 	.hub_status_data =	ehci_hub_status_data,
 	.hub_control =		ehci_hub_control,
 #ifdef	CONFIG_PM
-	.hub_suspend = ehci_hub_suspend,
-	.hub_resume = ehci_hub_resume,
+	.bus_suspend = ehci_bus_suspend,
+	.bus_resume = ehci_bus_resume,
 #endif
 };
 
@@ -288,46 +274,32 @@ static int ehci_hcd_brcm_drv_resume(struct device *dev)
 
 
 static struct device_driver ehci_hcd_brcm_driver[] = {
-{ /* 0 */
+	{ /* 0 */
 		.name		= "brcm-ehci",
 		.bus		= &platform_bus_type,
-	.probe		= ehci_hcd_brcm_drv_probe,
-	.remove		= ehci_hcd_brcm_drv_remove,
-	/*.suspend	= ehci_hcd_brcm_drv_suspend, */
-	/*.resume	= ehci_hcd_brcm_drv_resume, */
+		.probe		= ehci_hcd_brcm_drv_probe,
+		.remove		= ehci_hcd_brcm_drv_remove,
+		/*.suspend	= ehci_hcd_brcm_drv_suspend, */
+		/*.resume	= ehci_hcd_brcm_drv_resume, */
 	}
-#ifdef CONFIG_MIPS_BCM7400
+#if (NUM_EHCI_HOSTS > 1)
 	,
-{ /* 1 */
+	{ /* 1 */
 		.name		= "brcm-ehci-1",
 		.bus		= &platform_bus_type,
-	.probe		= ehci_hcd_brcm_drv_probe,
-	.remove		= ehci_hcd_brcm_drv_remove,
-	/*.suspend	= ehci_hcd_brcm_drv_suspend, */
-	/*.resume	= ehci_hcd_brcm_drv_resume, */
+		.probe		= ehci_hcd_brcm_drv_probe,
+		.remove		= ehci_hcd_brcm_drv_remove,
+		/*.suspend	= ehci_hcd_brcm_drv_suspend, */
+		/*.resume	= ehci_hcd_brcm_drv_resume, */
 	}
 #endif
 };
 
-#define NUM_EHCI_PORT (sizeof(ehci_hcd_brcm_driver)/sizeof(struct device_driver))
-
 #define DRIVER_INFO DRIVER_VERSION " " DRIVER_DESC
-
-#ifndef EHC2_BASE_ADDR
-#define EHC2_BASE_ADDR EHC_BASE_ADDR
-#endif
-
-#ifndef EHC2_END_ADDR
-#define EHC2_END_ADDR EHC_END_ADDR
-#endif
-
-#ifndef EHC2_INT_VECTOR
-#define EHC2_INT_VECTOR EHC_INT_VECTOR
-#endif
 
 static int __init ehci_hcd_brcm_init_each (int ehci_id)
 {
-	int err = 0;
+	int err=0;
 	struct resource devRes[2];
 	struct platform_device* pdev;
 	
@@ -385,8 +357,8 @@ static int __init ehci_hcd_brcm_init (void)
 	int i;
 	int err = -1;
 
-	printk("ehci_hcd_brcm_init: Initializing %d EHCI devices\n", NUM_EHCI_PORT);
-	for (i=0; i < NUM_EHCI_PORT; i++) {
+	printk("ehci_hcd_brcm_init: Initializing %d EHCI controller(s)\n", NUM_EHCI_HOSTS);
+	for (i=0; i < NUM_EHCI_HOSTS; i++) {
 		err = ehci_hcd_brcm_init_each(i);
 		if (err) {
 			return err;
@@ -400,8 +372,8 @@ static void __exit ehci_hcd_brcm_cleanup (void)
 {
 	int i;
 
-	printk("ehci_hcd_brcm_cleanup: Taking down %d EHCI devices\n", NUM_EHCI_PORT);
-	for (i=0; i < NUM_EHCI_PORT; i++) {
+	printk("ehci_hcd_brcm_cleanup: Taking down %d EHCI controller(s)\n", NUM_EHCI_HOSTS);
+	for (i=0; i < NUM_EHCI_HOSTS; i++) {
 		ehci_hcd_brcm_cleanup_each(i);
 	}
 }

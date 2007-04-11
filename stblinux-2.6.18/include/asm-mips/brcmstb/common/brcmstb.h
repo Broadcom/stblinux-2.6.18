@@ -42,6 +42,21 @@
 #include <asm/brcmstb/brcm93560b0/board.h>
 #include <asm/brcmstb/brcm93560b0/bchp_irq0.h>
 #include <asm/brcmstb/brcm93560b0/bcmintrnum.h>
+#include <asm/brcmstb/brcm93560b0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm93560b0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm93560b0/bchp_usb_ohci.h>
+
+#elif defined(CONFIG_MIPS_BCM3563)
+#include <asm/brcmstb/brcm93563/bcmuart.h>
+#include <asm/brcmstb/brcm93563/bcmtimer.h>
+#include <asm/brcmstb/brcm93563/bcmebi.h>
+#include <asm/brcmstb/brcm93563/int1.h>
+#include <asm/brcmstb/brcm93563/board.h>
+#include <asm/brcmstb/brcm93563/bchp_irq0.h>
+#include <asm/brcmstb/brcm93563/bcmintrnum.h>
+#include <asm/brcmstb/brcm93563/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm93563/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm93563/bchp_usb_ohci.h>
 
 #elif defined(CONFIG_MIPS_BCM7038A0)
 #include <asm/brcmstb/brcm97038/bcmuart.h>
@@ -51,6 +66,9 @@
 #include <asm/brcmstb/brcm97038/board.h>
 #include <asm/brcmstb/brcm97038/bchp_irq0.h>
 #include <asm/brcmstb/brcm97038/bcmintrnum.h>
+#include <asm/brcmstb/brcm97038/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97038/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97038/bchp_usb_ohci.h>
 
 #elif defined(CONFIG_MIPS_BCM7038B0)
 #include <asm/brcmstb/brcm97038b0/bcmuart.h>
@@ -60,6 +78,9 @@
 #include <asm/brcmstb/brcm97038b0/board.h>
 #include <asm/brcmstb/brcm97038b0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97038b0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97038b0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97038b0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97038b0/bchp_usb_ohci.h>
 
 #elif defined(CONFIG_MIPS_BCM7038C0)
 #include <asm/brcmstb/brcm97038c0/bcmuart.h>
@@ -69,6 +90,10 @@
 #include <asm/brcmstb/brcm97038c0/board.h>
 #include <asm/brcmstb/brcm97038c0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97038c0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97038c0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97038c0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97038c0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97038c0/bchp_usb_ohci1.h>
 
 #elif defined(CONFIG_MIPS_BCM7118A0)
 #include <asm/brcmstb/brcm97118a0/bcmuart.h>
@@ -79,6 +104,10 @@
 #include <asm/brcmstb/brcm97118a0/board.h>
 #include <asm/brcmstb/brcm97118a0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97118a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97118a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97118a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97118a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97118a0/bchp_usb_ohci1.h>
 
 #elif defined(CONFIG_MIPS_BCM7400A0)
 #include <asm/brcmstb/brcm97400a0/bcmuart.h>
@@ -90,6 +119,26 @@
 #include <asm/brcmstb/brcm97400a0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97400a0/bcmintrnum.h>
 #include <asm/brcmstb/brcm97400a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97400a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97400a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97400a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97400a0/bchp_usb_ohci1.h>
+
+#elif defined(CONFIG_MIPS_BCM7400B0)
+#include <asm/brcmstb/brcm97400b0/bcmuart.h>
+#include <asm/brcmstb/brcm97400b0/bcmtimer.h>
+#include <asm/brcmstb/brcm97400b0/bcmebi.h>
+#include <asm/brcmstb/brcm97400b0/int1.h>
+#include <asm/brcmstb/brcm97400b0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97400b0/board.h>
+#include <asm/brcmstb/brcm97400b0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97400b0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97400b0/bchp_nand.h>
+#include <asm/brcmstb/brcm97400b0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97400b0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97400b0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97400b0/bchp_usb_ohci1.h>
+#include <asm/brcmstb/brcm97400b0/bchp_pcix_bridge.h>
 
 #elif defined(CONFIG_MIPS_BCM7440A0)
 #include <asm/brcmstb/brcm97440a0/bcmuart.h>
@@ -101,6 +150,9 @@
 #include <asm/brcmstb/brcm97440a0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97440a0/bcmintrnum.h>
 #include <asm/brcmstb/brcm97440a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97440a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97440a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97440a0/bchp_usb_ohci.h>
 
 /* FIXME when we have a 7402S with a real 7402 chip */
 #elif defined(CONFIG_MIPS_BCM7401A0) || defined( CONFIG_MIPS_BCM7402S)
@@ -112,6 +164,10 @@
 #include <asm/brcmstb/brcm97401a0/board.h>
 #include <asm/brcmstb/brcm97401a0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97401a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97401a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97401a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97401a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97401a0/bchp_usb_ohci1.h>
 
 #elif defined(CONFIG_MIPS_BCM7401B0) || defined(CONFIG_MIPS_BCM7402A0)
 #include <asm/brcmstb/brcm97401b0/bcmuart.h>
@@ -122,6 +178,11 @@
 #include <asm/brcmstb/brcm97401b0/board.h>
 #include <asm/brcmstb/brcm97401b0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97401b0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97401b0/bchp_nand.h>
+#include <asm/brcmstb/brcm97401b0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97401b0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97401b0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97401b0/bchp_usb_ohci1.h>
 
 #elif defined(CONFIG_MIPS_BCM7401C0) || defined(CONFIG_MIPS_BCM7402C0)
 #include <asm/brcmstb/brcm97401c0/bcmuart.h>
@@ -132,6 +193,25 @@
 #include <asm/brcmstb/brcm97401c0/board.h>
 #include <asm/brcmstb/brcm97401c0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97401c0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97401c0/bchp_nand.h>
+#include <asm/brcmstb/brcm97401c0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97401c0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97401c0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97401c0/bchp_usb_ohci1.h>
+
+#elif defined(CONFIG_MIPS_BCM7403A0)
+#include <asm/brcmstb/brcm97403a0/bcmuart.h>
+#include <asm/brcmstb/brcm97403a0/bcmtimer.h>
+#include <asm/brcmstb/brcm97403a0/bcmebi.h>
+#include <asm/brcmstb/brcm97403a0/int1.h>
+#include <asm/brcmstb/brcm97403a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97403a0/board.h>
+#include <asm/brcmstb/brcm97403a0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97403a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97403a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97403a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97403a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97403a0/bchp_usb_ohci1.h>
 
 #elif defined(CONFIG_MIPS_BCM7110)
 #include <asm/brcmstb/brcm97110/bcm97110.h>
@@ -199,6 +279,8 @@ extern void uart_puts(const char*);
 
 typedef int (*walk_cb_t)(unsigned long paddr, unsigned long size, long type, void* cbdata);
 extern int brcm_walk_boot_mem_map(void* cbdata, walk_cb_t walk_cb);
+extern unsigned long get_RAM_size(void);
+extern unsigned long get_RSVD_size(void);
 #endif
 
 

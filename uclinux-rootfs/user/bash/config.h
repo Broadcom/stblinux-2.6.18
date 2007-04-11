@@ -257,7 +257,7 @@
 /* #undef STACK_DIRECTION */
 
 /* Define if the machine architecture is big-endian. */
-/* #undef WORDS_BIGENDIAN */
+#define WORDS_BIGENDIAN 1
 
 /* Define if you have the ANSI C header files.  */
 #define STDC_HEADERS 1

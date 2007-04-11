@@ -1555,6 +1555,17 @@ int weight_p = 64;            /* old backlog weight */
 DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) = { 0, };
 
 
+#ifdef  CONFIG_NETIF_DMA
+static int (*netif_rx_hook)(struct sk_buff *skb) = NULL;
+
+int netif_rx_sethook(int (*hook)(struct sk_buff *skb))
+{
+   netif_rx_hook = hook;
+   return 0;
+}
+
+EXPORT_SYMBOL(netif_rx_sethook);
+#endif
 /**
  *	netif_rx	-	post buffer to the network code
  *	@skb: buffer to post
@@ -1578,7 +1589,6 @@ int netif_rx(struct sk_buff *skb)
 	struct softnet_data *queue;
 	unsigned long flags;
 
-// TDT - not sure if this is needed?
 #ifdef  CONFIG_NETIF_DMA
     if (netif_rx_hook) {
         if (netif_rx_hook(skb)) {

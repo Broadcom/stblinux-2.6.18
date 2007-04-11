@@ -114,7 +114,7 @@ void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp)
 	status |= KU_USER;
 	regs->cp0_status = status;
 	clear_used_math();
-	clear_fpu_owner();
+	lose_fpu();
 	if (cpu_has_dsp)
 		__init_dsp();
 	regs->cp0_epc = pc;
@@ -281,63 +281,62 @@ static struct mips_frame_info {
 } *schedule_frame, mfinfo[64];
 static int mfinfo_num;
 
-static inline int is_ra_save_ins(union mips_instruction *ip)
+static int __init get_frame_info(struct mips_frame_info *info)
 {
-	/* sw / sd $ra, offset($sp) */
-	return (ip->i_format.opcode == sw_op || ip->i_format.opcode == sd_op) &&
-		ip->i_format.rs == 29 &&
-		ip->i_format.rt == 31;
-}
-
-static inline int is_jal_jalr_jr_ins(union mips_instruction *ip)
-{
-	if (ip->j_format.opcode == jal_op)
-		return 1;
-	if (ip->r_format.opcode != spec_op)
-		return 0;
-	return ip->r_format.func == jalr_op || ip->r_format.func == jr_op;
-}
-
-static inline int is_sp_move_ins(union mips_instruction *ip)
-{
-	/* addiu/daddiu sp,sp,-imm */
-	if (ip->i_format.rs != 29 || ip->i_format.rt != 29)
-		return 0;
-	if (ip->i_format.opcode == addiu_op || ip->i_format.opcode == daddiu_op)
-		return 1;
-	return 0;
-}
-
-static int get_frame_info(struct mips_frame_info *info)
-{
-	union mips_instruction *ip = info->func;
-	int i, max_insns =
-		min(128UL, info->func_size / sizeof(union mips_instruction));
-
+	int i;
+	void *func = info->func;
+	union mips_instruction *ip = (union mips_instruction *)func;
 	info->pc_offset = -1;
 	info->frame_size = 0;
-
-	for (i = 0; i < max_insns; i++, ip++) {
-
-		if (is_jal_jalr_jr_ins(ip))
+	for (i = 0; i < 128; i++, ip++) {
+		/* if jal, jalr, jr, stop. */
+		if (ip->j_format.opcode == jal_op ||
+		    (ip->r_format.opcode == spec_op &&
+		     (ip->r_format.func == jalr_op ||
+		      ip->r_format.func == jr_op)))
 			break;
-		if (!info->frame_size) {
-			if (is_sp_move_ins(ip))
-				info->frame_size = - ip->i_format.simmediate;
-			continue;
+
+		if (info->func_size && i >= info->func_size / 4)
+			break;
+		if (
+#ifdef CONFIG_32BIT
+		    ip->i_format.opcode == addiu_op &&
+#endif
+#ifdef CONFIG_64BIT
+		    ip->i_format.opcode == daddiu_op &&
+#endif
+		    ip->i_format.rs == 29 &&
+		    ip->i_format.rt == 29) {
+			/* addiu/daddiu sp,sp,-imm */
+			if (info->frame_size)
+				continue;
+			info->frame_size = - ip->i_format.simmediate;
 		}
-		if (info->pc_offset == -1 && is_ra_save_ins(ip)) {
+
+		if (
+#ifdef CONFIG_32BIT
+		    ip->i_format.opcode == sw_op &&
+#endif
+#ifdef CONFIG_64BIT
+		    ip->i_format.opcode == sd_op &&
+#endif
+		    ip->i_format.rs == 29 &&
+		    ip->i_format.rt == 31) {
+			/* sw / sd $ra, offset($sp) */
+			if (info->pc_offset != -1)
+				continue;
 			info->pc_offset =
 				ip->i_format.simmediate / sizeof(long);
-			break;
 		}
 	}
-	if (info->frame_size && info->pc_offset >= 0) /* nested */
-		return 0;
-	if (info->pc_offset < 0) /* leaf */
-		return 1;
-	/* prologue seems boggus... */
-	return -1;
+	if (info->pc_offset == -1 || info->frame_size == 0) {
+		if (func == schedule)
+			printk("Can't analyze prologue code at %p\n", func);
+		info->pc_offset = -1;
+		info->frame_size = 0;
+	}
+
+	return 0;
 }
 
 static int __init frame_info_init(void)
@@ -369,14 +368,7 @@ static int __init frame_info_init(void)
 	schedule_frame = &mfinfo[0];
 #endif
 	for (i = 0; i < ARRAY_SIZE(mfinfo) && mfinfo[i].func; i++)
-		get_frame_info(mfinfo + i);
-
-	/*
-	 * Without schedule() frame info, result given by
-	 * thread_saved_pc() and get_wchan() are not reliable.
-	 */
-	if (schedule_frame->pc_offset < 0)
-		printk("Can't analyze schedule() prologue at %p\n", schedule);
+		get_frame_info(&mfinfo[i]);
 
 	mfinfo_num = i;
 	return 0;
@@ -435,8 +427,6 @@ unsigned long get_wchan(struct task_struct *p)
 		if (i < 0)
 			break;
 
-		if (mfinfo[i].pc_offset < 0)
-			break;
 		pc = ((unsigned long *)frame)[mfinfo[i].pc_offset];
 		if (!mfinfo[i].frame_size)
 			break;
@@ -447,49 +437,3 @@ unsigned long get_wchan(struct task_struct *p)
 	return pc;
 }
 
-#ifdef CONFIG_KALLSYMS
-/* used by show_backtrace() */
-unsigned long unwind_stack(struct task_struct *task, unsigned long *sp,
-			   unsigned long pc, unsigned long ra)
-{
-	unsigned long stack_page;
-	struct mips_frame_info info;
-	char *modname;
-	char namebuf[KSYM_NAME_LEN + 1];
-	unsigned long size, ofs;
-	int leaf;
-
-	stack_page = (unsigned long)task_stack_page(task);
-	if (!stack_page)
-		return 0;
-
-	if (!kallsyms_lookup(pc, &size, &ofs, &modname, namebuf))
-		return 0;
-	if (ofs == 0)
-		return 0;
-
-	info.func = (void *)(pc - ofs);
-	info.func_size = ofs;	/* analyze from start to ofs */
-	leaf = get_frame_info(&info);
-	if (leaf < 0)
-		return 0;
-
-	if (*sp < stack_page ||
-	    *sp + info.frame_size > stack_page + THREAD_SIZE - 32)
-		return 0;
-
-	if (leaf)
-		/*
-		 * For some extreme cases, get_frame_info() can
-		 * consider wrongly a nested function as a leaf
-		 * one. In that cases avoid to return always the
-		 * same value.
-		 */
-		pc = pc != ra ? ra : 0;
-	else
-		pc = ((unsigned long *)(*sp))[info.pc_offset];
-
-	*sp += info.frame_size;
-	return __kernel_text_address(pc) ? pc : 0;
-}
-#endif

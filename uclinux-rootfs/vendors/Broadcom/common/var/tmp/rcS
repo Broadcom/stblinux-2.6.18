@@ -3,13 +3,14 @@
 # Set the path
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:.
 
-# Mount RW tmpfs
-echo "Restore RW directories"
-/bin/bash /etc/mountvar.sh
 
 # Mount /proc
 echo "Mount /proc fs"
 mount -t proc none /proc
+
+# Mount RW tmpfs, rely on /proc being mounted
+echo "Restore RW directories"
+/bin/bash /etc/mountvar.sh
 
 # Mount /dev/pts
 echo "Mount /dev/pts"

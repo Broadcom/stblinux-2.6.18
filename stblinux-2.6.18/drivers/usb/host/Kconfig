@@ -144,6 +144,7 @@ config USB_UHCI_HCD
 config USB_SL811_HCD
 	tristate "SL811HS HCD support"
 	depends on USB
+	default N
 	help
 	  The SL811HS is a single-port USB controller that supports either
 	  host side or peripheral side roles.  Enable this option if your
@@ -154,18 +155,32 @@ config USB_SL811_HCD
 	  module will be called sl811-hcd.
 
 config USB_BRCM
-	tristate "Broadcom non-PCI USB support"
+	boolean "Broadcom non-PCI USB support"
 	depends on MIPS_BRCM97XXX
 	help
 	  Say yes here for all Broadcom STB with USB host controller.
 
-config USB_BRCM_EXT_XTAL
-	tristate "Broadcom USB 2.0 external XTAl support"
-	depends on USB_EHCI_HCD
+config USB_BRCM_PWR_CTL
+	boolean "Enable USB power control"
+	depends on USB_BRCM
+	default N
+	help
+	  Say yes here if the kernel should override bootloader's power
+	  control settings.
+
+config USB_BRCM_PWR_LO
+	boolean "Active low USB power enable"
+	depends on USB_BRCM && USB_BRCM_PWR_CTL
+	default N
+	help
+	  Say yes if the board's USB VBUS control IC has an active low 
+	  enable. The output of the hardware signals USBx_PWRON is affected
+	  by this setting.
 
 config USB_SL811_CS
 	tristate "CF/PCMCIA support for SL811HS HCD"
 	depends on USB_SL811_HCD && PCMCIA
+	default N
 	help
 	  Wraps a PCMCIA driver around the SL811HS HCD, supporting the RATOC
 	  REX-CFU1U CF card (often used with PDAs).  If unsure, say N.

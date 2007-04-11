@@ -24,9 +24,8 @@
  * Modified for brcm from ohci-lh7a404.c by ttruong@broadcom.com
  *
  */
-#include <linux/platform_device.h>
-#include <linux/signal.h>
 
+#include <linux/platform_device.h>
 #include "brcmusb.h"
 
 extern int usb_disabled(void);
@@ -38,49 +37,29 @@ static void brcm_start_hc(struct platform_device *dev)
 	printk(/*KERN_DEBUG*/ __FILE__
 	       ": starting brcm OHCI USB Controller\n");
 
-	// Init BRCM USB setup registers for board and HC specific issues
-	writel( BRCM_USB_SETUP_REG_VAL, BrcmUsbSetupReg );
-#ifdef CONFIG_MIPS_BCM7320
-   	writel( BRCM_USB_SETUP_REG_VAL, BrcmUsb2SetupReg );
+#ifndef CONFIG_USB_EHCI_HCD
+	// Init common registers for board and HC specific issues
+	brcm_usb_init();
 #endif
 
-#ifdef CONFIG_MIPS_BCM7110
-    {   //set 2nd external port to be USB device as per board
-        u8 *tm_usb_sel = (u8 *) (TM_TOP_ADR_BASE + 2);
-
-		//GPIO5 (reset time) detection of device/host selection
-		if( *((volatile u8 *) 0xfffe0053) & 0x20 )
-			writeb( (readb( tm_usb_sel ) | 0x01), tm_usb_sel );    //Host port 2
-		else
-			writeb( (readb( tm_usb_sel ) & ~0x01), tm_usb_sel );   //Device
-    }
-#endif
-
-#if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) \
-	|| defined( CONFIG_MIPS_BCM3560B0 ) \
-	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
-	|| defined( CONFIG_MIPS_BCM7118A0 ) || defined( CONFIG_MIPS_BCM7440 )
-  
+#ifdef RESET_ON_START
   	{
-  		unsigned long hcBaseAddr = (unsigned long) dev->resource[0].start;
+  		unsigned int hcBaseAddr = (unsigned int) dev->resource[0].start;
 
-printk("brcm_start_hc: Resetting at %08x\n", KSEG1ADDR(hcBaseAddr + 0x08));
+		printk(" - Resetting at %08x\n", KSEG1ADDR(hcBaseAddr + 0x08));
 
 	   /* This fix the lockup  during reboot */
 	   *((volatile u32 *) KSEG1ADDR(hcBaseAddr + 0x08)) = 1;	
   	}
+	printk("<-- %s\n", __FUNCTION__);
 #endif
-//printk("<-- brcm_start_hc\n");
 }
-
-
 
 static void brcm_stop_hc(struct platform_device *dev)
 {
 	printk(KERN_DEBUG __FILE__
 	       ": stopping brcm OHCI USB Controller\n");
 }
-
 
 /*-------------------------------------------------------------------------*/
 
@@ -281,12 +260,9 @@ static struct device_driver ohci_hcd_brcm_driver[] = {
 		/*.suspend	= ohci_hcd_brcm_drv_suspend, */
 		/*.resume	= ohci_hcd_brcm_drv_resume, */
 	}
-	/* 3560B0, 7440 only has 1 OHCI port */
+	/* 3560B0 only has 1 OHCI port */
 	
-#if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7320 ) \
-	|| defined( CONFIG_MIPS_BCM7400 ) \
-	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
-	|| defined( CONFIG_MIPS_BCM7118A0 ) 
+#if (NUM_OHCI_HOSTS > 1)
 	,
 	{ /* 1 */
 		.name		= "brcm-ohci-1",
@@ -296,16 +272,8 @@ static struct device_driver ohci_hcd_brcm_driver[] = {
 		/*.suspend	= ohci_hcd_brcm_drv_suspend, */
 		/*.resume	= ohci_hcd_brcm_drv_resume, */
 	}
-#else
-#define HC2_BASE_ADDR HC_BASE_ADDR
-#define HC2_END_ADDR HC_END_ADDR
-#define HC2_INT_VECTOR HC_INT_VECTOR
 #endif
 };
-
-#define NUM_OHCI_PORT	(sizeof(ohci_hcd_brcm_driver)/sizeof(struct device_driver))
-
-//static unsigned int BRCM_OHCI_ID=0;
 
 static int __init brcm_ohci_hcd_init (int ohci_id)
 {
@@ -327,7 +295,7 @@ static int __init brcm_ohci_hcd_init (int ohci_id)
 
 	// Before we register the driver, add a simple device matching our driver
 	pdev = platform_device_register_simple(
-		ohci_id ? "brcm-ohci-1" : "brcm-ohci-0",
+		(char *) ohci_hcd_brcm_driver[ohci_id].name,
 		ohci_id, /* ID */
 		devRes,
 		2);
@@ -364,7 +332,8 @@ static int __init ohci_hcd_brcm_init (void)
 	int i;
 	int err = -1;
 
-	for (i=0; i < NUM_OHCI_PORT; i++) {
+	printk("ohci_hcd_brcm_init: Initializing %d OHCI controller(s)\n", NUM_OHCI_HOSTS);
+	for (i=0; i < NUM_OHCI_HOSTS; i++) {
 		err = brcm_ohci_hcd_init(i);
 		if (err) {
 			return err;
@@ -378,7 +347,8 @@ static void __exit ohci_hcd_brcm_cleanup (void)
 {
 	int i;
 
-	for (i=0; i<NUM_OHCI_PORT; i++) {
+	printk("ohci_hcd_brcm_cleanup: Taking down %d OHCI controller(s)\n", NUM_OHCI_HOSTS);
+	for (i=0; i<NUM_OHCI_HOSTS; i++) {
 		driver_unregister(&ohci_hcd_brcm_driver[i]);
 	}
 }

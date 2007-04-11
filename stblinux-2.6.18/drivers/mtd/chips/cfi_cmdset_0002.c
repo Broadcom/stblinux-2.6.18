@@ -231,10 +231,17 @@ static struct cfi_fixup cfi_fixup_table[] = {
 	{ CFI_MFR_AMD, 0x005F, fixup_use_secsi, NULL, },
 #if !FORCE_WORD_WRITE
 	{ CFI_MFR_ANY, CFI_ID_ANY, fixup_use_write_buffers, NULL, },
-	/* THT: PR22727: Disable write buffers for S29GLxxxN.
-	 * Placing this after the previous entry will overwrite it.
+#if ! defined(CONFIG_MIPS_BCM7400B0)
+	/*
+         * THT: PR22727: Disable write buffers for S29GLxxxN.
+	 * Placing this after the previous entry will override it.
+         * This affects 7400a0, 7118a0, possibly others - but not 7400b0.
+         *
+         * NOTE: In x16 mode the id will be read as 0x227e.
 	 */
 	{ MANUFACTURER_AMD, 0x007e, fixup_S29GLxxxN_use_write_words, NULL, },
+	{ MANUFACTURER_AMD, 0x227e, fixup_S29GLxxxN_use_write_words, NULL, },
+#endif
 #endif
 	{ 0, 0, NULL, NULL }
 };

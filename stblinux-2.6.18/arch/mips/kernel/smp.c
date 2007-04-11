@@ -467,18 +467,14 @@ static DEFINE_PER_CPU(struct cpu, cpu_devices);
 
 static int __init topology_init(void)
 {
-	int i, ret;
+	int cpu;
+	int ret;
 
-#ifdef CONFIG_NUMA
-	for_each_online_node(i)
-		register_one_node(i);
-#endif /* CONFIG_NUMA */
-
-	for_each_present_cpu(i) {
-		ret = register_cpu(&per_cpu(cpu_devices, i), i);
+	for_each_present_cpu(cpu) {
+		ret = register_cpu(&per_cpu(cpu_devices, cpu), cpu);
 		if (ret)
 			printk(KERN_WARNING "topology_init: register_cpu %d "
-			       "failed (%d)\n", i, ret);
+			       "failed (%d)\n", cpu, ret);
 	}
 
 	return 0;

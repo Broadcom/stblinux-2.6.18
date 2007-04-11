@@ -175,9 +175,7 @@ asmlinkage int sys32_ptrace(int request, int pid, int addr, int data)
 			unsigned int mtflags;
 #endif /* CONFIG_MIPS_MT_SMTC */
 
-			preempt_disable();
 			if (!cpu_has_fpu) {
-				preempt_enable();
 				tmp = 0;
 				break;
 			}
@@ -188,6 +186,7 @@ asmlinkage int sys32_ptrace(int request, int pid, int addr, int data)
 			mtflags = dmt();
 #endif /* CONFIG_MIPS_MT_SMTC */
 
+			preempt_disable();
 			if (cpu_has_mipsmt) {
 				unsigned int vpflags = dvpe();
 				flags = read_c0_status();

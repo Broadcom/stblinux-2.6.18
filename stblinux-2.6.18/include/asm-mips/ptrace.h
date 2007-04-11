@@ -10,6 +10,8 @@
 #define _ASM_PTRACE_H
 
 
+#include <asm/isadep.h>
+
 /* 0 - 31 are integer registers, 32 - 63 are fp registers.  */
 #define FPR_BASE	32
 #define PC		64
@@ -71,7 +73,6 @@ struct pt_regs {
 #ifdef __KERNEL__
 
 #include <linux/linkage.h>
-#include <asm/isadep.h>
 
 /*
  * Does the process account for user or for system time?

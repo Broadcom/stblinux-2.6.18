@@ -815,6 +815,9 @@ void do_signal32(struct pt_regs *regs)
 	if (!user_mode(regs))
 		return;
 
+	if (try_to_freeze())
+		goto no_signal;
+
 	if (test_thread_flag(TIF_RESTORE_SIGMASK))
 		oldset = &current->saved_sigmask;
 	else
@@ -833,10 +836,9 @@ void do_signal32(struct pt_regs *regs)
 			if (test_thread_flag(TIF_RESTORE_SIGMASK))
 				clear_thread_flag(TIF_RESTORE_SIGMASK);
 		}
-
-		return;
 	}
 
+no_signal:
 	/*
 	 * Who's code doesn't conform to the restartable syscall convention
 	 * dies here!!!  The li instruction, a single machine instruction,
@@ -854,7 +856,6 @@ void do_signal32(struct pt_regs *regs)
 			regs->regs[7] = regs->regs[26];
 			regs->cp0_epc -= 4;
 		}
-		regs->regs[0] = 0;	/* Don't deal with this again.  */
 	}
 
 	/*

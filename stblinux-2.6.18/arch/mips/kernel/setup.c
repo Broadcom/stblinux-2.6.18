@@ -367,13 +367,11 @@ static void brcm_print_memory_map(void)
 /*
  * By default, set the kernel to use 32MB if the user does not specify mem=nnM on the command line
  */
-static inline void brcm_default_boot_mem(void);
-extern int get_RAM_size(void);
-
 static inline void brcm_default_boot_mem()
 {
 	int ramSizeMB = get_RAM_size() >> 20;
 	int size;
+	char msg[40];
 	
 	if (ramSizeMB <= 32) {
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -381,7 +379,6 @@ static inline void brcm_default_boot_mem()
 		size = ramSizeMB;
 
 #else
-		uart_puts("Using default 16MB, overwrite by passing mem=xx\n");
 		size = 20;
 
 #endif
@@ -390,9 +387,15 @@ static inline void brcm_default_boot_mem()
 		/* 
 		  * Kernels on STBs with larger than 32MB, we only use 32MB RAM for the kernel
 		  */
-		uart_puts("Using 32MB for memory, overwrite by passing mem=xx\n");
+
+#ifdef CONFIG_MTD_BRCMNAND
+		size = 48; // FOr BBT tables
+#else
 		size = 32;
+#endif
 	}
+	sprintf(msg, "Using %dMB for memory, overwrite by passing mem=xx\n", size);
+	uart_puts(msg);
 	brcm_insert_ram_node(0, size<<20, BOOT_MEM_RAM);
 }
 
@@ -448,6 +451,19 @@ static void inline brcm_reserve_bootmem_node(unsigned long firstUsableAddr)
 	}
 }
 
+unsigned long
+get_RSVD_size(void)
+{
+	int node;
+	unsigned long res = 0;
+
+	for (node = brcm_mmap.head; node != NILL; node = brcm_mmap.map[node].next) {
+		if(brcm_mmap.map[node].type == BOOT_MEM_RESERVED)
+			res += brcm_mmap.map[node].size;
+	}
+	return(res);
+}
+EXPORT_SYMBOL(get_RSVD_size);
 
 #else
 #define brcm_init_memory_map
@@ -596,6 +612,10 @@ static inline int parse_rd_cmdline(unsigned long* rd_start, unsigned long* rd_en
 	}
 	return 0;
 }
+
+#define PFN_UP(x)	(((x) + PAGE_SIZE - 1) >> PAGE_SHIFT)
+#define PFN_DOWN(x)	((x) >> PAGE_SHIFT)
+#define PFN_PHYS(x)	((x) << PAGE_SHIFT)
 
 #define MAXMEM		HIGHMEM_START
 #define MAXMEM_PFN	PFN_DOWN(MAXMEM)
@@ -900,6 +920,10 @@ static inline void resource_init(void)
 		request_resource(res, &data_resource);
 	}
 }
+
+#undef PFN_UP
+#undef PFN_DOWN
+#undef PFN_PHYS
 
 #undef MAXMEM
 #undef MAXMEM_PFN

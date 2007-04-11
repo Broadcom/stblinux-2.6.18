@@ -56,12 +56,12 @@ static void display_version (void);
 static struct jffs2_raw_ebh ebh;
 int target_endian = __BYTE_ORDER;
 
-
+#if 0
 void print_oobbuf(const unsigned char* buf, int len)
 {
 int i;
 
-
+printf("***** THT print_oobbuf(user)\n");
  for (i=0; i<len; i++) {
   if (i % 16 == 0) printf("\n");
   else if (i % 4 == 0) printf(" ");
@@ -69,6 +69,7 @@ int i;
  }
  printf("\n");
 }
+#endif
 
 int main (int argc, char *argv[])
 {
@@ -96,6 +97,7 @@ int main (int argc, char *argv[])
 	isNAND = meminfo.type == MTD_NANDFLASH ? 1 : 0;
 
 	if (jffs2) {
+static count=0;
 		ebh.magic = cpu_to_je16 (JFFS2_MAGIC_BITMASK);
 		ebh.nodetype = cpu_to_je16 (JFFS2_NODETYPE_ERASEBLOCK_HEADER);
 		ebh.totlen = cpu_to_je32(sizeof(struct jffs2_raw_ebh));
@@ -107,6 +109,11 @@ int main (int argc, char *argv[])
 		ebh.erase_count = cpu_to_je32(0);
 		ebh.node_crc = cpu_to_je32(crc32(0, (unsigned char *)&ebh + sizeof(struct jffs2_unknown_node) + 4,
 					 sizeof(struct jffs2_raw_ebh) - sizeof(struct jffs2_unknown_node) - 4));
+
+if (0) {
+printf("USR: EBH(len=%d)=\n", sizeof(ebh));
+print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
+}
 
 		if (isNAND) {
 			struct nand_oobinfo oobinfo;
@@ -130,12 +137,12 @@ int main (int argc, char *argv[])
 				ebhpos = oobinfo.oobfree[0][0];
 				ebhlen = oobinfo.oobfree[0][1];
 #else
-				ebhpos = oobinfo.oobfree[0][0];
+				ebhpos = 0;  //oobinfo.oobfree[0][0];
 				ebhlen = 0;
 				for (i = 0; oobinfo.oobfree[i][1] && i < 8; i++) {
 					int from = oobinfo.oobfree[i][0];
 					int num = oobinfo.oobfree[i][1];
-		
+
 					ebhlen += num;
 				}
 #endif
@@ -165,10 +172,13 @@ int main (int argc, char *argv[])
 		}
 	}
 
+//printf("*****  THT: About to erase, meminfo.erasesize=%d\n", meminfo.erasesize);
+
 	for (erase.start = 0; erase.start < meminfo.size; erase.start += meminfo.erasesize) {
 		if (bbtest) {
 			loff_t offset = erase.start;
 			int ret = ioctl(fd, MEMGETBADBLOCK, &offset);
+//printf("***** THT: ioctl(fd, MEMGETBADBLOCK, offset=%08x) returns %d, sizeof(offset)=%d\n", erase.start, ret, sizeof(offset));
 			if (ret > 0) {
 				if (!quiet)
 					printf ("\nSkipping bad block at 0x%08x\n", erase.start);
@@ -212,14 +222,13 @@ int main (int argc, char *argv[])
 
 			while (written < sizeof(struct jffs2_raw_ebh)) {
 #if 0
+static int once;
+#endif
 				oob.ptr = (unsigned char *) &ebh + written;
 				oob.start = erase.start + meminfo.oobblock*i + ebhpos;
 				oob.length = (sizeof(struct jffs2_raw_ebh) - written) < ebhlen ? (sizeof(struct jffs2_raw_ebh) - written) : ebhlen;
-#else
-static int once;
-				oob.ptr = (unsigned char *) &ebh;
-				oob.start = 0;
-				oob.length = sizeof(struct jffs2_raw_ebh);
+
+#if 0
 if (!once) {
 once=1;
 print_oobbuf(oob.ptr, oob.length);
@@ -239,6 +248,7 @@ fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%d, len=%d\n",
 				}
 				i++;
 				written += oob.length;
+
 			}
 			if (written < sizeof(struct jffs2_raw_ebh)) {
 				continue;

@@ -86,6 +86,7 @@ DEVICES = \
 	tty0,c,4,0		tty1,c,4,1		tty2,c,4,2 \
 	tty3,c,4,3		tty4,c,4,4		tty5,c,4,5 \
 	ttyS0,c,4,64		ttyS1,c,4,65 \
+	ttyS64,c,4,128 \
 	\
 	sda,b,8,0		sda1,b,8,1		sda2,b,8,2 \
 	sda3,b,8,3		sda4,b,8,4		sda5,b,8,5 \
@@ -156,7 +157,8 @@ initrd: kinit
 	chmod +x $(ROMFSDIR)/usr/sbin/usb*
 	#Enabling 2nd serial port
 	chmod u+w $(ROMFSDIR)/etc/inittab
-	sed 's,#@@@@@ttyS1,ttyS1,g' etc/inittab >$(ROMFSDIR)/etc/inittab
+	sed 's,#@@@@@ttyS1::respawn:/bin/getty -L ttyS1,ttyS64::respawn:/bin/getty -L ttyS64,g' \
+		etc/inittab >$(ROMFSDIR)/etc/inittab.ttyS64
 	cp -af var/tmp/* $(ROMFSDIR)/var/tmp
 	#[ -d $(UMDRVDIR) ] || mkdir -p $(UMDRVDIR)
 	#cp -f $(UMDRV) $(UMDRVDIR)

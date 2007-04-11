@@ -21,6 +21,11 @@ Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
 
 #include "config.h"
 
+#define _GNU_SOURCE
+#include <sys/types.h>
+#include <fcntl.h>
+#include <stdlib.h>
+
 #include <stdio.h>
 #include "bashtypes.h"
 #ifndef _MINIX
@@ -635,11 +640,11 @@ make_redirection (source, instruction, dest_and_filename)
     case r_output_direction:		/* >foo */
     case r_output_force:		/* >| foo */
     case r_err_and_out:			/* command &>filename */
-      temp->flags = O_TRUNC | O_WRONLY | O_CREAT;
+      temp->flags = O_TRUNC | O_WRONLY | O_CREAT | O_LARGEFILE;
       break;
 
     case r_appending_to:		/* >>foo */
-      temp->flags = O_APPEND | O_WRONLY | O_CREAT;
+      temp->flags = O_APPEND | O_WRONLY | O_CREAT | O_LARGEFILE;
       break;
 
     case r_input_direction:		/* <foo */
@@ -648,7 +653,7 @@ make_redirection (source, instruction, dest_and_filename)
       break;
 
     case r_input_output:		/* <>foo */
-      temp->flags = O_RDWR | O_CREAT;
+      temp->flags = O_RDWR | O_CREAT | O_LARGEFILE;
       break;
 
     case r_deblank_reading_until: 	/* <<-foo */

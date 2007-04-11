@@ -45,8 +45,20 @@
 #  define SWLO	swl		/* low part is left in little-endian	*/
 #endif
 
+#define CPUTYPE_4380		0x2a040
+
+	.data
+	.align  2
+	.type   cputype, @object
+	.size   cputype, 4
+cputype:
+	.word	0
+
+	.text
+
 ENTRY (memcpy)
 	.set	noreorder
+	.cpload	$25
 
 	slti	t0, a2, 8		# Less than 8?
 	bne	t0, zero, L(last8)
@@ -69,16 +81,22 @@ L(chk8w):
 	beq	t0, a2, L(chk1w)
 	subu	a3, a2, t0		# Yes
 
-	#addu	a3, a1			# a3 = end address of loop
 	addu	a3, a0			# a3 = end address of loop
 	subu    a3, a3, 0x10
-	.align 4
+	#.align 4
 	move	a2, t0			# a2 = what will be left after loop
+
+	lw	t3, %got(cputype)(gp)	# decide which pref value to use
+	lw	t0, %lo(cputype)(t3)
+	beqz	t0, L(detect_cpu)	# based on cpu type
+L(detect_done):
+	li	t1, 4380
+	.align 4
+	beq	t0, t1, L(lop4380)
 
     	lw	t0,  0(a1)		# Loop taking 8 words at a time
 	sw	t0,  0(a0)
 L(lop8w):	
-
 	lw	t1,  0x10(a1)
     	pref    31,  0x10(a0)
 	lw	t2,  0x4(a1)
@@ -91,7 +109,31 @@ L(lop8w):
 	add     a0, a0, 0x10
 	bne	a0, a3, L(lop8w)
         add     a1, a1, 0x10
+	b	L(done8w)
         lw      t2,  0x4(a1)
+
+	.align	4
+	nop
+	nop
+L(lop4380):
+	sw	t0,  0(a0)
+L(lop8w4380):	
+	lw	t1,  0x10(a1)
+    	//pref    30,  0x10(a0)		# 4380 prefetching is TBD
+	lw	t2,  0x4(a1)
+	lw	t3,  0x8(a1)
+	lw	t4, 0xc(a1)
+	sw	t1,  0x10(a0)
+	sw	t2,  0x4(a0)
+	sw	t3,  0x8(a0)
+	sw	t4, 0xc(a0)
+	add     a0, a0, 0x10
+	bne	a0, a3, L(lop8w4380)
+        add     a1, a1, 0x10
+
+        lw      t2,  0x4(a1)
+
+L(done8w):
         lw      t3,  0x8(a1)
         lw      t4, 0xc(a1)
         sw      t2,  0x4(a0)
@@ -149,6 +191,17 @@ L(shfth):
 	sw	t1, -4(a0)
 	b	L(last8)		# Handle anything which may be left
 	move	a2, t0
+
+L(detect_cpu):
+	li	t2, 0
+	li	t0, 1			# cputype 1 = anything but 4380
+	mfc0	t2, $15			# NOTE: requires kernel support
+	li	t1, CPUTYPE_4380	# see simulate_rdhwr()
+	beql	t2, t1, L(not_4380)
+	li	t0, 4380		# instruction is killed if not 4380
+L(not_4380):
+	b	L(detect_done)
+	sw	t0, %lo(cputype)(t3)
 
 	.set	reorder
 END (memcpy)

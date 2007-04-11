@@ -130,6 +130,7 @@ extern "C" {
 
 #define POD_DET_IRQ_NUM  		(BCM_LINUX_SYSTIMER_IRQ+1)
 
+#define BCM_PERFCOUNT_IRQ (POD_DET_IRQ_NUM+1)
 
 
 #ifdef __cplusplus

@@ -53,9 +53,10 @@
 #define PRID_IMP_BCM3560        0x9000
 #define PRID_IMP_BCM7401A0      0x0000 /* Bug in 7401A0 SIlicon */
 #define PRID_IMP_BCM7401        0x0000 /* B0 still have same bug */
-#define PRID_IMP_BCM7400		0xa000
-#define PRID_IMP_BCM7118		0xa000
-#define PRID_IMP_BCM7440		0xa000
+#define PRID_IMP_BCM7403        0x0000 /* bug is still there with 7403 */
+#define PRID_IMP_BCM7400	0xa000
+#define PRID_IMP_BCM7118	0xa000
+#define PRID_IMP_BCM7440	0xa000
 
 
 /*
@@ -229,7 +230,8 @@
 #define CPU_BMIPS4500	68
 #define CPU_BMIPS5600	69
 #define CPU_BMIPS6800	70
-#define CPU_LAST		70
+#define CPU_BMIPS4380	71
+#define CPU_LAST		71
 
 /* For backward Comp */
 #define	CPU_BCM3345		CPU_BMIPS3200 
@@ -248,6 +250,7 @@
 #define CPU_BCM7312		CPU_BMIPS3300
 #define CPU_BCM7318		CPU_BMIPS3300
 #define CPU_BCM7401		CPU_BMIPS3300
+#define CPU_BCM7403             CPU_BMIPS3300
 #define CPU_BCM7400		CPU_BMIPS4350
 #define CPU_BCM7118		CPU_BMIPS4350
 #define CPU_BCM7440		CPU_BMIPS4350

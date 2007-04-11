@@ -10,6 +10,11 @@
 VERSIONPKG = 1.3.4
 VERSIONSTR = $(CONFIG_VENDOR)/$(CONFIG_PRODUCT) Version $(VERSIONPKG)
 
+# PR25899 - When no target is specificed, give help
+show_targets:
+	make -f build.mk show_targets
+	make -f build-be.mk show_targets
+
 ############################################################################
 #
 # Lets work out what the user wants, and if they have configured us yet
@@ -168,7 +173,8 @@ defaultconfig: config.in
 	
 .PHONY: oprofile
 oprofile: config.in
-	@sh config/setconfig oprofile defaults
+	# PR 27755: on kernel 2612-4.0, oprofile can not be built
+	# @sh config/setconfig oprofile defaults
 	# Leave this command on echo, as it helps catch BE to LE (and vice versa)
 	# build without a distclean.
 	$(MAKE) oldconfig_linux
@@ -193,7 +199,7 @@ modules_install:
 		rm -f $(ROMFSDIR)/lib/modules/*/build; \
 		find $(ROMFSDIR)/lib/modules -type f | grep -v modules.dep | xargs -r $(STRIP) -g; \
 	fi
-	depmod.pl -k $(LINUXDIR)/vmlinux -b $(ROMFSDIR)/lib/modules/$(shell head -1 $(LINUXDIR)/include/linux/version.h | cut -d"\"" -f2)
+	depmod.pl -k $(LINUXDIR)/vmlinux -b $(ROMFSDIR)/lib/modules/$(shell head -1 $(LINUXDIR)/include/linux/utsrelease.h | cut -d"\"" -f2)
 
 linux_xconfig:
 	$(MAKEARCH) -C $(LINUXDIR) xconfig

@@ -1,17 +1,24 @@
 all:
-	-@if [ ! -f Makefile  ]; then \
+	-@if [ ! -f config.cache  ]; then \
 	CFLAGS='$(filter-out -fno-builtin, $(CFLAGS))' \
-		CC=$(CC) ./configure --target=$(MACHINE)-linux \
+		CC=$(CC) ./configure \
+			--target=$(MACHINE)-linux \
+			--host=$(MACHINE)-linux \
+			--build=`/bin/arch`-linux \
 			--enable-elf-shlibs \
 			--enable-dynamic-e2fsck \
 			--enable-fsck \
 			--with-root-prefix=$(ROMFSDIR) \
 			--prefix=$(ROMFSDIR)/usr; \
 	fi
+	touch -m configure.in
+	sleep 2
+	touch -m configure
 	make -f Makefile
 
 clean:
 	make -f Makefile clean
+	-/bin/rm -f config.cache
 
 distclean: clean
 	make -f Makefile distclean

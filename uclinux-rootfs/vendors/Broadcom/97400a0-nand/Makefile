@@ -31,12 +31,14 @@ COMPRESSED_LINUXFILE = vmlinuz
 ROMFSFILE = romfs.img
 CRAMFSFILE= cramfs.img
 JFFSFILE  = jffs.img
-JFFS2FILE = jffs2.img
+JFFS2FILE = jffs2-128k.img
+JFFS2_16K_FILE = jffs2-16k.img
 LINUXIMG  = $(IMAGEDIR)/$(PLATFORM)/$(COMPRESSED_LINUXFILE)
 ROMFSIMG  = $(IMAGEDIR)/$(PLATFORM)/$(ROMFSFILE)
 INITRDIMG = $(INITRDDIR)/$(PLATFORM)/ramdisk.gz
 JFFSIMG   = $(IMAGEDIR)/$(PLATFORM)/$(JFFSFILE)
 JFFS2IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2FILE)
+JFFS2_16K_IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_16K_FILE)
 CRAMFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(CRAMFSFILE)
 INITRAMFS_DIR = $(IMAGEDIR)/$(PLATFORM)/initramfs
 UMDRV     = umdrv/bcmdriver.o
@@ -64,7 +66,7 @@ endif
 #endif
 ifdef CONFIG_JFFS2_FS
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
-FSIMG += $(JFFS2IMG)
+FSIMG += $(JFFS2IMG) $(JFFS2_16K_IMG)
 endif
 ifdef CONFIG_CRAMFS
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
@@ -113,6 +115,14 @@ DEVICES = \
 	mtd4,c,90,8		mtdr4,c,90,9		mtdblock4,b,31,4 \
 	mtd5,c,90,10		mtdr5,c,90,11		mtdblock5,b,31,5 \
 	mtd6,c,90,12		mtdr6,c,90,13		mtdblock6,b,31,6 \
+	\
+        romblock0,b,253,0 \
+        romblock1,b,253,1 \
+        romblock2,b,253,2 \
+        romblock3,b,253,3 \
+        romblock4,b,253,4 \
+        romblock5,b,253,5 \
+        romblock6,b,253,6 \
 	\
         loop0,b,7,0		loop1,b,7,1		loop2,b,7,2 \
 	loop3,b,7,3		loop4,b,7,4		loop5,b,7,5 \
@@ -213,7 +223,7 @@ $(UMDRV):
 	# make -C ./umdrv
 
 # This target requires root access.	
-images: $(JFFS2IMG) $(CRAMFSIMG)
+images: $(JFFS2IMG) $(JFFS2_16K_IMG) $(CRAMFSIMG)
 
 # This target requires root access.
 #*************************************************************************
@@ -232,13 +242,16 @@ initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data.cpio.gz
 
 
 # This target requires root access
-# THT The MirrorBit flash chip has a 64K erase block size.
-# The SPANSION flash on the 7400 has a 128K erase block size.
 # Added parameters for NAND.  pagesize is for FS, and NOT 512, which is the cache size.
-$(JFFS2IMG): initramfs_dir
+# Now building for both 128K and 16K erase block sizes 
+$(JFFS2IMG) $(JFFS2_16K_IMG): initramfs_dir
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o $(JFFS2IMG) --squash --verbose --little-endian \
-		--pad --eraseblock=128KiB  --pagesize=2KiB --no-eraseblock-headers \
+		--eraseblock=128KiB   \
 		-d $(INITRAMFS_DIR)
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o $(JFFS2_16K_IMG) --squash --verbose --little-endian \
+		--eraseblock=16KiB  --pagesize=512 \
+		-d $(INITRAMFS_DIR)
+
 
 $(JFFSIMG):
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs -o $(JFFSIMG) -d $(ROMFSDIR)

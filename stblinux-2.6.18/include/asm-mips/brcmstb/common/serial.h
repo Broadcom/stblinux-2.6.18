@@ -49,7 +49,7 @@
 
 #elif defined(CONFIG_MIPS_BCM7401A0)  || defined(CONFIG_MIPS_BCM7401B0) \
 	|| defined(CONFIG_MIPS_BCM7401C0) || defined(CONFIG_MIPS_BCM7402) \
-        || defined(CONFIG_MIPS_BCM7402S)
+        || defined(CONFIG_MIPS_BCM7402S)  || defined(CONFIG_MIPS_BCM7403A0)
 #define BRCM_SERIAL1_BASE	UARTB_ADR_BASE
 #define BRCM_SERIAL2_BASE	UARTC_ADR_BASE
 
@@ -77,8 +77,9 @@
 #endif
 
 #if !defined( CONFIG_MIPS_BCM7038 ) && !defined( CONFIG_MIPS_BCM3560 ) \
-		&& !defined( CONFIG_MIPS_BCM7401A0 ) && !defined( CONFIG_MIPS_BCM7401B0 ) \
-		&& !defined( CONFIG_MIPS_BCM7401C0 ) && !defined( CONFIG_MIPS_BCM7402 )
+	&& !defined( CONFIG_MIPS_BCM7401A0 ) && !defined( CONFIG_MIPS_BCM7401B0 ) \
+	&& !defined( CONFIG_MIPS_BCM7401C0 ) && !defined( CONFIG_MIPS_BCM7402 )	\
+	&& !defined(CONFIG_MIPS_BCM7403A0)	
 /* bit defines in UPG int control reg. */
 //#define UAIRQ_BIT		4
 //#define UBIRQ_BIT		3
@@ -97,7 +98,8 @@
  * UART register offsets
  */
  #if defined(CONFIG_MIPS_BCM7038) || defined(CONFIG_MIPS_BCM3560) \
- 	|| defined(CONFIG_MIPS_BCM7401) || defined( CONFIG_MIPS_BCM7402 )
+ 	|| defined(CONFIG_MIPS_BCM7401) || defined( CONFIG_MIPS_BCM7402 ) \
+	|| defined(CONFIG_MIPS_BCM7403A0)
 #define UART_RECV_STATUS	UART_RXSTAT //0x03	/* UART recv status register */
 #define UART_RECV_DATA		UART_RXDATA //0x02	/* UART recv data register */
 //#define UART_CONTROL		UART_CONTROL //0x00	/* UART control register */
@@ -109,7 +111,7 @@
 
   /* 16550 UART defs on 7401B0 */
   #if defined (CONFIG_MIPS_BCM7401B0) || defined (CONFIG_MIPS_BCM7401C0)  \
-        || defined( CONFIG_MIPS_BCM7402 )
+        || defined( CONFIG_MIPS_BCM7402 ) || defined(CONFIG_MIPS_BCM7403A0)
   // baud rate = (serial_clock_freq) / (16 * divisor).  
   // The serial clock freq is 81MHz by default.
   // For 115200, divisor = 44

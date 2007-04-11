@@ -56,7 +56,8 @@ extern int kgdb_detached;		/* RYH */
  * so we start the 16550A at ttyS64.
  * The 7401A0 platform does not have a 16550A style UART.
  */
-#if defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 )
+#if defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 )	\
+	|| defined( CONFIG_MIPS_BCM7403A0 )
 #define SERIAL_DEV_OFFSET	64
 #else
 #define SERIAL_DEV_OFFSET	0
@@ -2619,7 +2620,7 @@ int serial8250_release_irq(int irq)
 EXPORT_SYMBOL(serial8250_release_irq);
 
 #if defined( CONFIG_MIPS_BCM7401B0 ) || defined( CONFIG_MIPS_BCM7402 ) || \
-    defined( CONFIG_MIPS_BCM7401C0 )
+    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 )
 /*
  * THT: On BCM7401, where both the bcm3250 style UART and the 16550A style UART
  * are present, we have to make sure that the 3250 UARTS are initialized first.
@@ -2641,7 +2642,7 @@ static int __init serial8250_init(void)
 		spin_lock_init(&irq_lists[i].lock);
 
 #if defined( CONFIG_MIPS_BCM7401B0 ) || defined( CONFIG_MIPS_BCM7402 ) || \
-    defined( CONFIG_MIPS_BCM7401C0 )
+    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 )
 	bcm3250_uart_init();
 #endif
 

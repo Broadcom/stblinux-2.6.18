@@ -1,5 +1,5 @@
 #
-# Makefile for BCM97038B0 board
+# Makefile for BCM97401A0 board
 #
 # Copyright (C) 2005 Broadcom Corporation
 #
@@ -17,7 +17,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-# Makefile for BCM973560 board
+# Makefile for BCM97401A0 board
 #
 # when     who what
 # -------- --- ------------------------------------------------------

@@ -1,0 +1,248 @@
+bootflash.o: bootflash.c \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/module.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/types.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/kernel.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm3560.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7319.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97319/bcm97319.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7328.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97328/bcm97328.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7320.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97320/bcm97320.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7112.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7115.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97115/bcm97115.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7110.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97110/bcm97110.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7111.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97111/bcm97111.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7312.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97312/bcm97312.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7315/bbx.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97315bbx/bcm97315bbx.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7314.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97314/bcm97314.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7315.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97315/bcm97315.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7317.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97317/bcm97317.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7318.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97318/bcm97318.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7327.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7329.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/brcm97xxx.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7110/dsg.h)
+bootrom.o: bootrom.c \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/module.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/types.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/kernel.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm3560.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7319.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97319/bcm97319.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7328.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97328/bcm97328.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7320.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97320/bcm97320.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7115.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97115/bcm97115.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7112.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97112/bcm97112.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7110.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97110/bcm97110.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7111.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97111/bcm97111.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7312.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97312/bcm97312.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7314.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97314/bcm97314.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7315.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97315/bcm97315.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7317.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97317/bcm97317.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7318.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97318/bcm97318.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7327.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7329.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h
+brcmserial.o: brcmserial.c \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/version.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/pci.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/serial/share/irq.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/serial/many/ports.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/isapnp.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/isapnp/module.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/m386.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/m486.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/module.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/types.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/serial.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/serialP.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/serial_reg.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/serial.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/errno.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/signal.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/sched.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/timer.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/interrupt.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/tty.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/tty_flip.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/major.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/string.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/fcntl.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/ptrace.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/ioport.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/mm.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/slab.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/init.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/uaccess.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/delay.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/serial/console.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/console.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/pci.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/isapnp.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/magic/sysrq.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/sysrq.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/bcm93730.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcm/serial.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/brcm97xxx.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/serial.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/system.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/io.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/irq.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/bitops.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mac/serial.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/remote/debug.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/cpu/little/endian.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038b0.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7318.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/bcmintemac.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/bcmintemac/7038.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/ide.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/serial/rsa.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/serial/detect/irq.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/devfs/fs.h)
+calibrate.o: calibrate.S \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/asm.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/mipsregs.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/regdef.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/stackframe.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm3560.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm93560/bcmtimer.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038a0.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97038/bcmtimer.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038b0.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97038b0/bcmtimer.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038c0.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97038c0/bcmtimer.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7110.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97110/bcm97110.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7111.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97111/bcm97111.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7112.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97112/bcm97112.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7115.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97115/bcm97115.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7312.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97312/bcm97312.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7314.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97314/bcm97314.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7315.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97315/bcm97315.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7317.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97317/bcm97317.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7318.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97318/bcm97318.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7319.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97319/bcm97319.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7320.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97320/bcm97320.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7327.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97327/bcm97327.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7328.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97328/bcm97328.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7329.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/brcm97329/bcm97329.h
+cfe_call.o: cfe_call.c \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/ctype.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/init.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/mm.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/bootinfo.h \
+   cfe_xiocb.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/cfe_call.h
+cfe_entry.o: cfe_entry.S \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/asm.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/mipsregs.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/regdef.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/stackframe.h
+dbg_io.o: dbg_io.c \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/io.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7110.h)
+int-handler.o: int-handler.S \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/asm.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/mipsregs.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/regdef.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/stackframe.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7318.h)
+pciutil.o: pciutil.c \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/pci.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/pci.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/pcipool/debug.h)
+prom.o: prom.c \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/ctype.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/init.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/mm.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/bootinfo.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/brcm97xxx.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/cfe_call.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7315/bbx.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7115.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7112.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7314.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7315.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7317.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7318.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7110.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7111.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7312.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm3560.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7320.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7319.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7328.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7327.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7329.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/blk/dev/initrd.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/cmdline.h)
+setup.o: setup.c \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/console.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/init.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/interrupt.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/sched.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/addrspace.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/irq.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/reboot.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/time.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/blk/dev/ide.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/blk/dev/ide/module.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/linux/ide.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7329.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/pc/keyb.h) \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/keyboard.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/io.h \
+   /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/asm/brcmstb/common/brcmstb.h \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038a0.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038b0.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/mips/bcm7038c0.h) \
+   $(wildcard /local/samba/ttruong/stblinux2425/vobs/Ref_Linux_Kernel/src/stblinux-2.4.25/include/config/vt.h)

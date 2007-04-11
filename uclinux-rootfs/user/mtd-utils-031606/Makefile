@@ -71,6 +71,7 @@ clean:
 	rm -rf build
 
 romfs:
+	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_ERASE        /bin/flash_info
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_ERASE        /bin/flash_erase
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_ERASE -s /bin/flash_erase /bin/erase
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_ERASEALL     /bin/flash_eraseall
@@ -124,6 +125,7 @@ build/mkfs.jffs2: $(BUILD_JFFS2_OBJS)
 
 flash_eraseall: crc32.o flash_eraseall.o
 	$(CC) $(LDFLAGS) -o $@ $^
+
 
 build/flash_eraseall: build/crc32.o build/flash_eraseall.o
 	$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^

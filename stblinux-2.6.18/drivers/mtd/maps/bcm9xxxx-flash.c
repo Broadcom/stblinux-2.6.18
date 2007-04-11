@@ -68,6 +68,7 @@ static struct mtd_info *bcm9XXXX_mtd;
 #ifdef CONFIG_MTD_COMPLEX_MAPPINGS
 extern int bcm7401Cx_rev;
 extern int bcm7118Ax_rev;
+extern int bcm7403Ax_rev;
 
 static inline void bcm9XXXX_map_copy_from_16bytes(void *to, unsigned long from, ssize_t len)
 {
@@ -90,7 +91,8 @@ static inline void bcm9XXXX_map_copy_from_16bytes(void *to, unsigned long from, 
 static map_word bcm9XXXX_map_read(struct map_info *map, unsigned long ofs)
 {
 	/* if it is 7401C0, then we need this workaround */
-	if(bcm7401Cx_rev == 0x20 || bcm7118Ax_rev == 0x0)
+	if(bcm7401Cx_rev == 0x20 || bcm7118Ax_rev == 0x0 
+                                 || bcm7403Ax_rev == 0x20)
 	{	
 		map_word r;
 		static DEFINE_SPINLOCK(bcm9XXXX_lock);
@@ -116,7 +118,8 @@ static map_word bcm9XXXX_map_read(struct map_info *map, unsigned long ofs)
 static void bcm9XXXX_map_copy_from(struct map_info *map, void *to, unsigned long from, ssize_t len)
 {
 	/* if it is 7401C0, then we need this workaround */
-	if(bcm7401Cx_rev == 0x20 || bcm7118Ax_rev == 0x0)
+	if(bcm7401Cx_rev == 0x20 || bcm7118Ax_rev == 0x0
+                                 || bcm7403Ax_rev == 0x20)
 	{
 		if(len > 16)
 		{
@@ -210,11 +213,22 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 	{ name: "config",	offset: 0x003FF800,	size: 144 },
 	{ name: "nvram",	offset: 0x003FF890,	size: 1904 },
 
-#elif defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401 ) || \
-	defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7118 ) 
+#elif defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) || \
+      defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) || \
+      defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7118 ) || \
+      defined( CONFIG_MIPS_BCM7452 )
 	
-#define DEFAULT_SIZE_MB 32 /* 32MB flash */
-	{ name: "rootfs",	offset: 0,		    size: 28*1024*1024 },
+#define DEFAULT_SIZE_MB 32 /* 32MB flash */  
+  #if defined( CONFIG_MTD_ECM_PARTITION)
+	{ name: "rootfs",		offset: 0,		    	size: 19*1024*1024 },
+	{ name: "ecmboot",	offset: 0x01300000,	size: 128*1024 },
+	{ name: "dyncfg",		offset: 0x01320000,	size: 128*1024 },
+	{ name: "permcfg",	offset: 0x01340000,	size: 128*1024 },
+	{ name: "docsis0",	offset: 0x01360000,	size: 6*1024*1024 },
+	{ name: "docsis1",	offset: 0x01960000,	size: 2688*1024 },
+  #else
+	{ name: "rootfs",		offset: 0,			size: 28*1024*1024 },
+  #endif
 	{ name: "cfe",	        offset: 0x01C00000, size: 512*1024 },
 	{ name: "vmlinux",	offset: 0x01C80000, size: 3582*1024 },
 	{ name: "config",	offset: 0x01FFF800,	size: 144 },

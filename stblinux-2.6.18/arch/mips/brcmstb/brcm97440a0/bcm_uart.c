@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------
 
-    Copyright (c) 2001-2005 Broadcom Corporation                     /\
+    Copyright (c) 2001-2006 Broadcom Corporation                     /\
                                                               _     /  \     _
     _____________________________________________________/ \   /    \   / \_
                                                             \_/      \_/  
@@ -135,16 +135,16 @@ if (chan == 1) {
 	/* ttyS0 has already been initialized by the bootloader */
 	if (chan > 0 ) {
 		// Write DLAB, and (8N1) = 0x83
-		writel(UART_LCR_DLAB|UART_LCR_WLEN8, uartBaseAddr + (UART_LCR << shift));
+		writel(UART_LCR_DLAB|UART_LCR_WLEN8, (void *)(uartBaseAddr + (UART_LCR << shift)));
 		// Write DLL to 0xe
-		writel(DIVISOR, uartBaseAddr + (UART_DLL << shift));
-		writel(0, uartBaseAddr + (UART_DLM << shift));
+		writel(DIVISOR, (void *)(uartBaseAddr + (UART_DLL << shift)));
+		writel(0, (void *)(uartBaseAddr + (UART_DLM << shift)));
 
 		// Clear DLAB
-		writel(UART_LCR_WLEN8, uartBaseAddr + (UART_LCR << shift));
+		writel(UART_LCR_WLEN8, (void *)(uartBaseAddr + (UART_LCR << shift)));
 
 		// Disable FIFO
-		writel(0, uartBaseAddr + (UART_FCR << shift));
+		writel(0, (void *)(uartBaseAddr + (UART_FCR << shift)));
 
 		if (chan == 1) {
 			uartB_puts("Done initializing UARTB\n");
@@ -172,23 +172,26 @@ my_writel(unsigned char c, unsigned long addr)
 void
 serial_putc(unsigned long com_port, unsigned char c)
 {
-	while ((readl(com_port + (UART_LSR << shift)) & UART_LSR_THRE) == 0)
+	unsigned long flags;
+	local_irq_save(flags);
+	while ((readl((void *)(com_port + (UART_LSR << shift))) & UART_LSR_THRE) == 0)
 		;
-	writel(c, com_port);
+	writel(c, (void *)com_port);
+	local_irq_restore(flags);
 }
 
 unsigned char
 serial_getc(unsigned long com_port)
 {
-	while ((readl(com_port + (UART_LSR << shift)) & UART_LSR_DR) == 0)
+	while ((readl((void *)(com_port + (UART_LSR << shift))) & UART_LSR_DR) == 0)
 		;
-	return readl(com_port);
+	return readl((void *)com_port);
 }
 
 int
 serial_tstc(unsigned long com_port)
 {
-	return ((readl(com_port + (UART_LSR << shift)) & UART_LSR_DR) != 0);
+	return ((readl((void *)(com_port + (UART_LSR << shift))) & UART_LSR_DR) != 0);
 }
 
 /* Old interface, for compatibility */

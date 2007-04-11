@@ -877,7 +877,7 @@ fi
     if test "$GCC" = yes ; then
 	    if test "$SHLICC2" = yes ; then
 		    ac_cv_lbl_gcc_vers=2
-		    V_CCOPT="-O2"
+		    V_CCOPT="-Os"
 	    else
 		    echo $ac_n "checking gcc version""... $ac_c" 1>&6
 echo "configure:884: checking gcc version" >&5
@@ -893,7 +893,7 @@ fi
 
 		    echo "$ac_t""$ac_cv_lbl_gcc_vers" 1>&6
 		    if test $ac_cv_lbl_gcc_vers -gt 1 ; then
-			    V_CCOPT="-O2"
+			    V_CCOPT="-Os"
 		    fi
 	    fi
     else

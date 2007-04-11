@@ -184,9 +184,144 @@
  * memcpy sets v0 to dst.
  */
 	.align	5
+
+#if defined(CONFIG_MIPS_BRCM97XXX)
+
+/* replace memcpy but not __copy_user */
+
+#if !defined(CONFIG_CPU_LITTLE_ENDIAN)
+#  define LWHI	lwl		/* high part is left in big-endian	*/
+#  define SWHI	swl		/* high part is left in big-endian	*/
+#  define LWLO	lwr		/* low part is right in big-endian	*/
+#  define SWLO	swr		/* low part is right in big-endian	*/
+#else
+#  define LWHI	lwr		/* high part is right in little-endian	*/
+#  define SWHI	swr		/* high part is right in little-endian	*/
+#  define LWLO	lwl		/* low part is left in little-endian	*/
+#  define SWLO	swl		/* low part is left in little-endian	*/
+#endif
+
+#define L(x) __memcpy_##x
+
+LEAF(memcpy)					/* a0=dst a1=src a2=len */
+__memcpy:
+	slti	t0, a2, 8		# Less than 8?
+	bne	t0, zero, L(last8)
+	move	v0, a0			# Setup exit value before too late
+
+	xor	t0, a1, a0		# Find a0/a1 displacement
+	andi	t0, 0x3
+	bne	t0, zero, L(shift)	# Go handle the unaligned case
+	subu	t1, zero, a1
+	andi	t1, 0x3			# a0/a1 are aligned, but are we
+	beq	t1, zero, L(chk8w)	#  starting in the middle of a word?
+	subu	a2, t1
+	LWHI	t0, 0(a1)		# Yes we are... take care of that
+	addu	a1, t1
+	SWHI	t0, 0(a0)
+	addu	a0, t1
+
+L(chk8w):	
+	andi	t0, a2, 0x1f		# 32 or more bytes left?
+	beq	t0, a2, L(chk1w)
+	subu	a3, a2, t0		# Yes
+
+	addu	a3, a0			# a3 = end address of loop
+	subu    a3, a3, 0x10
+	.align 4
+	move	a2, t0			# a2 = what will be left after loop
+
+    	lw	t0,  0(a1)		# Loop taking 8 words at a time
+	sw	t0,  0(a0)
+L(lop8w):	
+
+	lw	t1,  0x10(a1)
+#if ! defined(CONFIG_MIPS_BCM7400B0)
+	/* pref usage on 7400B0 is TBD */
+    	pref    31,  0x10(a0)
+#endif
+	lw	t2,  0x4(a1)
+	lw	t3,  0x8(a1)
+	lw	t4, 0xc(a1)
+	sw	t1,  0x10(a0)
+	sw	t2,  0x4(a0)
+	sw	t3,  0x8(a0)
+	sw	t4, 0xc(a0)
+	add     a0, a0, 0x10
+	bne	a0, a3, L(lop8w)
+        add     a1, a1, 0x10
+        lw      t2,  0x4(a1)
+        lw      t3,  0x8(a1)
+        lw      t4, 0xc(a1)
+        sw      t2,  0x4(a0)
+        sw      t3,  0x8(a0)
+        sw      t4, 0xc(a0)
+	add	a1, a1, 0x10
+	add	a0, a0, 0x10
+
+L(chk1w):	
+	andi	t0, a2, 0x3		# 4 or more bytes left?
+	beq	t0, a2, L(last8)
+	subu	a3, a2, t0		# Yes, handle them one word at a time
+	addu	a3, a1			# a3 again end address
+	move	a2, t0
+L(lop1w):	
+	lw	t0, 0(a1)
+	addiu	a0, 4
+	addiu	a1, 4
+	bne	a1, a3, L(lop1w)
+	sw	t0, -4(a0)
+
+L(last8):	
+	blez	a2, L(lst8e)		# Handle last 8 bytes, one at a time
+	addu	a3, a2, a1
+L(lst8l):	
+	lb	t0, 0(a1)
+	addiu	a0, 1
+	addiu	a1, 1
+	bne	a1, a3, L(lst8l)
+	sb	t0, -1(a0)
+L(lst8e):	
+	jr	ra			# Bye, bye
+	nop
+
+L(shift):	
+	subu	a3, zero, a0		# Src and Dest unaligned 
+	andi	a3, 0x3			#  (unoptimized case...)
+	beq	a3, zero, L(shft1)
+	subu	a2, a3			# a2 = bytes left
+	LWHI	t0, 0(a1)		# Take care of first odd part
+	LWLO	t0, 3(a1)
+	addu	a1, a3
+	SWHI	t0, 0(a0)
+	addu	a0, a3
+L(shft1):	
+	andi	t0, a2, 0x3
+	subu	a3, a2, t0
+	addu	a3, a1
+L(shfth):	
+	LWHI	t1, 0(a1)		# Limp through, word by word
+	LWLO	t1, 3(a1)
+	addiu	a0, 4
+	addiu	a1, 4
+	bne	a1, a3, L(shfth)
+	sw	t1, -4(a0)
+	b	L(last8)		# Handle anything which may be left
+	move	a2, t0
+
+#undef PREF
+#define PREF(x, y)
+
+	.align	4
+
+#else /* CONFIG_MIPS_BRCM97XXX */
+
 LEAF(memcpy)					/* a0=dst a1=src a2=len */
 	move	v0, dst				/* return value */
 __memcpy:
+
+#endif /* CONFIG_MIPS_BRCM97XXX */
+
 FEXPORT(__copy_user)
 	/*
 	 * Note: dst & src may be unaligned, len may be 0

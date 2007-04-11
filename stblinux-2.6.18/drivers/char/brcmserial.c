@@ -36,7 +36,7 @@
  *
  *  rs_set_termios fixed to look also for changes of the input
  *      flags INPCK, BRKINT, PARMRK, IGNPAR and IGNBRK.
- *                                            Bernd Anhäupl 05/17/96.
+ *                                            Bernd Anhupl 05/17/96.
  *
  *  1/97:  Extended dumb serial ports are a config option now.  
  *         Saves 4k.   Michael A. Griffith <grif@acm.org>
@@ -2591,7 +2591,8 @@ static void autoconfig(struct serial_state * state)
 }
 
 #if !defined( CONFIG_MIPS_BCM7401B0 ) && !defined( CONFIG_MIPS_BCM7402 ) && \
-    !defined( CONFIG_MIPS_BCM7401C0 )
+    !defined( CONFIG_MIPS_BCM7401C0 ) && !defined( CONFIG_MIPS_BCM7403A0 )
+
 /* Already defined in 8250.c */
 
 int register_serial(struct serial_struct *req);
@@ -2655,7 +2656,8 @@ static int __init rs_init(void)
 
 
 #if defined( CONFIG_MIPS_BCM7401B0 ) || defined( CONFIG_MIPS_BCM7402 ) || \
-    defined( CONFIG_MIPS_BCM7401C0 )
+    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 )
+
     /* 
      * Currently this module is called before 8250 is called
      * but we want to be deadsure
@@ -2844,7 +2846,8 @@ static int __init rs_init(void)
 
 
 #if defined( CONFIG_MIPS_BCM7401B0 ) || defined( CONFIG_MIPS_BCM7402 ) || \
-    defined( CONFIG_MIPS_BCM7401C0 )
+    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 )
+
 /*
  * THT: On BCM7401, where both the bcm3250 style UART and the 16550A style UART
  * are present, we have to make sure that the bcm3250 UARTS are initialized first.
@@ -3143,7 +3146,8 @@ static struct console sercons = {
 /**************************************************/
 
 #if defined( CONFIG_MIPS_BCM7401B0 ) || defined( CONFIG_MIPS_BCM7402 ) || \
-    defined( CONFIG_MIPS_BCM7401C0 )
+    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 )
+
 extern int console_initialized;
 extern int brcm_console_initialized(void);
 
