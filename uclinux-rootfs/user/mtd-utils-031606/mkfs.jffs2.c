@@ -337,8 +337,18 @@ static struct filesystem_entry *add_host_filesystem_entry(
 		entry->sb.st_size = sb.st_size;
 	}
 	if (S_ISLNK(mode)) {
-		entry->link = xreadlink(path);
-		entry->sb.st_size = strlen(entry->link);
+		char *link = xreadlink(path);
+		unsigned int mode, maj, min;
+
+		if(link && (sscanf(link, "__dev__%o_%u_%u", &mode, &maj, &min) == 3))
+		{
+			entry->sb.st_rdev = makedev(maj, min);
+			entry->sb.st_mode = mode;
+			entry->sb.st_size = 0;
+		} else {
+			entry->link = xreadlink(path);
+			entry->sb.st_size = strlen(entry->link);
+		}
 	}
 
 	/* This happens only for root */

@@ -215,10 +215,8 @@ $(UMDRV):
 	# No longer needed to be built
 	# make -C ./umdrv
 
-# This target requires root access.
 images: $(JFFS2IMG) $(JFFS2_16K_IMG) $(CRAMFSIMG)
 
-# This target requires root access.
 #*************************************************************************
 # Be careful, removing --no-absolute-filenames or mispelling it will trash
 # your PC host.  Will refuse to run if INITRAMFS_DIR is NULL, as that
@@ -226,15 +224,14 @@ images: $(JFFS2IMG) $(JFFS2_16K_IMG) $(CRAMFSIMG)
 # We only check for NULL, "/" and "//" as much as we can go.
 # A value of "///" etc... will still trash it
 #**************************************************************************
-initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data.cpio.gz
+initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data_nodev.cpio
 	@if [ ! -z "$(INITRAMFS_DIR)" -a "$(INITRAMFS_DIR)" != "/" -a "$(INITRAMFS_DIR)" != "//" ]; then \
-		gunzip -c $< | (cd $(INITRAMFS_DIR); cpio -ivd --no-absolute-filenames); \
+		cat $< | (cd $(INITRAMFS_DIR); cpio -ivd --no-absolute-filenames); \
 	else \
 		echo "Refuse to run: INITRAMFS_DIR=\"$(INITRAMFS_DIR)\" would trash your host"; exit 1;\
 	fi
 
 
-# This target requires root access
 # Added parameters for NAND.  pagesize is for FS, and NOT 512, which is the cache size.
 # Now building for both 128K and 16K erase block sizes
 $(JFFS2IMG) $(JFFS2_16K_IMG): initramfs_dir
@@ -249,15 +246,14 @@ $(JFFS2IMG) $(JFFS2_16K_IMG): initramfs_dir
 $(JFFSIMG):
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs -o $(JFFSIMG) -d $(ROMFSDIR)
 
-# This target requires root access
 # jipeng - PR22427 dhcpcd failed with cramfs
 # here we create var.img to contain RW /var and change rcS to call mountvar to mount it as first step
 $(CRAMFSIMG): initramfs_dir
 	dd if=/dev/zero of=$(INITRAMFS_DIR)/tmpfsvar.img bs=1024 count=500
-	cp $(INITRAMFS_DIR)/var/tmp/mountvar.sh $(INITRAMFS_DIR)/etc
+	cp -f $(INITRAMFS_DIR)/var/tmp/mountvar.sh $(INITRAMFS_DIR)/etc
 	chmod +x $(INITRAMFS_DIR)/etc/mountvar.sh
-	cp $(INITRAMFS_DIR)/var/tmp/rcS $(INITRAMFS_DIR)/etc/init.d/rcS
-	rm $(INITRAMFS_DIR)/var/tmp/*
+	cp -f $(INITRAMFS_DIR)/var/tmp/rcS $(INITRAMFS_DIR)/etc/init.d/rcS
+	rm -f $(INITRAMFS_DIR)/var/tmp/*
 	cd $(INITRAMFS_DIR)/var; tar -cvf $(INITRAMFS_DIR)/var.img . 2>&1 >/dev/null
 	$(ROOTDIR)/user/cramfs/build/mkcramfs -v -n "Cramfs" $(INITRAMFS_DIR) $(CRAMFSIMG)
 
@@ -269,3 +265,4 @@ image:   # Removed.  Now build later with images target $(FSIMG)
 	[ -d $(INITRAMFS_DIR) ] || mkdir -p $(INITRAMFS_DIR)
 	gzip -fc $(ROOTDIR)/$(LINUXDIR)/$(LINUXFILE) > $(LINUXIMG)
 	cp -f $(ROOTDIR)/$(LINUXDIR)/usr/initramfs_data.cpio.gz $(IMAGEDIR)/$(PLATFORM)
+	cp -f $(ROOTDIR)/$(LINUXDIR)/usr/initramfs_data_nodev.cpio $(IMAGEDIR)/$(PLATFORM)

@@ -36,6 +36,9 @@ $(obj)/initramfs_list: $(obj)/Makefile FORCE
 quiet_cmd_cpio = CPIO    $@
       cmd_cpio = ./$< $(obj)/initramfs_list > $@
 
+quiet_cmd_cpio_nodev = CPIO_N  $@
+      cmd_cpio_nodev = ./$< -nodev $(obj)/initramfs_list > $(obj)/initramfs_data_nodev.cpio
+
 
 # Check if the INITRAMFS_SOURCE is a cpio archive
 ifneq (,$(findstring .cpio,$(quotefixed_initramfs_source)))
@@ -54,6 +57,7 @@ else
 $(obj)/initramfs_data.cpio: $(obj)/gen_init_cpio \
                             $(initramfs-y) $(obj)/initramfs_list FORCE
 	$(call if_changed,cpio)
+	$(call if_changed,cpio_nodev)
 
 targets += initramfs_data.cpio
 initramfs_data_cpio = $(obj)/initramfs_data.cpio

@@ -423,7 +423,7 @@ static void r4k_flush_cache_all(void)
 		return;
 
 /* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400A0) || defined (CONFIG_MIPS_BCM7440A0))
+#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
 	local_r4k_flush_cache_all(NULL);
 #else
 	on_each_cpu(local_r4k_flush_cache_all, NULL, 1, 1);
@@ -450,7 +450,7 @@ static inline void local_r4k___flush_cache_all(void * args)
 static void r4k___flush_cache_all(void)
 {
 /* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400A0) || defined (CONFIG_MIPS_BCM7440A0))
+#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
 	local_r4k___flush_cache_all(NULL);
 #else
 	on_each_cpu(local_r4k___flush_cache_all, NULL, 1, 1);
@@ -509,11 +509,7 @@ end);
 		start &= PAGE_MASK;
 #endif
 		if(mm->context != current->mm->context) {
-#ifdef CONFIG_SMP
-			local_r4k_flush_cache_all(NULL);
-#else
 			r4k_flush_cache_all();
-#endif
 		} 
 		else if ((end - start) > get_dcache_size()) {
 			r4k_blast_dcache();
@@ -552,7 +548,7 @@ static void r4k_flush_cache_range(struct vm_area_struct *vma,
 	brcm_arg.start = start;
 	brcm_arg.end = end;
 /* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400A0) || defined (CONFIG_MIPS_BCM7440A0))
+#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
 	brcm_r4k_flush_cache_range(&brcm_arg);
 #else
 	on_each_cpu(brcm_r4k_flush_cache_range, &brcm_arg, 1, 1);
@@ -592,7 +588,7 @@ static void r4k_flush_cache_mm(struct mm_struct *mm)
 		return;
 
 /* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400A0) || defined (CONFIG_MIPS_BCM7440A0))
+#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
 	local_r4k_flush_cache_mm(mm);
 #else
 	on_each_cpu(local_r4k_flush_cache_mm, mm, 1, 1);
@@ -691,7 +687,7 @@ static void r4k_flush_cache_page(struct vm_area_struct *vma,
 
 
 /* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400A0) || defined (CONFIG_MIPS_BCM7440A0))
+#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
 	local_r4k_flush_cache_page(&args);
 #else
 	on_each_cpu(local_r4k_flush_cache_page, &args, 1, 1);
@@ -706,7 +702,8 @@ static inline void local_r4k_flush_data_cache_page(void * addr)
 static void r4k_flush_data_cache_page(unsigned long addr)
 {
 /* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400A0) || defined (CONFIG_MIPS_BCM7440A0))
+/* NOTE: local dcache flush is safe on 7400b0 because the dcache is shared */
+#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
 	local_r4k_flush_data_cache_page((void *) addr);
 #else
 	on_each_cpu(local_r4k_flush_data_cache_page, (void *) addr, 1, 1);
@@ -754,7 +751,7 @@ static void r4k_flush_icache_range(unsigned long start, unsigned long end)
 	args.end = end;
 
 /* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400A0) || defined (CONFIG_MIPS_BCM7440A0))
+#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
 	local_r4k_flush_icache_range(&args);
 #else
 	on_each_cpu(local_r4k_flush_icache_range, &args, 1, 1);
@@ -836,7 +833,7 @@ static void r4k_flush_icache_page(struct vm_area_struct *vma,
 	args.page = page;
 
 /* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400A0) || defined (CONFIG_MIPS_BCM7440A0))
+#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
 	local_r4k_flush_icache_page(&args);
 #else
 	on_each_cpu(local_r4k_flush_icache_page, &args, 1, 1);
@@ -945,7 +942,7 @@ static void local_r4k_flush_cache_sigtramp(void * arg)
 static void r4k_flush_cache_sigtramp(unsigned long addr)
 {
 /* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400A0) || defined (CONFIG_MIPS_BCM7440A0))
+#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
 	local_r4k_flush_cache_sigtramp((void *) addr);
 #else
 	on_each_cpu(local_r4k_flush_cache_sigtramp, (void *) addr, 1, 1);

@@ -34,6 +34,8 @@
  *
  *  Hardware documentation available under NDA.
  *
+ *	May 24, 2007	Jian Peng <jipeng@broadcom.com>
+ *					support port multiplier and bump version up to 3.0
  */
 
 #include <linux/kernel.h>
@@ -53,17 +55,21 @@
 #endif /* CONFIG_PPC_OF */
 
 #define DRV_NAME	"sata_svw"
-#define DRV_VERSION	"2.0"
+#define DRV_VERSION	"3.0"
 
 #ifdef CONFIG_MIPS_BRCM97XXX
 #include <asm/brcmstb/common/brcmstb.h>
 #endif
 
+struct k2_port_priv {
+	int do_port_srst;			/* already perform softreset? */
+};
+
 #ifdef CONFIG_MIPS_BRCM97XXX
-#define WRITE_CMD		1
-#define READ_CMD                2
-#define CMD_DONE                (1 << 15)
-#define SATA_MMIO               0x24
+#define WRITE_CMD			1
+#define READ_CMD			2
+#define CMD_DONE			(1 << 15)
+#define SATA_MMIO			0x24
 #define SATA_MMIO_SCR2  	0x48
 
 // 1. port is SATA port ( 0 or 1)
@@ -209,17 +215,17 @@ static void k2_sata_tf_load(struct ata_port *ap, const struct ata_taskfile *tf)
 		ata_wait_idle(ap);
 	}
 	if (is_addr && (tf->flags & ATA_TFLAG_LBA48)) {
-		writew(tf->feature | (((u16)tf->hob_feature) << 8), ioaddr->feature_addr);
-		writew(tf->nsect | (((u16)tf->hob_nsect) << 8), ioaddr->nsect_addr);
-		writew(tf->lbal | (((u16)tf->hob_lbal) << 8), ioaddr->lbal_addr);
-		writew(tf->lbam | (((u16)tf->hob_lbam) << 8), ioaddr->lbam_addr);
-		writew(tf->lbah | (((u16)tf->hob_lbah) << 8), ioaddr->lbah_addr);
+		writew(tf->feature | (((u16)tf->hob_feature) << 8), (void *)ioaddr->feature_addr);
+		writew(tf->nsect | (((u16)tf->hob_nsect) << 8), (void *)ioaddr->nsect_addr);
+		writew(tf->lbal | (((u16)tf->hob_lbal) << 8), (void *)ioaddr->lbal_addr);
+		writew(tf->lbam | (((u16)tf->hob_lbam) << 8), (void *)ioaddr->lbam_addr);
+		writew(tf->lbah | (((u16)tf->hob_lbah) << 8), (void *)ioaddr->lbah_addr);
 	} else if (is_addr) {
-		writew(tf->feature, ioaddr->feature_addr);
-		writew(tf->nsect, ioaddr->nsect_addr);
-		writew(tf->lbal, ioaddr->lbal_addr);
-		writew(tf->lbam, ioaddr->lbam_addr);
-		writew(tf->lbah, ioaddr->lbah_addr);
+		writew(tf->feature, (void *)ioaddr->feature_addr);
+		writew(tf->nsect, (void *)ioaddr->nsect_addr);
+		writew(tf->lbal, (void *)ioaddr->lbal_addr);
+		writew(tf->lbam, (void *)ioaddr->lbam_addr);
+		writew(tf->lbah, (void *)ioaddr->lbah_addr);
 	}
 
 	if (tf->flags & ATA_TFLAG_DEVICE)
@@ -235,12 +241,12 @@ static void k2_sata_tf_read(struct ata_port *ap, struct ata_taskfile *tf)
 	u16 nsect, lbal, lbam, lbah, feature;
 
 	tf->command = k2_stat_check_status(ap);
-	tf->device = readw(ioaddr->device_addr);
-	feature = readw(ioaddr->error_addr);
-	nsect = readw(ioaddr->nsect_addr);
-	lbal = readw(ioaddr->lbal_addr);
-	lbam = readw(ioaddr->lbam_addr);
-	lbah = readw(ioaddr->lbah_addr);
+	tf->device = readw((void *)ioaddr->device_addr);
+	feature = readw((void *)ioaddr->error_addr);
+	nsect = readw((void *)ioaddr->nsect_addr);
+	lbal = readw((void *)ioaddr->lbal_addr);
+	lbam = readw((void *)ioaddr->lbam_addr);
+	lbah = readw((void *)ioaddr->lbah_addr);
 
 	tf->feature = feature;
 	tf->nsect = nsect;
@@ -376,6 +382,322 @@ static int k2_sata_proc_info(struct Scsi_Host *shost, char *page, char **start,
 }
 #endif /* CONFIG_PPC_OF */
 
+void k2_sata_exec_command(struct ata_port *ap, const struct ata_taskfile *tf)
+{
+	if (tf->command != 0xEC && ap->ops->freeze)
+	ap->ops->freeze(ap);
+
+	ata_exec_command(ap, tf);
+
+	if (tf->command != 0xEC && ap->ops->thaw)
+	ap->ops->thaw(ap);
+}
+
+static int k2_sata_port_start(struct ata_port *ap)
+{
+	struct k2_port_priv *pp;
+	int rc = -ENOMEM;
+
+	pp = kzalloc(sizeof(*pp), GFP_KERNEL);
+	if (!pp)
+		goto err_out;
+
+	ap->private_data = pp;
+	ata_port_start(ap);
+	
+	return 0;
+err_out:
+	return rc;
+}
+
+static int k2_sata_pmp_attach_link(struct ata_link *link, int pmp)
+{
+	struct ata_port *ap = link->ap;
+	void __iomem *port = (void __iomem *)ap->ioaddr.cmd_addr;
+	int rc;
+	u32 scontrol;
+
+	if(pmp < 0 || pmp >= 0xf) {
+		rc = 1;
+		return rc;
+	}
+
+	scontrol = readl(port + K2_SATA_SCR_CONTROL_OFFSET);
+	if((scontrol & 0x000f0000)>>16 == pmp) {
+		rc = 1;
+		return rc;
+	} 
+
+	scontrol = readl(port + K2_SATA_SCR_CONTROL_OFFSET);
+	writel((scontrol & ~0x000f0000) | (pmp << 16), port + K2_SATA_SCR_CONTROL_OFFSET);
+			
+	if (!ata_link_offline(link)) {
+		rc = sata_scr_write(link, SCR_ERROR, 0xffffffff);
+		rc = 0;
+	}
+	else
+		rc = 1;
+
+	return rc;
+}
+
+static void k2_sata_pmp_attach(struct ata_port *ap)
+{
+	struct ata_link *link;
+	
+	ata_port_for_each_link(link, ap) 
+	k2_sata_pmp_attach_link(link, link->pmp);
+}
+
+static void k2_sata_pmp_detach(struct ata_port *ap)
+{
+}
+
+void k2_sata_dev_select (struct ata_port *ap, unsigned int device)
+{
+	if(ap->nr_pmp_links)
+	k2_sata_pmp_attach_link(&ap->link, device);
+	else
+	ata_std_dev_select(ap, device);	
+}
+
+static int k2_sata_pmp_read(struct ata_device *dev, int pmp, int reg, u32 *r_val)
+{
+	struct ata_port *ap = dev->link->ap;
+	void __iomem *port = (void __iomem *)ap->ioaddr.cmd_addr;
+	struct ata_taskfile tf;
+	u32 scr2_val;
+
+	if (ap->ops->freeze)
+		ap->ops->freeze(ap);
+
+	scr2_val = readl(port + K2_SATA_SCR_CONTROL_OFFSET);
+	writel(0x000F0000, port + K2_SATA_SCR_CONTROL_OFFSET);
+	msleep(10);
+
+	sata_pmp_read_init_tf(&tf, dev, pmp, reg);
+	ap->ops->tf_load(ap, &tf);
+	ata_exec_command(ap, &tf);
+	msleep(10);
+	
+	memset(&tf, 0, sizeof(tf));
+	ap->ops->tf_read(ap, &tf);
+	*r_val = sata_pmp_read_val(&tf);
+	
+	if (ap->ops->thaw)
+	ap->ops->thaw(ap);
+
+	writel(scr2_val, port + K2_SATA_SCR_CONTROL_OFFSET);
+	return 0;
+}
+
+static int k2_sata_pmp_write(struct ata_device *dev, int pmp, int reg, u32 val)
+{
+	struct ata_port *ap = dev->link->ap;
+	void __iomem *port = (void __iomem *)ap->ioaddr.cmd_addr;
+	struct ata_taskfile tf;
+	u32 scr2_val;
+	int rc=0;
+
+	if (ap->ops->freeze)
+		ap->ops->freeze(ap);
+
+	scr2_val = readl(port + K2_SATA_SCR_CONTROL_OFFSET);
+	writel(0xF0000, port + K2_SATA_SCR_CONTROL_OFFSET);
+	msleep(1);
+
+	sata_pmp_write_init_tf(&tf, dev, pmp, reg, val);
+	ap->ops->tf_load(ap, &tf);	// jipeng - is this enough?
+	ata_exec_command(ap, &tf);
+
+	msleep(10);
+
+	if (ap->ops->thaw)
+	ap->ops->thaw(ap);
+		
+	writel(scr2_val, port + K2_SATA_SCR_CONTROL_OFFSET);
+	return rc;
+}
+
+static int k2_sata_do_softreset(struct ata_link *link, unsigned int *class, int pmp)
+{
+	struct ata_port *ap = link->ap;	
+	void __iomem *port = (void __iomem *)ap->ioaddr.cmd_addr;
+	struct k2_port_priv *pp = ap->private_data;
+	struct ata_taskfile tf;
+
+	if (pp->do_port_srst)
+	goto out;
+		
+	if (ata_link_offline(link)) {
+		*class = ATA_DEV_NONE;
+		goto out;
+	}
+
+	writel(0x000F0000, port + K2_SATA_SCR_CONTROL_OFFSET);
+
+	writeb(ATA_SRST, (void __iomem *) ap->ioaddr.ctl_addr);
+	msleep(1);
+	writeb(0x0, (void __iomem *) ap->ioaddr.ctl_addr);	
+	msleep(1);
+		
+	memset(&tf, 0, sizeof(tf));
+
+	ap->ops->tf_read(ap, &tf);
+	*class = ata_dev_classify(&tf);
+
+	if (*class == ATA_DEV_UNKNOWN)
+		*class = ATA_DEV_NONE;
+
+	pp->do_port_srst = 1;
+ out:
+	return 0;
+}
+
+static unsigned int k2_sata_bus_softreset(struct ata_port *ap, unsigned int devmask)
+{
+	struct ata_ioports *ioaddr = &ap->ioaddr;
+
+	if (ap->flags & ATA_FLAG_MMIO) {
+		writeb(ap->ctl, (void __iomem *) ioaddr->ctl_addr);
+		udelay(20);
+		writeb(ap->ctl | ATA_SRST, (void __iomem *) ioaddr->ctl_addr);
+		udelay(20);
+		writeb(ap->ctl, (void __iomem *) ioaddr->ctl_addr);
+	} else {
+		outb(ap->ctl, ioaddr->ctl_addr);
+		udelay(10);
+		outb(ap->ctl | ATA_SRST, ioaddr->ctl_addr);
+		udelay(10);
+		outb(ap->ctl, ioaddr->ctl_addr);
+	}
+
+	msleep(150);
+	return 0;
+}
+
+int k2_sata_std_softreset(struct ata_link *link, unsigned int *classes)
+{
+	struct ata_port *ap = link->ap;
+	struct ata_device *dev = ap->link.device;
+	struct ata_taskfile tf;	
+	unsigned int devmask = 1<<(link->pmp), err_mask;
+
+	if (ata_link_offline(link)) {
+		classes[0] = ATA_DEV_NONE;
+		goto out;
+	}
+
+	ap->ops->dev_select(ap, link->pmp);
+
+	err_mask = k2_sata_bus_softreset(ap, devmask);
+	if (err_mask) {
+		ata_link_printk(link, KERN_ERR, "SRST failed (err_mask=0x%x)\n", err_mask);
+		return -EIO;
+	}
+
+	ap->ops->dev_select(ap, link->pmp);
+	memset(&tf, 0, sizeof(tf));
+	ap->ops->tf_read(ap, &tf);	
+	classes[0] = ata_dev_classify(&tf);
+
+	if (classes[0] == ATA_DEV_UNKNOWN)
+		classes[0] = ATA_DEV_NONE;
+		
+	if ((classes[0] == ATA_DEV_ATA) && (ata_chk_status(ap) == 0))
+		classes[0] = ATA_DEV_NONE;
+
+	dev->class = classes[0];
+ out:
+	return 0;
+}
+
+static int k2_sata_softreset(struct ata_link *link, unsigned int *class)
+{
+	return k2_sata_do_softreset(link, class, SATA_PMP_CTRL_PORT);
+}
+
+static int k2_sata_pmp_softreset(struct ata_link *link, unsigned int *class)
+{
+	struct ata_port *ap = link->ap;
+	int rc = 0;
+
+	if(link->pmp == 0xf)
+		return k2_sata_do_softreset(link, class, link->pmp);
+	else if(link->pmp < ap->nr_pmp_links) {
+		if (ata_link_online(link)) {
+			k2_sata_pmp_attach_link(link, link->pmp);
+			rc = k2_sata_std_softreset(link, class);
+		}
+		else
+			*class = ATA_DEV_NONE;
+	}
+	
+	return rc;
+}
+
+static void k2_sata_error_handler(struct ata_port *ap)
+{
+	sata_pmp_do_eh(ap, ata_std_prereset, k2_sata_softreset, sata_pmp_std_hardreset,
+					ata_std_postreset, sata_pmp_std_prereset,
+					k2_sata_pmp_softreset, sata_pmp_std_hardreset,
+					sata_pmp_std_postreset);
+}
+
+static inline struct ata_queued_cmd *k2_sata_get_qc(struct ata_port *ap)
+{
+	struct ata_queued_cmd *qc=NULL;
+	void __iomem *port = (void __iomem *)ap->ioaddr.cmd_addr;
+	struct ata_link *link;
+	unsigned int pmp;
+
+	if (ap->nr_pmp_links) {
+		pmp = (readl(port + K2_SATA_SCR_CONTROL_OFFSET) & 0x000f0000)>>16;
+
+		if (pmp < ap->nr_pmp_links) {
+			link = &ap->pmp_link[pmp];
+			qc = ata_qc_from_tag(ap, link->active_tag);
+		} else {
+			// fatal error here
+			printk(KERN_ERR DRV_NAME ": out of range pmp %d\n", pmp);
+		}
+	} else {
+		link = &ap->link;
+		qc = ata_qc_from_tag(ap, link->active_tag);
+	}
+	
+	return qc;
+}
+
+static irqreturn_t k2_sata_interrupt(int irq, void *dev_instance,
+				   struct pt_regs *regs)
+{
+	struct ata_host *host = dev_instance;
+	unsigned int i;
+	unsigned int handled = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+
+	for (i = 0; i < host->n_ports; i++) {
+		struct ata_port *ap;
+
+		ap = host->ports[i];
+		if (ap &&
+		    !(ap->flags & ATA_FLAG_DISABLED)) {
+			struct ata_queued_cmd *qc;
+
+			qc = k2_sata_get_qc(ap);
+
+			if (qc && (!(qc->tf.flags & ATA_TFLAG_POLLING)) &&
+			    (qc->flags & ATA_QCFLAG_ACTIVE))
+				handled |= ata_host_intr(ap, qc);
+		}
+	}
+
+	spin_unlock_irqrestore(&host->lock, flags);
+	return IRQ_RETVAL(handled);
+}
 
 static struct scsi_host_template k2_sata_sht = {
 	.module			= THIS_MODULE,
@@ -403,27 +725,38 @@ static const struct ata_port_operations k2_sata_ops = {
 	.port_disable		= ata_port_disable,
 	.tf_load		= k2_sata_tf_load,
 	.tf_read		= k2_sata_tf_read,
-	.check_status		= k2_stat_check_status,
-	.exec_command		= ata_exec_command,
-	.dev_select		= ata_std_dev_select,
-	.bmdma_setup		= k2_bmdma_setup_mmio,
-	.bmdma_start		= k2_bmdma_start_mmio,
+	.check_status	= k2_stat_check_status,
+
+	.exec_command	= ata_exec_command,
+	.dev_select		= k2_sata_dev_select,
+
+	.bmdma_setup	= k2_bmdma_setup_mmio,
+	.bmdma_start	= k2_bmdma_start_mmio,
 	.bmdma_stop		= ata_bmdma_stop,
 	.bmdma_status		= ata_bmdma_status,
 	.qc_prep		= ata_qc_prep,
 	.qc_issue		= ata_qc_issue_prot,
 	.data_xfer		= ata_mmio_data_xfer,
+
+	.pmp_attach		= k2_sata_pmp_attach,
+	.pmp_detach		= k2_sata_pmp_detach,
+	.pmp_read		= k2_sata_pmp_read,
+	.pmp_write		= k2_sata_pmp_write,
+
 	.freeze			= ata_bmdma_freeze,
 	.thaw			= ata_bmdma_thaw,
-	.error_handler		= ata_bmdma_error_handler,
+	.error_handler	= k2_sata_error_handler,
+	
+	.port_start		= k2_sata_port_start,
 	.post_internal_cmd	= ata_bmdma_post_internal_cmd,
 	.hp_poll_activate	= sata_std_hp_poll_activate,
 	.hp_poll		= sata_std_hp_poll,
-	.irq_handler		= ata_interrupt,
+	.irq_handler	= k2_sata_interrupt,	
+
 	.irq_clear		= ata_bmdma_irq_clear,
 	.scr_read		= k2_sata_scr_read,
 	.scr_write		= k2_sata_scr_write,
-	.port_start		= ata_port_start,
+
 	.port_stop		= ata_port_stop,
 	.host_stop		= ata_pci_host_stop,
 };
@@ -460,8 +793,8 @@ static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_
 
 		//dump bridge regs
 		for (i=0;i<9; i++) { //skip after this
-			printk("Addr %x Value %x\n", 
-			((uint32_t *)(0xB0500200 + i*4)),*((uint32_t *)(0xB0500200 + i*4)));
+			printk("Addr %x Value %x\n", 0xb0500200 + i * 4,
+				*(volatile uint32_t *)(0xb0500200 + i * 4));
 		}
 
 		//program VCO step bit [12:10] start with 111
@@ -496,22 +829,21 @@ static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_
 		for(port = 0; port < 2; port++)
 		{
 			printk("Reset port %d addr %x\n", port, MMIO_OFS + 0x48 + port*0x100);
-			*((uint32_t *)(MMIO_OFS + 0x48 + port*0x100)) = 1;
+			writel(1, (void *)(MMIO_OFS + 0x48 + port * 0x100));
 			udelay(10000); // wait
 			//reset deskew TX FIFO
 			//1. select port
-			mdio_write_reg(0,7,1<port);
+			mdio_write_reg(0,7,1 << port);
 			//toggle reset bit
 			mdio_write_reg(0,0xd,0x8000);
 			udelay(10000); // wait
 			mdio_write_reg(0,0xd,0x0000);
 			udelay(10000); // wait
-			*((uint32_t *)(MMIO_OFS + 0x48 + port*0x100)) = 0;
+			writel(0, (void *)(MMIO_OFS + 0x48 + port * 0x100));
 
 			//enable 4G support
-			tmp32 = *((uint32_t *)(MMIO_OFS + 0x84 + port*0x100));
-			*((uint32_t *)(MMIO_OFS + 0x84 + port*0x100)) = tmp32 | 0x00000400;
-
+			tmp32 = readl((void *)(MMIO_OFS + 0x84 + port * 0x100));
+			writel(tmp32 | 0x00000400, (void *)(MMIO_OFS + 0x84 + port * 0x100));
 		}
 	}
 	
@@ -556,8 +888,8 @@ static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000
 			*/
 			(void) pci_read_config_dword(dev, SATA_MMIO, &mmio_reg);
 			mmio_reg = KSEG1ADDR(mmio_reg);
-			reg = readl(mmio_reg+SATA_MMIO_SCR2);
-			writel(reg | 0x01, mmio_reg+SATA_MMIO_SCR2);
+			reg = readl((void *)(mmio_reg+SATA_MMIO_SCR2));
+			writel(reg | 0x01, (void *)(mmio_reg+SATA_MMIO_SCR2));
 
 			/*
 			* Before accessing the MDIO registers through pci space disable external MDIO access.
@@ -578,8 +910,8 @@ static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000
 				printk("MDIO Read2 port%d: %04x\n", port, reg);
 			}
 			// Re-enable the PHY
-			reg = readl(mmio_reg+SATA_MMIO_SCR2);
-			writel(reg ^ 0x01, mmio_reg+SATA_MMIO_SCR2);
+			reg = readl((void *)(mmio_reg+SATA_MMIO_SCR2));
+			writel(reg ^ 0x01, (void *)(mmio_reg+SATA_MMIO_SCR2));
 		}
 	
 		//PR22401: Identify Seagate drives with ST controllers.

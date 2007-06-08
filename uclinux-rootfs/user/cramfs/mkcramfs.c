@@ -307,6 +307,9 @@ static unsigned int parse_directory(struct entry *root_entry, const char *name, 
 		}
 		entry->mode = st.st_mode;
 		entry->size = st.st_size;
+#if 1 // PR29110: force root ownership of cramfs contents
+		entry->uid = entry->gid = 0;
+#else
 		entry->uid = st.st_uid;
 		if (entry->uid >= 1 << CRAMFS_UID_WIDTH)
 			warn_uid = 1;
@@ -318,6 +321,7 @@ static unsigned int parse_directory(struct entry *root_entry, const char *name, 
 			   be &= ~070.  Same goes for uid once Linux
 			   supports >16-bit uids. */
 			warn_gid = 1;
+#endif
 		size = sizeof(struct cramfs_inode) + ((namelen + 3) & ~3);
 		*fslen_ub += size;
 		if (S_ISDIR(st.st_mode)) {
@@ -338,13 +342,24 @@ static unsigned int parse_directory(struct entry *root_entry, const char *name, 
 				}
 			}
 		} else if (S_ISLNK(st.st_mode)) {
-			entry->uncompressed = malloc(entry->size);
+			unsigned int mode, maj, min;
+
+			entry->uncompressed = malloc(entry->size + 1);
 			if (!entry->uncompressed) {
 				die(MKFS_ERROR, 1, "malloc failed");
 			}
 			if (readlink(path, entry->uncompressed, entry->size) < 0) {
 				warn_skip = 1;
 				continue;
+			}
+			((char *)entry->uncompressed)[entry->size] = '\0';
+			if (sscanf(entry->uncompressed, "__dev__%o_%u_%u",
+				&mode, &maj, &min) == 3)
+			{
+				free(entry->uncompressed);
+				entry->uncompressed = NULL;
+				entry->size = makedev(maj, min);
+				entry->mode = mode;
 			}
 		} else if (S_ISFIFO(st.st_mode) || S_ISSOCK(st.st_mode)) {
 			/* maybe we should skip sockets */

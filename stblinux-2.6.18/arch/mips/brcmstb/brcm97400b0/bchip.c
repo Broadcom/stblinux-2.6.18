@@ -64,7 +64,9 @@ static __init int RAC_init(void)
 		//BUG(); _RAC_init will straighten things out.
 	}
 
+#if 0 // LLMB setting is inherited from CFE
     _RAC_init();
+#endif
 	
 	return 0;
 }
@@ -135,6 +137,11 @@ int rac_setting(int value)
 			rac_value = 0x0000001F;
 			break;
 
+		case 0xff:    /* leave CFE value intact */
+			bcm_inv_rac_all();
+			rac_value = 0x00000000;
+			break;
+
 		default:	/* unspecified value, set to default */
 			bcm_inv_rac_all();
 			rac_value = 0x0000001F;			
@@ -146,9 +153,17 @@ int rac_setting(int value)
 	rac_value |= DEFAULT_RAC_CONFIGURATION;
 	printk("RAC_VALUE = %08lx\n", rac_value);
 
-	*((volatile unsigned long *)(rac_config0)) |= rac_value;
-	*((volatile unsigned long *)(rac_config1)) |= rac_value;
-	*((volatile unsigned long *)(rac_address_range)) = par_val2;  /* 0x04000000; 64M for 7401a0 */
+	if(value != 0xff) {
+		*((volatile unsigned long *)(rac_config0)) =
+			(*((volatile unsigned long *)(rac_config0)) & ~0x1f) |
+			rac_value;
+		*((volatile unsigned long *)(rac_config1)) =
+			(*((volatile unsigned long *)(rac_config1)) & ~0x1f) |
+			rac_value;
+		*((volatile unsigned long *)(rac_address_range)) = par_val2;  /* 0x04000000; 64M for 7401a0 */
+	} else {
+		printk("******* Using CFE setting for RAC\n");
+	}
 
 	// clear WRV (space reservation by way - set to unreserved)
 	*((volatile unsigned long *)(rac_config0)) &= ~(3 << 18);

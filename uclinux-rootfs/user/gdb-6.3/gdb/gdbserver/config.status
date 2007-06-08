@@ -2,7 +2,7 @@
 # Generated automatically by configure.
 # Run this file to recreate the current configuration.
 # This directory was configured as follows,
-# on host linux_test.broadcom.com:
+# on host auto_test:
 #
 # ./configure  --prefix=/usr --target=mips-linux --build=i386-pc-linux-gnu --host=mips-linux --disable-nls --without-uiout --disable-gdbmi --disable-tui --disable-gdbtk --without-x --without-included-gettext
 #
@@ -36,13 +36,13 @@ sed 's/%@/@@/; s/@%/@@/; s/%g$/@g/; /@g$/s/[\\&%]/\\&/g;
 /^[ 	]*VPATH[ 	]*=[^:]*$/d
 
 s%@SHELL@%/bin/sh%g
-s%@CFLAGS@%-Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include%g
+s%@CFLAGS@%-g -O2%g
 s%@CPPFLAGS@%%g
-s%@CXXFLAGS@%-Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include  -fname-mangling-version-0%g
+s%@CXXFLAGS@%%g
 s%@FFLAGS@%%g
 s%@DEFS@%-DHAVE_CONFIG_H%g
-s%@LDFLAGS@%-Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/xj1_rel2618_1_0_sview/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include%g
-s%@LIBS@% -lthread_db%g
+s%@LDFLAGS@%%g
+s%@LIBS@%%g
 s%@exec_prefix@%${prefix}%g
 s%@prefix@%/usr%g
 s%@program_transform_name@%s,x,x,%g
@@ -78,7 +78,7 @@ s%@INSTALL_PROGRAM@%${INSTALL}%g
 s%@INSTALL_SCRIPT@%${INSTALL_PROGRAM}%g
 s%@INSTALL_DATA@%${INSTALL} -m 644%g
 s%@CPP@%mips-linux-gcc -E%g
-s%@RDYNAMIC@%%g
+s%@RDYNAMIC@%-rdynamic%g
 s%@GDBSERVER_DEPFILES@%reg-mips.o linux-low.o linux-mips-low.o thread-db.o proc-service.o%g
 s%@GDBSERVER_LIBS@%-lthread_db%g
 s%@USE_THREAD_DB@%-DUSE_THREAD_DB%g

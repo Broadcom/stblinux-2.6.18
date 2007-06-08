@@ -1,14 +1,10 @@
 #
 # Broadcom Settop Box build script for Big Endian
 #
-# With initramfs support in kernel 2.6.x,
-# this build script no longer requires root access for kernel images
-# However, root access is needed for building rootfs images
-# and the user will be prompted ONCE for the root password
-# during 'make rootfs'
+# Root access is no longer required to build anything.
 #
 # To build all kernels (initrd and regular kernels)
-#  % make -f build.mk [platform]
+# % make -f build.mk [platform]
 #
 # To build just the initrd kernel for one platform
 # % make -f build.mk vmlinuz-initrd-7038b0
@@ -16,26 +12,15 @@
 # To build just the regular kernel for one platform
 # % make -f build.mk vmlinuz-7038b0
 #
-# Note, the % is to underline the fact that no root access is needed to build kernel images.
-#
-# To build rootfs images, suitable for stbutil, one will need root access
-#
 # To build just the rootfs images for 1 platform, after building the kernels for the 7038b0 platform
-# # make -f build.mk rootfs-7038b0
+# % make -f build.mk rootfs-7038b0
 #
 # To build the kernel and images for all platforms:
-# % make -f build.mk [ROOT=root] all
-# You will be prompted one time for the root password
-#
-# To build the kernels non-interactively, just log on as root and do
-# # make -f build.mk all
+# % make -f build.mk all
 #
 WHOAMI ?= $(shell who am i | cut -d" " -f1 | cut -d'!' -f2)
 MYGID = $(shell id -g)
 MYUID := $(shell id -u)
-
-#On some machines, root is not just root, but a privileged account
-ROOT=
 
 # if nothing works, set it to login name
 ifeq ($(strip $(WHOAMI)),)
@@ -47,7 +32,7 @@ endif
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.12-0 we only support a few platforms
-CHIPS=7038c0 97398 7318 7400a0 7400a0-smp 7401a0 7401b0 7401c0 7118a0 7403a0 97401c0-sw1
+CHIPS=7400b0 7400b0-smp 7401c0 7118a0 7403a0 97401c0-sw1 # 7038c0 97398 7400a0 7400a0-smp 7318
 PLATFORMS=$(addsuffix _be,$(CHIPS))
 XFS_PLATFORMS = 7038c0_be-xfs 97398_be-xfs
 ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS)
@@ -120,28 +105,23 @@ vercheck:
 install: rootfs
 
 rootfs:
-	# Make the rootfs images, need root access
-	su -m -c '$(shell for i in $(ALL_PLATFORMS); do \
-		[ -e images/$$i/initramfs_data.cpio.gz ] && \
-			echo "make -f build-be.mk rootfs-$$i; "; \
-	done)' $(ROOT)
-	# Copy to TFTP server.  Here this script assumes that only normal users
-	# can write to the server (NFS mounted), your mileage may vary.
-	@if [ $(MYUID) -ne 0 ]; then \
-		for i in $(ALL_PLATFORMS); do \
-			[ -e images/$$i/initramfs_data.cpio.gz ] && \
-				cp -f images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img && \
-				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
-		done; \
-		true; \
-	else \
-		for i in $(ALL_PLATFORMS); do \
-			su -m -c "[ -e images/$$i/initramfs_data.cpio.gz ] && \
-				cp -f images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img && \
-				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img" $(WHOAMI); \
-		done; \
-		true; \
-	fi
+	# Make the rootfs images and copy to tftp server
+	for i in $(ALL_PLATFORMS); do \
+		if [ -e images/$$i/initramfs_data_nodev.cpio ]; then \
+			$(MAKE) -f build-be.mk rootfs-$$i || exit 1; \
+			case "$$i" in \
+			*-nand_be) \
+				cp images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
+				cp images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
+				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
+				;;\
+			*) \
+				cp images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img || exit 1; \
+				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img || exit 1; \
+				;;\
+			esac; \
+		fi; \
+	done
 
 .PHONY: $(ALL_PLATFORMS) $(BB_INITRD_PLATFORMS) $(BB_PLATFORMS) \
 	$(ROOTFS_PLATFORMS) $(ROOTFS_IMAGES) $(CRAMFS_PLATFORMS) $(JFFS2_PLATFORMS) \
@@ -160,16 +140,10 @@ $(OPROFILE_PLATFORMS) :
 	make -f build-be.mk vmlinuz-$@
 	
 $(ROOTFS_PLATFORMS):
-	@if [ $(MYUID) -ne 0 ]; then \
-		echo "Making target $@ requires root access"; \
-		exit 1; \
-	else \
-		echo "Making rootfs images for $@ version=$(VERSION)"; \
-	fi
+	echo "Making rootfs images for $@ version=$(VERSION)";
 	# We don't check whether the image is up-todate, but assume that it has been built.
-	su -m -c "cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst rootfs-,,$@) .config" \
-		$(WHOAMI) 2>/dev/null
-	su -m -c '. .config && make -C vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT" \
+	cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst rootfs-,,$@) .config
+	. .config && $(MAKE) -C vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT" \
 		ROOTDIR=$(shell pwd) \
 		LINUX_CONFIG=$(shell pwd)/vendors/"$$CONFIG_VENDOR/$$CONFIG_PRODUCT"/config.linux-2.6.x \
 		CONFIG_CONFIG=$(shell pwd)/vendors/"$$CONFIG_VENDOR/$$CONFIG_PRODUCT"/config.vendor-2.6.x \
@@ -177,9 +151,18 @@ $(ROOTFS_PLATFORMS):
 		IMAGEDIR=$(shell pwd)/images\
 		PLATFORM=$(subst rootfs-,,$@)\
 		ARCH_CONFIG=$(shell pwd)/vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config.arch\
-		images' $(ROOT) 
-	su -m -c "cp -f images/$(subst rootfs-,,$@)/jffs2.img $(TFTPDIR)/jffs2-$(subst rootfs-,,$@).img" $(WHOAMI)
-	su -m -c "cp -f images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img" $(WHOAMI)
+		images
+	case "$(subst rootfs-,,$@)" in \
+		*-nand_be) \
+			cp images/$(subst rootfs-,,$@)/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$(subst rootfs-,,$@).img ; \
+			cp images/$(subst rootfs-,,$@)/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$(subst rootfs-,,$@).img ; \
+			cp images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img ; \
+			;;\
+		*) \
+			cp images/$(subst rootfs-,,$@)/jffs2.img $(TFTPDIR)/jffs2-$(subst rootfs-,,$@).img; \
+			cp images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
+			;;\
+	esac
 
 # The echo Done at the end is to prevent make from reporting errors.
 $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS):
@@ -327,8 +310,7 @@ clean:
 
 distclean:
 	rm -f $(ALL_PLATFORMS) $(BB_INITRD_PLATFORMS) $(BB_PLATFORMS)
-	# Requires root access to clean the images directory
-	su -m -c '$(MAKEARCH) $@' $(ROOT)
+	$(MAKEARCH) $@
 
 # PR25899 - Show available targets
 show_targets:

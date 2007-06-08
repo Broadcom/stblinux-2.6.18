@@ -21,6 +21,7 @@
 
 static unsigned int offset;
 static unsigned int ino = 721;
+static unsigned int nodev = 0;
 
 struct file_handler {
 	const char *type;
@@ -281,7 +282,16 @@ static int cpio_mknod_line(const char *line)
 		fprintf(stderr, "Unrecognized nod format '%s'", line);
 		goto fail;
 	}
-	rc = cpio_mknod(name, mode, uid, gid, dev_type, maj, min);
+	if(! nodev) {
+		rc = cpio_mknod(name, mode, uid, gid, dev_type, maj, min);
+	} else {
+		char target[32];
+
+		sprintf(target, "__dev__%o_%u_%u",
+			mode | (dev_type == 'b' ? 060000 : 020000),
+			maj, min);
+		rc = cpio_mkslink(name, target, mode, uid, gid);
+	}
  fail:
 	return rc;
 }
@@ -439,16 +449,24 @@ int main (int argc, char *argv[])
 {
 	FILE *cpio_list;
 	char line[LINE_SIZE];
-	char *args, *type;
+	char *args, *type, *list;
 	int ec = 0;
 	int line_nr = 0;
 
-	if (2 != argc) {
+	if ((argc == 3) && ! strcmp(argv[1], "-nodev"))
+	{
+		list = argv[2];
+		nodev = 1;
+	} else {
+		list = argv[1];
+	}
+
+	if (! nodev && (argc != 2)) {
 		usage(argv[0]);
 		exit(1);
 	}
 
-	if (! (cpio_list = fopen(argv[1], "r"))) {
+	if (! (cpio_list = fopen(list, "r"))) {
 		fprintf(stderr, "ERROR: unable to open '%s': %s\n\n",
 			argv[1], strerror(errno));
 		usage(argv[0]);
@@ -471,7 +489,6 @@ int main (int argc, char *argv[])
 				"ERROR: incorrect format, could not locate file type line %d: '%s'\n",
 				line_nr, line);
 			ec = -1;
-			break;
 		}
 
 		if ('\n' == *type) {
@@ -507,7 +524,7 @@ int main (int argc, char *argv[])
 				line_nr, line);
 		}
 	}
-	if (ec == 0)
+	if(ec == 0)
 		cpio_trailer();
 
 	exit(ec);

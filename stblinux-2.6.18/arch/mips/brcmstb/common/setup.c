@@ -379,7 +379,7 @@ void __init plat_mem_setup(void)
  	panic_timeout = 180;
 
 // Set RAC on 7400
-#if defined( CONFIG_MIPS_BCM7400 )	
+#if defined( CONFIG_MIPS_BCM7400A0 )
 	rac_setting(1);
 #endif
 

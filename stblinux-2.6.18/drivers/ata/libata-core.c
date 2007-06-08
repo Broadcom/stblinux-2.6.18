@@ -1276,6 +1276,9 @@ int ata_dev_read_id(struct ata_device *dev, unsigned int *p_class,
 		ata_dev_printk(dev, KERN_DEBUG, "%s: ENTER, host %u, dev %u\n",
 			       __FUNCTION__, ap->id, dev->devno);
 
+	if (ap->nr_pmp_links)
+	ata_dev_select(ap, dev->link->pmp, 1 ,1);
+	else
 	ata_dev_select(ap, dev->devno, 1, 1); /* select device 0/1 */
 
  retry:
@@ -4912,6 +4915,9 @@ unsigned int ata_qc_issue_prot(struct ata_queued_cmd *qc)
 	}
 
 	/* select the device */
+	if (ap->nr_pmp_links)
+	ata_dev_select(ap, qc->dev->link->pmp, 1, 0);
+	else
 	ata_dev_select(ap, qc->dev->devno, 1, 0);
 
 	/* start the command */

@@ -1,4 +1,4 @@
-#if (PAGE_SIZE == 4096)
+#if (PAGE_SIZE == 4096) && (L1_CACHE_BYTES <= 32)
 	CACHE(32)
 #endif
 	CACHE(64)

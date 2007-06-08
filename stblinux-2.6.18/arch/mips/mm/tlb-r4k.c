@@ -1075,9 +1075,15 @@ printk("######### SUN_TOP_CTRL_SW_RESET @%08x = %08x\n",
 	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)) = 0x80000000|4; //10500208=4
 	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)) = 0x2100147;  //1050020c
 	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE)) = 1; //10500210
+#ifdef CONFIG_CPU_LITTLE_ENDIAN
 	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE)) = 0; //10500214
 	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE)) = 0xb0510000; //10500218
 	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE)) = 0; //1050021c
+#else
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE)) = 2; //10500214
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE)) = 0xb0510002; //10500218
+	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE)) = 2; //1050021c
+#endif
 	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER)) = 0; //10500220
 
 

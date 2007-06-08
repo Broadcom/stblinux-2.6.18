@@ -41,7 +41,16 @@ when	who what
 #include <asm/time.h>
 #include <asm/cpu.h>
 #include <asm/smp.h>
+
+#if defined(CONFIG_MIPS_BCM7400A0)
 #include <asm/brcmstb/brcm97400a0/bcmintrnum.h>
+#elif defined(CONFIG_MIPS_BCM7456B0)
+#include <asm/brcmstb/brcm97456b0/bcmintrnum.h>
+#elif defined(CONFIG_MIPS_BCM7400B0)
+#include <asm/brcmstb/brcm97400b0/bcmintrnum.h>
+#else
+#error Unsupported SMP platform
+#endif
 
 // Marcos that we use on the 7400
 #define read_c0_brcm_config_0()	__read_32bit_c0_register($22, 0)
@@ -156,13 +165,12 @@ void prom_smp_finish(void)
 
 	setup_irq(BCM_LINUX_IPC_0_IRQ, &brcm_ipc_action0);
 	setup_irq(BCM_LINUX_IPC_1_IRQ, &brcm_ipc_action1);
+	set_c0_status(IE_SW0 | IE_SW1 | ST0_IE);
 
     printk("TP%d: prom_smp_finish enabling local timer_interrupt\n", smp_processor_id());
     {    
         brcm_timerx_setup(&dummy_irq);
     }
-	// enable interrupts on TPx
-	set_c0_status(IE_SW0 | IE_SW1 | ST0_IE);
 }
 
 void prom_cpus_done(void)
@@ -182,13 +190,15 @@ void __init plat_prepare_cpus(unsigned int max_cpus)
         cpu_set(1, phys_cpu_present_map);
     }
 
+#if defined(CONFIG_MIPS_7400A0)
     /* 7400A0 CMT "uncached assesses blocking d-cache from other TP" workaround */
 	{
-        volatile unsigned long * pCfg = (unsigned long * ) 0xBfa0001c;
+        volatile unsigned long * pCfg = (unsigned long * ) 0xbfa0001c;
         printk("enable 7400A0 CMT 'uncached assesses blocking d-cache from other TP' workaround\n");
 		printk("0x2000000=>0xBFA0001C\n");
 		*pCfg |= (1<<25);
      }
+#endif
 
 }
 
@@ -240,7 +250,7 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
     // interrupt crossover. To set the h/w interrupt crossover, we need to set 
     // a different bit in that same CP0 register.  The XIR bits (31:27) 
     // control h/w IRQ 4..0, respectively.
-    printk("TP%d: prom_boot_secondary: adjustting s/w interrupt crossover\n", smp_processor_id());
+    printk("TP%d: prom_boot_secondary: adjusting s/w interrupt crossover\n", smp_processor_id());
     
     temp = read_c0_cmt_interrupt();
     temp |= 0x10018000;
@@ -263,6 +273,7 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
     //temp |= (1<<4);           // TP0 priority
     //temp |= (1<<5);           // TP1 priority
 
+#ifdef CONFIG_MIPS_BCM7400A0
     // adjust tlb serialization
     temp &= ~(0x0F << 16);   // mask off old tlb serialization thingie...
 //    temp |= (0x06 << 16);   // adjust tlb serialization (only exception serialization)
@@ -270,6 +281,7 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
 //    temp |= (0x00 << 16);   // adjust tlb serialization (no serialization)
 //    temp |= (0x07 << 16);   // adjust tlb serialization (USE THIS!)
     temp |= (0x01 << 16);   // adjust tlb serialization (no serialization RECOMMENDED!)
+#endif
     
 	temp |= (0x01 << 31);	// Debug and profile TP1 thread
 

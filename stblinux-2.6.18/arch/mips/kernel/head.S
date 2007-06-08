@@ -205,66 +205,6 @@ EXPORT(_stext)
 NESTED(kernel_entry, 16, sp)			# kernel entry point
 
 	kernel_entry_setup			# cpu specific setup
-#ifdef CONFIG_BRCM_PCI_SLAVE
-//xxx:
-        li      a0, '7'
-        li      t0, UART_ADR_BASE
-        li      t2, TXDREGEMT
-1:      lw      t1, UART_TXSTAT(t0)
-        and     t1, t1, t2
-        bne     t1, t2, 1b
-        nop
-        sw      a0, UART_TXDATA(t0)
- 
-        nop
-        //b	xxx
-        nop
-        
-	bal		pci_slave_init
-	nop
-
-return_from_pci_slave_init:
-
-#else
-	setup_c0_status_pri
-#endif
-
-#ifdef CONFIG_MIPS_BRCM97XXX
-	#ifdef CONFIG_SMP
-	.extern  g_boot_config
-	# Check to see which TP we are running on.
-	mfc0    $8, $22, 3
-	srl     $8, $8, 31
-	beqz     $8, 1f
-	nop
-	
-	# ---------------------------------	
-	# We are in TP1
-	# ---------------------------------	
-	InTp1:	
-	# struct BootConfig {
-	#     unsigned long signature;   //  0
-	#     unsigned long ncpus;       //  4
-	#     unsigned long func_addr;   //  8
-	#     unsigned long sp;          // 12
-	#     unsigned long gp;          // 16
-	#     unsigned long arg;         // 20
-	# }
-	la       t0,	g_boot_config	# grab boot config data...
-	lw       sp,	12(t0)
-	lw       gp,	16(t0)
-	lw       t1,	 8(t0)
-	lw       a0,	20(t0)
-	jr       t1
-	nop
-	#endif // SMP
-
-	#ifndef CONFIG_BRCM_PCI_SLAVE
-	1:	jal	cfe_start
-	nop
-	#endif
-
-#endif // BRCM97XXX
 
 #ifdef CONFIG_MIPS_MT_SMTC
 	/*

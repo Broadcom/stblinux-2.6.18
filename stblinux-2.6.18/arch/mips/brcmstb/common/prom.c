@@ -436,7 +436,11 @@ void __init prom_init(void)
 		}
 	  }
 	  else {
+#if defined(CONFIG_MIPS_BCM7400B0)
+		par_val = 0xff;		/* default: keep CFE setting */
+#else
 		par_val = 0x03;		/* set default to I/D RAC on */
+#endif
 		par_val2 = (get_RAM_size()-1) & 0xffff0000;
 	  }
 	}

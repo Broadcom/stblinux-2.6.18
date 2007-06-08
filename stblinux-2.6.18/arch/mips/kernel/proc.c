@@ -90,20 +90,9 @@ static const char *cpu_name[] = {
 	[CPU_SR71000]	= "Sandcraft SR71000",
 	[CPU_PR4450]	= "Philips PR4450",
 	/* PR22847 - Add Broadcom models */
-	[CPU_BCM3560]	= "Brcm3560",
-	[CPU_BCM7112]	= "Brcm7112",
-	[CPU_BCM7115]	= "Brcm7115",
-	[CPU_BCM7110]	= "Brcm7110",
-	[CPU_BCM7111]	= "Brcm7111",
-	[CPU_BCM7312]	= "Brcm7312",
-	[CPU_BCM7315]	= "Brcm7315",
-	[CPU_BCM7314]	= "Brcm7314",
-	[CPU_BCM7317]	= "Brcm7317",
-	[CPU_BCM7318]	= "Brcm7318",
-	[CPU_BCM7327]	= "Brcm7327",
-	[CPU_BCM7329]	= "Brcm7329",
-	[CPU_BCM7401]	= "Brcm7401",
-	[CPU_BCM7400]	= "Brcm7400"
+	[CPU_BMIPS3300]	= "BMIPS3300",
+	[CPU_BMIPS4350]	= "BMIPS4350",
+	[CPU_BMIPS4380]	= "BMIPS4380",
 };
 
 extern unsigned int par_val;	

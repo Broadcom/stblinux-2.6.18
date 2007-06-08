@@ -139,7 +139,22 @@ static inline void *kmap_coherent(struct page *page, unsigned long addr)
 	int tlbidx;
 
 	inc_preempt_count();
+#if defined(CONFIG_MIPS_BRCM97XXX)
+	/*
+	 * Preventing L1 cache aliasing between addr and vaddr:
+	 *
+	 * idx 0 -> vaddr ffff_e000
+	 * idx 1 -> vaddr ffff_d000
+	 * ...
+	 * idx 7 -> vaddr ffff_7000
+	 *
+	 * Therefore, we want to increment idx by 2 so that
+	 * ((addr >> 12) & 7) == ((vaddr >> 12) & 7)
+	 */
+	idx = ((addr >> PAGE_SHIFT) + 2) & (FIX_N_COLOURS - 1);
+#else
 	idx = (addr >> PAGE_SHIFT) & (FIX_N_COLOURS - 1);
+#endif
 #ifdef CONFIG_MIPS_MT_SMTC
 	idx += FIX_N_COLOURS * smp_processor_id();
 #endif
