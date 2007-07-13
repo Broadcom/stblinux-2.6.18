@@ -8,3 +8,4 @@
 
 
 obj-$(CONFIG_LONG_LONG_SUPPORT) += udivdi3.o
+EXTRA_CFLAGS += -I $(TOPDIR)/include/asm-generic

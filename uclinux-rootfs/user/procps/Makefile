@@ -183,7 +183,7 @@ w.o:	w.c
 	$(strip $(CC) $(CFLAGS) $(W_SHOWFROM) -c $<)
 
 top.o:	top.c
-	$(strip $(CC) $(CFLAGS) -fwritable-strings -c $<)
+	$(strip $(CC) $(CFLAGS) -c $<)
 
 skill.o:	skill.c
 	$(strip $(CC) $(CFLAGS) -DSYSV -c $<)

@@ -31,10 +31,14 @@ endif
 #VENOM=937xx
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
-# THT For 2.6.12-0 we only support a few platforms
-# 2.6.12-1.3: Dropping 7038b0 and 3560a0.
-PLATFORMS=7401c0 97455c0 7400b0 7400b0-smp 97456b0 97456b0-smp 7403a0 97458a0 7118a0 # 7400a0 7400a0-smp 7440a0 7038c0 97398 7402 7402c0 7403a0 3560b0 3563 97456 # 7318 7400a0-nand  7401b0-nand 7401c0-nand 7402c0-nand 97455c0-nand # 7402s 7038b0 3560 7312 # 7401a0 7401b0 97455 97455b0 7402b0s
-XFS_PLATFORMS = 7038c0-xfs 97398-xfs
+# THT For 2.6.18-2.0 we only support a few platforms
+PLATFORMS=7401c0 97455c0 7400b0 7400b0-smp 97456b0 97456b0-smp 7403a0 97458a0 7118a0 7401c0-nand 7402c0-nand 97455c0-nand 7400b0-nand 97456b0-nand 7403a0-nand 97458a0-nand 7118a0-nand # 7400b0-smp-nand 97456b0-smp-nand
+    # Obsoleted
+    # 7400a0 7400a0-smp 7440a0 7038c0 97398 7402 7402c0 7403a0 3560b0 3563 97456
+    # 7318 7400a0-nand  7401b0-nand
+    # 7402s 7038b0 3560 7312 # 7401a0 7401b0 97455 97455b0 7402b0s
+#THT Removed 7038 support for 2618-2.0
+XFS_PLATFORMS = # 7038c0-xfs 97398-xfs
 ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS)
 ROOTLESS_PLATFORMS = 7402b0s
 ROOTED_PLATFORMS := $(filter-out $(ROOTLESS_PLATFORMS),$(ALL_PLATFORMS))
@@ -60,7 +64,9 @@ ROOTFS_PLATFORMS := $(addprefix rootfs-,$(ROOTED_PLATFORMS))
 
 JFFS2_IMAGES := $(addsuffix .img,$(JFFS2_PLATFORMS))
 CRAMFS_PLATFORMS := $(addprefix cramfs-,$(ALL_PLATFORMS))
-CRAMFS_IMAGES := $(addsuffix .img,$(JFFS2_PLATFORMS))
+CRAMFS_IMAGES := $(addsuffix .img,$(CRAMFS_PLATFORMS))
+SQUASHFS_PLATFORMS := $(addprefix cramfs-,$(ALL_PLATFORMS))
+SQUASHFS_IMAGES := $(addsuffix .img,$(SQUASHFS_PLATFORMS))
 VERSION=$(shell cat version)
 TFTPBOOT=/tftpboot
 TFTPDIR=$(TFTPBOOT)/$(VERSION)
@@ -92,7 +98,7 @@ kernels: vercheck
 
 all: vercheck kernels install
 
-.PHONY: vercheck install rootfs
+.PHONY: vercheck install rootfs platlist
 
 #jipeng - check version mismatch between rootfs and kernel source
 vercheck:
@@ -107,6 +113,12 @@ vercheck:
 
 install: rootfs
 
+platlist:
+	> platlist ; \
+	for i in $(ALL_PLATFORMS); do \
+		echo $$i >> platlist ; \
+	done
+
 rootfs:
 	# Make the rootfs images and copy to tftp server
 	for i in $(ROOTED_PLATFORMS); do \
@@ -117,10 +129,12 @@ rootfs:
 				cp images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
 				cp images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
 				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
+				cp images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
 				;;\
 			*) \
 				cp images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img; \
 				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
+				cp images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
 				;;\
 			esac; \
 		fi; \
@@ -128,7 +142,7 @@ rootfs:
 
 .PHONY: $(ALL_PLATFORMS) $(BB_INITRD_PLATFORMS) $(BB_PLATFORMS) \
 	$(ROOTFS_PLATFORMS) $(ROOTFS_IMAGES) $(CRAMFS_PLATFORMS) $(JFFS2_PLATFORMS) \
-	$(OPROFILE_PLATFORMS) $(NO_ROOTFS_PLATFORMS)
+	$(SQUASHFS_PLATFORMS) $(OPROFILE_PLATFORMS) $(NO_ROOTFS_PLATFORMS)
 
 
 $(ALL_PLATFORMS) :
@@ -161,10 +175,12 @@ $(ROOTFS_PLATFORMS):
 			cp -f images/$(subst rootfs-,,$@)/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
+			cp -f images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img ; \
 			;;\
 		*) \
 			cp -f images/$(subst rootfs-,,$@)/jffs2.img $(TFTPDIR)/jffs2-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
+			cp -f images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img ; \
 			;;\
 	esac
 
@@ -363,4 +379,7 @@ show_targets:
 	@for i in $(ALL_PLATFORMS); do \
 		echo "cramfs-"$$i; \
  	done
+	@for i in $(ALL_PLATFORMS); do \
+		echo "squashfs-"$$i; \
+	done
 

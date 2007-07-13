@@ -154,8 +154,8 @@ LEAF(_restore_fp)
  */
 
 /* TDT - PRs21761,21763,21819 - Set FS bit in FP control register */
-#if defined(CONFIG_MIPS_BCM7400A0) && !defined(CONFIG_CPU_LITTLE_ENDIAN) \
-	|| defined(CONFIG_MIPS_BCM7400B0)
+/* PR32132 - Clear FS bit in FP control register on 7400b0 */
+#if (defined(CONFIG_MIPS_BCM7400A0) && !defined(CONFIG_CPU_LITTLE_ENDIAN))
 #define FPU_DEFAULT  (FPU_CSR_FLUSH)
 #else
 #define FPU_DEFAULT  0x00000000

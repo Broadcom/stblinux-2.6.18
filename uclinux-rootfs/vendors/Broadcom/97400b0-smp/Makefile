@@ -16,7 +16,7 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 #
-#	Makefile -- Build instructions for Broadcom/97400b0
+#	Makefile -- Build instructions for Broadcom/97400b0-smp
 #
 
 include $(LINUX_CONFIG)
@@ -30,6 +30,7 @@ LINUXFILE = vmlinux
 COMPRESSED_LINUXFILE = vmlinuz
 ROMFSFILE = romfs.img
 CRAMFSFILE= cramfs.img
+SQUASHFSFILE=squashfs.img
 JFFSFILE  = jffs.img
 JFFS2FILE = jffs2.img
 LINUXIMG  = $(IMAGEDIR)/$(PLATFORM)/$(COMPRESSED_LINUXFILE)
@@ -38,6 +39,7 @@ INITRDIMG = $(INITRDDIR)/$(PLATFORM)/ramdisk.gz
 JFFSIMG   = $(IMAGEDIR)/$(PLATFORM)/$(JFFSFILE)
 JFFS2IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2FILE)
 CRAMFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(CRAMFSFILE)
+SQUASHFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(SQUASHFSFILE)
 INITRAMFS_DIR = $(IMAGEDIR)/$(PLATFORM)/initramfs
 UMDRV     = umdrv/bcmdriver.o
 # For now until we make umdrv part of the kernel module build process
@@ -69,6 +71,9 @@ endif
 ifdef CONFIG_CRAMFS
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
 FSIMG += $(CRAMFSIMG)
+endif
+ifdef CONFIG_SQUASHFS
+FSIMG += $(SQUASHFSIMG)
 endif
 ifdef CONFIG_OPROFILE
 BMIPS_DIR=mips/bcm4350
@@ -212,7 +217,7 @@ $(UMDRV):
 	# No longer needed to be built
 	# make -C ./umdrv
 
-images: $(JFFS2IMG) $(CRAMFSIMG)
+images: $(JFFS2IMG) $(CRAMFSIMG) $(SQUASHFSIMG)
 
 #*************************************************************************
 # Be careful, removing --no-absolute-filenames or mispelling it will trash
@@ -240,14 +245,25 @@ $(JFFSIMG):
 
 # jipeng - PR22427 dhcpcd failed with cramfs
 # here we create var.img to contain RW /var and change rcS to call mountvar to mount it as first step
-$(CRAMFSIMG): initramfs_dir
+# Use default 64KB block size for SquashFS. 
+$(CRAMFSIMG) $(SQUASHFSIMG): common_ro_fs
+	if [ $@ == $(CRAMFSIMG) ]; then \
+		$(ROOTDIR)/user/cramfs/build/mkcramfs -v -n "Cramfs" $(INITRAMFS_DIR) $(CRAMFSIMG); \
+		chmod a+r $(CRAMFSIMG); \
+	else \
+		$(ROOTDIR)/user/squashfs-tools/build/mksquashfs $(INITRAMFS_DIR) $(SQUASHFSIMG) -b 65536 -le -all-root -noappend -info; \
+		chmod a+r $(SQUASHFSIMG); \
+	fi
+
+.PHONY: common_ro_fs
+common_ro_fs:initramfs_dir
 	dd if=/dev/zero of=$(INITRAMFS_DIR)/tmpfsvar.img bs=1024 count=500
 	cp -f $(INITRAMFS_DIR)/var/tmp/mountvar.sh $(INITRAMFS_DIR)/etc
 	chmod +x $(INITRAMFS_DIR)/etc/mountvar.sh
 	cp -f $(INITRAMFS_DIR)/var/tmp/rcS $(INITRAMFS_DIR)/etc/init.d/rcS
-	rm -f $(INITRAMFS_DIR)/var/tmp/*
+	# -rm -f $(INITRAMFS_DIR)/var/tmp/*
 	cd $(INITRAMFS_DIR)/var; tar -cvf $(INITRAMFS_DIR)/var.img . 2>&1 >/dev/null
-	$(ROOTDIR)/user/cramfs/build/mkcramfs -v -n "Cramfs" $(INITRAMFS_DIR) $(CRAMFSIMG)
+
 
 $(ROMFSIMG):
 	genromfs -v -V "ROMdisk" -f $(ROMFSIMG) -d $(ROMFSDIR)

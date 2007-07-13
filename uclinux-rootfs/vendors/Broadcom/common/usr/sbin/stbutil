@@ -1,5 +1,22 @@
 #!/bin/bash
 
+get_choice()
+{
+echo ""
+echo "Please select an action:"
+echo ""
+echo "   1) Install RO JFFS2 rootfs on flash with /etc and /var RW on tmpfs"
+echo "   2) Install RW JFFS2 rootfs on flash with no special setup"
+echo "   3) Install root filesystem on harddisk"
+echo "   4) Install RO CRAMFS rootfs on flash"
+echo "   5) Install RO SQUASHFS rootfs on flash  (recommended for RO fs)"
+echo "   6) Install RO YAFFS2 rootfs on NAND flash"
+echo "   7) Install RW YAFFS2 rootfs on NAND flash (Recommended for RW fs for Large Page only)"
+echo "   8) Exit"
+echo ""
+echo -n "Selection: "
+}
+
 
 stty sane
 stty erase '^H' echoe echok -echoprt -iexten -ixany
@@ -18,6 +35,12 @@ if [ $# -ge 1 ]; then
 else
     TFTP_SERVER=stb-irva-01
     CUR_REL=@VERSION@
+fi
+
+if [ -z "$CUR_REL" ]; then
+    IMGPFX=""
+else
+    IMGPFX="$CUR_REL/"
 fi
 
 # JFFS2 only works when the endian of the flash is the same as that of the CPU.
@@ -39,7 +62,7 @@ esac
 
 
 echo ""
-echo "stbutil v3.9 - Settop configuration utility"
+echo "stbutil v3.92 - Settop configuration utility"
 echo "               Copyright (C) 2001,02,03,04 Broadcom Corporation"
 echo "               original codes shill@broadcom.com"
 echo "               v3.0 tht patched for 2418SR3"
@@ -49,6 +72,8 @@ echo "               v3.6 on 2.4.25-0: tht added support for Cramfs"
 echo "               v3.7 on 2.4.25-0.2: tht Read HD geometry and switch on uname"
 echo "               v3.8 on 2.4.25-1.1: tht Integrate with BusyBox 1.0"
 echo "               v3.9 on 2.6.12-2.1: jipeng handle input args and tftp error"
+echo "               v3.92 on 2.6.18-2.0: tht: Added YAFFS2 install"
+echo "               v3.92 on 2.6.18-2.0: tht: Added SQUASHFS install"
 echo ""
 echo "Usage: stbutil [tftpserver:[subdir]]"
 echo "  Please specify an argument to stbutil to override the default."
@@ -60,21 +85,62 @@ else
 fi
 
 
-echo ""
-echo "Please select an action:"
-echo ""
-echo "   1) Create RO root fs on flash with /etc and /var RW on tmpfs (recommended)"
-echo "   2) Create root filesystem on flash with no special setup"
-echo "   3) Install root filesystem on harddisk"
-echo "   4) Create CRAMFS root fs on flash"
-echo "   5) Exit"
-echo ""
 RESPONSE=0
+while :
+do
+   get_choice
 
-while [ $RESPONSE -lt 1 -o $RESPONSE -gt 5 ]; do
-   echo -n "Selection: "
    read RESPONSE
+   if [ -z "$RESPONSE" ]; then
+	echo "Please enter a value between 1 and 8"
+	continue
+   fi
+   case "$RESPONSE" in
+   1|2|3|4|5|6|7|8|9|0)
+   	;;
+   *)
+      echo "Only single digits are accepted"
+      continue
+      ;;
+   esac
+   if  [ $RESPONSE -lt 1 -o $RESPONSE -gt 8 ]; then
+        echo "Invalid choice"
+	continue
+   fi
+
+   if [ $RESPONSE -eq 6 -o $RESPONSE -eq 7 ]; then
+     FDEV="/dev/mtd0"
+     FLASH_TYPE=`flash_info "$FDEV" |grep Type|cut -f2 -d ':' | cut -f2 -d' ' `
+     # ERASE_SIZE=`flash_info "$FDEV" |grep Erase|cut -f2 -d ':' | cut -f2 -d' ' `
+
+     case "$FLASH_TYPE" in
+     NAND*)
+     	break  # OK to proceed
+        ;;
+     *)
+        echo "YAFFS rootfs is only available for platforms with NAND flash"
+        continue
+        ;;
+      esac
+   fi
+
+   if [ $RESPONSE -eq 3 ]; then
+       case `uname -m` in
+          356*|7112|7312|7319|7328|7402*)
+              echo "HD install not applicable to diskless STBs"
+              continue
+              ;;
+
+         *)
+              break
+              ;;
+      esac
+   fi
+
+   # If we get here, we are OK to proceed
+   break
 done
+
 #if [ $RESPONSE -eq 3 ]; then
 #   stbcfgblk
 #   exit 0
@@ -91,17 +157,6 @@ echo ""
 echo ""
 
 
-# Format /dev/hda4 with EXT2 on HD systems (bcm937xx and bcm97038),
-# and with ext3 on all others
-   case `uname -m` in
-   356*|7112|7312|7319|7328|7402*)
-        echo "HD install not applicable to diskless STBs"
-    exit 1
-    ;;
-
-   *)
-    ;;
-   esac
 
 HARDDRIVE="sda"
 TMP_HARDDRIVE=""
@@ -156,6 +211,9 @@ TMP_HARDDRIVE=""
    echo "Enabling swap partition..."
    swapon /dev/${HARDDRIVE}2 2> /dev/null
 
+   # Turn on VM overcommit (PR31081)
+   echo 0 > /proc/sys/vm/overcommit_memory
+
    echo ""
    echo "Formatting ext3 file systems..."
    mke2fs -j /dev/${HARDDRIVE}1 2> /dev/null
@@ -200,7 +258,7 @@ echo ""
 
 cd /
 # Too bad  the --exclude flag which does not work on directories
-tar -cf - `ls   |grep -v '\<mnt\>' |grep -v '\<tmp\>' |grep -v '\<proc\>' |grep -v '\<lost+found\>'` | (cd /mnt/hd; tar xvf -)
+tar -cf - `ls | grep -vE '\<mnt\>|\<tmp\>|\<proc\>|\<lost\+found\>|\<sys\>'` | (cd /mnt/hd; tar xvf -)
 mkdir -p /mnt/hd/mnt/nfs
 mkdir /mnt/hd/mnt/hd
 mkdir /mnt/hd/proc
@@ -249,16 +307,33 @@ if [ $RESPONSE -eq 4 ]; then
    FSTYPE="cramfs"
    ERASE_FLAG=
 fi
+if [ $RESPONSE -eq 5 ]; then
+   echo "Installing SQUASHFS rootfs"
+   echo ""
+   IMAGE="squashfs-`uname -m`${DOCSIS}${ENDIAN}.img"
+   FSTYPE="squashfs"
+   ERASE_FLAG=
+fi
+if [ $RESPONSE -eq 6 -o $RESPONSE -eq 7 ]; then
+   echo "Installing YAFFS rootfs"
+   echo ""
+   # Currently mkyaffs does not handle BE, so we just copy the FS over on the fly
+   #IMAGE="yaffs2-`uname -m`${DOCSIS}${ENDIAN}.img"
+   FSTYPE="yaffs2"
+   ERASE_FLAG=
+fi
+
 if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 ]; then
    echo "Installing JFFS2 rootfs"
    echo ""
    ERASE_FLAG='-j'
 fi
-if [ $RESPONSE -eq 5 ]; then
+if [ $RESPONSE -eq 8 ]; then
    echo ""
    exit 0
 fi
-if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4 ]; then
+if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
+       -o $RESPONSE -eq 6 -o $RESPONSE -eq 7 ]; then
    case "`uname -m`" in
    7315bbx)
       echo "The STB BCM97315-BBX does not support a root file system partition"
@@ -289,21 +364,26 @@ esac
 
      echo ""
 
-     echo "ping -c 4 $TFTP_SERVER"
-     ping -c 4 $TFTP_SERVER > ping.err 2>&1
-     grep "bytes from" ping.err > /dev/null 2>&1
-     if [ "$?" -eq 0 ]; then
-   	echo "ping: succeed"
-    	rm ping.err
-     else
-    	cat ping.err;rm ping.err
-   	exit 1
+     # THT: Do ping test only if we need to TFTP (Options 1, 2, 4 & 5)
+     if [ $RESPONSE -eq 1 -o  $RESPONSE -eq 2 -o $RESPONSE -eq 4 -o  $RESPONSE -eq 5 ]; then
+        echo "ping -c 4 $TFTP_SERVER"
+        ping -c 4 $TFTP_SERVER > ping.err 2>&1
+        grep "bytes from" ping.err > /dev/null 2>&1
+        if [ "$?" -eq 0 ]; then
+           echo "ping: succeed"
+           rm ping.err
+        else
+           cat ping.err;rm ping.err
+           exit 1
+        fi
      fi
 
      FDIR=${CUR_REL}
 
      FLASH_TYPE=`flash_info "$FDEV" |grep Type|cut -f2 -d ':' | cut -f2 -d' ' `
      ERASE_SIZE=`flash_info "$FDEV" |grep Erase|cut -f2 -d ':' | cut -f2 -d' ' `
+
+
 
      echo "Erasing $FLASH_TYPE flash with $ERASE_SIZE kB erase sectors on $FDEV..."
      eraseall $ERASE_FLAG "$FDEV"
@@ -315,37 +395,98 @@ esac
      case "$FLASH_TYPE" in
      NAND*)
      	case "$RESPONSE" in
-	1|2)
-    		IMAGE="jffs2-${ERASE_SIZE}k-`uname -m`${DOCSIS}${ENDIAN}.img"
+	1|2)  # JFFS2
+    		IMAGE="jffs2-${ERASE_SIZE}k-`uname -m`${DOCSIS}${ENDIAN}-nand.img"
 
-     		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:/tftpboot/${CUR_REL}"
-     		tftp -gr ${CUR_REL}/${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
+     		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
+     		tftp -gr ${IMGPFX}${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
+		if [ -e /tmp/$IMAGE ]; then
+			echo "Writing flash image..."
         		nandwrite -p ${FDEV} /tmp/${IMAGE}
+		else
+			echo "Cannot fetch flash image ${IMGPFX}${IMAGE} from ${TFTP_SERVER}"
+			exit 2
+		fi
 		;;
 
-	4)
-  		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:/tftpboot/${CUR_REL}"
-     		tftp -gr ${CUR_REL}/${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
+	4|5)  # CRAMFS and SQUASHFS
+		case "$RESPONSE" in
+		4)
+			IMAGE="cramfs-`uname -m`${DOCSIS}${ENDIAN}-nand.img"
+			;;
+		5)
+			IMAGE="squashfs-`uname -m`${DOCSIS}${ENDIAN}-nand.img"
+			;;
+		esac
+  		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
+     		tftp -gr ${IMGPFX}${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
+		if [ -e /tmp/$IMAGE ]; then
+			echo "Writing flash image..."
         		nandwrite ${FDEV} /tmp/${IMAGE}
+		else
+			echo "Cannot fetch flash image ${IMGPFX}${IMAGE} from ${TFTP_SERVER}"
+			exit 2
+		fi
 		# For NAND flash, we can't mount /dev/romblock so quit now
 		echo "Copied rootfs to flash complete.  You may now safely reboot"
       		exit 0
 		;;
+
+	6|7)  # YAFFS2
+		#
+		# Since
+		# 	(1) we can't build BE images from LE host,
+		#	(2) Writing to NAND flash is very fast, compared to NOR
+		# we will do it the same way we do with HD, i.e. tar the rootfs into an empty File System.
+		#
+		#case "${ERASE_SIZE}" in
+		#128)
+		#	IMAGE="yaffs2-`uname -m`${DOCSIS}${ENDIAN}.img"
+		#	;;
+		#16)
+		#	IMAGE="yaffs1-`uname -m`${DOCSIS}${ENDIAN}.img"
+		#	;;
+		#esac
+		#echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
+		#tftp -gr ${IMGPFX}/${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
+		#if [ -e /tmp/${IMAGE} ]; then
+        	#	nandwrite -a -o ${FDEV} /tmp/${IMAGE}
+		#fi
+		mount -t ${FSTYPE} "$MTD_DEV" /mnt/flash
+		cd /
+		tar -cf - `ls | grep -vE '\<mnt\>|\<tmp\>|\<proc\>|\<lost\+found\>|\<sys\>'` | (cd /mnt/flash; tar xvf -)
+		mkdir -p /mnt/flash/mnt/nfs
+		mkdir /mnt/flash/mnt/hd
+		mkdir /mnt/flash/proc
+		mkdir /mnt/flash/tmp
+		mkdir /mnt/flash/opt
+		mkdir /mnt/flash/data
+		;;
+
 	esac
      ;;
 
      NOR*) # NOR flashes
-    	echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:/tftpboot/${CUR_REL}"
-    	tftp -gr ${CUR_REL}/${IMAGE} -l ${FDEV} ${TFTP_SERVER} &> tftp.err
+    	echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
+    	tftp -gr ${IMGPFX}${IMAGE} -l /tmp/$IMAGE ${TFTP_SERVER} &> tftp.err
+        if [ -e /tmp/$IMAGE ]; then
+		echo "Writing flash image..."
+		cat /tmp/$IMAGE > $FDEV
+	else
+		echo "Cannot fetch flash image ${IMGPFX}${IMAGE} from ${TFTP_SERVER}"
+		exit 2
+	fi
      ;;
      esac
      
+     if [ $RESPONSE -ne 6 -a  $RESPONSE -ne 7  ]; then
      if [ `wc -l < tftp.err` -eq "0" ]; then
         rm tftp.err
      else
-        echo "tftp: failed to get ${TFTP_SERVER}:/tftpboot/${CUR_REL}/${IMAGE}"
+           echo "tftp: failed to get ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
         cat tftp.err;rm tftp.err
         exit 3
+     fi
      fi
 
      sleep 2
@@ -363,9 +504,10 @@ esac
 
    esac
 
-   # if Option 2 is selected (Copy rootfs only) we are done
-   if [ $RESPONSE -eq 2 -o $RESPONSE -eq 4 ]; then
-      umount /mnt/flash
+   # if Option 2,4,5,7 are selected (Copy rootfs only) we are done
+   # Option 4 (CRAMFS) and 5 (SQUASHFS) already have tmpfs handled during FS image creation on host side.
+   if [ $RESPONSE -eq 2 -o $RESPONSE -eq 4 -o $RESPONSE -eq 5 -o $RESPONSE -eq 7 ]; then
+      [ $RESPONSE -eq 2 -o $RESPONSE -eq 7 ] && umount /mnt/flash
       echo "Copied rootfs to flash complete.  You may now safely reboot"
       exit 0
    fi

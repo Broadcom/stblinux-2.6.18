@@ -2790,7 +2790,7 @@ static void bcmemac_getMacAddr(struct net_device* dev)
     uint16 word;
     int i;
 
-#ifndef CONFIG_BRCM_PCI_SLAVE
+#if !defined( CONFIG_BRCM_PCI_SLAVE) && !defined( CONFIG_MTD_BRCMNAND )
 #if 1
     virtAddr = (void *)FLASH_MACADDR_ADDR;
 #else
@@ -2819,7 +2819,32 @@ static void bcmemac_getMacAddr(struct net_device* dev)
                 flash_eaddr[0],flash_eaddr[1],flash_eaddr[2],
                 flash_eaddr[3],flash_eaddr[4],flash_eaddr[5],
                 (uint32) virtAddr);
-#else /* PCI slave cannot access the EBI bus */
+
+#elif defined( CONFIG_MTD_BRCMNAND )
+{
+	extern int gNumHwAddrs;
+	extern unsigned char* gHwAddrs[];
+	
+   	if (gNumHwAddrs >= 1) {
+		for (i=0; i < 6; i++) {
+			flash_eaddr[i] = (uint8) gHwAddrs[0][i];
+		}
+
+		printk("%s: MAC address %02X:%02X:%02X:%02X:%02X:%02X fetched from bootloader\n",
+			dev->name,
+			flash_eaddr[0],flash_eaddr[1],flash_eaddr[2],
+			flash_eaddr[3],flash_eaddr[4],flash_eaddr[5]
+			);
+   	}
+	else {
+		printk(KERN_ERR "%s: No MAC addresses defined\n", __FUNCTION__);
+	}
+}
+
+#else 
+/* PCI slave cannot access the EBI bus, 
+ * and for now, same for NAND flash, until CFE supports it
+ */
 /* Use hard coded value if Flash not properly initialized */
     {
         flash_eaddr[0] = 0x00;

@@ -2393,11 +2393,14 @@ static inline void ata_tf_to_host(struct ata_port *ap,
  *	Sleep until ATA Status register bit BSY clears,
  *	or a timeout occurs.
  *
- *	LOCKING: None.
+ *	LOCKING:
+ *	Kernel thread context (may sleep).
+ *
+ *	RETURNS:
+ *	0 on success, -errno otherwise.
  */
-
-unsigned int ata_busy_sleep (struct ata_port *ap,
-			     unsigned long tmout_pat, unsigned long tmout)
+int ata_busy_sleep(struct ata_port *ap,
+		   unsigned long tmout_pat, unsigned long tmout)
 {
 	unsigned long timer_start, timeout;
 	u8 status;
@@ -2405,27 +2408,32 @@ unsigned int ata_busy_sleep (struct ata_port *ap,
 	status = ata_busy_wait(ap, ATA_BUSY, 300);
 	timer_start = jiffies;
 	timeout = timer_start + tmout_pat;
-	while ((status & ATA_BUSY) && (time_before(jiffies, timeout))) {
+	while (status != 0xff && (status & ATA_BUSY) &&
+	       time_before(jiffies, timeout)) {
 		msleep(50);
 		status = ata_busy_wait(ap, ATA_BUSY, 3);
 	}
 
-	if (status & ATA_BUSY)
+	if (status != 0xff && (status & ATA_BUSY))
 		ata_port_printk(ap, KERN_WARNING,
 				"port is slow to respond, please be patient "
 				"(Status 0x%x)\n", status);
 
 	timeout = timer_start + tmout;
-	while ((status & ATA_BUSY) && (time_before(jiffies, timeout))) {
+	while (status != 0xff && (status & ATA_BUSY) &&
+	       time_before(jiffies, timeout)) {
 		msleep(50);
 		status = ata_chk_status(ap);
 	}
+
+	if (status == 0xff)
+		return -ENODEV;
 
 	if (status & ATA_BUSY) {
 		ata_port_printk(ap, KERN_ERR, "port failed to respond "
 				"(%lu secs, Status 0x%x)\n",
 				tmout / HZ, status);
-		return 1;
+		return -EBUSY;
 	}
 
 	return 0;
@@ -4916,7 +4924,13 @@ unsigned int ata_qc_issue_prot(struct ata_queued_cmd *qc)
 
 	/* select the device */
 	if (ap->nr_pmp_links)
+	{
+#ifdef	DMAWRITE_BUG
+		if(qc->tf.protocol == ATA_PROT_DMA && qc->tf.command == ATA_CMD_WRITE )
+		dma_write_wa_needed = 1;
+#endif
 	ata_dev_select(ap, qc->dev->link->pmp, 1, 0);
+	}
 	else
 	ata_dev_select(ap, qc->dev->devno, 1, 0);
 

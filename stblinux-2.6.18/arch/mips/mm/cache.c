@@ -67,7 +67,11 @@ asmlinkage int sys_cacheflush(unsigned long addr,
 	{
 		vma = find_vma(current->mm, (unsigned long) addr);
 		if (vma) {
+#ifdef CONFIG_MIPS_BRCM97XXX
+			brcm_r4k_flush_cache_range(vma,(unsigned long)addr,((unsigned long)addr) + bytes);
+#else
 			flush_cache_range(vma,(unsigned long)addr,((unsigned long)addr) + bytes);
+#endif
 		}
 		else {
 			flush_cache_all();

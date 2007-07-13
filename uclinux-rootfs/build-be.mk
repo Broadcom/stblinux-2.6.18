@@ -31,14 +31,16 @@ endif
 #VENOM=937xx
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
-# THT For 2.6.12-0 we only support a few platforms
-CHIPS=7400b0 7400b0-smp 7401c0 7118a0 7403a0 97401c0-sw1 # 7038c0 97398 7400a0 7400a0-smp 7318
+# THT For 2.6.18-2.0 we only support a few platforms
+CHIPS=7400b0 7400b0-smp 7401c0 7118a0 7403a0 97401c0-sw1  # 7038c0 97398 7400a0 7400a0-smp 7318 # 7400b0-smp-nand
 PLATFORMS=$(addsuffix _be,$(CHIPS))
-XFS_PLATFORMS = 7038c0_be-xfs 97398_be-xfs
-ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS)
+# THT Must define the NAND platforms separately, since we want -be to precede -nand, as -nand does not really define a new platform
+NAND_PLATFORMS = 7400b0_be-nand 7401c0_be-nand 7118a0_be-nand # 7400b0-smp-be-nand
+XFS_PLATFORMS = # 7038c0_be-xfs 97398_be-xfs
+ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS) $(NAND_PLATFORMS)
 
-BB_PLATFORMS:=$(addprefix vmlinuz-,$(PLATFORMS))
-BB_INITRD_PLATFORMS	:= $(addprefix vmlinuz-initrd-,$(PLATFORMS))
+BB_PLATFORMS:=$(addprefix vmlinuz-,$(PLATFORMS)) $(addprefix vmlinuz-,$(NAND_PLATFORMS))
+BB_INITRD_PLATFORMS	:= $(addprefix vmlinuz-initrd-,$(PLATFORMS)) $(addprefix vmlinuz-initrd-,$(NAND_PLATFORMS))
 
 XFS_BB_PLATFORMS:=$(addprefix vmlinuz-,$(XFS_PLATFORMS))
 XFS_INITRD_PLATFORMS := $(addprefix vmlinuz-initrd-,$(XFS_PLATFORMS))
@@ -56,7 +58,9 @@ OPROFILE_PLATFORMS := $(addsuffix -opf,$(ALL_PLATFORMS))
 ROOTFS_PLATFORMS := $(addprefix rootfs-,$(ALL_PLATFORMS))
 JFFS2_IMAGES := $(addsuffix .img,$(JFFS2_PLATFORMS))
 CRAMFS_PLATFORMS := $(addprefix cramfs-,$(ALL_PLATFORMS))
-CRAMFS_IMAGES := $(addsuffix .img,$(JFFS2_PLATFORMS))
+CRAMFS_IMAGES := $(addsuffix .img,$(CRAMFS_PLATFORMS))
+SQUASHFS_PLATFORMS := $(addprefix squashfs-,$(ALL_PLATFORMS))
+SQUASHFS_IMAGES := $(addsuffix .img,$(SQUASHFS_PLATFORMS))
 
 VERSION=$(shell cat version)-be
 TFTPBOOT=/tftpboot
@@ -89,7 +93,7 @@ kernels: vercheck
 
 all: vercheck kernels install
 
-.PHONY: vercheck install rootfs
+.PHONY: vercheck install rootfs platlist_be
 
 #jipeng - check version mismatch between rootfs and kernel source
 vercheck:
@@ -104,27 +108,36 @@ vercheck:
 
 install: rootfs
 
+platlist_be:
+	> platlist_be ; \
+	for i in $(ALL_PLATFORMS); do \
+		echo $$i >> platlist_be ; \
+	done
+
 rootfs:
 	# Make the rootfs images and copy to tftp server
 	for i in $(ALL_PLATFORMS); do \
 		if [ -e images/$$i/initramfs_data_nodev.cpio ]; then \
 			$(MAKE) -f build-be.mk rootfs-$$i || exit 1; \
 			case "$$i" in \
-			*-nand_be) \
-				cp images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
-				cp images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
-				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
+			*-nand) \
+				cp -f images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
+				cp -f images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
+				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
+				cp -f images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
 				;;\
 			*) \
-				cp images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img || exit 1; \
-				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img || exit 1; \
+				cp -f images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img || exit 1; \
+				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img || exit 1; \
+				cp -f images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img || exit 1; \
 				;;\
 			esac; \
 		fi; \
 	done
 
 .PHONY: $(ALL_PLATFORMS) $(BB_INITRD_PLATFORMS) $(BB_PLATFORMS) \
-	$(ROOTFS_PLATFORMS) $(ROOTFS_IMAGES) $(CRAMFS_PLATFORMS) $(JFFS2_PLATFORMS) \
+	$(ROOTFS_PLATFORMS) $(ROOTFS_IMAGES) $(CRAMFS_PLATFORMS) \
+	 $(JFFS2_PLATFORMS)  $(SQUASHFS_PLATFORMS) \
 	$(OPROFILE_PLATFORMS)
 
 
@@ -153,14 +166,16 @@ $(ROOTFS_PLATFORMS):
 		ARCH_CONFIG=$(shell pwd)/vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config.arch\
 		images
 	case "$(subst rootfs-,,$@)" in \
-		*-nand_be) \
+		*-nand) \
 			cp images/$(subst rootfs-,,$@)/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$(subst rootfs-,,$@).img ; \
 			cp images/$(subst rootfs-,,$@)/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$(subst rootfs-,,$@).img ; \
 			cp images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img ; \
+			cp images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img ; \
 			;;\
 		*) \
 			cp images/$(subst rootfs-,,$@)/jffs2.img $(TFTPDIR)/jffs2-$(subst rootfs-,,$@).img; \
 			cp images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
+			cp images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img; \
 			;;\
 	esac
 
@@ -341,4 +356,7 @@ show_targets:
 	@for i in $(ALL_PLATFORMS); do \
 		echo "cramfs-"$$i; \
  	done
+	@for i in $(ALL_PLATFORMS); do \
+		echo "squashfs-"$$i; \
+	done
  

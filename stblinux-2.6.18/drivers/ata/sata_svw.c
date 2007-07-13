@@ -65,6 +65,8 @@ struct k2_port_priv {
 	int do_port_srst;			/* already perform softreset? */
 };
 
+int dma_write_wa_needed = 0;
+EXPORT_SYMBOL(dma_write_wa_needed);
 #ifdef CONFIG_MIPS_BRCM97XXX
 #define WRITE_CMD			1
 #define READ_CMD			2
@@ -435,8 +437,10 @@ static int k2_sata_pmp_attach_link(struct ata_link *link, int pmp)
 		rc = sata_scr_write(link, SCR_ERROR, 0xffffffff);
 		rc = 0;
 	}
-	else
+	else {
+		sata_scr_write(link, SCR_CONTROL, 1);
 		rc = 1;
+	}
 
 	return rc;
 }
@@ -456,7 +460,24 @@ static void k2_sata_pmp_detach(struct ata_port *ap)
 void k2_sata_dev_select (struct ata_port *ap, unsigned int device)
 {
 	if(ap->nr_pmp_links)
-	k2_sata_pmp_attach_link(&ap->link, device);
+	{
+#ifdef	DMAWRITE_BUG	
+	if(dma_write_wa_needed)
+	{
+		struct ata_taskfile tf;
+		struct ata_device *dev = ap->link.device;
+		k2_sata_pmp_attach_link(&ap->link, device);
+		ata_tf_init(dev, &tf);
+		tf.command = 0x00;									// NOP command
+		tf.feature = 0x0;									// do not flush outstanding queue
+		tf.flags |= ATA_TFLAG_DEVICE;
+		ap->ops->tf_load(ap, &tf);
+		ap->ops->exec_command(ap, &tf);
+		dma_write_wa_needed = 0;
+	}	
+#endif
+		k2_sata_pmp_attach_link(&ap->link, device);
+	}
 	else
 	ata_std_dev_select(ap, device);	
 }

@@ -2,18 +2,21 @@
 # linux/drivers/mtd/brcmnand/Kconfig
 #
 
-menu "Broadcom NAND Flash Device Drivers"
-	depends on MTD != n
+#menu "Broadcom NAND Flash Device Drivers"
+#	depends on MTD != n
 
 config MTD_BRCMNAND
 	tristate "Broadcom NAND Device Support"
+	default n
 	depends on MTD
+	select LONG_LONG_SUPPORT if MTD_BRCMNAND_VERSION >= 2
 	help
-	  This enables support for accessing all type of NAND flash
-	  devices through the BCM7400 NAND controller. 
+	  This enables support for accessing selected types of NAND flash
+	  devices through the Broadcom NAND controller.
 
 config MTD_BRCMNAND_VERIFY_WRITE
 	bool "Verify Broadcom NAND page writes"
+	default n
 	depends on MTD_BRCMNAND
 	help
 	  This adds an extra check when data is written to the flash. The
@@ -22,4 +25,15 @@ config MTD_BRCMNAND_VERIFY_WRITE
 	  device thinks the write was successful, a bit could have been
 	  flipped accidentaly due to device wear or something else.
 
-endmenu
+# endmenu
+
+config MTD_BRCMNAND_VERSION
+	int "	Broadcom Controller version number: 0 = v0.0, 1 = v0.1, 2 = v1.0"
+	default 1
+	depends on MTD_BRCMNAND
+	help
+		Version number of the controller.
+			Value	Controller  Platform
+			0		0.0			7400A0
+			1		0.1			7401Cx, 7118A0, 7403 * 7451, 7452
+			2		1.0			7440B0, 7400B0, 7405 and later

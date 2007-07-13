@@ -52,8 +52,12 @@ dir_$(CONFIG_LIB_ZLIB) 		 += zlib
 dir_$(CONFIG_LIB_ZLIB_FORCE)     += zlib
 
 # THT libtermcap.so is delivered as part of bash
-#dir_$(CONFIG_LIB_LIBTERMCAP)	 += $(ROOTDIR)/user/bash
-#dir_$(CONFIG_LIB_LIBTERMCAP_FORCE)	 += $(ROOTDIR)/user/bash
+# dir_$(CONFIG_LIB_LIBTERMCAP)	 += $(ROOTDIR)/user/bash
+# dir_$(CONFIG_LIB_LIBTERMCAP_FORCE)	 += $(ROOTDIR)/user/bash
+
+# JD - independent libtermcap
+dir_$(CONFIG_LIB_LIBTERMCAP)     += libtermcap
+dir_$(CONFIG_LIB_GNU_LIBTERMCAP) += libtermcap
 
 # THT Added lpopt & libbfd for oprofile.  Need to do it here, as oprofile insists on finding it
 # during configuration
@@ -61,7 +65,6 @@ dir_$(CONFIG_USER_PROFILE_POFT)   += $(ROOTDIR)/user/popt
 dir_$(CONFIG_LIB_LIBBFD)          += $(ROOTDIR)/lib/binutils/
 dir_$(CONFIG_LIB_LIBIBERTY)       += $(ROOTDIR)/lib/binutils
 dir_$(CONFIG_LIB_LIBCPLUSPLUS)    += $(ROOTDIR)/lib/libc++
-
 
 dir_$(CONFIG_LIB_SNAPGEAR)       += libsnapgear libconfigdd
 
@@ -83,19 +86,21 @@ endif
 # Force a rebuild of the Makefiles in the directfb tree.
 	if [ -d directfb ]; then $(RM) directfb/Makefile directfb/configure directfb/config.cache; fi
 	echo '$$$$$$$$$$$$$$$$$ Building all libraries $$$$$$$$$$$$$$$$$$$$$$$$'
-	echo '$(dir_y)=' "$(dir_y)"
+	echo 'dir_y =' "$(dir_y)"
 	for i in $(dir_y) ; do [ ! -d $$i ] || $(MAKEARCH) -C $$i || exit $? ; done
 	# Link uuidlib
 	-$(RM) -f $(ROMFSDIR)/lib/libuuid.so
-	ln -s $(ROMFSDIR)/lib/libuuid.so.1 $(ROMFSDIR)/lib/libuuid.so
+	(cd $(ROMFSDIR)/lib; ln -s libuuid.so.1 libuuid.so)
 
 romfs:
 	for i in $(dir_y) ; do \
 		[ ! -d $$i ] || $(MAKEARCH) -C $$i romfs || exit $$? ; \
 	done
 	# Handle libtermcap.so differently, since it is built as part of bash
-	$(MAKEARCH) -C $(ROOTDIR)/user/bash $(ROOTDIR)/romfs/lib/libtermcap.so
-	-$(STRIP) $(ROOTDIR)/romfs/lib/libtermcap.so
+#ifeq ($(CONFIG_LIB_LIBTERMCAP),y)
+#	$(MAKEARCH) -C $(ROOTDIR)/user/bash $(ROOTDIR)/romfs/lib/libtermcap.so
+#	-$(STRIP) $(ROOTDIR)/romfs/lib/libtermcap.so
+#endif
 	-$(STRIP) $(ROMFSDIR)/lib/*
 
 clean:

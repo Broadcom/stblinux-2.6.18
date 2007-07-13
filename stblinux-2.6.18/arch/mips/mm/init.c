@@ -151,7 +151,8 @@ static inline void *kmap_coherent(struct page *page, unsigned long addr)
 	 * Therefore, we want to increment idx by 2 so that
 	 * ((addr >> 12) & 7) == ((vaddr >> 12) & 7)
 	 */
-	idx = ((addr >> PAGE_SHIFT) + 2) & (FIX_N_COLOURS - 1);
+#define FIX_COLOR_OFFSET (FIX_N_COLOURS - ((FIXADDR_TOP >> 12) & (FIX_N_COLOURS - 1)))
+	idx = ((addr >> PAGE_SHIFT) + FIX_COLOR_OFFSET) & (FIX_N_COLOURS - 1);
 #else
 	idx = (addr >> PAGE_SHIFT) & (FIX_N_COLOURS - 1);
 #endif

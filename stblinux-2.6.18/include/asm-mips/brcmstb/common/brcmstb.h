@@ -25,6 +25,12 @@
 #ifndef _BRCMSTB_H
 #define _BRCMSTB_H
 
+
+
+#include <linux/config.h>
+
+#define BRCM_ENDIAN_LITTLE CONFIG_CPU_LITTLE_ENDIAN
+
 #if defined(CONFIG_MIPS_BCM3560A0)
 #include <asm/brcmstb/brcm93560/bcmuart.h>
 #include <asm/brcmstb/brcm93560/bcmtimer.h>
@@ -45,6 +51,7 @@
 #include <asm/brcmstb/brcm93560b0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm93560b0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm93560b0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm93560b0/bchp_usb_ohci1.h>
 
 #elif defined(CONFIG_MIPS_BCM3563)
 #include <asm/brcmstb/brcm93563/bcmuart.h>
@@ -104,6 +111,9 @@
 #include <asm/brcmstb/brcm97118a0/board.h>
 #include <asm/brcmstb/brcm97118a0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97118a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97118a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97118a0/bchp_sun_top_ctrl.h>
+#include <asm/brcmstb/brcm97118a0/bchp_ebi.h>
 #include <asm/brcmstb/brcm97118a0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97118a0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97118a0/bchp_usb_ohci.h>
@@ -121,6 +131,7 @@
 #include <asm/brcmstb/brcm97400a0/bchp_nand.h>
 #include <asm/brcmstb/brcm97400a0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97400a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97400a0/bchp_usb_ehci1.h>
 #include <asm/brcmstb/brcm97400a0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97400a0/bchp_usb_ohci1.h>
 
@@ -134,8 +145,11 @@
 #include <asm/brcmstb/brcm97400b0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97400b0/bcmintrnum.h>
 #include <asm/brcmstb/brcm97400b0/bchp_nand.h>
+#include <asm/brcmstb/brcm97400b0/bchp_ebi.h>
+#include <asm/brcmstb/brcm97400b0/bchp_sun_top_ctrl.h>
 #include <asm/brcmstb/brcm97400b0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97400b0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97400b0/bchp_usb_ehci1.h>
 #include <asm/brcmstb/brcm97400b0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97400b0/bchp_usb_ohci1.h>
 #include <asm/brcmstb/brcm97400b0/bchp_pcix_bridge.h>
@@ -194,6 +208,8 @@
 #include <asm/brcmstb/brcm97401c0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97401c0/bcmintrnum.h>
 #include <asm/brcmstb/brcm97401c0/bchp_nand.h>
+#include <asm/brcmstb/brcm97401c0/bchp_ebi.h>
+#include <asm/brcmstb/brcm97401c0/bchp_sun_top_ctrl.h>
 #include <asm/brcmstb/brcm97401c0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97401c0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97401c0/bchp_usb_ohci.h>
@@ -208,6 +224,9 @@
 #include <asm/brcmstb/brcm97403a0/board.h>
 #include <asm/brcmstb/brcm97403a0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97403a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97403a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97403a0/bchp_sun_top_ctrl.h>
+#include <asm/brcmstb/brcm97403a0/bchp_ebi.h>
 #include <asm/brcmstb/brcm97403a0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97403a0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97403a0/bchp_usb_ohci.h>

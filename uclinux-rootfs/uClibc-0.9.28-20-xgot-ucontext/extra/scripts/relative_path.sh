@@ -52,5 +52,3 @@ from=`echo $from | sed 's,[^/][^/]*,..,g;s,.$,&/,'`
 echo ${from}$target/
 
 exit 0
-
-

@@ -21,20 +21,24 @@ LDPATH += -L$(ROOTDIR)/lib/zlib
 
 TARGETS = flash_erase flash_eraseall flash_lock flash_unlock flash_info mtd_debug flashcp \
 	jffs2dump #jffs2reader
+HOST_TARGETS = jffs2dump
 ifneq ($(CONFIG_FTL),)
 TARGETS += ftl_format ftl_check
 endif
 ifneq ($(CONFIG_NFTL),)
 TARGETS += nftl_format nftldump
 endif
-ifneq ($(CONFIG_MTD_NAND),)
-TARGETS += nanddump nandwrite
+ifneq ($(CONFIG_MTD_BRCMNAND),)
+TARGETS +=  nandwrite
+HOST_TARGETS += nanddump
 endif
 ifneq ($(CONFIG_JFFS_FS),)
 TARGETS += mkfs.jffs
+HOST_TARGETS += mkfs.jffs
 endif
 ifneq ($(CONFIG_JFFS2_FS),)
 TARGETS += mkfs.jffs2
+HOST_TARGETS += mkfs.jffs2
 endif
 ifneq ($(CONFIG_MTD_DOCPROBE),)
 TARGETS += doc_loadbios 
@@ -44,7 +48,7 @@ TARGETS += doc_loadbios
 endif
 endif
 
-BUILD_TARGETS = $(patsubst %,build/%,$(TARGETS))
+BUILD_TARGETS = $(patsubst %,build/%,$(HOST_TARGETS))
 
 ZINCS = zlib.h zconf.h 
 
@@ -53,6 +57,8 @@ FSINCS = nodelist.h
 #SYMLINKS = compr_rtime.c compr_rubin.c compr.c pushpull.h histo_mips.h compr_rubin.h compr_zlib.c
 SYMLINKS = $(ZINCS) $(FSINCS)
 
+UTILS = brcmnand_util.c
+UTILS_OBJS = $(UTILS:.o=.c)
 
 
 JFFS2_OBJS = crc32.o compr_rtime.o mkfs.jffs2.o compr_zlib.o compr.o
@@ -84,7 +90,7 @@ ifneq ($(CONFIG_NFTL),)
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_NFTLDUMP     /bin/nftldump
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_NFTL_FORMAT  /bin/nftl_format
 endif
-ifneq ($(CONFIG_MTD_NAND),)
+ifneq ($(CONFIG_MTD_BRCMNAND),)
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_NANDDUMP     /bin/nanddump
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_NANDTEST     /bin/nandtest
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_NANDWRITE    /bin/nandwrite
@@ -123,12 +129,12 @@ mkfs.jffs2: $(JFFS2_OBJS)
 build/mkfs.jffs2: $(BUILD_JFFS2_OBJS)
 	$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^ -lz
 
-flash_eraseall: crc32.o flash_eraseall.o
+flash_eraseall: crc32.o flash_eraseall.o $(UTILS_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^
 
 
-build/flash_eraseall: build/crc32.o build/flash_eraseall.o
-	$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^
+#build/flash_eraseall: build/crc32.o build/flash_eraseall.o
+#	$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^
 
 
 jffs2reader: jffs2reader.c

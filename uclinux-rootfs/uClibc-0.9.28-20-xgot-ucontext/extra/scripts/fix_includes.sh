@@ -181,4 +181,3 @@ fi;
 rm -f include/linux
 ln -fs $KERNEL_SOURCE/include/linux include/linux
 
-

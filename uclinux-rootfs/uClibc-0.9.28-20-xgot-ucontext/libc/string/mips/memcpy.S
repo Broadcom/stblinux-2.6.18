@@ -45,7 +45,8 @@
 #  define SWLO	swl		/* low part is left in little-endian	*/
 #endif
 
-#define CPUTYPE_4380		0x2a040
+#define CPUTYPE_7400B0		0x2a040
+#define CPUTYPE_7405A0		0x2a044
 
 	.data
 	.align  2
@@ -108,31 +109,7 @@ L(lop8w):
 	add     a0, a0, 0x10
 	bne	a0, a3, L(lop8w)
         add     a1, a1, 0x10
-	b	L(done8w)
         lw      t2,  0x4(a1)
-
-	.align	4
-	nop
-	nop
-L(lop4380):
-	sw	t0,  0(a0)
-L(lop8w4380):	
-	lw	t1,  0x10(a1)
-    	//pref    30,  0x10(a0)		# 4380 prefetching is TBD
-	lw	t2,  0x4(a1)
-	lw	t3,  0x8(a1)
-	lw	t4, 0xc(a1)
-	sw	t1,  0x10(a0)
-	sw	t2,  0x4(a0)
-	sw	t3,  0x8(a0)
-	sw	t4, 0xc(a0)
-	add     a0, a0, 0x10
-	bne	a0, a3, L(lop8w4380)
-        add     a1, a1, 0x10
-
-        lw      t2,  0x4(a1)
-
-L(done8w):
         lw      t3,  0x8(a1)
         lw      t4, 0xc(a1)
         sw      t2,  0x4(a0)
@@ -195,8 +172,12 @@ L(detect_cpu):
 	li	t2, 0
 	li	t0, 1			# cputype 1 = anything but 4380
 	mfc0	t2, $15			# NOTE: requires kernel support
-	li	t1, CPUTYPE_4380	# see simulate_rdhwr()
+					# see simulate_rdhwr()
+	li	t1, CPUTYPE_7405A0
+	beq	t2, t1, L(is_4380)
+	li	t1, CPUTYPE_7400B0
 	beql	t2, t1, L(not_4380)
+L(is_4380):
 	li	t0, 4380		# instruction is killed if not 4380
 L(not_4380):
 	b	L(detect_done)

@@ -842,11 +842,7 @@ UTS_MACHINE:=97456
 else
 core-$(CONFIG_MIPS_BCM7400A0) += arch/mips/brcmstb/brcm97400a0/
 ifdef CONFIG_MIPS_BCM7400A0
-	ifdef CONFIG_MIPS_BCM7400AX_NAND
-	UTS_MACHINE:=7400a0N
-	else
 	UTS_MACHINE:=7400a0
-	endif
 endif
 endif
 
@@ -864,11 +860,7 @@ UTS_MACHINE:=97456b0
 else
 core-$(CONFIG_MIPS_BCM7400B0) += arch/mips/brcmstb/brcm97400b0/
 ifdef CONFIG_MIPS_BCM7400B0
-	ifdef CONFIG_MIPS_BCM7400BX_NAND
-	UTS_MACHINE:=7400b0N
-	else
 	UTS_MACHINE:=7400b0
-	endif
 endif
 endif
 
@@ -1008,8 +1000,21 @@ ifdef CONFIG_MIPS_BCM7403A0
 UTS_MACHINE:=7403a0
 endif
 
+#Append -n (and) to machine name, must be done prior to -smp
+# We now key on what flash_info returns, not the machine name, because
+# there may be a system with both NAND and NOR on it.
+#ifdef CONFIG_MTD_BRCMNAND
+#UTS_MACHINE:=$(UTS_MACHINE)-n
+#endif
+
+# PR32215: append -smp to machine name
+ifdef CONFIG_SMP
+UTS_MACHINE:=$(UTS_MACHINE)-smp
+endif
+
+
+
 # PR10860 - Allow long long divide support for modules
-# THT: Think this is no longer needed, as gcc-3.4.x support long long in kernel modes.
 core-$(CONFIG_LONG_LONG_SUPPORT)       += arch/mips/brcmstb/lib/
 # LIBS          += arch/mips/brcmstb/lib/lib_brcm_bsp.a
 

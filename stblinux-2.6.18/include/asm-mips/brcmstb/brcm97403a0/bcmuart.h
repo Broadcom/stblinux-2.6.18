@@ -51,7 +51,7 @@
 #include "bchp_uartc.h"
 
 #if !defined _ASMLANGUAGE
-#if __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 #endif
@@ -190,7 +190,7 @@ typedef struct UartChannel {
 #define BAUD_115200_LO  BAUD_VAL_LO(115200)
 
 #if !defined _ASMLANGUAGE
-#if __cplusplus
+#ifdef __cplusplus
 }
 #endif
 #endif

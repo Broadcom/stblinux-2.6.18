@@ -2408,7 +2408,9 @@ static const struct ecoff_debug_swap mips_elf32_ecoff_debug_swap = {
 #define TARGET_BIG_SYM                  bfd_elf32_ntradbigmips_vec
 #define TARGET_BIG_NAME                 "elf32-ntradbigmips"
 
-#define ELF_MAXPAGESIZE			0x10000
+/*#define ELF_MAXPAGESIZE			0x10000*/
+/* Use 4K to shrink the elf header.  NOT for general use! */
+#define ELF_MAXPAGESIZE			0x1000
 #define ELF_COMMONPAGESIZE		0x1000
 #define elf32_bed			elf32_tradbed
 

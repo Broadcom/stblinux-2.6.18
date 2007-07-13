@@ -252,7 +252,6 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 	int ret=0;
 	int len;
 
-	DEBUG(MTD_DEBUG_LEVEL0,"MTD_write\n");
 
 	if (*ppos == mtd->size)
 		return -ENOSPC;
@@ -304,12 +303,14 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 			ops.oobbuf = NULL;
 			ops.len = len;
 
+	DEBUG(MTD_DEBUG_LEVEL0,"MTD_write_oob(%08x, len=%d)\n", *ppos, len);
 			ret = mtd->write_oob(mtd, *ppos, &ops);
 			retlen = ops.retlen;
 			break;
 		}
 
 		default:
+	DEBUG(MTD_DEBUG_LEVEL0,"MTD_write(%08x, len=%d)\n", *ppos, len);
 			ret = (*(mtd->write))(mtd, *ppos, len, &retlen, kbuf);
 		}
 		if (!ret) {

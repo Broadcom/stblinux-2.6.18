@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.18-1.0
-# Fri Apr 27 15:19:31 2007
+# Linux kernel version: 2.6.18-2.0
+# Sat Jun 16 11:15:13 2007
 #
 CONFIG_MIPS=y
 
@@ -18,7 +18,8 @@ CONFIG_MIPS=y
 # CONFIG_MIPS_BCM7111 is not set
 # CONFIG_MIPS_BCM7112 is not set
 # CONFIG_MIPS_BCM7115 is not set
-# CONFIG_MIPS_BCM7118A0 is not set
+# CONFIG_MIPS_BCM7118AX is not set
+# CONFIG_MIPS_BCM7118AX_NAND is not set
 # CONFIG_MIPS_BCM7312 is not set
 # CONFIG_MIPS_BCM7315 is not set
 # CONFIG_MIPS_BCM7317 is not set
@@ -30,9 +31,10 @@ CONFIG_MIPS=y
 # CONFIG_MIPS_BCM97456 is not set
 # CONFIG_MIPS_BCM7400AX is not set
 # CONFIG_MIPS_BCM7400AX_NAND is not set
-# CONFIG_MIPS_BCM97456B0 is not set
+# CONFIG_MIPS_BCM97456BX is not set
 CONFIG_MIPS_BCM7400BX=y
 # CONFIG_MIPS_BCM7400BX_NAND is not set
+# CONFIG_MIPS_BCM97456BX_NAND is not set
 # CONFIG_MIPS_BCM97455 is not set
 # CONFIG_MIPS_BCM97455CX is not set
 # CONFIG_MIPS_BCM97455CX_NAND is not set
@@ -43,13 +45,15 @@ CONFIG_MIPS_BCM7400BX=y
 # CONFIG_MIPS_BCM7401CX is not set
 # CONFIG_MIPS_BCM7401CX_NAND is not set
 # CONFIG_MIPS_BCM97401CX_SW is not set
-# CONFIG_MIPS_BCM97458A0 is not set
+# CONFIG_MIPS_BCM97458AX is not set
+# CONFIG_MIPS_BCM97458AX_NAND is not set
 # CONFIG_MIPS_BCM7402S is not set
 # CONFIG_MIPS_BCM7402B0S is not set
 # CONFIG_MIPS_BCM7402A0 is not set
 # CONFIG_MIPS_BCM7402CX is not set
 # CONFIG_MIPS_BCM7402CX_NAND is not set
 # CONFIG_MIPS_BCM7403AX is not set
+# CONFIG_MIPS_BCM7403AX_NAND is not set
 # CONFIG_MIPS_BCM7440AX is not set
 # CONFIG_MIPS_MTX1 is not set
 # CONFIG_MIPS_BOSPORUS is not set
@@ -480,6 +484,7 @@ CONFIG_MTD_BCM7XXX=y
 # NAND Flash Device Drivers
 #
 # CONFIG_MTD_NAND is not set
+# CONFIG_MTD_BRCMNAND is not set
 
 #
 # OneNAND Flash Device Drivers
@@ -1163,6 +1168,7 @@ CONFIG_JFFS2_RTIME=y
 CONFIG_JFFS2_CMODE_PRIORITY=y
 # CONFIG_JFFS2_CMODE_SIZE is not set
 CONFIG_CRAMFS=y
+# CONFIG_SQUASHFS is not set
 # CONFIG_VXFS_FS is not set
 # CONFIG_HPFS_FS is not set
 # CONFIG_QNX4FS_FS is not set

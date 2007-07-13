@@ -21,7 +21,15 @@
 #include "summary.h"
 #include "debug.h"
 
-#define DEFAULT_EMPTY_SCAN_SIZE 1024
+
+#define DEFAULT_EMPTY_SCAN_SIZE 2048
+extern int gdebug;
+
+// Turn on Debug
+//#ifdef KERN_DEBUG
+//#undef KERN_DEBUG
+//#define KERN_DEBUG
+//#endif
 
 #define noisy_printk(noise, args...) do { \
 	if (*(noise)) { \
@@ -112,9 +120,9 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 	if (!flashbuf) {
 		/* For NAND it's quicker to read a whole eraseblock at a time,
 		   apparently */
-		if (jffs2_cleanmarker_oob(c))
+		if (jffs2_cleanmarker_oob(c)) 
 			buf_size = c->sector_size;
-		else
+		else 
 			buf_size = PAGE_SIZE;
 
 		/* Respect kmalloc limitations */
@@ -142,8 +150,11 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 		/* reset summary info for next eraseblock scan */
 		jffs2_sum_reset_collected(s);
 
+//printk("Calling jffs2_scan_eraseblock, buf_size=%08x\n", buf_size);
+
 		ret = jffs2_scan_eraseblock(c, jeb, buf_size?flashbuf:(flashbuf+jeb->offset),
 						buf_size, s);
+//printk("jffs2_scan_eraseblock returns %d\n", ret);
 
 		if (ret < 0)
 			goto out;
@@ -279,6 +290,7 @@ static int jffs2_fill_scan_buf(struct jffs2_sb_info *c, void *buf,
 {
 	int ret;
 	size_t retlen;
+//printk("-->%s(ofs=%08x, len=%d\n", __FUNCTION__, ofs, len);
 
 	ret = jffs2_flash_read(c, ofs, len, &retlen, buf);
 	if (ret) {
@@ -446,6 +458,8 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 
 	D1(printk(KERN_DEBUG "jffs2_scan_eraseblock(): Scanning block at 0x%x\n", ofs));
 
+//printk("jffs2_scan_eraseblock(): Scanning block at 0x%x\n", ofs);
+
 #ifdef CONFIG_JFFS2_FS_WRITEBUFFER
 	if (jffs2_cleanmarker_oob(c)) {
 		int ret = jffs2_check_nand_cleanmarker(c, jeb);
@@ -467,7 +481,8 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 		struct jffs2_sum_marker *sm;
 		void *sumptr = NULL;
 		uint32_t sumlen;
-	      
+
+//printk("******** SUMMARY ACTIVE *****\n");
 		if (!buf_size) {
 			/* XIP case. Just look, point at the summary if it's there */
 			sm = (void *)buf + c->sector_size - sizeof(*sm);
@@ -530,12 +545,17 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 
 	buf_ofs = jeb->offset;
 
+//printk("%s: 20, buf_ofs=%08x\n", __FUNCTION__, buf_ofs);
+
 	if (!buf_size) {
 		/* This is the XIP case -- we're reading _directly_ from the flash chip */
 		buf_len = c->sector_size;
 	} else {
 		buf_len = EMPTY_SCAN_SIZE(c->sector_size);
+//gdebug = 4;
+//printk("%s:%d:  Calling jffs2_fill_scan_buf(%08x, %d)\n", __FUNCTION__, __LINE__, buf_ofs, buf_len);
 		err = jffs2_fill_scan_buf(c, buf, buf_ofs, buf_len);
+//gdebug = 0;
 		if (err)
 			return err;
 	}
@@ -551,7 +571,10 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 #ifdef CONFIG_JFFS2_FS_WRITEBUFFER
 		if (jffs2_cleanmarker_oob(c)) {
 			/* scan oob, take care of cleanmarker */
-			int ret = jffs2_check_oob_empty(c, jeb, cleanmarkerfound);
+			int ret;
+
+//printk("%s:%d Calling jffs2_check_oob_empty\n", __FUNCTION__, __LINE__);
+			ret = jffs2_check_oob_empty(c, jeb, cleanmarkerfound);
 			D2(printk(KERN_NOTICE "jffs2_check_oob_empty returned %d\n",ret));
 			switch (ret) {
 			case 0:		return cleanmarkerfound ? BLK_STATE_CLEANMARKER : BLK_STATE_ALLFF;
@@ -575,8 +598,11 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 			return err;
 	}
 
+
 	/* Now ofs is a complete physical flash offset as it always was... */
 	ofs += jeb->offset;
+
+//printk("%s:%d, ofs=%08x, jeb->offset=%08x\n", __FUNCTION__, __LINE__, ofs, jeb->offset);
 
 	noise = 10;
 
@@ -584,6 +610,8 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 
 scan_more:
 	while(ofs < jeb->offset + c->sector_size) {
+
+//printk("%s:%d, scan_more top: ofs=%08x\n", __FUNCTION__, __LINE__, ofs);
 
 		jffs2_dbg_acct_paranoia_check_nolock(c, jeb);
 
@@ -620,6 +648,7 @@ scan_more:
 			buf_len = min_t(uint32_t, buf_size, jeb->offset + c->sector_size - ofs);
 			D1(printk(KERN_DEBUG "Fewer than %zd bytes (node header) left to end of buf. Reading 0x%x at 0x%08x\n",
 				  sizeof(struct jffs2_unknown_node), buf_len, ofs));
+//printk("%s:%d:  Calling jffs2_fill_scan_buf(%08x, %d)\n", __FUNCTION__, __LINE__, ofs, buf_len);
 			err = jffs2_fill_scan_buf(c, buf, ofs, buf_len);
 			if (err)
 				return err;
@@ -671,6 +700,7 @@ scan_more:
 				break;
 			}
 			D1(printk(KERN_DEBUG "Reading another 0x%x at 0x%08x\n", buf_len, ofs));
+//printk("%s:%d:  Calling jffs2_fill_scan_buf(%08x, %d)\n", __FUNCTION__, __LINE__, buf_ofs, buf_len);
 			err = jffs2_fill_scan_buf(c, buf, ofs, buf_len);
 			if (err)
 				return err;
@@ -686,7 +716,7 @@ scan_more:
 			continue;
 		}
 		if (je16_to_cpu(node->magic) == JFFS2_DIRTY_BITMASK) {
-			D1(printk(KERN_DEBUG "Dirty bitmask at 0x%08x\n", ofs));
+//			D1(printk(KERN_DEBUG "Dirty bitmask at 0x%08x\n", ofs));
 			if ((err = jffs2_scan_dirty_space(c, jeb, 4)))
 				return err;
 			ofs += 4;
@@ -756,6 +786,7 @@ scan_more:
 				buf_len = min_t(uint32_t, buf_size, jeb->offset + c->sector_size - ofs);
 				D1(printk(KERN_DEBUG "Fewer than %zd bytes (inode node) left to end of buf. Reading 0x%x at 0x%08x\n",
 					  sizeof(struct jffs2_raw_inode), buf_len, ofs));
+//printk("%s:%d:  Calling jffs2_fill_scan_buf(%08x, %d)\n", __FUNCTION__, __LINE__, buf_ofs, buf_len);
 				err = jffs2_fill_scan_buf(c, buf, ofs, buf_len);
 				if (err)
 					return err;
@@ -772,6 +803,7 @@ scan_more:
 				buf_len = min_t(uint32_t, buf_size, jeb->offset + c->sector_size - ofs);
 				D1(printk(KERN_DEBUG "Fewer than %d bytes (dirent node) left to end of buf. Reading 0x%x at 0x%08x\n",
 					  je32_to_cpu(node->totlen), buf_len, ofs));
+//printk("%s:%d:  Calling jffs2_fill_scan_buf(%08x, %d)\n", __FUNCTION__, __LINE__, buf_ofs, buf_len);
 				err = jffs2_fill_scan_buf(c, buf, ofs, buf_len);
 				if (err)
 					return err;

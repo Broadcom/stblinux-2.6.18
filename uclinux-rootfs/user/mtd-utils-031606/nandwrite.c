@@ -420,8 +420,8 @@ int main(int argc, char **argv)
 			}
 			/* Write OOB data first, as ecc will be placed in there*/
 			oob.start = mtdoffset;
-			if (ioctl(fd, MEMWRITEOOBFREE, &oob) != 0) {
-				perror ("ioctl(MEMWRITEOOBFREE)");
+			if (ioctl(fd, MEMWRITEOOB, &oob) != 0) {
+				perror ("ioctl(MEMWRITEOOB)");
 				goto closeall;
 			}
 			imglen -= meminfo.oobsize;

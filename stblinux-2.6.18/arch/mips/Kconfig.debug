@@ -83,4 +83,12 @@ config MIPS_UNCACHED
 	  hardware debugging with a logic analyzer and need to see all traffic
 	  on the bus.
 
+config CACHE_STATS
+	bool "Cache statistics"
+	depends on DEBUG_KERNEL
+	help
+	  If you say Y here, the kernel will collect counts and cycle timings
+	  for all cache flush operations, and display them in /proc/cpuinfo.
+	  If unsure, say N.
+
 endmenu

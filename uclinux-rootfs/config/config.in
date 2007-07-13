@@ -200,6 +200,14 @@ if [ "$CONFIG_USER_CRAMFS_CRAMFSCK" = "y" -o "$CONFIG_USER_CRAMFS_CRAMFSCK" = "y
 	define_bool CONFIG_LIB_ZLIB y
 fi
 
+comment 'SQUASHFS'
+bool 'mksquashfs'			CONFIG_USER_SQUASHFS_MKSQUASHFS
+bool 'unsquashfs'			CONFIG_USER_SQUASHFS_UNSQUASHFS
+if [ "$CONFIG_USER_SQUASHFS_MKSQUASHFS" = "y" \
+		-o "$CONFIG_USER_SQUASHFS_UNSQUASHFS" = "y" ]; then
+	define_bool CONFIG_LIB_ZLIB y
+fi
+
 comment 'XFS'
 bool 'xfsprogs'	CONFIG_USER_XFS_XFSPROGS
 bool 'xfstests'	CONFIG_USER_XFS_TEST_SUITE
@@ -458,7 +466,9 @@ if [ "$CONFIG_USER_LANG_A60" = "y" ]; then
 	bool '  examples'	CONFIG_USER_LANG_A60_EGS
 	bool '  tests'		CONFIG_USER_LAND_A60_TEST
 fi
+bool 'affinity'			CONFIG_USER_AFFINITY
 bool 'cal'			CONFIG_USER_CAL_CAL
+bool 'chat_affinity'		CONFIG_USER_CHAT_AFFINITY
 bool 'chat'			CONFIG_USER_CHAT_CHAT
 bool 'cksum'			CONFIG_USER_CKSUM_CKSUM
 bool 'clock'			CONFIG_USER_CLOCK_CLOCK

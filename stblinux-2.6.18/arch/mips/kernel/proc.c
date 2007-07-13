@@ -15,6 +15,7 @@
 #include <asm/mipsregs.h>
 #include <asm/processor.h>
 #include <asm/watch.h>
+#include <asm/cacheflush.h>
 
 
 #ifdef  CONFIG_PROC_FS
@@ -189,7 +190,10 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 #endif
 	}
 
-    seq_printf(m, "unaligned access\t: %ld\n", unaligned_instructions);
+	seq_printf(m, "unaligned access\t: %ld\n", unaligned_instructions);
+#ifdef CONFIG_CACHE_STATS
+	cache_printstats(m);
+#endif
 
 	return 0;
 }

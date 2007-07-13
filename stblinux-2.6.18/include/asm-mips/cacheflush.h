@@ -11,6 +11,8 @@
 
 /* Keep includes the same across arches.  */
 #include <linux/mm.h>
+#include <linux/autoconf.h>
+#include <linux/seq_file.h>
 #include <asm/cpu-features.h>
 
 /* Cache flushing:
@@ -85,5 +87,14 @@ extern void (*flush_data_cache_page)(unsigned long addr);
 
 /* Run kernel code uncached, useful for cache probing functions. */
 unsigned long __init run_uncached(void *func);
+
+#ifdef CONFIG_CACHE_STATS
+extern void cache_printstats(struct seq_file *m);
+#endif
+
+#ifdef CONFIG_MIPS_BRCM97XXX
+extern void brcm_r4k_flush_cache_range(struct vm_area_struct *vma,
+	unsigned long start, unsigned long end);
+#endif
 
 #endif /* _ASM_CACHEFLUSH_H */

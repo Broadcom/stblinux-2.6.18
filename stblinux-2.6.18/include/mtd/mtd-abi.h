@@ -114,14 +114,24 @@ struct otp_info {
 #define OTPGETREGIONCOUNT	_IOW('M', 14, int)
 #define OTPGETREGIONINFO	_IOW('M', 15, struct otp_info)
 #define OTPLOCK		_IOR('M', 16, struct otp_info)
-/* 2.6.12 ioctls */
+/* 2.6.12 ioctls 
 #define MEMGETOOBAVAIL		_IOR('M', 17, uint32_t)
 #define MEMWRITEOOBFREE         _IOWR('M', 18, struct mtd_oob_buf)
 #define MEMREADOOBFREE          _IOWR('M', 19, struct mtd_oob_buf)
+*/
 /* 2.6.18.1 ioctls */
 #define ECCGETLAYOUT		_IOR('M', 17, struct nand_ecclayout)
 #define ECCGETSTATS		_IOR('M', 18, struct mtd_ecc_stats)
 #define MTDFILEMODE		_IO('M', 19)
+
+#define MTD_BRCMNAND_READNORFLASH _IOWR('M', 50, struct brcmnand_readNorFlash)
+struct brcmnand_readNorFlash {
+	void* buff;
+	unsigned int offset;
+	int len;
+	int retVal;
+};
+
 
 /*
  * Obsolete legacy interface. Keep it in order not to break userspace

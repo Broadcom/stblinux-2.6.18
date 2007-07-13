@@ -78,6 +78,7 @@ int main (int argc, char *argv[])
 	erase_info_t erase;
 	int isNAND, bbtest = 1;
 	uint32_t pages_per_eraseblock, available_oob_space;
+	struct nand_oobinfo oobinfo;
 
 	process_options(argc, argv);
 
@@ -98,9 +99,16 @@ int main (int argc, char *argv[])
 
 	if (jffs2) {
 static count=0;
+		memset(&ebh, 0, sizeof(ebh));
 		ebh.magic = cpu_to_je16 (JFFS2_MAGIC_BITMASK);
 		ebh.nodetype = cpu_to_je16 (JFFS2_NODETYPE_ERASEBLOCK_HEADER);
 		ebh.totlen = cpu_to_je32(sizeof(struct jffs2_raw_ebh));
+
+#if 1
+/*
+ * THT: New 2.6.18 codes assume that only first 8 bytes are set
+ * (Changed kernel codes in jffs2_check_empty_oob() instead )
+ */
 		ebh.hdr_crc = cpu_to_je32 (crc32 (0, &ebh,  sizeof (struct jffs2_unknown_node) - 4));
 		ebh.reserved = 0;
 		ebh.compat_fset = JFFS2_EBH_COMPAT_FSET;
@@ -109,6 +117,7 @@ static count=0;
 		ebh.erase_count = cpu_to_je32(0);
 		ebh.node_crc = cpu_to_je32(crc32(0, (unsigned char *)&ebh + sizeof(struct jffs2_unknown_node) + 4,
 					 sizeof(struct jffs2_raw_ebh) - sizeof(struct jffs2_unknown_node) - 4));
+#endif
 
 if (0) {
 printf("USR: EBH(len=%d)=\n", sizeof(ebh));
@@ -116,8 +125,8 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 }
 
 		if (isNAND) {
-			struct nand_oobinfo oobinfo;
 			int i;
+			extern int brcmnand_get_oobavail(struct nand_oobinfo * oobinfo);
 
 			if (ioctl(fd, MEMGETOOBSEL, &oobinfo) != 0) {
 				fprintf(stderr, "%s: %s: unable to get NAND oobinfo\n", exe_name, mtd_device);
@@ -138,13 +147,7 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 				ebhlen = oobinfo.oobfree[0][1];
 #else
 				ebhpos = 0;  //oobinfo.oobfree[0][0];
-				ebhlen = 0;
-				for (i = 0; oobinfo.oobfree[i][1] && i < 8; i++) {
-					int from = oobinfo.oobfree[i][0];
-					int num = oobinfo.oobfree[i][1];
-
-					ebhlen += num;
-				}
+				ebhlen = brcmnand_get_oobavail(&oobinfo);
 #endif
 			} else {
 				/* Legacy mode */
@@ -219,35 +222,49 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 		if (isNAND) {
 			struct mtd_oob_buf oob;
 			uint32_t i = 0, written = 0;
+			int ooblen = 0, retlen = 0;
+			unsigned char oobbuf[64];
+			unsigned char* fsbuf;
+			int fslen;
+			extern int brcmnand_prepare_oobbuf(
+				const u_char * fsbuf, int fslen, u_char * oob_buf, 
+				struct nand_oobinfo * oobsel, int oobsize, int oobavail, int* outp_ooblen);
 
 			while (written < sizeof(struct jffs2_raw_ebh)) {
-#if 0
-static int once;
-#endif
+				fsbuf = (unsigned char *) &ebh + written;
+				fslen = (sizeof(struct jffs2_raw_ebh) - written) < ebhlen ? (sizeof(struct jffs2_raw_ebh) - written) : ebhlen;
+
+#if 1
+/* 2.6.18 codes */
+				/* retlen is the length written in this pass.
+				 * ooblen is the actual length of the OOB buffer
+				 */
+				retlen = brcmnand_prepare_oobbuf(fsbuf, fslen, oobbuf, &oobinfo, meminfo.oobsize, ebhlen, &ooblen);
+				oob.ptr = oobbuf;
+				oob.start = erase.start + meminfo.oobblock*i + ebhpos;
+				oob.length = meminfo.oobsize - ebhpos;  //for completeness, ebhpos is always 0.
+
+#else 
+/* 2.6.12 codes */
 				oob.ptr = (unsigned char *) &ebh + written;
 				oob.start = erase.start + meminfo.oobblock*i + ebhpos;
 				oob.length = (sizeof(struct jffs2_raw_ebh) - written) < ebhlen ? (sizeof(struct jffs2_raw_ebh) - written) : ebhlen;
-
-#if 0
-if (!once) {
-once=1;
-print_oobbuf(oob.ptr, oob.length);
-}
 #endif
+
 /* safety check */
 				if (oob.length <= 0) {
 fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%d\n", 
 	written, sizeof(struct jffs2_raw_ebh), oob.start);
 					break;
 				}
-				if (ioctl (fd, MEMWRITEOOBFREE, &oob) != 0) {
+				if (ioctl (fd, MEMWRITEOOB, &oob) != 0) {
 					fprintf(stderr, "\n%s: %s: MTD writeoobfree failure: %s\n", exe_name, mtd_device, strerror(errno));
-fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%d, len=%d\n", 
+fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%08x, len=%d\n", 
 	written, sizeof(struct jffs2_raw_ebh), oob.start, oob.length);
 					break;
 				}
 				i++;
-				written += oob.length;
+				written += retlen;
 
 			}
 			if (written < sizeof(struct jffs2_raw_ebh)) {

@@ -1608,7 +1608,9 @@ static const struct ecoff_debug_swap mips_elf32_ecoff_debug_swap = {
    modulo 64 KByte (0x10000) or larger powers of 2.  Because 64 KBytes
    is the maximum page size, the files are suitable for paging
    regardless of physical page size.  */
-#define ELF_MAXPAGESIZE			0x10000
+/*#define ELF_MAXPAGESIZE			0x10000*/
+/* Use 4K to shrink the elf header.  NOT for general use! */
+#define ELF_MAXPAGESIZE			0x1000
 #define ELF_COMMONPAGESIZE		0x1000
 #define elf32_bed			elf32_tradbed
 

@@ -1,0 +1,1 @@
+../../../linux-2.6.x/arch/mips/configs/bcm97400b0_be-nand_initrd_defconfig

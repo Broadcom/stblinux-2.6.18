@@ -197,6 +197,15 @@ config MTD_BLOCK_RO
 	  You do not need this option for use with the DiskOnChip devices. For
 	  those, enable NFTL support (CONFIG_NFTL) instead.
 
+config MTD_BLOCK_ROMBLOCK
+	tristate "Readonly Block Device Layer Over MTD for NAND flash"
+	depends on MTD && (MTD_NAND || MTD_BRCMNAND)
+	default n
+	help
+	  Same as readonly block driver, but this allow you to mount read-only file
+	  systems from an MTD device, containing bad blocks.
+
+
 config FTL
 	tristate "FTL (Flash Translation Layer) support"
 	depends on MTD
@@ -271,7 +280,7 @@ source "drivers/mtd/devices/Kconfig"
 
 source "drivers/mtd/nand/Kconfig"
 
-#source "drivers/mtd/brcmnand/Kconfig"
+source "drivers/mtd/brcmnand/Kconfig"
 
 source "drivers/mtd/onenand/Kconfig"
 

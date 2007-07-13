@@ -164,8 +164,8 @@ s%@root_sbindir@%${root_prefix}/sbin%g
 s%@root_libdir@%${root_prefix}/lib%g
 s%@root_sysconfdir@%${root_prefix}/etc%g
 s%@LDFLAG_STATIC@%-static%g
-s%@SS_DIR@%/myviews/2618-1.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/e2fsprogs/lib/ss%g
-s%@ET_DIR@%/myviews/2618-1.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/e2fsprogs/lib/et%g
+s%@SS_DIR@%/myviews/2618-2.0/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/e2fsprogs/lib/ss%g
+s%@ET_DIR@%/myviews/2618-2.0/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/e2fsprogs/lib/et%g
 s%@DO_TEST_SUITE@%%g
 
 CEOF

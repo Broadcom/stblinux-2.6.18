@@ -43,6 +43,18 @@ unsigned int gFlashCode = 0; 	/* Special reset codes, 1 for writing 0xF0 to offs
 int gClearBBT = 0;
 EXPORT_SYMBOL(gClearBBT);
 
+
+
+/* The Chip Select [0..7] for the NAND chips from gNumNand above, only applicable to v1.0+ NAND controller */
+#define NAND_MAX_CS    8
+static int gNandCS_priv[NAND_MAX_CS+1]; // Num NAND stored in first entry
+int* gNandCS;
+EXPORT_SYMBOL(gNandCS);
+/* Number of NAND chips, only applicable to v1.0+ NAND controller */
+int gNumNand = 0;
+EXPORT_SYMBOL(gNumNand);
+
+
 /* 7401Cx revision to decide whether C0 workaround is needed or not */
 int bcm7401Cx_rev = 0xFF;
 EXPORT_SYMBOL(bcm7401Cx_rev);
@@ -481,14 +493,44 @@ void __init prom_init(void)
 		}
 	}
 
-	/* gClearBBT=1 : Clear existing BBT table on flash */
+	/* brcmnand=
+	 *	rescan: 	1. Rescan for bad blocks, and update existing BBT
+	 *	showbbt:	2. Print out the contents of the BBT on boot up.
+	 *
+	 * The following commands are implemented but should be removed for production builds.  
+	 * Use userspace flash_eraseall instead.
+	 * These were intended for development debugging only.
+	 * 	erase:	7. Erase entire flash, except CFE, and rescan for bad blocks 
+	 *	eraseall:	8. Erase entire flash, and rescan for bad blocks
+	 *	clearbbt:	9. Erase BBT and rescan for bad blocks.  (DANGEROUS, may lose Mfg's BIs).
+	 */
+
 	{
 		char c = ' ', *from = cfeBootParms;
 		int len = 0;
 
 		for (;;) {
-			if (c == ' ' && !memcmp(from, "clearBBT=", 9)) {
-				gClearBBT = memparse(from + 9, &from);
+			if (c == ' ' && !memcmp(from, "brcmnand=", 9)) {
+				if (!memcmp(from + 9, "rescan", 6)) {
+					gClearBBT = 1; // Force BBT rescan, only BBT is erased and rebuilt
+				}
+				else if (!memcmp(from + 9, "showbbt", 7)) {
+					gClearBBT = 2; // Force erase of entire NAND flash, before rescan
+				}
+#if 1
+// Remove this in production build
+				// Here we match the longer string first
+				else if (!memcmp(from + 9, "eraseall", 8)) {
+					gClearBBT = 8; // Force erase of entire NAND flash, before rescan
+				}
+				else if (!memcmp(from + 9, "erase", 5)) {
+					gClearBBT = 7; // Force erase of NAND flash, except CFE, before rescan
+				}
+
+				else if (!memcmp(from + 9, "clearbbt", 8)) {
+					gClearBBT = 9; // Force erase of BBT, DANGEROUS.
+				}
+#endif
 				break;
 			}
 			c = *(from++);
@@ -498,6 +540,39 @@ void __init prom_init(void)
 				break;
 		}
 	}
+
+       /* CS override for BrcmNAND controller */
+	{
+		char c = ' ', *from = cfeBootParms;
+		int len = 0;
+               int i;
+
+               gNumNand = 0;
+               gNandCS = NULL;
+               for (i=0; i<ARRAY_SIZE(gNandCS_priv); i++) {
+                       gNandCS_priv[i] = -1;
+               }
+
+		for (;;) {
+                       if (c == ' ' && !memcmp(from, "nandcs=", 7)) {
+                               get_options(from + 7, ARRAY_SIZE(gNandCS_priv), gNandCS_priv);
+				break;
+			}
+			c = *(from++);
+			if (!c)
+				break;
+			if (CL_SIZE <= ++len)
+				break;
+		}
+               if (gNandCS_priv[0] != 0 && gNandCS_priv[0] != -1) {
+                       gNumNand = gNandCS_priv[0]; // Num NAND stored in first entry
+                       gNandCS = &gNandCS_priv[1];     // Real array starts at element #1
+	}
+
+               printk("Number of Nand Chips = %d\n", gNumNand);
+       }
+
+
 
 	/* Just accept whatever specified in BOOT_FLAGS as kernel options, unless root= is NOT specified */
 	if (hasCfeParms && isRootSpecified(cfeBootParms)) {

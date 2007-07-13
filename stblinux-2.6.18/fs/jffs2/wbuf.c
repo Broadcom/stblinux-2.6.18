@@ -30,6 +30,12 @@
 static unsigned char *brokenbuf;
 #endif
 
+// Turn on Debug
+//#ifdef KERN_DEBUG
+//#undef KERN_DEBUG
+//#define KERN_DEBUG
+//#endif
+
 #define PAGE_DIV(x) ( ((unsigned long)(x) / (unsigned long)(c->wbuf_pagesize)) * (unsigned long)(c->wbuf_pagesize) )
 #define PAGE_MOD(x) ( (unsigned long)(x) % (unsigned long)(c->wbuf_pagesize) )
 
@@ -968,12 +974,25 @@ int jffs2_check_oob_empty(struct jffs2_sb_info *c,
 	int oobsize = c->mtd->oobsize;
 	struct mtd_oob_ops ops;
 
+//printk("-->jffs2_check_oob_empty\n");
+
+
+#ifdef CONFIG_MTD_BRCMNAND
+	oobsize = c->mtd->ecclayout->oobavail;
+	ops.len = NR_OOB_SCAN_PAGES * oobsize;
+	ops.ooblen = oobsize;
+	ops.oobbuf = c->oobbuf;
+	ops.ooboffs = 0;
+	ops.datbuf = NULL;
+	ops.mode = MTD_OOB_AUTO;
+#else
 	ops.len = NR_OOB_SCAN_PAGES * oobsize;
 	ops.ooblen = oobsize;
 	ops.oobbuf = c->oobbuf;
 	ops.ooboffs = 0;
 	ops.datbuf = NULL;
 	ops.mode = MTD_OOB_PLACE;
+#endif
 
 	ret = c->mtd->read_oob(c->mtd, jeb->offset, &ops);
 	if (ret) {
@@ -981,6 +1000,8 @@ int jffs2_check_oob_empty(struct jffs2_sb_info *c,
 			  "failed %d for block at %08x\n", ret, jeb->offset));
 		return ret;
 	}
+//printk("read_oob() returns\n");
+//print_oobbuf(c->oobbuf, oobsize);
 
 	if (ops.retlen < ops.len) {
 		D1(printk(KERN_WARNING "jffs2_check_oob_empty(): Read OOB "
@@ -992,9 +1013,13 @@ int jffs2_check_oob_empty(struct jffs2_sb_info *c,
 	/* Special check for first page */
 	for(i = 0; i < oobsize ; i++) {
 		/* Yeah, we know about the cleanmarker. */
+#ifdef CONFIG_MTD_BRCMNAND
+		if (i < sizeof(struct jffs2_raw_ebh)) continue;
+#else
 		if (mode && i >= c->fsdata_pos &&
 		    i < c->fsdata_pos + c->fsdata_len)
 			continue;
+#endif
 
 		if (ops.oobbuf[i] != 0xFF) {
 			D2(printk(KERN_DEBUG "Found %02x at %x in OOB for "
@@ -1003,12 +1028,14 @@ int jffs2_check_oob_empty(struct jffs2_sb_info *c,
 		}
 	}
 
+#ifndef CONFIG_MTD_BRCMNAND
 	/* we know, we are aligned :) */
 	for (page = oobsize; page < ops.len; page += sizeof(long)) {
 		long dat = *(long *)(&ops.oobbuf[page]);
 		if(dat != -1)
 			return 1;
 	}
+#endif
 	return 0;
 }
 
@@ -1032,12 +1059,25 @@ int jffs2_check_nand_cleanmarker (struct jffs2_sb_info *c,
 		return 2;
 	}
 
+
+#ifdef CONFIG_MTD_BRCMNAND
+	oobsize = c->mtd->ecclayout->oobavail;
+	ops.len = oobsize;
+	ops.ooblen = oobsize;
+	ops.oobbuf = c->oobbuf;
+	ops.ooboffs = 0;
+	ops.datbuf = NULL;
+	ops.mode = MTD_OOB_AUTO;
+#else
 	ops.len = oobsize;
 	ops.ooblen = oobsize;
 	ops.oobbuf = c->oobbuf;
 	ops.ooboffs = 0;
 	ops.datbuf = NULL;
 	ops.mode = MTD_OOB_PLACE;
+#endif
+
+//printk("%s: calling read_oob(%08x)\n", __FUNCTION__, offset);
 
 	ret = c->mtd->read_oob(c->mtd, offset, &ops);
 	if (ret) {
@@ -1066,6 +1106,22 @@ int jffs2_check_nand_cleanmarker (struct jffs2_sb_info *c,
 			ret = 1;
 	}
 
+#ifdef CONFIG_MTD_BRCMNAND
+	if (ret == 1 && 0 == (offset & (c->mtd->erasesize - 1))) { 
+		/* Check against Nodetype CleanMarker fails, now check against nodetype_eraseblock */
+		n.nodetype = cpu_to_je16 (JFFS2_NODETYPE_ERASEBLOCK_HEADER);
+		n.totlen = cpu_to_je32(sizeof(struct jffs2_raw_ebh));
+		p = (unsigned char *) &n;
+		b = c->oobbuf + c->fsdata_pos;
+
+		ret = 0;
+		for (i = c->fsdata_len; i; i--) {
+			if (*b++ != *p++)
+				ret = 1;
+		}
+	}
+#endif
+
 	D1(if (ret == 1) {
 		printk(KERN_WARNING "jffs2_check_nand_cleanmarker(): "
 		       "Cleanmarker node not detected in block at %08x\n",
@@ -1074,6 +1130,11 @@ int jffs2_check_nand_cleanmarker (struct jffs2_sb_info *c,
 		for (i=0; i < oobsize; i++)
 			printk("%02x ", c->oobbuf[i]);
 		printk("\n");
+		printk(KERN_WARNING "Expected ", offset);
+		p = (unsigned char *) &n;
+		for (i=0; i < oobsize; i++)
+			printk("%02x ", p[i]);
+		printk("\n");		
 	});
 	return ret;
 }
@@ -1089,12 +1150,21 @@ int jffs2_write_nand_cleanmarker(struct jffs2_sb_info *c,
 	n.nodetype = cpu_to_je16(JFFS2_NODETYPE_CLEANMARKER);
 	n.totlen = cpu_to_je32(8);
 
+#ifdef CONFIG_MTD_BRCMNAND
+	ops.len = c->fsdata_len;
+	ops.ooblen = c->fsdata_len;;
+	ops.oobbuf = (uint8_t *)&n;
+	ops.ooboffs = c->fsdata_pos;
+	ops.datbuf = NULL;
+	ops.mode = MTD_OOB_AUTO;
+#else
 	ops.len = c->fsdata_len;
 	ops.ooblen = c->fsdata_len;;
 	ops.oobbuf = (uint8_t *)&n;
 	ops.ooboffs = c->fsdata_pos;
 	ops.datbuf = NULL;
 	ops.mode = MTD_OOB_PLACE;
+#endif
 
 	ret = c->mtd->write_oob(c->mtd, jeb->offset, &ops);
 
@@ -1166,10 +1236,16 @@ static int jffs2_nand_set_oobinfo(struct jffs2_sb_info *c)
 			" Autoplacement selected and no empty space in oob\n");
 		return -ENOSPC;
 	}
+#if CONFIG_MTD_BRCMNAND
+	/* BrcmNAND uses AUTO_PLACE */
+	c->fsdata_pos = 0;
+	c->fsdata_len = 8;
+#else
 	c->fsdata_pos = oinfo->oobfree[0].offset;
 	c->fsdata_len = oinfo->oobfree[0].length;
 	if (c->fsdata_len > 8)
 		c->fsdata_len = 8;
+#endif
 
 	return 0;
 }

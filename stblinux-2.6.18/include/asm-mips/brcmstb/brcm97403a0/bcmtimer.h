@@ -4,7 +4,24 @@
 /*   DATE:    96/12/19                                                 */
 /*   PURPOSE: Definitions for Timer block                               */
 /*                                                                     */
-/***********************************************************************/
+
+/***************************************************************************
+ *     Copyright (c) 1999-2007, Broadcom Corporation
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
 #ifndef BCMTIMER_H
 #define BCMTIMER_H
 
@@ -14,7 +31,7 @@
 
 
 #if !defined _ASMLANGUAGE
-#if __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 #endif
@@ -96,7 +113,7 @@ typedef struct Timer {
 
 
 
-#if __cplusplus
+#ifdef __cplusplus
 }
 #endif
 #endif
