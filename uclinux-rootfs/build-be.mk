@@ -32,7 +32,7 @@ endif
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.18-2.0 we only support a few platforms
-CHIPS=7400b0 7400b0-smp 7401c0 7118a0 7403a0 97401c0-sw1  # 7038c0 97398 7400a0 7400a0-smp 7318 # 7400b0-smp-nand
+CHIPS=7400b0 7400b0-smp 7401c0 7118a0 7403a0 97401c0-sw1 7405a0 7405a0-smp  # 7038c0 97398 7400a0 7400a0-smp 7318 # 7400b0-smp-nand
 PLATFORMS=$(addsuffix _be,$(CHIPS))
 # THT Must define the NAND platforms separately, since we want -be to precede -nand, as -nand does not really define a new platform
 NAND_PLATFORMS = 7400b0_be-nand 7401c0_be-nand 7118a0_be-nand # 7400b0-smp-be-nand
@@ -93,7 +93,10 @@ kernels: vercheck
 
 all: vercheck kernels install
 
-.PHONY: vercheck install rootfs platlist_be
+.PHONY: vercheck install rootfs platlist_be prepare
+
+prepare:
+	test -f ../prepare.sh && (../prepare.sh || (echo "FATAL Error: missing files" ; exit 1)) || echo "succeed"
 
 #jipeng - check version mismatch between rootfs and kernel source
 vercheck:
@@ -123,6 +126,8 @@ rootfs:
 			*-nand) \
 				cp -f images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
 				cp -f images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
+				cp -f images/$$i/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$$i.img; \
+				cp -f images/$$i/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$$i.img; \
 				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
 				cp -f images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
 				;;\
@@ -147,7 +152,7 @@ $(ALL_PLATFORMS) :
 	make -f build-be.mk vmlinuz-$@
 
 
-$(OPROFILE_PLATFORMS) :
+$(OPROFILE_PLATFORMS) : 
 	echo "Making BE OPROFILE uclinux-rootfs and kernels for $@ version=$(VERSION)"
 	make -f build-be.mk vmlinuz-initrd-$@
 	make -f build-be.mk vmlinuz-$@
@@ -169,6 +174,8 @@ $(ROOTFS_PLATFORMS):
 		*-nand) \
 			cp images/$(subst rootfs-,,$@)/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$(subst rootfs-,,$@).img ; \
 			cp images/$(subst rootfs-,,$@)/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$(subst rootfs-,,$@).img ; \
+			cp images/$(subst rootfs-,,$@)/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$(subst rootfs-,,$@).img; \
+			cp images/$(subst rootfs-,,$@)/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$(subst rootfs-,,$@).img ; \
 			cp images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img ; \
 			cp images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img ; \
 			;;\
@@ -180,7 +187,7 @@ $(ROOTFS_PLATFORMS):
 	esac
 
 # The echo Done at the end is to prevent make from reporting errors.
-$(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS):
+$(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
 	cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst vmlinuz-initrd-,,$@) .config
 	# Set CONFIG_INITRAMFS_ROOT_UID & GID accordingly
 	(. .config; test -f "$${CONFIG_LINUXDIR}"/.config && rm -f "$${CONFIG_LINUXDIR}"/.config; \
@@ -205,7 +212,7 @@ $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS):
 	fi
 	echo "Done building $@"
 
-$(BB_PLATFORMS) $(XFS_BB_PLATFORMS):
+$(BB_PLATFORMS) $(XFS_BB_PLATFORMS): prepare
 	if [ "x$(KERNEL_DEFCONFIG)" != "x" ]; then	\
 		test -f $(KERNEL_DEFCONFIG) && 	cp -f $(KERNEL_DEFCONFIG) $(KERNEL_DIR)/.config	\
 		|| exit 1;	\
@@ -234,7 +241,7 @@ $(BB_PLATFORMS) $(XFS_BB_PLATFORMS):
 #
 # Should do a make clean manually before involking any kgdb targets.
 # Omitted here since these are normally one time shot deals.
-$(KGDB_PLATFORMS):
+$(KGDB_PLATFORMS): prepare
 	-test -f $(KERNEL_DIR)/.config && rm -f $(KERNEL_DIR)/.config
 	if [ "$(subst vmlinuz-,,$@)" == "937xx_be-kgdb" -o "$(subst vmlinuz-,,$@)" == "97398_be-kgdb" \
         "$(subst vmlinuz-,,$@)" == "937xx_be-xfs-kgdb" -o "$(subst vmlinuz-,,$@)" == "97398_be-xfs-kgdb" ]; then \
@@ -264,7 +271,7 @@ $(KGDB_PLATFORMS):
 	
 
 # The echo Done at the end is to prevent make from reporting errors.
-$(OPROF_INITRD_PLATFORMS) :
+$(OPROF_INITRD_PLATFORMS) : prepare
 	cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst -opf,,$(subst vmlinuz-initrd-,,$@)) .config
 	# Set locale stuffs.  We will need
 	. .config; export LANG="C"; export LC_MESSAGES="C"; export LC_CTYPE="C"; export LC_ALL="C"; \
@@ -296,7 +303,7 @@ $(OPROF_INITRD_PLATFORMS) :
 	echo "Done building $@"
 
 
-$(OPROF_PLATFORMS) :
+$(OPROF_PLATFORMS) : prepare
 	-test -f $(KERNEL_DIR)/.config && rm -f $(KERNEL_DIR)/.config
 	if test -f $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$(subst -opf,,$@))_defconfig; then	\
 		cat $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$(subst -opf,,$@))_defconfig | \

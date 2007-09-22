@@ -55,19 +55,25 @@ when	who what
  * Here is the layout of the NAND flash
  *
  *    Physical offset			Size			partition		Owner/comment
- *	1ff0_0000	1fff_ffff		1MB=8x128k 	BBT			Linux RW
+ *	<eof-1MB>	<eof>		1MB			BBT			BBT only if fsize > 512MB
+ *	2000_0000	<eof - 1MB>	FlSize-256MB	data			Linux File System -- if fsize > 512MB
+ *	1ff0_0000	1fff_ffff		1MB=8x128k 	BBT/or res	Linux RW -- if fsize <=512MB
  *	1fe0_0000	1fef_ffff		1MB=8x128k	nvm 		CFE, RO for Linux
  *	1fc0_0000	1fdf_ffff		2MB			CFE			CFE
  *	1f80_0000	1fbf_ffff		4MB			Linux Kernel	CFE
  *	start of flash	1f7f_ffff		flashSize-8MB	rootfs		Linux File System
  */
-#define SMALLEST_FLASH_SIZE	(16*1024*1024)
-#define DEFAULT_RESERVED_SIZE (8*1024*1024) 
+#define SMALLEST_FLASH_SIZE	(16<<20)
+#define DEFAULT_RESERVED_SIZE (8<<20) 
 
 #ifdef CONFIG_MTD_ECM_PARTITION
-#define DEFAULT_ECM_SIZE	(9*1024*1024)
+#define DEFAULT_OCAP_SIZE	(6<<20)
+#define DEFAULT_AVAIL1_SIZE (32<<20)
+#define DEFAULT_ECM_SIZE (DEFAULT_OCAP_SIZE+DEFAULT_AVAIL1_SIZE)
 #else
-#define DEFAULT_ECM_SIZE	0
+#define DEFAULT_ECM_SIZE	(0)
+#define DEFAULT_OCAP_SIZE	(0)
+#define DEFAULT_AVAIL1_SIZE	(0)
 #endif
 #define DEFAULT_ROOTFS_SIZE (SMALLEST_FLASH_SIZE - DEFAULT_RESERVED_SIZE - DEFAULT_ECM_SIZE)
 
@@ -75,12 +81,16 @@ static struct mtd_partition bcm7XXX_nand_parts[] =
 {
 	{ name: "rootfs",		offset: 0,					size: DEFAULT_ROOTFS_SIZE },	
 #ifdef CONFIG_MTD_ECM_PARTITION
-	{ name: "ecm",		offset: DEFAULT_ROOTFS_SIZE,	size: DEFAULT_ECM_SIZE },	
+#define AVAIL1_PART	(1)
+#define OCAP_PART	(2)
+	{ name: "avail1",		offset: DEFAULT_ROOTFS_SIZE,	size: DEFAULT_AVAIL1_SIZE },
+	{ name: "ocap",		offset: DEFAULT_ROOTFS_SIZE+DEFAULT_AVAIL1_SIZE,	size: DEFAULT_OCAP_SIZE },	
 #endif
-	{ name: "kernel",		offset: 0x00800000,			size: 4*1024*1024 },
-	{ name: "cfe",		offset: 0x00C00000,			size: 2*1024*1024 },
-	{ name: "nvm",		offset: 0x00E00000,			size: 1*1024*1024 },
+	{ name: "kernel",	offset: 0x00800000,			size: 4<<20 },
+	{ name: "cfe",		offset: 0x00C00000,			size: 2<<20 },
+	{ name: "nvm",		offset: 0x00E00000,			size: 1<<20 },
 	/* BBT 1MB not mountable by anyone */
+	{ name: "data", 	offset: 0x400000000,		size: 0 },
 };
 
 struct brcmnand_info {
@@ -104,26 +114,91 @@ void* get_brcmnand_handle(void)
  * The entire reserved area (kernel + CFE + BBT) occupies the last 8 MB of the flash.
  */
 static void __devinit 
-brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo)
+brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo, int *numParts)
 {
 	struct mtd_info* mtd = &nandinfo->mtd;
-	unsigned long size = mtd->size; // mtd->size may be different than nandinfo->size
-								// Relies on this being called after brcmnand_scan
+	unsigned long size; 
 	int i = 0;
+	unsigned int ecm_size = DEFAULT_ECM_SIZE;
+	unsigned int ocap_size = DEFAULT_OCAP_SIZE;
+	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
 
+	if (mtd->size <= (512<<20)) {
+		size = mtd->size;	// mtd->size may be different than nandinfo->size
+						// Relies on this being called after brcmnand_scan
+		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts) - 1;
+	}
+	else {
+		size = 512 << 20;
+		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts);
+	}
+
+#ifdef CONFIG_MTD_ECM_PARTITION
+	/* Do not generate AVAIL1 partition if usable flash size is less than 64MB */
+	if (size < (64<<20)) {
+		ecm_size = DEFAULT_OCAP_SIZE;
+		bcm7XXX_nand_parts[AVAIL1_PART].size = avail1_size = 0;
+		(*numParts)--;
+	}
+	else {
+		int factor = size / (64 << 20); // Remember size is capped at 512MB
+		
+		bcm7XXX_nand_parts[OCAP_PART].size = ocap_size = factor*DEFAULT_OCAP_SIZE;
+		bcm7XXX_nand_parts[AVAIL1_PART].size = avail1_size = factor*DEFAULT_AVAIL1_SIZE;
+		ecm_size = ocap_size + avail1_size;
+	}
+
+#endif
 	nandinfo->parts = bcm7XXX_nand_parts;
-	bcm7XXX_nand_parts[0].size = size - DEFAULT_RESERVED_SIZE - DEFAULT_ECM_SIZE;
+	bcm7XXX_nand_parts[0].size = size - DEFAULT_RESERVED_SIZE - ecm_size;
 	bcm7XXX_nand_parts[0].ecclayout = mtd->ecclayout;
 printk("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm7XXX_nand_parts[0].name, 
 bcm7XXX_nand_parts[0].size, bcm7XXX_nand_parts[0].offset);
 
-	for (i=1; i<ARRAY_SIZE(bcm7XXX_nand_parts); i++) {
-		bcm7XXX_nand_parts[i].offset += bcm7XXX_nand_parts[0].size - DEFAULT_ROOTFS_SIZE;
+	for (i=1; i<ARRAY_SIZE(bcm7XXX_nand_parts) - 1; i++) {
+#ifdef CONFIG_MTD_ECM_PARTITION
+		//if (0 == bcm7XXX_nand_parts[i].size)
+		//	continue;
+		/* Skip avail1 if size is less than 64 MB) */
+ 		if (0 == avail1_size && AVAIL1_PART == i) {
+			bcm7XXX_nand_parts[i].offset = bcm7XXX_nand_parts[i-1].size + bcm7XXX_nand_parts[i-1].offset;
+			continue;
+		}
+#endif
+		bcm7XXX_nand_parts[i].offset = bcm7XXX_nand_parts[i-1].size + bcm7XXX_nand_parts[i-1].offset;
 		// For now every partition uses the same oobinfo
 		bcm7XXX_nand_parts[i].ecclayout = mtd->ecclayout;
 printk("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm7XXX_nand_parts[i].name, 
 bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
 	}
+
+	
+	if  (mtd->size > (512 << 20)) { // For total flash size > 512MB, we must split the rootfs into 2 partitions
+		i = *numParts - 1;
+		bcm7XXX_nand_parts[i].offset = 512 << 20;
+		bcm7XXX_nand_parts[i].size = mtd->size - (513 << 20);
+		bcm7XXX_nand_parts[i].ecclayout = &mtd->ecclayout;
+#ifdef CONFIG_MTD_ECM_PARTITION
+printk("Part[%d] name=%s, size=%x, offset=%x\n", avail1_size? i: i-1, bcm7XXX_nand_parts[i].name, 
+bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
+#else
+printk("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm7XXX_nand_parts[i].name, 
+bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
+#endif
+
+	}
+
+#ifdef CONFIG_MTD_ECM_PARTITION
+	/* Shift partitions 1 up if avail1_size is 0 */
+	if (0 == avail1_size) {
+		for (i=AVAIL1_PART; i < *numParts; i++) {
+			bcm7XXX_nand_parts[i].offset = bcm7XXX_nand_parts[i+1].offset;
+			bcm7XXX_nand_parts[i].size = bcm7XXX_nand_parts[i+1].size;
+		}
+		bcm7XXX_nand_parts[*numParts].offset = 0;
+		bcm7XXX_nand_parts[*numParts].size = 0;
+	}
+#endif
 }
 
 static int __devinit brcmnanddrv_probe(struct device *dev)
@@ -133,6 +208,7 @@ static int __devinit brcmnanddrv_probe(struct device *dev)
 	//struct resource *res = pdev->resource;
 	//unsigned long size = res->end - res->start + 1;
 	int err = 0;
+	int numParts = 0;
 
 	info = kmalloc(sizeof(struct brcmnand_info), GFP_KERNEL);
 	if (!info)
@@ -156,15 +232,16 @@ static int __devinit brcmnanddrv_probe(struct device *dev)
 	
 
 //printk("brcmnand_scan\n");
-	if (brcmnand_scan(&info->mtd, 1)) {
+	if (brcmnand_scan(&info->mtd, MAX_NAND_CS)) {
 		err = -ENXIO;
 		goto out_free_info;
 	}
 
 //printk("	brcmnanddrv_setup_mtd_partitions\n");
-	brcmnanddrv_setup_mtd_partitions(info);
+	printk("	numchips=%d, size=%08x\n", info->brcmnand.numchips, info->mtd.size);
+	brcmnanddrv_setup_mtd_partitions(info, &numParts);
 //printk("	add_mtd_partitions\n");
-	add_mtd_partitions(&info->mtd, info->parts, ARRAY_SIZE(bcm7XXX_nand_parts));
+	add_mtd_partitions(&info->mtd, info->parts, numParts);
 //printk("	dev_set_drvdata\n");	
 	dev_set_drvdata(&pdev->dev, info);
 //printk("<-- brcmnanddrv_probe\n");

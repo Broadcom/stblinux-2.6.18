@@ -400,6 +400,29 @@ config SLAB
 	  SLOB is more space efficient but does not scale well and is
 	  more susceptible to fragmentation.
 
+config KLOB
+	bool "Enable KLOB allocator for kmalloc|kfree"
+	default n
+	depends on SLAB && ! SMP
+	help
+	  Enabling this option will include KLOB, a variable length allocator,
+	  for kmalloc|kfree in place of the default SLAB sllocator. KLOB
+	  is space efficient and overcomes the internal fragmentation of the
+	  size caches in SLAB. KLOB is less susceptible to external
+	  fragmentation with allocation performance bounded and independent of
+	  the ensuing external fragmentation.
+
+	  The memory managed by KLOB is configurable.
+
+	  SLAB will continue to be used for the kernel caches. KLOB defaults to
+	  SLAB's size caches when the memory managed by KLOB is depleted.
+
+config VMALLOC_NOGUARD
+	bool "Disable vmalloc guard page"
+	default n
+	help
+	  Removes the guard page on each vmalloced object to save memory.
+
 config VM_EVENT_COUNTERS
 	default y
 	bool "Enable VM event counters for /proc/vmstat" if EMBEDDED

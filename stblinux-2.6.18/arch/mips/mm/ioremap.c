@@ -141,8 +141,12 @@ void __iomem * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
   #if defined( CONFIG_MIPS_BCM7038A0 )
 	if (((phys_addr >= 0xd0000000) && (phys_addr <= 0xe060000b)))
 		
+  #elif defined( CONFIG_DISCONTIGMEM ) && defined( CONFIG_MIPS_BCM7405 )
+	if (((phys_addr >= 0xb0510000) && (phys_addr <= 0xdfffffff)) ||
+	    ((phys_addr >= 0xf0000000) && (phys_addr <= 0xf060000b)))
+
   #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 ) \
-  	|| defined( CONFIG_MIPS_BCM7400 ) 
+  	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7405 )
 	if (((phys_addr >= 0xb0510000) && (phys_addr <= 0xd0b1000c)))
 		
   #elif defined( CONFIG_MIPS_BCM3560 ) \
@@ -209,8 +213,13 @@ void __iounmap(volatile void __iomem *addr)
 	if ( (((unsigned long)addr >= 0xd0000000) && ((unsigned long)addr <= 0xe060000b)))
 		return;
 	
+  #elif defined( CONFIG_DISCONTIGMEM ) && defined( CONFIG_MIPS_BCM7405 )
+	if ((((unsigned long)addr >= 0xb0510000) && ((unsigned long)addr <= 0xdfffffff)) ||
+	    (((unsigned long)addr >= 0xf0000000) && ((unsigned long)addr <= 0xf060000b)))
+		return;
+
   #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 ) \
-  	|| defined( CONFIG_MIPS_BCM7400 )
+  	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7405 )
 	if ( (((unsigned long)addr >= 0xd0000000) && ((unsigned long)addr <= 0xf060000b)))
 		return;
 

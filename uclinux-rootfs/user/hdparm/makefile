@@ -5,7 +5,7 @@
 #
 
 # __USE_GNU needed for O_DIRECT
-CFLAGS += -I$(ROOTDIR)/$(LINUXDIR)/include -D__USE_GNU
+CFLAGS += -I$(ROOTDIR)/$(LINUXDIR)/include -D_GNU_SOURCE
 
 .EXPORT_ALL_VARIABLES:
 

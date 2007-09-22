@@ -1,6 +1,7 @@
 #ifndef _LINUX_RESOURCE_H
 #define _LINUX_RESOURCE_H
 
+#include <linux/config.h>
 #include <linux/time.h>
 
 struct task_struct;
@@ -55,7 +56,17 @@ struct rlimit {
  * Limit the stack by to some sane default: root can always
  * increase this limit if needed..  8MB seems reasonable.
  */
+
+#ifdef CONFIG_MIPS_BRCM97XXX
+/* 
+ * THT: 8MB is unreasonably high for embedded systems,
+ * for which, by default, only 32MB is allocated to the kernel
+ */
+#define _STK_LIM	(1<<20)
+
+#else
 #define _STK_LIM	(8*1024*1024)
+#endif
 
 /*
  * GPG wants 32kB of mlocked memory, to make sure pass phrases

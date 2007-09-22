@@ -1,0 +1,1 @@
+../../../../stblinux-2.6.18/arch/mips/configs/bcm97405a0-smp_be_initrd_defconfig

@@ -129,7 +129,11 @@ typedef struct { unsigned long pgprot; } pgprot_t;
  */
 #define ptep_buddy(x)	((pte_t *)((unsigned long)(x) ^ sizeof(pte_t)))
 
-#ifdef CONFIG_MIPS_BRCM97XXX
+#ifdef CONFIG_DISCONTIGMEM
+
+/* defined in include/asm-mips/mach-brcmstb/mmzone.h */
+
+#elif defined(CONFIG_MIPS_BRCM97XXX)
 
 static __inline__ unsigned long __pa(unsigned long x)
 {

@@ -100,7 +100,7 @@ config BLK_DEV_IDE_SATA
 	bool "Support for SATA (deprecated; conflicts with libata SATA driver)"
 # FIXME-jipeng migrate to SCSI based libata in 2.6.18
 #	default y if MIPS_BCM7038 || MIPS_BCM7329 || MIPS_BCM7400 || MIPS_BCM7401 || MIPS_BCM7118 \
-#		|| MIPS_BCM7440
+#		|| MIPS_BCM7440 || MIPS_BCM7405
 	---help---
 	  There are two drivers for Serial ATA controllers.
 
@@ -679,10 +679,10 @@ config BLK_DEV_PDC202XX_NEW
 config BLK_DEV_SVWKS
 	tristate "ServerWorks OSB4/CSB5/CSB6/BCM7038 chipsets support"
 	depends on BLK_DEV_IDE_SATA
-	depends on MIPS_BCM7038 || MIPS_BCM7400 || MIPS_BCM7401 || MIPS_BCM7118 || MIPS_BCM7440
+	depends on MIPS_BCM7038 || MIPS_BCM7400 || MIPS_BCM7401 || MIPS_BCM7118 || MIPS_BCM7440 || MIPS_BCM7405
 	help
 	  This driver adds PIO/(U)DMA support for the ServerWorks OSB4/CSB5
-	  chipsets.  For the BCM97038|7400|7401|7118|7440 STB, the option under SCSI_SATA_SVW is preferred
+	  chipsets.  For the BCM97038|7400|7401|7118|7440|7405 STB, the option under SCSI_SATA_SVW is preferred
 
 config BLK_DEV_SGIIOC4
 	tristate "Silicon Graphics IOC4 chipset ATA/ATAPI support"

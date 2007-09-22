@@ -154,6 +154,24 @@
 #include <asm/brcmstb/brcm97400b0/bchp_usb_ohci1.h>
 #include <asm/brcmstb/brcm97400b0/bchp_pcix_bridge.h>
 
+#elif defined(CONFIG_MIPS_BCM7405A0)
+#include <asm/brcmstb/brcm97405a0/bcmuart.h>
+#include <asm/brcmstb/brcm97405a0/bcmtimer.h>
+#include <asm/brcmstb/brcm97405a0/bcmebi.h>
+#include <asm/brcmstb/brcm97405a0/int1.h>
+#include <asm/brcmstb/brcm97405a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97405a0/board.h>
+#include <asm/brcmstb/brcm97405a0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97405a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97405a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97405a0/bchp_ebi.h>
+#include <asm/brcmstb/brcm97405a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97405a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97405a0/bchp_usb_ehci1.h>
+#include <asm/brcmstb/brcm97405a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97405a0/bchp_usb_ohci1.h>
+#include <asm/brcmstb/brcm97405a0/bchp_pcix_bridge.h>
+
 #elif defined(CONFIG_MIPS_BCM7440A0)
 #include <asm/brcmstb/brcm97440a0/bcmuart.h>
 #include <asm/brcmstb/brcm97440a0/bcmtimer.h>

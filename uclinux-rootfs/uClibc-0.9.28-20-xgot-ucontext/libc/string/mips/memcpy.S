@@ -184,275 +184,24 @@ L(not_4380):
 	sw	t0, %lo(cputype)(t3)
 
 L(_4380_memcpy):
+
 	slti	t0, a2, 8		# Less than 8 bytes?		
-	bne	t0, zero, L(_4380_last8ByteCopy) #  Yes, proceed to process 8 bytes.
+	bne	t0, zero, L(last8ByteCopy) #  Yes, proceed to process 8 bytes.
 	move	v0, a0			# setup exit value before too late
 
 	xor	t0, a1, a0		# find a0/a1 displacement
-	andi	t0, 0x7
-	beq	t0, zero, L(_4380_doubleWordAlign)  # go handle the double-aligned case
-	subu	t1, zero, a1
-
 	andi	t0, 0x3
-	beq	t0, zero, L(_4380_wordAlign)	# go handle the word-aligned case
-	nop
-	b	L(_4380_unAlignSrcDest)		# go handle the un-aligned case.
+	beq	t0, zero, L(wordAlign)     # go handle the word-aligned case
+	subu	t1, zero, a1
+	b	L(unAlignSrcDest)
 	subu	a3, zero, a0
-
-	/*********************************************************************
-	 * SRC and DEST are Double Word Aligned.
-	 *********************************************************************/
-L(_4380_doubleWordAlign):
-	andi	t1, 0x7		# a0/a1 are aligned, but r we
-	beq	t1, zero, L(_4380_dwCheck8w) #  starting in middle of a word?
-	subu	a2, t1
-
-L(_4380_adjust): 
-	andi	t2, t1, 0x3
-	LWHI	t0, 0(a1)	# src is in the middle of a word...
-	addu	a1, t1
-	SWHI	t0, 0(a0)
-	addu	a0, t1
-
-	andi	t1, 0x4		# if extra word, then adjust again.
-	beq	t1, zero, L(_4380_dwCheck8w)
-	nop
-	lw	t0, -4(a1)
-	sw	t0, -4(a0)
-
-L(_4380_dwCheck8w): 			# SRC is at begin of word
-	andi	t0, a2, 0x1ff	# 512 or more bytes left ?
-	beq	t0, a2, L(_4380_check4w)	#   NO, less than 512, proceed to process 4w/16B
-	subu	a3, a2, t0	#   Yes, more than 512, maybe we can use FPU copy
-
-	addu	a3, a0		# a3 = end address of loop
-	subu    a3, a3, 0x100
-	.align 4
-	move	a2, t0		# a2 = what will be left after loop
-
-    	ldc1	$f4,  0(a1)
-	add	t1, a0, 0x300
-
-	/*--------------------------------------------------------------------
-	 * Floating Point Copy Loop
-	 *--------------------------------------------------------------------*/
-L(_4380_fpuLoopBack):
-	ldc1	$f14,  0x40(a1)
-    	pref    30,    0x40(a0)
-
-	ldc1	$f10,  0x8(a1)
-	ldc1	$f6,   0x10(a1)
-	ldc1	$f18,  0x18(a1)
-	sdc1	$f4,   0x0(a0)
-	sdc1	$f10,  0x8(a0)
-	sdc1	$f6,   0x10(a0)
-	sdc1	$f18,  0x18(a0)
-
-        bge     t1, a3, L(_4380_skip)	# preload source to improve performance.
-	add	t1, t1, 0x100
-        lw      zero, 0x300(a1)
-L(_4380_skip):
-	ldc1	$f10,  0x20(a1)
-	ldc1	$f6,   0x28(a1)
-	ldc1	$f18,  0x30(a1)
-	ldc1	$f8,   0x38(a1)
-	sdc1	$f10,  0x20(a0)
-	sdc1	$f6,   0x28(a0)
-	sdc1	$f18,  0x30(a0)
-	sdc1	$f8,   0x38(a0)
-
-	ldc1	$f16,  0x80(a1)
-    	pref    30,    0x80(a0)
-
-	ldc1	$f6,   0x48(a1)
-	ldc1	$f18,  0x50(a1)
-	ldc1	$f8,   0x58(a1)
-	sdc1	$f14,  0x40(a0)
-	sdc1	$f6,   0x48(a0)
-	sdc1	$f18,  0x50(a0)
-	sdc1	$f8,   0x58(a0)
-
-	ldc1	$f10,  0x60(a1)
-	ldc1	$f6,   0x68(a1)
-	ldc1	$f18,  0x70(a1)
-	ldc1	$f8,   0x78(a1)
-	sdc1	$f10,  0x60(a0)
-	sdc1	$f6,   0x68(a0)
-	sdc1	$f18,  0x70(a0)
-	sdc1	$f8,   0x78(a0)
-
-	ldc1	$f14,  0xc0(a1)
-    	pref    30,    0xc0(a0)
-
-	ldc1	$f10,  0x88(a1)
-	ldc1	$f6,   0x90(a1)
-	ldc1	$f18,  0x98(a1)
-	sdc1	$f16,  0x80(a0)
-	sdc1	$f10,  0x88(a0)
-	sdc1	$f6,   0x90(a0)
-	sdc1	$f18,  0x98(a0)
-
-	ldc1	$f10,  0xa0(a1)
-	ldc1	$f6,   0xa8(a1)
-	ldc1	$f18,  0xb0(a1)
-	ldc1	$f8,   0xb8(a1)
-	sdc1	$f10,  0xa0(a0)
-	sdc1	$f6,   0xa8(a0)
-	sdc1	$f18,  0xb0(a0)
-	sdc1	$f8,   0xb8(a0)
-
-	ldc1	$f4,   0x100(a1)
-    	pref    30,    0x100(a0)
-
-	ldc1	$f6,   0xc8(a1)
-	ldc1	$f18,  0xd0(a1)
-	ldc1	$f8,   0xd8(a1)
-	sdc1	$f14,  0xc0(a0)
-	sdc1	$f6,   0xc8(a0)
-	sdc1	$f18,  0xd0(a0)
-	sdc1	$f8,   0xd8(a0)
-
-	ldc1	$f10,  0xe0(a1)
-	ldc1	$f6,   0xe8(a1)
-	ldc1	$f18,  0xf0(a1)
-	ldc1	$f8,   0xf8(a1)
-	sdc1	$f10,  0xe0(a0)
-	sdc1	$f6,   0xe8(a0)
-	sdc1	$f18,  0xf0(a0)
-	sdc1	$f8,   0xf8(a0)
-
-	add     a0, a0, 0x100
-	bne	a0, a3, L(_4380_fpuLoopBack)
-        add     a1, a1, 0x100
-
-        ldc1      $f10,  0x8(a1)
-        ldc1      $f6,   0x10(a1)
-        ldc1      $f18,  0x18(a1)
-        sdc1      $f4,   0x0(a0)
-        sdc1      $f10,  0x8(a0)
-        sdc1      $f6,   0x10(a0)
-        sdc1      $f18,  0x18(a0)
-
-        ldc1      $f10,  0x20(a1)
-        ldc1      $f6,   0x28(a1)
-        ldc1      $f18,  0x30(a1)
-        ldc1      $f8,   0x38(a1)
-        sdc1      $f10,  0x20(a0)
-        sdc1      $f6,   0x28(a0)
-        sdc1      $f18,  0x30(a0)
-        sdc1      $f8,   0x38(a0)
-
-        ldc1      $f10,  0x40(a1)
-        ldc1      $f6,   0x48(a1)
-        ldc1      $f18,  0x50(a1)
-        ldc1      $f8,   0x58(a1)
-        sdc1      $f10,  0x40(a0)
-        sdc1      $f6,   0x48(a0)
-        sdc1      $f18,  0x50(a0)
-        sdc1      $f8,   0x58(a0)
-
-        ldc1      $f10,  0x60(a1)
-        ldc1      $f6,   0x68(a1)
-        ldc1      $f18,  0x70(a1)
-        ldc1      $f8,   0x78(a1)
-        sdc1      $f10,  0x60(a0)
-        sdc1      $f6,   0x68(a0)
-        sdc1      $f18,  0x70(a0)
-        sdc1      $f8,  0x78(a0)
-
-        ldc1      $f10,  0x80(a1)
-        ldc1      $f6,   0x88(a1)
-        ldc1      $f18,  0x90(a1)
-        ldc1      $f8,   0x98(a1)
-        sdc1      $f10,  0x80(a0)
-        sdc1      $f6,   0x88(a0)
-        sdc1      $f18,  0x90(a0)
-        sdc1      $f8,   0x98(a0)
-
-        ldc1      $f10,  0xa0(a1)
-        ldc1      $f6,   0xa8(a1)
-        ldc1      $f18,  0xb0(a1)
-        ldc1      $f8,   0xb8(a1)
-        sdc1      $f10,  0xa0(a0)
-        sdc1      $f6,   0xa8(a0)
-        sdc1      $f18,  0xb0(a0)
-        sdc1      $f8,   0xb8(a0)
-
-        ldc1      $f10,  0xc0(a1)
-        ldc1      $f6,   0xc8(a1)
-        ldc1      $f18,  0xd0(a1)
-        ldc1      $f8,   0xd8(a1)
-        sdc1      $f10,  0xc0(a0)
-        sdc1      $f6,   0xc8(a0)
-        sdc1      $f18,  0xd0(a0)
-        sdc1      $f8,   0xd8(a0)
-
-        ldc1      $f10,  0xe0(a1)
-        ldc1      $f6,   0xe8(a1)
-        ldc1      $f18,  0xf0(a1)
-        ldc1      $f8,   0xf8(a1)
-        sdc1      $f10,  0xe0(a0)
-        sdc1      $f6,   0xe8(a0)
-        sdc1      $f18,  0xf0(a0)
-        sdc1      $f8,   0xf8(a0)
-
-	add	a1, a1, 0x100
-	add	a0, a0, 0x100
-
-	#
-	# Check if we could use LW/SW to copy.
-	#
-L(_4380_check4w): andi    t0, a2, 0xf		# 16 or more bytes left?
-        beq     t0, a2, L(_4380_check1w)		#   NO, less than 16, proceed to check1w (4bytes loop)
-        subu    a3, a2, t0              #   Yes, handle them in 16 bytes loop.
-
-        addu    a3, a1                  # a3 = end address.
-        move    a2, t0
-
-L(_4380_loop4w):	lw	t0, 0(a1)		# loop for 16 bytes/4 words at a time.
-	lw	t1, 4(a1)
-	lw	t2, 8(a1)
-	lw	t3, 0xc(a1)
-	sw	t0, 0(a0)
-	sw	t1, 4(a0)
-	sw	t2, 8(a0)
-	addiu	a0, 16
-	addiu	a1, 16
-	bne	a1, a3, L(_4380_loop4w)
-	sw	t3, -4(a0)
-
-L(_4380_check1w): andi    t0, a2, 0x3		# 4 or more bytes left?
-        beq     t0, a2, L(_4380_last8ByteCopy)	#   NO, less than 4 bytes, proceed to process 3 bytes
-        subu    a3, a2, t0              #   Yes, handle them 1 word at a time
-        addu    a3, a1                  # a3 = end address.
-        move    a2, t0
-
-L(_4380_loop1w):	lw	t0, 0(a1)		# loop 4 bytes/1 word at a time.
-	addiu	a0, 4
-	addiu	a1, 4
-	bne	a1, a3, L(_4380_loop1w)
-	sw	t0, -4(a0)
-
-L(_4380_last8ByteCopy):	blez	a2, L(_4380_last8BCExit)	# handle last 8 bytes, one byte at a time.
-	addu	a3, a2, a1
-
-L(_4380_last8BCLoopBack): lb	t0, 0(a1)	# last 8 bytes copy loop.
-	addiu	a0, 1
-	addiu	a1, 1
-	bne	a1, a3, L(_4380_last8BCLoopBack)
-	sb	t0, -1(a0)
-
-L(_4380_last8BCExit):	
-	jr	$31			# return to caller.
-	nop
-
 
 	/*********************************************************************
 	 * SRC and DEST are Word-Aligned.
 	 *********************************************************************/
-L(_4380_wordAlign):
+L(wordAlign):
 	andi	t1, 0x3		# a0/a1 are aligned, but r we
-	beq	t1, zero, L(_4380_intCheck8w) #  starting in middle of a word?
+	beq	t1, zero, L(intCheck8w) #  starting in middle of a word?
 	subu	a2, t1
 
 	LWHI	t0, 0(a1)	# src is in the middle of a word...
@@ -460,9 +209,9 @@ L(_4380_wordAlign):
 	SWHI	t0, 0(a0)
 	addu	a0, t1
 
-L(_4380_intCheck8w): 			# SRC is at begin of word
+L(intCheck8w): 			# SRC is at begin of word
 	andi	t0, a2, 0x1ff	# 512 or more bytes left ?
-	beq	t0, a2, L(_4380_check4w)	#   NO, less than 512, proceed to process 4w/16B
+	beq	t0, a2, L(check4w)	#   NO, less than 512, proceed to process 4w/16B
 	subu	a3, a2, t0	#   Yes, more than 512, maybe we can use FPU copy
 
 	addu	a3, a0		# a3 = end address of loop
@@ -471,12 +220,11 @@ L(_4380_intCheck8w): 			# SRC is at begin of word
 	move	a2, t0		# a2 = what will be left after loop
 
     	lw	t6,  0(a1)	# Loop taking 32 words at a time
-	add	t7, a0, 0x300
 
 	/*--------------------------------------------------------------------
 	 * Integer Copy Loop
 	 *--------------------------------------------------------------------*/
-L(_4380_intLoopBack):
+L(intLoopBack):
     	pref    30,  0x40(a0)
 	lw	t5,  0x40(a1)
 
@@ -487,11 +235,6 @@ L(_4380_intLoopBack):
 	sw	t2,  0x4(a0)
 	sw	t3,  0x8(a0)
 	sw	t4,  0xc(a0)
-
-        bge     t7, a3, L(_4380_intSkip)		# preload source to improve performance.
-	add	t7, t7, 0x100
-        lw      zero, 0x300(a1)
-L(_4380_intSkip):
 
 	lw	t1,  0x10(a1)
 	lw	t2,  0x14(a1)
@@ -635,7 +378,7 @@ L(_4380_intSkip):
 	sw	t4,  0xfc(a0)
 
 	add     a0, a0, 0x100
-	bne	a0, a3, L(_4380_intLoopBack)
+	bne	a0, a3, L(intLoopBack)
         add     a1, a1, 0x100
 
         lw      t2,  0x4(a1)
@@ -782,16 +525,63 @@ L(_4380_intSkip):
         sw      t4,  0xfc(a0)
 
 	add	a1, a1, 0x100
-	b	L(_4380_check4w)
 	add	a0, a0, 0x100
+
+	/*--------------------------------------------------------------------
+	 * copy if >16 and <512 bytes left-over
+	 *--------------------------------------------------------------------*/
+L(check4w): andi    t0, a2, 0xf		# 16 or more bytes left?
+        beq     t0, a2, L(check1w)		#   NO, less than 16, proceed to check1w (4bytes loop)
+        subu    a3, a2, t0              #   Yes, handle them in 16 bytes loop.
+
+        addu    a3, a1                  # a3 = end address.
+        move    a2, t0
+
+L(loop4w):	lw	t0, 0(a1)		# loop for 16 bytes/4 words at a time.
+	lw	t1, 4(a1)
+	lw	t2, 8(a1)
+	lw	t3, 0xc(a1)
+	sw	t0, 0(a0)
+	sw	t1, 4(a0)
+	sw	t2, 8(a0)
+	addiu	a0, 16
+	addiu	a1, 16
+	bne	a1, a3, L(loop4w)
+	sw	t3, -4(a0)
+
+L(check1w): andi    t0, a2, 0x3		# 4 or more bytes left?
+        beq     t0, a2, L(last8ByteCopy)	#   NO, less than 4 bytes, proceed to process 3 bytes
+        subu    a3, a2, t0              #   Yes, handle them 1 word at a time
+        addu    a3, a1                  # a3 = end address.
+        move    a2, t0
+
+L(loop1w):	lw	t0, 0(a1)		# loop 4 bytes/1 word at a time.
+	addiu	a0, 4
+	addiu	a1, 4
+	bne	a1, a3, L(loop1w)
+	sw	t0, -4(a0)
+
+L(last8ByteCopy):	blez	a2, L(last8BCExit)	# handle last 8 bytes, one byte at a time.
+	addu	a3, a2, a1
+
+L(last8BCLoopBack): lb	t0, 0(a1)	# last 8 bytes copy loop.
+	addiu	a0, 1
+	addiu	a1, 1
+	bne	a1, a3, L(last8BCLoopBack)
+	sb	t0, -1(a0)
+
+L(last8BCExit):	
+	jr	$31			# return to caller.
+	nop
+
 
 
 	/*********************************************************************
 	 * SRC and DEST are NOT Aligned.
 	 *********************************************************************/
-L(_4380_unAlignSrcDest):				# SRC and DEST are NOT aligned.
+L(unAlignSrcDest):				# SRC and DEST are NOT aligned.
 	andi	a3, 0x3			# Is DEST word aligned?
-	beq	a3, zero, L(_4380_uaCheck512)	#   YES, DEST is word-aligned, SW may be used.
+	beq	a3, zero, L(uaCheck512)	#   YES, DEST is word-aligned, SW may be used.
 					#   NO, DEST is NOT word-aligned, has to adjust.
 
 	subu	a2, a3			# a2 = number of bytes left
@@ -801,9 +591,9 @@ L(_4380_unAlignSrcDest):				# SRC and DEST are NOT aligned.
 	addu	a1, a3
 	SWHI	t0, 0(a0)
 	addu	a0, a3
-L(_4380_uaCheck512):				# DEST is word-aligned.
+L(uaCheck512):				# DEST is word-aligned.
 	andi	t0, a2, 0x1ff		# 512 or more bytes left ?
-	beq	t0, a2, L(_4380_uaCheck4w)	#   No, less than 512, cannot execute "pref"
+	beq	t0, a2, L(uaCheck4w)	#   No, less than 512, cannot execute "pref"
 	subu	a3, a2, t0		#   Yes, more than 512, loop & "pref"    
 
 	addu	a3, a0			# a3 = end address of loop
@@ -816,7 +606,7 @@ L(_4380_uaCheck512):				# DEST is word-aligned.
 	 * SRC and DEST are NOT Aligned, >512B, copy using LW/SW WITH pref
 	 *--------------------------------------------------------------------*/
 	add	t7, a0, 0x300		# prefetch dest 2 line size ahead.
-L(_4380_uaLoopBack):	
+L(uaLoopBack):	
     	pref    30,  0x40(a0)
 	LWHI    t5,  0x40(a1)
 
@@ -835,10 +625,10 @@ L(_4380_uaLoopBack):
 	sw	t4,  0xc(a0)
 
 	# preload source
-        bge     t7, a3, L(_4380_uaSkip)
+        bge     t7, a3, L(uaSkip)
 	add	t7, t7, 0x100
         lb      zero, 0x300(a1)
-L(_4380_uaSkip):
+L(uaSkip):
 	LWHI	t1,  0x10(a1)
 	LWHI	t2,  0x14(a1)
 	LWHI	t3,  0x18(a1)
@@ -1056,7 +846,7 @@ L(_4380_uaSkip):
 	sw	t4,  0xfc(a0)
 
 	add     a0, a0, 0x100
-	bne		a0, a3, L(_4380_uaLoopBack)
+	bne		a0, a3, L(uaLoopBack)
 	add     a1, a1, 0x100
 
 	addu    a3, 0x100	# add 0x100 back
@@ -1064,7 +854,7 @@ L(_4380_uaSkip):
 	#
 	# copy loop 32 words at a time.
 	#
-L(_4380_uaRemain64LoopBack):
+L(uaRemain64LoopBack):
     	LWHI	t6,  0(a1)		# Loop taking 32 words at a time
 	LWHI	t2,  0x4(a1)
 	LWHI	t3,  0x8(a1)
@@ -1094,7 +884,7 @@ L(_4380_uaRemain64LoopBack):
 	sw	t4,  0x1c(a0)
 
 	addiu	a0,  0x20
-	bne	a0,  a3, L(_4380_uaRemain64LoopBack)
+	bne	a0,  a3, L(uaRemain64LoopBack)
 	addiu	a1,  0x20
 
     	addu    a3,  a2
@@ -1102,14 +892,14 @@ L(_4380_uaRemain64LoopBack):
 	/*--------------------------------------------------------------------
 	 * SRC and DEST are NOT Aligned, <512B, copy using LW/SW WITHOUT pref
 	 *--------------------------------------------------------------------*/
-L(_4380_uaCheck4w): andi    t0, a2, 0xf		# 16 or more bytes left?
-        beq     t0, a2, L(_4380_uaCheck1w)	#   NO, <16 bytes, proceed to process 1w
+L(uaCheck4w): andi    t0, a2, 0xf		# 16 or more bytes left?
+        beq     t0, a2, L(uaCheck1w)	#   NO, <16 bytes, proceed to process 1w
         subu    a3, a2, t0		#   Yes, >16, copy 16 bytes at a time.
 
         addu    a3, a1                  # a3 = end address.
         move    a2, t0
 
-L(_4380_ua4wLoopBack):				# loop 16 bytes/4 words at a time.
+L(ua4wLoopBack):				# loop 16 bytes/4 words at a time.
         LWHI    t0, 0(a1)
         LWHI    t1, 4(a1)
         LWHI    t2, 8(a1)
@@ -1123,24 +913,24 @@ L(_4380_ua4wLoopBack):				# loop 16 bytes/4 words at a time.
         sw      t2, 8(a0)
         addiu   a0, 16
         addiu   a1, 16
-        bne     a1, a3, L(_4380_ua4wLoopBack)
+        bne     a1, a3, L(ua4wLoopBack)
         sw      t3, -4(a0)
 
-L(_4380_uaCheck1w): andi	t0, a2, 0x3		# 4 or more bytes left?
-        beq     t0, a2, L(_4380_last8ByteCopy)	#   NO, <4 bytes, proceed to 8-bytes-copy
+L(uaCheck1w): andi	t0, a2, 0x3		# 4 or more bytes left?
+        beq     t0, a2, L(last8ByteCopy)	#   NO, <4 bytes, proceed to 8-bytes-copy
 	subu	a3, a2, t0
 
 	addu	a3, a0			#   YES, >4 bytes, can use LW/SW.
 
-L(_4380_uaRemain):
+L(uaRemain):
 	LWHI	t1, 0(a1)		# copy 1 word/4 bytes at a time.
 	LWLO	t1, 3(a1)
 	addiu	a0, 4
 	addiu	a1, 4
-	bne	a0, a3, L(_4380_uaRemain)
+	bne	a0, a3, L(uaRemain)
 	sw	t1, -4(a0)
 
-	b	L(_4380_last8ByteCopy)		# handle anything that may be left.
+	b	L(last8ByteCopy)		# handle anything that may be left.
 	move	a2, t0
 
 	.set	reorder

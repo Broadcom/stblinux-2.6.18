@@ -81,6 +81,7 @@ register struct thread_info *__current_thread_info __asm__("$28");
 #define THREAD_SIZE (PAGE_SIZE << THREAD_SIZE_ORDER)
 #define THREAD_MASK (THREAD_SIZE - 1UL)
 
+#ifndef CONFIG_KLOB
 #ifdef CONFIG_DEBUG_STACK_USAGE
 #define alloc_thread_info(tsk)					\
 ({								\
@@ -96,6 +97,7 @@ register struct thread_info *__current_thread_info __asm__("$28");
 #endif
 
 #define free_thread_info(info) kfree(info)
+#endif /* ! CONFIG_KLOB */
 
 #endif /* !__ASSEMBLY__ */
 

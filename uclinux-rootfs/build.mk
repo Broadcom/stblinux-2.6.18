@@ -32,7 +32,7 @@ endif
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.18-2.0 we only support a few platforms
-PLATFORMS=7401c0 97455c0 7400b0 7400b0-smp 97456b0 97456b0-smp 7403a0 97458a0 7118a0 7401c0-nand 7402c0-nand 97455c0-nand 7400b0-nand 97456b0-nand 7403a0-nand 97458a0-nand 7118a0-nand # 7400b0-smp-nand 97456b0-smp-nand
+PLATFORMS=7401c0 97455c0 7400b0 7400b0-smp 97456b0 97456b0-smp 97451a0-smb 7403a0 97458a0 7118a0 7401c0-nand 7402c0-nand 97455c0-nand 7400b0-nand 97456b0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7405a0 7405a0-smp # 7400b0-smp-nand 97456b0-smp-nand
     # Obsoleted
     # 7400a0 7400a0-smp 7440a0 7038c0 97398 7402 7402c0 7403a0 3560b0 3563 97456
     # 7318 7400a0-nand  7401b0-nand
@@ -98,7 +98,10 @@ kernels: vercheck
 
 all: vercheck kernels install
 
-.PHONY: vercheck install rootfs platlist
+.PHONY: vercheck install rootfs platlist prepare
+
+prepare:
+	test -f ../prepare.sh && (../prepare.sh || (echo "FATAL Error: missing files" ; exit 1)) || echo "succeed"
 
 #jipeng - check version mismatch between rootfs and kernel source
 vercheck:
@@ -128,6 +131,8 @@ rootfs:
 			*-nand) \
 				cp images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
 				cp images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
+				cp images/$$i/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$$i.img; \
+				cp images/$$i/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$$i.img; \
 				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
 				cp images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
 				;;\
@@ -174,6 +179,8 @@ $(ROOTFS_PLATFORMS):
 		*-nand) \
 			cp -f images/$(subst rootfs-,,$@)/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$(subst rootfs-,,$@).img; \
+			cp -f images/$(subst rootfs-,,$@)/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$(subst rootfs-,,$@).img; \
+			cp -f images/$(subst rootfs-,,$@)/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$(subst rootfs-,,$@).img ; \
 			cp -f images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img ; \
 			;;\
@@ -188,7 +195,7 @@ $(NO_ROOTFS_PLATFORMS):
 	echo "No rootfs available for $@, skipping."
 
 # The echo Done at the end is to prevent make from reporting errors.
-$(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS):
+$(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
 	cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst vmlinuz-initrd-,,$@) .config
 	# Set CONFIG_INITRAMFS_ROOT_UID & GID accordingly
 	(. .config; test -f "$${CONFIG_LINUXDIR}"/.config && rm -f "$${CONFIG_LINUXDIR}"/.config; \
@@ -212,7 +219,7 @@ $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS):
 	fi
 	echo "Done building $@"
 
-$(BB_PLATFORMS) $(XFS_BB_PLATFORMS):
+$(BB_PLATFORMS) $(XFS_BB_PLATFORMS): prepare
 	if [ "x$(KERNEL_DEFCONFIG)" != "x" ]; then	\
 		test -f $(KERNEL_DEFCONFIG) && 	cp -f $(KERNEL_DEFCONFIG) $(KERNEL_DIR)/.config	\
 		|| exit 1;	\
@@ -241,7 +248,7 @@ $(BB_PLATFORMS) $(XFS_BB_PLATFORMS):
 #
 # Should do a make clean manually before involking any kgdb targets.
 # Omitted here since these are normally one time shot deals.
-$(KGDB_PLATFORMS):
+$(KGDB_PLATFORMS): prepare
 	-test -f $(KERNEL_DIR)/.config && rm -f $(KERNEL_DIR)/.config
 	for i in $(ALL_PLATFORMS); do \
 		if [ "$@" == "$(addprefix vmlinuz-,$(addsuffix -kgdb,$$i))" ]; then	\
@@ -287,7 +294,7 @@ $(KGDB_PLATFORMS):
 	fi
 
 # The echo Done at the end is to prevent make from reporting errors.
-$(OPROF_INITRD_PLATFORMS) :
+$(OPROF_INITRD_PLATFORMS) : prepare
 	cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst -opf,,$(subst vmlinuz-initrd-,,$@)) .config
 	# Set locale stuffs.  We will need
 	. .config; export LANG="C"; export LC_MESSAGES="C"; export LC_CTYPE="C"; export LC_ALL="C"; \
@@ -318,7 +325,7 @@ $(OPROF_INITRD_PLATFORMS) :
 	fi
 	echo "Done building $@"
 
-$(OPROF_PLATFORMS) :
+$(OPROF_PLATFORMS) : prepare
 	-test -f $(KERNEL_DIR)/.config && rm -f $(KERNEL_DIR)/.config
 	if test -f $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$(subst -opf,,$@))_defconfig; then	\
 		cat $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$(subst -opf,,$@))_defconfig | \

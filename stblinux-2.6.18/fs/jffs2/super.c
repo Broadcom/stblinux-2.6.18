@@ -118,9 +118,6 @@ static int jffs2_get_sb_mtd(struct file_system_type *fs_type,
 	struct super_block *sb;
 	struct jffs2_sb_info *c;
 	int ret;
-	// THT: Initialize it RO or RW depending on the boot flag.
-	static int once = 0;
-	extern int root_mountflags;
 
 	c = kmalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
@@ -159,13 +156,6 @@ static int jffs2_get_sb_mtd(struct file_system_type *fs_type,
 #ifdef CONFIG_JFFS2_FS_POSIX_ACL
 	sb->s_flags |= MS_POSIXACL;
 #endif
-	// THT Add codes to allow JFFS2 to mount RO during INIT
-	if (!once) {
-		once = 1;
-		if (root_mountflags & MS_RDONLY) {
-			sb->s_flags |= MS_RDONLY;
-		}
-	}
 
 	ret = jffs2_do_fill_super(sb, data, flags & MS_SILENT ? 1 : 0);
 

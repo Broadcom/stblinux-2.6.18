@@ -1428,7 +1428,7 @@ PRINTK("%s: gClearBBT=clearbbt, start=%08x, end=%08x\n", __FUNCTION__, bOffsetSt
 static void brcmnand_postprocessKernelArg(struct mtd_info *mtd)
 {
 	struct brcmnand_chip *this = mtd->priv;
-	L_OFF_T bOffset, bOffsetStart = 0, bOffsetEnd = 0;
+	UL_OFF_T bOffset, bOffsetStart = 0, bOffsetEnd = 0;
 	int ret, needBBT;
 	//int page;
 
@@ -1444,6 +1444,7 @@ PRINTK("%s: gClearBBT=%d, size=%08x, erasesize=%08x\n", __FUNCTION__, gClearBBT,
 		return;
 		
 	case NANDCMD_RESCAN:
+		printk("rescanning .... \n");
 		/* FALLTHROUGH */
 	case NANDCMD_ERASEALL:
 		/* FALLTHROUGH */
@@ -1522,6 +1523,10 @@ PRINTK("%s: gClearBBT=%d, size=%08x, erasesize=%08x\n", __FUNCTION__, gClearBBT,
 				if (!res) {
 					if (check_short_pattern (oobbuf, this->badblock_pattern)) {
 						isBadBlock = 1;
+
+						if (NANDCMD_RESCAN == gClearBBT) 
+							printk(KERN_INFO "Found bad block at offset %08x\n", __ll_low(page));
+
 						break;
 					}
 				}
@@ -1537,7 +1542,7 @@ PRINTK("%s: gClearBBT=%d, size=%08x, erasesize=%08x\n", __FUNCTION__, gClearBBT,
 			/* FALLTHROUGH */
 		case NANDCMD_ERASEALL:
 			if (isBadBlock) {
-				printk("Skipping Bad Block at %08x\n", __ll_low(bOffset));
+				printk(KERN_INFO "Skipping Bad Block at %08x\n", __ll_low(bOffset));
 				continue;
 			}
 			
@@ -1561,7 +1566,7 @@ PRINTK("%s: gClearBBT=%d, size=%08x, erasesize=%08x\n", __FUNCTION__, gClearBBT,
 			break;
 			
 		default:
-			printk("Invalid brcmnand argument in %s\n", __FUNCTION__);
+			printk(KERN_INFO "Invalid brcmnand argument in %s\n", __FUNCTION__);
 			BUG();
 		}
 	}

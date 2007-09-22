@@ -153,6 +153,7 @@ dir_$(CONFIG_USER_MOUNT_UMOUNT)             += mount
 dir_$(CONFIG_USER_MP3PLAY_MP3PLAY)          += mp3play
 dir_$(CONFIG_USER_MSNTP_MSNTP)              += msntp
 dir_$(CONFIG_USER_MUSICBOX_MUSICBOX)        += musicbox
+dir_$(CONFIG_LIB_NCURSES)		    += ncurses
 dir_$(CONFIG_USER_NETFLASH_NETFLASH)        += netflash
 dir_$(CONFIG_USER_NET_TOOLS_ARP)            += net-tools
 dir_$(CONFIG_USER_NET_TOOLS_HOSTNAME)       += net-tools

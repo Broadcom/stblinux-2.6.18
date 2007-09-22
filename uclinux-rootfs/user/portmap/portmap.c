@@ -38,7 +38,7 @@ char copyright[] =
 #endif /* not lint */
 
 #ifndef lint
-static char sccsid[] = "@(#) portmap.c 1.5 96/05/31 15:52:58";
+static char sccsid[] = "@(#) portmap.c 1.6 96/07/06 23:06:23";
 #endif /* not lint */
 
 /*
@@ -83,6 +83,7 @@ static char sccsid[] = "@(#)portmap.c 1.32 87/08/06 Copyr 1984 Sun Micro";
 #include <rpc/rpc.h>
 #include <rpc/pmap_prot.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <syslog.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -97,6 +98,7 @@ static char sccsid[] = "@(#)portmap.c 1.32 87/08/06 Copyr 1984 Sun Micro";
 
 extern char *strerror();
 #include <stdlib.h>
+#include <errno.h>
 
 #ifndef LOG_PERROR
 #define LOG_PERROR 0
@@ -124,10 +126,30 @@ void reap();
 static void callit();
 struct pmaplist *pmaplist;
 int debugging = 0;
-extern int errno;
 
 #include "pmap_check.h"
 
+ /*
+  * How desperate can one be. It is possible to prevent an attacker from
+  * manipulating your portmapper tables from outside with requests that
+  * contain spoofed source address information. The countermeasure is to
+  * force all rpc servers to register and unregister with the portmapper via
+  * the loopback network interface, instead of via the primary network
+  * interface that every host can talk to. For this countermeasure to work it
+  * is necessary to #define LOOPBACK_SETUNSET, to disable source routing in
+  * the kernel, and to modify libc so that get_myaddress() chooses the
+  * loopback interface address.
+  */
+
+#ifdef LOOPBACK_SETUNSET
+static SVCXPRT *ludpxprt, *ltcpxprt;
+static int on = 1;
+#ifndef INADDR_LOOPBACK
+#define INADDR_LOOPBACK ntohl(inet_addr("127.0.0.1"))
+#endif
+#endif
+
+int
 main(argc, argv)
 	int argc;
 	char **argv;
@@ -162,9 +184,8 @@ main(argc, argv)
 		exit(1);
 	}
 
-#ifdef LOG_MAIL
-	openlog("portmap", debugging ? LOG_PID | LOG_PERROR : LOG_PID,
-	    FACILITY);
+#ifdef FACILITY
+	openlog("portmap", debugging ? LOG_PID | LOG_PERROR : LOG_PID, FACILITY);
 #else
 	openlog("portmap", debugging ? LOG_PID | LOG_PERROR : LOG_PID);
 #endif
@@ -173,7 +194,11 @@ main(argc, argv)
 		syslog(LOG_ERR, "cannot create udp socket: %m");
 		exit(1);
 	}
+#ifdef LOOPBACK_SETUNSET
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
+#endif
 
+	memset((char *) &addr, 0, sizeof(addr));
 	addr.sin_addr.s_addr = 0;
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(PMAPPORT);
@@ -199,6 +224,9 @@ main(argc, argv)
 		syslog(LOG_ERR, "cannot create tcp socket: %m");
 		exit(1);
 	}
+#ifdef LOOPBACK_SETUNSET
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
+#endif
 	if (bind(sock, (struct sockaddr *)&addr, len) != 0) {
 		syslog(LOG_ERR, "cannot bind udp: %m");
 		exit(1);
@@ -217,6 +245,39 @@ main(argc, argv)
 	pml->pml_next = pmaplist;
 	pmaplist = pml;
 
+#ifdef LOOPBACK_SETUNSET
+	if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+		syslog(LOG_ERR, "cannot create udp socket: %m");
+		exit(1);
+	}
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
+
+	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	if (bind(sock, (struct sockaddr *)&addr, len) != 0) {
+		syslog(LOG_ERR, "cannot bind udp: %m");
+		exit(1);
+	}
+
+	if ((ludpxprt = svcudp_create(sock)) == (SVCXPRT *)NULL) {
+		syslog(LOG_ERR, "couldn't do udp_create");
+		exit(1);
+	}
+	if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+		syslog(LOG_ERR, "cannot create tcp socket: %m");
+		exit(1);
+	}
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
+	if (bind(sock, (struct sockaddr *)&addr, len) != 0) {
+		syslog(LOG_ERR, "cannot bind tcp: %m");
+		exit(1);
+	}
+	if ((ltcpxprt = svctcp_create(sock, RPCSMALLMSGSIZE, RPCSMALLMSGSIZE))
+	    == (SVCXPRT *)NULL) {
+		syslog(LOG_ERR, "couldn't do tcp_create");
+		exit(1);
+	}
+#endif
+
 	(void)svc_register(xprt, PMAPPROG, PMAPVERS, reg_service, FALSE);
 
 	/* additional initializations */
@@ -226,9 +287,13 @@ main(argc, argv)
 #else
 	(void)signal(SIGCHLD, reap);
 #endif
+        /* Dying on SIGPIPE doesn't help anyone */
+        (void)signal(SIGPIPE, SIG_IGN);
+          
 	svc_run();
 	syslog(LOG_ERR, "run_svc returned unexpectedly");
 	abort();
+	/* never reached */
 }
 
 #ifndef lint
@@ -290,7 +355,7 @@ reg_service(rqstp, xprt)
 		 */
 		/* remote host authorization check */
 		check_default(svc_getcaller(xprt), rqstp->rq_proc, (u_long) 0);
-		if (!svc_sendreply(xprt, xdr_void, (caddr_t)0) && debugging) {
+		if (!svc_sendreply(xprt, (xdrproc_t)xdr_void, (caddr_t)0) && debugging) {
 			abort();
 		}
 		break;
@@ -299,11 +364,11 @@ reg_service(rqstp, xprt)
 		/*
 		 * Set a program,version to port mapping
 		 */
-		if (!svc_getargs(xprt, xdr_pmap, &reg))
+		if (!svc_getargs(xprt, (xdrproc_t)xdr_pmap, (caddr_t)&reg))
 			svcerr_decode(xprt);
 		else {
 			/* reject non-local requests, protect priv. ports */
-			if (!check_setunset(svc_getcaller(xprt), 
+			if (!CHECK_SETUNSET(xprt, ludpxprt, ltcpxprt,
 			    rqstp->rq_proc, reg.pm_prog, reg.pm_port)) {
 				ans = 0;
 				goto done;
@@ -341,7 +406,7 @@ reg_service(rqstp, xprt)
 				ans = 1;
 			}
 		done:
-			if ((!svc_sendreply(xprt, xdr_int, (caddr_t)&ans)) &&
+			if ((!svc_sendreply(xprt, (xdrproc_t)xdr_int, (caddr_t)&ans)) &&
 			    debugging) {
 				(void) fprintf(stderr, "svc_sendreply\n");
 				abort();
@@ -353,12 +418,12 @@ reg_service(rqstp, xprt)
 		/*
 		 * Remove a program,version to port mapping.
 		 */
-		if (!svc_getargs(xprt, xdr_pmap, &reg))
+		if (!svc_getargs(xprt, (xdrproc_t)xdr_pmap, (caddr_t)&reg))
 			svcerr_decode(xprt);
 		else {
 			ans = 0;
 			/* reject non-local requests */
-			if (!check_setunset(svc_getcaller(xprt), 
+			if (!CHECK_SETUNSET(xprt, ludpxprt, ltcpxprt,
 			    rqstp->rq_proc, reg.pm_prog, (u_long) 0))
 				goto done;
 			for (prevpml = NULL, pml = pmaplist; pml != NULL; ) {
@@ -387,7 +452,7 @@ reg_service(rqstp, xprt)
 					prevpml->pml_next = pml;
 				free(t);
 			}
-			if ((!svc_sendreply(xprt, xdr_int, (caddr_t)&ans)) &&
+			if ((!svc_sendreply(xprt, (xdrproc_t)xdr_int, (caddr_t)&ans)) &&
 			    debugging) {
 				(void) fprintf(stderr, "svc_sendreply\n");
 				abort();
@@ -399,7 +464,7 @@ reg_service(rqstp, xprt)
 		/*
 		 * Lookup the mapping for a program,version and return its port
 		 */
-		if (!svc_getargs(xprt, xdr_pmap, &reg))
+		if (!svc_getargs(xprt, (xdrproc_t)xdr_pmap, (caddr_t)&reg))
 			svcerr_decode(xprt);
 		else {
 			/* remote host authorization check */
@@ -414,7 +479,7 @@ reg_service(rqstp, xprt)
 				port = fnd->pml_map.pm_port;
 			else
 				port = 0;
-			if ((!svc_sendreply(xprt, xdr_int, (caddr_t)&port)) &&
+			if ((!svc_sendreply(xprt, (xdrproc_t)xdr_int, (caddr_t)&port)) &&
 			    debugging) {
 				(void) fprintf(stderr, "svc_sendreply\n");
 				abort();
@@ -426,7 +491,7 @@ reg_service(rqstp, xprt)
 		/*
 		 * Return the current set of mapped program,version
 		 */
-		if (!svc_getargs(xprt, xdr_void, NULL))
+		if (!svc_getargs(xprt, (xdrproc_t)xdr_void, NULL))
 			svcerr_decode(xprt);
 		else {
 			/* remote host authorization check */
@@ -437,7 +502,7 @@ reg_service(rqstp, xprt)
 			} else {
 				p = pmaplist;
 			}
-			if ((!svc_sendreply(xprt, xdr_pmaplist,
+			if ((!svc_sendreply(xprt, (xdrproc_t)xdr_pmaplist,
 			    (caddr_t)&p)) && debugging) {
 				(void) fprintf(stderr, "svc_sendreply\n");
 				abort();
@@ -471,7 +536,7 @@ reg_service(rqstp, xprt)
 #define ARGSIZE 9000
 
 struct encap_parms {
-	u_long arglen;
+	u_int arglen;
 	char *args;
 };
 
@@ -481,7 +546,7 @@ xdr_encap_parms(xdrs, epp)
 	struct encap_parms *epp;
 {
 
-	return (xdr_bytes(xdrs, &(epp->args), &(epp->arglen), ARGSIZE));
+	return (xdr_bytes(xdrs, &(epp->args), (u_int *)&(epp->arglen), ARGSIZE));
 }
 
 struct rmtcallargs {
@@ -572,7 +637,6 @@ callit(rqstp, xprt)
 	struct svc_req *rqstp;
 	SVCXPRT *xprt;
 {
-#ifndef EMBED
 	struct rmtcallargs a;
 	struct pmaplist *pml;
 	u_short port;
@@ -586,7 +650,7 @@ callit(rqstp, xprt)
 	timeout.tv_sec = 5;
 	timeout.tv_usec = 0;
 	a.rmt_args.args = buf;
-	if (!svc_getargs(xprt, xdr_rmtcall_args, &a))
+	if (!svc_getargs(xprt, (xdrproc_t)xdr_rmtcall_args, (caddr_t)&a))
 		return;
 	/* host and service access control */
 	if (!check_callit(svc_getcaller(xprt), 
@@ -615,20 +679,19 @@ callit(rqstp, xprt)
 			   au->aup_uid, au->aup_gid, au->aup_len, au->aup_gids);
 		}
 		a.rmt_port = (u_long)port;
-		if (clnt_call(client, a.rmt_proc, xdr_opaque_parms, &a,
-		    xdr_len_opaque_parms, &a, timeout) == RPC_SUCCESS) {
-			svc_sendreply(xprt, xdr_rmtcall_result, (caddr_t)&a);
+		if (clnt_call(client, a.rmt_proc, (xdrproc_t)xdr_opaque_parms, (caddr_t)&a,
+		    (xdrproc_t)xdr_len_opaque_parms, (caddr_t)&a, timeout) == RPC_SUCCESS) {
+			svc_sendreply(xprt, (xdrproc_t)xdr_rmtcall_result, (caddr_t)&a);
 		}
 		AUTH_DESTROY(client->cl_auth);
 		clnt_destroy(client);
 	}
 	(void)close(so);
 	exit(0);
-#endif
 }
 
 void
 reap()
 {
-	while (wait3((union wait *)NULL, WNOHANG, (struct rusage *)NULL) > 0);
+	while (wait3((int *)NULL, WNOHANG, (struct rusage *)NULL) > 0);
 }

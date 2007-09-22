@@ -44,7 +44,7 @@
  * system calls
  */
  
-int __clone (int (*fn) (void *arg), void *thread_stack, int flags, void *arg);
+int __clone (int (*fn) (void *arg), void *thread_stack, int flags, void *arg, ...);
 
 /*
  * prototypes for this file.

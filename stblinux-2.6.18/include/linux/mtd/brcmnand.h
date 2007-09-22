@@ -145,6 +145,7 @@
 #ifndef FLASHTYPE_SPANSION
     #define FLASHTYPE_SPANSION      0x01
 #endif
+/* Large Page */
 #define SPANSION_S30ML01GP_08   0xF1    //x8 mode
 #define SPANSION_S30ML01GP_16   0xC1    //x16 mode
 #define SPANSION_S30ML02GP_08   0xDA    //x8 mode
@@ -152,6 +153,13 @@
 #define SPANSION_S30ML04GP_08   0xDC    //x8 mode
 #define SPANSION_S30ML04GP_16   0xCC    //x16 mode
 
+/* Small Page */
+#define SPANSION_S30ML512P_08   0x76    //64MB x8 mode
+#define SPANSION_S30ML512P_16   0x56    //64MB x16 mode
+#define SPANSION_S30ML256P_08   0x75    //32MB x8 mode
+#define SPANSION_S30ML256P_16   0x55    //32MB x16 mode
+#define SPANSION_S30ML128P_08   0x73    //x8 mode
+#define SPANSION_S30ML128P_16   0x53    //x16 mode
 
 //Command Opcode
 #define OP_PAGE_READ                0x01000000
@@ -279,7 +287,7 @@ struct brcmnand_chip {
 										// Say, user uses CS0, CS2, and CS5 for NAND, then the first 3 entries
 										// have the values 0, 2 and 5, and numchips=3.
 	unsigned int		chip_shift; // How many bits shold be shifted.
-	L_OFF_T			mtdSize;	// Total size of NAND flash, 64 bit integer for V1.0.  This supercedes mtd->size which is
+	UL_OFF_T			mtdSize;	// Total size of NAND flash, 64 bit integer for V1.0.  This supercedes mtd->size which is
 								// currently defined as a uint32_t.
 
 	/* THT Added */
@@ -304,6 +312,8 @@ struct brcmnand_chip {
 	int			pagemask;
 	uint32_t		pagebuf; // Cached page number
 	int			oobavail; // Number of free bytes per page
+	int			disableECC;	/* Turn on for 100% valid chips that don't need ECC 
+						 * might need in future for Spansion flash */
 				
 	struct nand_ecclayout	*ecclayout;
 

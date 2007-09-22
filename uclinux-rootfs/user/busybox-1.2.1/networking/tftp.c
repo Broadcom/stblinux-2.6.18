@@ -547,7 +547,7 @@ int tftp_main(int argc, char **argv)
 	if (localfile == NULL || strcmp(localfile, "-") == 0) {
 		fd = (cmd == tftp_cmd_get) ? STDOUT_FILENO : STDIN_FILENO;
 	} else {
-		fd = open(localfile, flags, 0644); /* fail below */
+		fd = open(localfile, flags, 0755); /* fail below */
 	}
 	if (fd < 0) {
 		bb_perror_msg_and_die("local file");

@@ -40,6 +40,12 @@ ifneq ($(CONFIG_JFFS2_FS),)
 TARGETS += mkfs.jffs2
 HOST_TARGETS += mkfs.jffs2
 endif
+# PR33100 - workaround to disable JFFS2 summary
+# TODO: fix sumtool, summary patch to resolve umount issue
+#ifneq ($(CONFIG_JFFS2_SUMMARY),)
+TARGETS += sumtool
+HOST_TARGETS += sumtool
+#endif
 ifneq ($(CONFIG_MTD_DOCPROBE),)
 TARGETS += doc_loadbios 
 else
@@ -103,6 +109,9 @@ ifneq ($(CONFIG_JFFS2_FS),)
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_MKFSJFFS2    /bin/mkfs.jffs2
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_MKFSJFFS2    /bin/mtd_debug
 endif
+ifneq ($(CONFIG_JFFS2_SUMMARY),)
+	$(ROMFSINST) -e CONFIG_USER_MTDUTIL_MKFSJFFS2     /bin/sumtool
+endif
 ifneq ($(CONFIG_MTD_DOCPROBE),)
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_DOC_LOADBIOS /bin/doc_loadbios
 #	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_DOC_LOADIPL  /bin/doc_loadipl
@@ -124,7 +133,8 @@ $(JFFS2_OBJS): $(ZINCS)
 mkfs.jffs2: $(JFFS2_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDPATH) -lz $(LDLIBS)
 
-
+sumtool: sumtool.o crc32.o
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDPATH) -lz $(LDLIBS)
 
 build/mkfs.jffs2: $(BUILD_JFFS2_OBJS)
 	$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^ -lz
@@ -148,6 +158,13 @@ jffs2dump: jffs2dump.o crc32.o
 
 build/jffs2dump: build/jffs2dump.o build/crc32.o
 	$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^
+
+build/sumtool: build/sumtool.o build/crc32.o
+	#$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^
+	echo "#!/bin/sh" > build/sumtool
+	echo 'cp $$3 $$5' >> build/sumtool
+	echo "echo 'sumtool temporary fix - does a dummy cp TODO PR33100'" >> build/sumtool
+	chmod 0755 build/sumtool
 
 build/%.o: %.c
 	$(BUILD_CC) $(BUILD_CFLAGS) -c -o $@ $<

@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sched.h>
+#include <errno.h>
 #include <linux/unistd.h>
 
 /*

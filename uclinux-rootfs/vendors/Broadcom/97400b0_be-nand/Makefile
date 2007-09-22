@@ -34,12 +34,16 @@ SQUASHFSFILE=squashfs.img
 JFFSFILE  = jffs.img
 JFFS2FILE = jffs2-128k.img
 JFFS2_16K_FILE = jffs2-16k.img
+JFFS2_512K_FILE = jffs2-512k.img
+YAFFSFILE = yaffs-frm-cramfs.img
 LINUXIMG  = $(IMAGEDIR)/$(PLATFORM)/$(COMPRESSED_LINUXFILE)
 ROMFSIMG  = $(IMAGEDIR)/$(PLATFORM)/$(ROMFSFILE)
 INITRDIMG = $(INITRDDIR)/$(PLATFORM)/ramdisk.gz
 JFFSIMG   = $(IMAGEDIR)/$(PLATFORM)/$(JFFSFILE)
 JFFS2IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2FILE)
 JFFS2_16K_IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_16K_FILE)
+JFFS2_512K_IMG = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_512K_FILE)
+YAFFSIMG   = $(IMAGEDIR)/$(PLATFORM)/$(YAFFSFILE)
 CRAMFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(CRAMFSFILE)
 SQUASHFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(SQUASHFSFILE)
 INITRAMFS_DIR = $(IMAGEDIR)/$(PLATFORM)/initramfs
@@ -68,7 +72,15 @@ endif
 #endif
 ifdef CONFIG_JFFS2_FS
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
-FSIMG += $(JFFS2IMG) $(JFFS2_16K_IMG)
+FSIMG += $(JFFS2IMG) $(JFFS2_16K_IMG) $(JFFS2_512K_IMG)
+endif
+ifdef CONFIG_YAFFS_FS
+ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
+FSIMG += $(YAFFSIMG)
+endif
+ifdef CONFIG_YAFFS_YAFFS2
+ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
+FSIMG += $(YAFFSIMG)
 endif
 ifdef CONFIG_CRAMFS
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
@@ -228,7 +240,7 @@ $(UMDRV):
 	# No longer needed to be built
 	# make -C ./umdrv
 
-images: $(JFFS2IMG) $(JFFS2_16K_IMG) $(CRAMFSIMG) $(SQUASHFSIMG)
+images: $(JFFS2IMG) $(JFFS2_16K_IMG) $(JFFS2_512K_IMG) $(CRAMFSIMG) $(SQUASHFSIMG) $(YAFFSIMG)
 
 #*************************************************************************
 # Be careful, removing --no-absolute-filenames or mispelling it will trash
@@ -247,17 +259,38 @@ initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data_nodev.cpio
 
 # Added parameters for NAND.  pagesize is for FS, and NOT 512, which is the cache size.
 # Now building for both 128K and 16K erase block sizes
-$(JFFS2IMG) $(JFFS2_16K_IMG): initramfs_dir
+$(JFFS2IMG) $(JFFS2_512K_IMG) $(JFFS2_16K_IMG): initramfs_dir
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2  -o $(JFFS2IMG) --squash --verbose \
 		--big-endian --eraseblock=128KiB   \
 		-d $(INITRAMFS_DIR)
+ifdef CONFIG_JFFS2_SUMMARY
+	mv ${JFFS2IMG} ${JFFS2IMG}.nosummary
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -b -i ${JFFS2IMG}.nosummary -o $(JFFS2IMG) -e 128KiB
+endif
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2  -o $(JFFS2_16K_IMG) --squash --verbose \
 		--big-endian --eraseblock=16KiB  --pagesize=512 \
 		-d $(INITRAMFS_DIR)
+ifdef CONFIG_JFFS2_SUMMARY
+	mv ${JFFS2_16K_IMG} ${JFFS2_16K_IMG}.nosummary
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -b -i ${JFFS2_16K_IMG}.nosummary -o $(JFFS2_16K_IMG) -e 16KiB
+endif
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o ${JFFS2_512K_IMG} --squash --verbose \
+		--big-endian --eraseblock=512KiB  --pagesize=512 \
+		-d $(INITRAMFS_DIR)
+ifdef CONFIG_JFFS2_SUMMARY
+	mv ${JFFS2_512K_IMG} ${JFFS2_512K_IMG}.nosummary
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -b -i ${JFFS2_512K_IMG}.nosummary -o $(JFFS2_512K_IMG) -e 512KiB
+endif
 
 
 $(JFFSIMG):
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs -o $(JFFSIMG) -d $(ROMFSDIR)
+
+# sidc - PR33102 - nandwrite is unreliable to burn a yaffs2 image onto flash.
+# We use a cramfs image, do a loopback mount to load yaffs/yaffs2 image
+$(YAFFSIMG):
+	$(ROOTDIR)/user/cramfs/build/mkcramfs -v -b -n "YaffsDerived" $(INITRAMFS_DIR) $(YAFFSIMG); \
+	chmod a+r $(YAFFSIMG)
 
 # jipeng - PR22427 dhcpcd failed with cramfs
 # here we create var.img to contain RW /var and change rcS to call mountvar to mount it as first step

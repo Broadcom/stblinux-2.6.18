@@ -35,7 +35,10 @@
 static char sccsid[] = "@(#)daemon.c	5.3 (Berkeley) 12/28/90";
 #endif /* LIBC_SCCS and not lint */
 
+#include <stdlib.h>
+#include <sys/types.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 /* From unistd.h */
 #define STDIN_FILENO	0
@@ -44,11 +47,10 @@ static char sccsid[] = "@(#)daemon.c	5.3 (Berkeley) 12/28/90";
 
 /* From paths.h */
 #define _PATH_DEVNULL	"/dev/null"
-
+int
 daemon(nochdir, noclose)
 	int nochdir, noclose;
 {
-#ifndef EMBED
 	int cpid;
 
 	if ((cpid = fork()) == -1)
@@ -56,7 +58,6 @@ daemon(nochdir, noclose)
 	if (cpid)
 		exit(0);
 	(void) setsid();
-#endif
 	if (!nochdir)
 		(void) chdir("/");
 	if (!noclose) {

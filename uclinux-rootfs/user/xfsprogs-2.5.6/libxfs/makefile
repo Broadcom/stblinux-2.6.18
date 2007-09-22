@@ -7,7 +7,8 @@
 LIBXFS = libxfs.so
 BUILD_LIBXFS = build/libxfs.a
 
-BUILD_CFLAGS = -I$(ROOTDIR)/$(LINUXDIR)/include -I../include -I.. -I. \
+BUILD_CFLAGS = -I$(LINUXDIR)/include -I../include -I.. -I. \
+	-I$(ROOTDIR)/romfs/usr/include \
 	-DHAVE_32BIT_LONG -DHAVE_32BIT_PTR \
 	-D _LARGEFILE_SOURCE -D _LARGEFILE64_SOURCE
 
@@ -64,7 +65,7 @@ $(ROOTDIR)/romfs/lib/$(LIBXFS): $(LIBXFS)
 romfs:
 
 clean:
-	rm -f $(OBJS) $(LIBXFS) build
+	rm -rf $(OBJS) $(LIBXFS) build
 	
 build/%.o: %.c
 	$(BUILD_CC) $(BUILD_CFLAGS) -c -o $@ $<

@@ -36,6 +36,8 @@
  *
  *	May 24, 2007	Jian Peng <jipeng@broadcom.com>
  *					support port multiplier and bump version up to 3.0
+ *   Aug 21, 2007 Chanshine Nabanxang & Ton Truong <chanshine@broadcom.com>
+ *					support for SATA2 3Gbps version 3.1
  */
 
 #include <linux/kernel.h>
@@ -55,7 +57,7 @@
 #endif /* CONFIG_PPC_OF */
 
 #define DRV_NAME	"sata_svw"
-#define DRV_VERSION	"3.0"
+#define DRV_VERSION	"3.1"
 
 #ifdef CONFIG_MIPS_BRCM97XXX
 #include <asm/brcmstb/common/brcmstb.h>
@@ -65,8 +67,11 @@ struct k2_port_priv {
 	int do_port_srst;			/* already perform softreset? */
 };
 
+#ifdef	SATA_SVW_BRCM_WA
 int dma_write_wa_needed = 0;
 EXPORT_SYMBOL(dma_write_wa_needed);
+#endif
+
 #ifdef CONFIG_MIPS_BRCM97XXX
 #define WRITE_CMD			1
 #define READ_CMD			2
@@ -118,13 +123,13 @@ static void __devinit mdio_write_reg(int port, int reg, uint16_t val )
 	udelay( 1 );    //wait
 }
 
-void DisablePHY(int port)
+static void DisablePHY(int port)
 {
 	uint32_t *pScr2 = (uint32_t *)(MMIO_OFS + 0x100*port + 0x48);
 	writel(1, pScr2);
 }
 
-void EnablePHY(int port)
+static void EnablePHY(int port)
 {
 	uint32_t *pScr2 = (uint32_t *)(MMIO_OFS + 0x100*port + 0x48);
 	writel(0, pScr2);
@@ -133,24 +138,19 @@ void EnablePHY(int port)
 static void bcm_sg_workaround(int port)
 {
 	int tmp16;
-
+ 
 	DisablePHY(port);
-
-	//Change interpolation BW
-	tmp16 = mdio_read_reg(port,9);
-
-	mdio_write_reg(port,9,tmp16 | 1); //Bump up interpolation
-
+ 
 	//Do analog reset
 	tmp16 = mdio_read_reg(port,4);
 	tmp16 |= 8;
 	mdio_write_reg(port,4,tmp16);
-
+ 
 	udelay( 1000 );      //wait 1 ms
 	tmp16 &= 0xFFF7;
 	mdio_write_reg(port,4,tmp16 ); // Take reset out
 	udelay( 1000 );      //wait
-
+ 
 	//Enable PHY
 	EnablePHY(port);
 }
@@ -426,7 +426,7 @@ static int k2_sata_pmp_attach_link(struct ata_link *link, int pmp)
 
 	scontrol = readl(port + K2_SATA_SCR_CONTROL_OFFSET);
 	if((scontrol & 0x000f0000)>>16 == pmp) {
-		rc = 1;
+		rc = 2;
 		return rc;
 	} 
 
@@ -439,7 +439,7 @@ static int k2_sata_pmp_attach_link(struct ata_link *link, int pmp)
 	}
 	else {
 		sata_scr_write(link, SCR_CONTROL, 1);
-		rc = 1;
+		rc = 3;
 	}
 
 	return rc;
@@ -461,15 +461,20 @@ void k2_sata_dev_select (struct ata_port *ap, unsigned int device)
 {
 	if(ap->nr_pmp_links)
 	{
-#ifdef	DMAWRITE_BUG	
+#ifdef	SATA_SVW_BRCM_WA
 	if(dma_write_wa_needed)
 	{
 		struct ata_taskfile tf;
 		struct ata_device *dev = ap->link.device;
-		k2_sata_pmp_attach_link(&ap->link, device);
+
+		if(k2_sata_pmp_attach_link(&ap->link, device) == 2)
+		{
+			dma_write_wa_needed = 0;
+			return;
+		}
+
 		ata_tf_init(dev, &tf);
-		tf.command = 0x00;									// NOP command
-		tf.feature = 0x0;									// do not flush outstanding queue
+		tf.command = 0xE5;
 		tf.flags |= ATA_TFLAG_DEVICE;
 		ap->ops->tf_load(ap, &tf);
 		ap->ops->exec_command(ap, &tf);
@@ -801,71 +806,198 @@ static void k2_sata_setup_port(struct ata_ioports *port, unsigned long base)
 	port->scr_addr		= base + K2_SATA_SCR_STATUS_OFFSET;
 }
 
-#ifdef CONFIG_MIPS_BRCM97XXX /* Fix to recognize some WD models */
+#ifdef CONFIG_MIPS_BRCM97XXX 
+
+// Fix to turn on 3Gbps 
+
+//This routine change (lower) bandwidth of SATA PLL to lower jitter from main internal // ref clk in attempt to use on chip refclock.
+static void brcm_SetPllTxRxCtrl(void)
+{
+	uint16_t tmp16;
+	//Lower BW
+	mdio_write_reg(0,0,0x1404);
+
+	//Change Tx control
+	mdio_write_reg(0,0xa,0x0260);
+	mdio_write_reg(0,0x11,0x0a10);
+	//Change Rx control
+	tmp16 = mdio_read_reg(0,0xF);
+	tmp16 &= 0xc000;
+	tmp16 |= 0x1000;
+	mdio_write_reg(0,0xF,tmp16);
+}
+static void brcm_TunePLL(void)
+{
+	volatile uint16_t tmp;
+	//program VCO step bit [12:10] start with 111
+	mdio_write_reg(0,0x13,0x1c00);
+
+	udelay(100000);
+
+	//start pll tuner
+	mdio_write_reg(0,0x13,0x1e00); // 
+
+	udelay(10000); // wait
+
+	printk("Checking lock \n");
+	//check lock bit
+	tmp = mdio_read_reg(0,0x7);
+
+	printk("Wait for PLL lock\n");
+	while((tmp & 0x8000)!= 0x8000)
+		tmp = mdio_read_reg(0,0x7);
+
+	printk("PLL locked\n");
+}
+
+static void brcm_AnalogReset(void)
+{  
+	int port;
+
+	//do analog reset
+	mdio_write_reg(0,0x4,8);
+	udelay(10000); // wait
+	mdio_write_reg(0,0x4,0);
+
+	for (port=0; port < 1; port++)
+	bcm_sg_workaround(port);
+}
+
+static void brcm_InitSata_1_5Gb(void)
+{
+	volatile uint16_t tmp;
+	volatile uint32_t tmp32;
+	int port,i;
+
+	for(port = 0; port < 2; port++)
+	{
+		printk("Reset port %d addr %x\n", port, MMIO_OFS + 0x48 + port*0x100);
+		writel(1, MMIO_OFS + 0x48 + port * 0x100);
+		udelay(10000); // wait
+		//reset deskew TX FIFO
+		//1. select port
+		mdio_write_reg(0,7,1<<port);
+		//toggle reset bit
+		mdio_write_reg(0,0xd,0x4800);
+		udelay(10000); // wait
+		mdio_write_reg(0,0xd,0x0800);
+		udelay(10000); // wait
+
+		//Enable low speed (1.5G) mode
+		tmp = mdio_read_reg(0,8);
+		mdio_write_reg(0,8,tmp | 0x10);
+
+
+		//Enable lock monitor.. if not set the lock bit is not updated
+		tmp = mdio_read_reg(0,0x13);
+
+		mdio_write_reg(0,0x13, tmp | 2);
+
+
+		//enable 4G addressing support
+		tmp32 = readl(MMIO_OFS + 0x84 + port * 0x100);
+		writel(tmp32 | 0x20009400, MMIO_OFS + 0x84 + port * 0x100);
+
+		tmp32 = readl(MMIO_OFS + 0x80 + port * 0x100);
+		tmp32 &= 0xffff0000;
+		writel(tmp32 | 0x00000f10, MMIO_OFS + 0x80 + port * 0x100);
+
+		//Clean up the fifo -- per Ajay
+		tmp32 = readl(MMIO_OFS + 0xe0 + port * 0x100);
+		writel(tmp32 | 2, MMIO_OFS + 0xe0 + port * 0x100);
+
+		//Tweak PLL, Tx, and Rx
+		brcm_SetPllTxRxCtrl();
+		brcm_TunePLL();
+		brcm_AnalogReset();
+
+		udelay(10000); // wait
+
+		writel(0, MMIO_OFS + 0x48 + port * 0x100);
+	}
+
+}
+
+
+static void brcm_InitSata2_3Gb(void)
+{
+	volatile uint16_t tmp;
+	volatile uint32_t tmp32;
+	int port,i;
+
+
+	for(port = 0; port < 1; port++)
+	{
+		//    printk("Reset port %d addr %x\n", port, MMIO_OFS + 0x48 + port*0x100);
+		writel(1, MMIO_OFS + 0x48 + port * 0x100);
+		udelay(10000); // wait
+		//reset deskew TX FIFO
+		//1. select port
+		mdio_write_reg(0,7,1<<port);
+		//toggle reset bit
+		mdio_write_reg(0,0xd,0x4800);
+		udelay(10000); // wait
+		mdio_write_reg(0,0xd,0x0800);
+		udelay(10000); // wait
+
+
+
+		//Enable lock monitor.. if not set the lock bit is not updated
+		tmp = mdio_read_reg(0,0x13);
+
+		mdio_write_reg(0,0x13, tmp | 2);
+
+
+		//Enable 3Gb interface
+		tmp32 = readl(MMIO_OFS + 0xf0 + port * 0x100);
+		writel(tmp32 | 0x10500, MMIO_OFS + 0xf0 + port * 0x100);
+
+		udelay(10000); // wait
+
+		//enable 4G addressing support
+		tmp32 = readl(MMIO_OFS + 0x84 + port * 0x100);
+		writel(tmp32 | 0x20009400, MMIO_OFS + 0x84 + port * 0x100);
+
+		tmp32 = readl(MMIO_OFS + 0x80 + port * 0x100);
+		tmp32 &= 0xffff0000;
+		writel(tmp32 | 0x00000f10, MMIO_OFS + 0x80 + port * 0x100);
+
+		//Clean up the fifo -- per Ajay
+		tmp32 = readl(MMIO_OFS + 0xe0 + port * 0x100);
+		writel(tmp32 | 2, MMIO_OFS + 0xe0 + port * 0x100);
+
+		//Tweak PLL, Tx, and Rx
+		brcm_SetPllTxRxCtrl();
+		brcm_TunePLL();
+		brcm_AnalogReset();
+
+		udelay(10000); // wait
+
+		writel(0, MMIO_OFS + 0x48 + port * 0x100);
+
+	}
+
+}
+
+/* Kernel argument bcmsata2=0|1 */
+extern int gSata2_3Gbps;
+
 static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_ent)
 {
 	unsigned int reg;
 	
 	if(dev->device == PCI_DEVICE_ID_SERVERWORKS_BCM7400B0)
 	{
-		volatile uint16_t tmp;
-		volatile uint32_t tmp32;
-		int port,i;
-
-		//dump bridge regs
-		for (i=0;i<9; i++) { //skip after this
-			printk("Addr %x Value %x\n", 0xb0500200 + i * 4,
-				*(volatile uint32_t *)(0xb0500200 + i * 4));
+		/* Turn on 3Gbps if bcmsata2=1 is specified as kernel argument during bootup */
+		if (gSata2_3Gbps) {
+			brcm_InitSata2_3Gb();
+		}
+		else {
+			/* 1.5 Gbps */
+			brcm_InitSata_1_5Gb();
 		}
 
-		//program VCO step bit [12:10] start with 111
-		mdio_write_reg(0,0x13,0x1c00);
-
-		printk("mdio_write_reg(0,0x13,0x1c00) done\n");
-
-		udelay(100000);
-
-		//start pll tuner
-		mdio_write_reg(0,0x13,0x1e00); // 
-
-		printk("mdio_write_reg(0,0x13,0x1e00) done\n");
-		udelay(10000); // wait
-
-		printk("Checking lock \n");
-		//check lock bit
-
-		do {
-			tmp = mdio_read_reg(0,0x7);
-			printk("Wait for PLL lock mdio_read_reg(0,0x7) returns %08x\n", tmp);
-		} while((tmp & 0x8000) != 0x8000);
-
-		printk("PLL locked\n");
-		//do analog reset
-		mdio_write_reg(0,0x4,8);
-		printk("mdio_write_reg(0,0x4,8) done\n");
-		udelay(10000); // wait
-		mdio_write_reg(0,0x4,0);
-
-		printk("mdio_write_reg(0,0x4,0) done\n");
-		for(port = 0; port < 2; port++)
-		{
-			printk("Reset port %d addr %x\n", port, MMIO_OFS + 0x48 + port*0x100);
-			writel(1, (void *)(MMIO_OFS + 0x48 + port * 0x100));
-			udelay(10000); // wait
-			//reset deskew TX FIFO
-			//1. select port
-			mdio_write_reg(0,7,1 << port);
-			//toggle reset bit
-			mdio_write_reg(0,0xd,0x8000);
-			udelay(10000); // wait
-			mdio_write_reg(0,0xd,0x0000);
-			udelay(10000); // wait
-			writel(0, (void *)(MMIO_OFS + 0x48 + port * 0x100));
-
-			//enable 4G support
-			tmp32 = readl((void *)(MMIO_OFS + 0x84 + port * 0x100));
-			writel(tmp32 | 0x00000400, (void *)(MMIO_OFS + 0x84 + port * 0x100));
-		}
+		return; /* Skip all workarounds.  Those have been fixed with 65nm */
 	}
 	
 	// For the BCM7038, let the PCI configuration in brcmpci_fixups.c hold.
@@ -897,6 +1029,10 @@ static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000
 #elif defined( CONFIG_MIPS_BCM7118 )
 #define FIXED_REV       0
 static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+#elif defined( CONFIG_MIPS_BCM7405 )
+#define FIXED_REV       0
+static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+
 #endif
 
 	printk("SUNDRY revision = %08lx\n", *pSundryRev);
@@ -944,6 +1080,9 @@ static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000
 		}
 	}
 }
+
+
+
 #endif	// CONFIG_MIPS_BRCM97XXX
 
 static int k2_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)

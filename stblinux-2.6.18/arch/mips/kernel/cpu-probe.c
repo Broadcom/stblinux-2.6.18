@@ -16,6 +16,7 @@
 #include <linux/ptrace.h>
 #include <linux/stddef.h>
 #include <linux/version.h>
+#include <linux/module.h>
 #include <asm/cpu.h>
 #include <asm/fpu.h>
 #include <asm/mipsregs.h>
@@ -32,6 +33,7 @@ EXPORT_SYMBOL(bcm7118A0_boardtype);
  * the CPU very much.
  */
 void (*cpu_wait)(void) = NULL;
+EXPORT_SYMBOL(cpu_wait);
 
 static void r3081_wait(void)
 {
@@ -855,6 +857,14 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
 		printk("MIPs 7403 id = %x\n", c->processor_id);
 		break;
 #endif
+
+#if defined( CONFIG_MIPS_BCM7405 )
+        case PRID_IMP_BCM7405 :
+                c->cputype = CPU_BMIPS4380;
+                c->tlbsize = 32;
+                printk("MIPs 7405 id = %x\n", c->processor_id);
+                break;
+#endif 
 
 #ifdef CONFIG_MIPS_BCM7400
 	case PRID_IMP_BCM7400:

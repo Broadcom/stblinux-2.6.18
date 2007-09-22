@@ -330,6 +330,7 @@ dma64_addr_t pci_dac_page_to_dma(struct pci_dev *pdev,
 
 EXPORT_SYMBOL(pci_dac_page_to_dma);
 
+#ifndef CONFIG_DISCONTIGMEM
 struct page *pci_dac_dma_to_page(struct pci_dev *pdev,
 	dma64_addr_t dma_addr)
 {
@@ -337,6 +338,7 @@ struct page *pci_dac_dma_to_page(struct pci_dev *pdev,
 }
 
 EXPORT_SYMBOL(pci_dac_dma_to_page);
+#endif
 
 unsigned long pci_dac_dma_to_offset(struct pci_dev *pdev,
 	dma64_addr_t dma_addr)

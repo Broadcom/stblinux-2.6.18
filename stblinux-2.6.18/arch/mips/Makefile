@@ -869,6 +869,19 @@ cflags-$(CONFIG_MIPS_BCM7400B0)	+= -Iinclude/asm-mips/mach-brcmstb
 load-$(CONFIG_MIPS_BCM7400B0) := 0x80001000
 
 #
+# BCM97405A0
+#
+ifeq ($(CONFIG_MIPS_BCM7405),y)
+core-$(CONFIG_MIPS_BCM7405A0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7405A0) += arch/mips/brcmstb/brcm97405a0/
+cflags-$(CONFIG_MIPS_BCM7405A0) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7405A0) := 0x80001000
+endif
+ifdef CONFIG_MIPS_BCM7405A0
+        UTS_MACHINE:=7405a0
+endif
+
+#
 #
 # BCM97401A0 & BCM97455
 #

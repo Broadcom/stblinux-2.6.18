@@ -48,6 +48,8 @@ when	who what
 #include <asm/brcmstb/brcm97456b0/bcmintrnum.h>
 #elif defined(CONFIG_MIPS_BCM7400B0)
 #include <asm/brcmstb/brcm97400b0/bcmintrnum.h>
+#elif defined(CONFIG_MIPS_BCM7405A0)
+#include <asm/brcmstb/brcm97405a0/bcmintrnum.h>
 #else
 #error Unsupported SMP platform
 #endif

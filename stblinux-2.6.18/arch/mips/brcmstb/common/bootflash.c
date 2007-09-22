@@ -121,7 +121,8 @@
 #include <asm/brcmstb/common/brcmstb.h>
 #define WINDOW_ADDR 0x1e000000
 
-#elif defined(CONFIG_MIPS_BCM7440) || defined(CONFIG_MIPS_BCM7400B0)
+#elif defined(CONFIG_MIPS_BCM7440) || defined(CONFIG_MIPS_BCM7400B0) \
+				   || defined(CONFIG_MIPS_BCM7405A0)
 #include <asm/brcmstb/common/brcmstb.h>
 #define WINDOW_ADDR 0x1c000000		/* 2X 32MB flash */
 

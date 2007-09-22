@@ -82,7 +82,7 @@
   
   #elif defined(CONFIG_MIPS_BCM7038) || defined(CONFIG_MIPS_BCM7400) || \
         defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7403) || \
-        defined(CONFIG_MIPS_BCM7452)
+        defined(CONFIG_MIPS_BCM7452) || defined(CONFIG_MIPS_BCM7405)
   /* 32MB Flash */
   #define FLASH_MACADDR_OFFSET 0x01FFF824
 
@@ -192,6 +192,7 @@ static int bcmIsEnetUp(struct net_device *dev);
 #define RX_CONFIG_PKT_OFFSET_SHIFT	9
 #define RX_CONFIG_PKT_OFFSET_MASK		0x0000_0600
 
+#define ENET_POLL_DONE      0x80000000
 
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
@@ -232,9 +233,16 @@ static int bcm_set_mac_addr(struct net_device *dev, void *p);
 // --------------------------------------------------------------------------
 static irqreturn_t bcmemac_net_isr(int irq, void *, struct pt_regs *regs);
 // --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+//      dev->poll() method
+// --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+static int bcmemac_enet_poll(struct net_device * dev, int *budget);
+// --------------------------------------------------------------------------
 //  Bottom half service routine. Process all received packets.                  
 // --------------------------------------------------------------------------
-static void bcmemac_rx(void *);
+static uint32 bcmemac_rx(void *ptr, uint32 budget);
+
 
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
@@ -287,6 +295,10 @@ static ssize_t eth_proc_read(struct file *file, char *buf, size_t count, loff_t 
 static void dumpHexData(unsigned char *head, int len);
 /* dumpMem32 dump out the number of 32 bit hex data  */
 static void dumpMem32(uint32 * pMemAddr, int iNumWords);
+#endif
+
+#ifdef CONFIG_BCMINTEMAC_NETLINK
+static void bcmemac_link_change_task(BcmEnet_devctrl *pDevCtrl);
 #endif
 
 static struct net_device *eth_root_dev = NULL;
@@ -402,7 +414,9 @@ static bool haveIPHdrOptimization(void)
 #elif defined(CONFIG_MIPS_BCM7403 ) || defined(CONFIG_MIPS_BCM7452)
     #define FIXED_REV       0x74010010
     volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-
+#elif defined( CONFIG_MIPS_BCM7405 )
+    #define FIXED_REV 0
+    volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
 #elif defined( CONFIG_MIPS_BCM7440 )
     #define FIXED_REV   0x0
     volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
@@ -755,15 +769,32 @@ static void tx_reclaim_timer(unsigned long arg)
                     else
                         pDevCtrl->emac->txControl &= ~EMAC_FD;
                 }
+
+#ifdef CONFIG_BCMINTEMAC_NETLINK
+                if (pDevCtrl->linkState == 0) {
+			netif_carrier_on(pDevCtrl->dev);
+			schedule_work(&pDevCtrl->link_change_task);	
+        	        printk((KERN_CRIT "%s Link UP.\n"),pDevCtrl->dev->name);
+	    	}
+#else
                 if (pDevCtrl->linkState == 0) {
                     printk((KERN_CRIT "%s Link UP.\n"),pDevCtrl->dev->name);
                 }
+#endif
             } else {
+#ifdef CONFIG_BCMINTEMAC_NETLINK
+                if (pDevCtrl->linkState != 0) {
+			netif_carrier_off(pDevCtrl->dev);
+			schedule_work(&pDevCtrl->link_change_task);
+                	printk((KERN_CRIT "%s Link DOWN.\n"),pDevCtrl->dev->name);
+	    	}
+#else
                 if (pDevCtrl->linkState != 0)
                 {
                     pDevCtrl->rxDma->cfg &= ~DMA_ENABLE;
                     printk((KERN_CRIT "%s Link DOWN.\n"),pDevCtrl->dev->name);
                 }
+#endif
             }
 
             /* Wake up the user mode application that monitors link status. */
@@ -780,6 +811,29 @@ static void tx_reclaim_timer(unsigned long arg)
     }
 #endif    
 }
+
+#ifdef CONFIG_BCMINTEMAC_NETLINK
+static void bcmemac_link_change_task(BcmEnet_devctrl *pDevCtrl)
+{
+	if(!pDevCtrl) {
+		printk("pDevCtrl is NULL\n");
+		return;
+	}
+
+	rtnl_lock();
+	if (pDevCtrl->linkState) {
+		pDevCtrl->dev->flags |= IFF_RUNNING;
+		rtmsg_ifinfo(RTM_NEWLINK, pDevCtrl->dev, IFF_RUNNING);
+	}
+	else {
+		clear_bit(__LINK_STATE_START, &pDevCtrl->dev->state);
+		pDevCtrl->dev->flags &= ~IFF_RUNNING;
+		rtmsg_ifinfo(RTM_NEWLINK, pDevCtrl->dev, IFF_RUNNING);
+		set_bit(__LINK_STATE_START, &pDevCtrl->dev->state);
+	}
+	rtnl_unlock();
+}
+#endif
 
 /*
  * txCb_enq: add a Tx control block to the pool
@@ -846,7 +900,7 @@ int bcmemac_xmit_check(struct net_device * dev)
         pDevCtrl->txFreeBds += pDevCtrl->txCbPtrHead->nrBds;
 
         if(pDevCtrl->txCbPtrHead->skb) {
-            dev_kfree_skb (pDevCtrl->txCbPtrHead->skb);
+            dev_kfree_skb_any (pDevCtrl->txCbPtrHead->skb);
         }
 
         txedCBPtr = pDevCtrl->txCbPtrHead;
@@ -1013,7 +1067,7 @@ static int bcmemac_net_xmit(struct sk_buff * skb, struct net_device * dev)
         pDevCtrl->txFreeBds += pDevCtrl->txCbPtrHead->nrBds;
 
         if(pDevCtrl->txCbPtrHead->skb) {
-            dev_kfree_skb (pDevCtrl->txCbPtrHead->skb);
+            dev_kfree_skb_any (pDevCtrl->txCbPtrHead->skb);
         }
 
         txedCBPtr = pDevCtrl->txCbPtrHead;
@@ -1278,6 +1332,8 @@ int bcmemac_xmit_fragment( int ch, unsigned char *buf, int buf_len,
     return 0;
 }
 
+EXPORT_SYMBOL(bcmemac_xmit_fragment);
+
 /* --------------------------------------------------------------------------
     Name: bcmemac_xmit_multibuf
  Purpose: Send ethernet traffic in multi buffers (hdr, buf, tail)
@@ -1369,6 +1425,38 @@ ResetEMAConErrors(BcmEnet_devctrl *pDevCtrl)
     atomic_dec(&resetting_EMAC);
 }
 
+static int bcmemac_enet_poll(struct net_device * dev, int * budget)
+{   
+    BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
+    uint32 work_to_do = min(dev->quota, *budget);
+    uint32 work_done;
+    uint32 ret_done;
+    work_done = bcmemac_rx(pDevCtrl, work_to_do);
+    ret_done = work_done & ENET_POLL_DONE;
+    work_done &= ~ENET_POLL_DONE;
+
+    *budget -= work_done;
+    dev->quota -= work_done;
+
+    if (work_done < work_to_do && ret_done != ENET_POLL_DONE) {
+       /* Did as much as could, but we are not done yet */
+       return 1;
+    }
+
+    /* We are done */
+    netif_rx_complete(dev);
+    
+    /* Reschedule if there are more packets on the DMA ring to be received. */
+    if( (((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff) & DMA_OWN) == 0 ) {
+        netif_rx_reschedule(pDevCtrl->dev, work_done);
+    }
+    else {
+        enable_irq(pDevCtrl->rxIrq);
+    }
+
+    return 0;
+}
+
 /*
  * bcmemac_net_isr: Acknowledge interrupts and check if any packets have
  *                  arrived
@@ -1376,69 +1464,19 @@ ResetEMAConErrors(BcmEnet_devctrl *pDevCtrl)
 static irqreturn_t bcmemac_net_isr(int irq, void * dev_id, struct pt_regs * regs)
 {
     BcmEnet_devctrl *pDevCtrl = dev_id;
-    uint32 rxEvents;
-    irqreturn_t ret = IRQ_NONE;
 
-    /* get Rx interrupt events */
-    rxEvents = pDevCtrl->rxDma->intStat;
+    pDevCtrl->rxDma->intStat = DMA_DONE;  // clr interrupt
+    disable_irq_nosync(pDevCtrl->rxIrq);
+    netif_rx_schedule(pDevCtrl->dev);
 
-    TRACE(("bcmemac_net_isr: intstat=%08x\n",rxEvents));
-
-    if (rxEvents & DMA_BUFF_DONE)
-    {
-        pDevCtrl->rxDma->intStat = DMA_BUFF_DONE;  /* clr interrupt */
-    }
-    if (rxEvents & DMA_DONE)
-    {
-        pDevCtrl->rxDma->intStat = DMA_DONE;  // clr interrupt
-// THT: For now we are not using this, will change to workqueue later on
-#ifdef USE_BH       // USE_BH -- better for the over system performance
-		// use bottom half (immediate queue).  Put the bottom half of interrupt in the tasklet
-        queue_task(&pDevCtrl->task, &tq_immediate);
-        mark_bh(IMMEDIATE_BH);
-        ret = IRQ_HANDLED;
-#else
-        // no BH and handle every thing inside interrupt routine
-        bcmemac_rx(pDevCtrl);
-        ret = IRQ_HANDLED;
-#endif // USE_BH
-    }
-    else {
-        if (rxEvents & DMA_NO_DESC) {
-            pDevCtrl->rxDma->intStat = DMA_NO_DESC;
-
-            gNumNoDescErrors++;
-            printk(KERN_NOTICE "DMA_NO_DESC, count=%d, fc_alloc=%ld\n", 
-                    gNoDescCount, pDevCtrl->dmaRegs->flowctl_ch1_alloc);
-
-            pDevCtrl->rxDma->intStat = DMA_NO_DESC; // Clear the interrupt
-            {
-                int bdfilled;
-                gNoDescCount = 0;
-
-                bdfilled = assign_rx_buffers(pDevCtrl);
-                printk(KERN_DEBUG "bcmemac_rx_isr: After assigning buffers, filled=%d\n", bdfilled);
-                if (bdfilled == 0) {
-                    /* For now, until we figure out why we can't reclaim the buffers */
-                    printk(KERN_CRIT "Running out of buffers, all busy\n");
-                }
-                else {
-                    /* Re-enable DMA if there are buffers available */  
-                    pDevCtrl->rxDma->cfg |= DMA_ENABLE;
-                }
-                ResetEMAConErrors(pDevCtrl);
-            }
-        }
-        ret =  IRQ_HANDLED; // We did handle the error condition.
-    }
-    return ret;
+    return IRQ_HANDLED;
 }
 
 /*
  *  bcmemac_rx: Process all received packets.
  */
 #define MAX_RX                  0x0fffffff //to disable it
-static void bcmemac_rx(void *ptr)
+static uint32 bcmemac_rx(void *ptr, uint32 budget)
 {
     BcmEnet_devctrl *pDevCtrl = ptr;
     struct sk_buff *skb;
@@ -1447,6 +1485,9 @@ static void bcmemac_rx(void *ptr)
     int len;
     int bdfilled;
     unsigned int packetLength = 0;
+    uint32 rxpktgood = 0;
+    uint32 rxpktprocessed = 0;
+    uint32 rxpktmax = budget + (budget / 2);
     int brcm_hdr_len = 0;
     int brcm_fcs_len = 0;
 #ifdef VPORTS
@@ -1458,24 +1499,23 @@ static void bcmemac_rx(void *ptr)
     loopCount = 0;
 
     /* Loop here for each received packet */
-    while(!(dmaFlag & DMA_OWN) && (dmaFlag & DMA_EOP))
-    {
-        if (++loopCount > MAX_RX) {
+    while(!(dmaFlag & DMA_OWN) && (dmaFlag & DMA_EOP)) {
+        if (dmaFlag & DMA_OWN) {
             break;
         }
-	   
+        rxpktprocessed++;
+
+
         // Stop when we hit a buffer with no data, or a BD w/ no buffer.
         // This implies that we caught up with DMA, or that we haven't been
         // able to fill the buffers.
-        if ( (pDevCtrl->rxBdReadPtr->address == (uint32) NULL))
-        {
+        if ( (pDevCtrl->rxBdReadPtr->address == (uint32) NULL)) {
             // PR5760 - If there are no more packets available, and the last
             // one we saw had an overflow, we need to assume that the EMAC
             // has wedged and reset it.  This is the workaround for a
             // variant of this problem, where the MAC can stop sending us
             // packets altogether (the "silent wedge" condition).
-            if (gNumberOfOverflows > 0)
-            {
+            if (gNumberOfOverflows > 0) {
                 printk(KERN_CRIT "Handling last packet overflow, resetting pDevCtrl->emac->config, ovf=%d\n", gNumberOfOverflows);
                 ResetEMAConErrors(pDevCtrl);
             }
@@ -1499,18 +1539,21 @@ static void bcmemac_rx(void *ptr)
             pDevCtrl->stats.rx_dropped++;
             pDevCtrl->stats.rx_errors++;
 
+            if( rxpktprocessed < rxpktmax ) {
+                continue;
+            }
+
             /* Debug */
             gLastErrorDmaFlag = dmaFlag;
 
-            /* THT Starting with 7110B0 (Atlanta's PR5760), look for resetting the 
+            /* THT Starting with 7110B0 (Atlanta's PR5760), look for resetting the
              * EMAC on overflow condition
              */
             if ((dmaFlag & DMA_OWN) == 0) {
                 uint32 bufferAddress;
 
                 // PR5760 - keep track of the number of overflow packets.
-                if (dmaFlag & EMAC_OV)
-                {
+                if (dmaFlag & EMAC_OV) {
                     gNumberOfOverflows++;
                     gNumOverflowErrors++;
                 }
@@ -1535,8 +1578,7 @@ static void bcmemac_rx(void *ptr)
                 IncRxBDptr(pDevCtrl->rxBdReadPtr, pDevCtrl);
 
                 // If this is the last buffer in the packet, stop.
-                if (dmaFlag & DMA_EOP)
-                {
+                if (dmaFlag & DMA_EOP) {
                     packetLength = 0;
                 }
             }
@@ -1551,16 +1593,15 @@ static void bcmemac_rx(void *ptr)
             // then reset the EMAC.  We arrived at a threshold of 8 packets based
             // on empirical analysis and testing (smaller values are too aggressive
             // and larger values wait too long).
-                (gNumberOfOverflows > OVERFLOW_THRESHOLD))
-            {
+                (gNumberOfOverflows > OVERFLOW_THRESHOLD)) {
                 ResetEMAConErrors(pDevCtrl);
             }
 
             //Read more until EOP or good packet
             dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff);
             gLastDmaFlag = dmaFlag; 
+            
             /* Exit if we surpass number of packets */
-
             continue;
         }/* if error packet */
 
@@ -1635,15 +1676,22 @@ static void bcmemac_rx(void *ptr)
 
         pDevCtrl->stats.rx_packets++;
         pDevCtrl->stats.rx_bytes += len;
+        rxpktgood++;
 
         /* Notify kernel */
-        netif_rx(skb);
-
-        pDevCtrl->dev->last_rx = jiffies;
-
-        continue;
+        netif_receive_skb(skb);
+        
+        if (--budget <= 0) {
+            break;
+        }
     }
-    loopCount = -1; // tell dump_emac that we are outside RX
+
+    if (dmaFlag & DMA_OWN) {
+        rxpktgood |= ENET_POLL_DONE;
+    }
+    pDevCtrl->dev->last_rx = jiffies;
+
+    return rxpktgood;
 }
 
 
@@ -1726,7 +1774,7 @@ static inline void skb_headerinit(void *p, kmem_cache_t *cache,
     skb->destructor = NULL;
 
 #ifdef CONFIG_NETFILTER
-    skb->nfmark = skb->nfcache = 0;
+    skb->nfmark = 0;
     skb->nfct = NULL;
 #ifdef CONFIG_NETFILTER_DEBUG
     skb->nf_debug = 0;
@@ -2159,7 +2207,10 @@ static void init_IUdma(BcmEnet_devctrl *pDevCtrl)
     pDevCtrl->dmaRegs->controller_cfg = DMA_FLOWC_CH1_EN;
     pDevCtrl->dmaRegs->flowctl_ch1_thresh_lo = DMA_FC_THRESH_LO;
     pDevCtrl->dmaRegs->flowctl_ch1_thresh_hi = DMA_FC_THRESH_HI;
-
+#ifdef CONFIG_MIPS_BCM7405
+    /* connect emac0 to the phy */
+    pDevCtrl->dmaRegs->enet_iudma_tstctl |= 0x2000;
+#endif
     // transmit
     pDevCtrl->txDma->cfg = 0;       /* initialize first (will enable later) */
     pDevCtrl->txDma->maxBurst = DMA_MAX_BURST_LENGTH; /*DMA_MAX_BURST_LENGTH;*/
@@ -2899,7 +2950,8 @@ static void bcmemac_dev_setup(struct net_device *dev)
 #if defined( CONFIG_MIPS_BCM7038 )  || defined(CONFIG_MIPS_BCM7400) || \
     defined(CONFIG_MIPS_BCM7401)    || defined( CONFIG_MIPS_BCM7402 ) || \
     defined( CONFIG_MIPS_BCM7402S ) || defined( CONFIG_MIPS_BCM7440 ) || \
-    defined(CONFIG_MIPS_BCM7403)    || defined( CONFIG_MIPS_BCM7452 )
+    defined(CONFIG_MIPS_BCM7403)    || defined( CONFIG_MIPS_BCM7452 ) || \
+    defined(CONFIG_MIPS_BCM7405)
 
     /* TBD : need to get the symbol for these. */
     pDevCtrl->chipId  = (*((volatile unsigned long*)0xb0000200) & 0xFFFF0000) >> 16;
@@ -2919,6 +2971,7 @@ static void bcmemac_dev_setup(struct net_device *dev)
     case 0x7440:
     case 0x7438:
     case 0x7403:
+    case 0x7405:
         break;
     default:
         printk(KERN_DEBUG CARDNAME" not found\n");
@@ -2988,19 +3041,26 @@ static void bcmemac_dev_setup(struct net_device *dev)
     printk(KERN_INFO CARDNAME ": CPO MIPSCONFIG: %08X\n", read_c0_config(/*$16*/));
     printk(KERN_INFO CARDNAME ": CPO MIPSSTATUS: %08X\n", read_c0_status(/*$12*/));
 #endif	
-    dev->irq                    = pDevCtrl->rxIrq;
-    dev->base_addr              = ENET_MAC_ADR_BASE;
-    dev->open                   = bcmemac_net_open;
-    dev->stop                   = bcmemac_net_close;
-    dev->hard_start_xmit        = bcmemac_net_xmit;
-    dev->tx_timeout             = bcmemac_net_timeout;
-    dev->watchdog_timeo         = 2*HZ;
-    dev->get_stats              = bcmemac_net_query;
-    dev->set_mac_address        = bcm_set_mac_addr;
-    dev->set_multicast_list     = bcm_set_multicast_list;
-    dev->do_ioctl               = &bcmemac_enet_ioctl;
+    ether_setup(dev);
+    	dev->irq                    = pDevCtrl->rxIrq;
+    	dev->base_addr              = ENET_MAC_ADR_BASE;
+    	dev->open                   = bcmemac_net_open;
+    	dev->stop                   = bcmemac_net_close;
+    	dev->hard_start_xmit        = bcmemac_net_xmit;
+    	dev->tx_timeout             = bcmemac_net_timeout;
+    	dev->watchdog_timeo         = 2*HZ;
+    	dev->get_stats              = bcmemac_net_query;
+        dev->set_mac_address        = bcm_set_mac_addr;
+    	dev->set_multicast_list     = bcm_set_multicast_list;
+        dev->do_ioctl               = &bcmemac_enet_ioctl;
+        /* two new additions */
+        /* first register my poll method */
+        dev->poll                   = bcmemac_enet_poll;
+        /* next register my weight/quanta */
+        dev->weight                 = 64;
+
 #ifdef CONFIG_NET_POLL_CONTROLLER
-    dev->poll_controller        = &bcmemac_poll;
+        dev->poll_controller        = &bcmemac_poll;
 #endif
 #ifdef VPORTS
     if ((pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH) &&
@@ -3017,7 +3077,6 @@ static void bcmemac_dev_setup(struct net_device *dev)
 #endif
     // These are default settings
     write_mac_address(dev);
-    ether_setup(dev);
 
     // Let boot setup info overwrite default settings.
     netdev_boot_setup_check(dev);
@@ -3070,6 +3129,11 @@ int __init bcmemac_net_probe(void)
         (pDevCtrl->EnetInfo.usManagementSwitch == BP_ENET_MANAGEMENT_PORT)) {
         ret = vnet_probe();
     }
+#endif
+
+#ifdef CONFIG_BCMINTEMAC_NETLINK
+	INIT_WORK(&pDevCtrl->link_change_task, (void (*)(void *))bcmemac_link_change_task, pDevCtrl);
+        printk("init link_change_task\n");
 #endif
 
     return ret;

@@ -381,6 +381,7 @@ static inline int get_insn_opcode(struct pt_regs *regs, unsigned int *opcode)
 #define LL     0xc0000000
 #define SC     0xe0000000
 #define SPEC3  0x7c000000
+#define BRDHWR 0xec000000
 #define RD     0x0000f800
 #define FUNC   0x0000003f
 #define RDHWR  0x0000003b
@@ -545,7 +546,12 @@ static inline int simulate_rdhwr(struct pt_regs *regs)
 	rd = (opcode & RD) >> 11;
 	rt = (opcode & RT) >> 16;
 
+#if defined(CONFIG_MIPS_BRCM97XXX) && defined(_brcm_rdhwr)
+	/* PR34054: use alternate RDHWR instruction encoding */
+	if ((opcode & OPCODE) == BRDHWR && (opcode & FUNC) == RDHWR) {
+#else
 	if ((opcode & OPCODE) == SPEC3 && (opcode & FUNC) == RDHWR) {
+#endif
 		int rd = (opcode & RD) >> 11;
 		int rt = (opcode & RT) >> 16;
 		switch (rd) {
@@ -1064,7 +1070,12 @@ void nmi_exception_handler(struct pt_regs *regs)
 
 #define VECTORSPACING 0x100	/* for EI/VI mode */
 
+#ifdef CONFIG_DISCONTIGMEM
+/* this is not set up yet because we called tlb_init() early */
+unsigned long ebase = CAC_BASE;
+#else
 unsigned long ebase;
+#endif
 unsigned long exception_handlers[32];
 unsigned long vi_handlers[64];
 
@@ -1392,8 +1403,14 @@ void __init per_cpu_trap_init(void)
 #ifdef CONFIG_MIPS_MT_SMTC
 	if (bootTC) {
 #endif /* CONFIG_MIPS_MT_SMTC */
+#ifndef CONFIG_DISCONTIGMEM
+		/*
+		 * on DISCONTIGMEM, these are done in setup_arch() in order
+		 * to create the extra kernel mappings for upper memory
+		 */
 		cpu_cache_init();
 		tlb_init();
+#endif
 #ifdef CONFIG_MIPS_MT_SMTC
 	}
 #endif /* CONFIG_MIPS_MT_SMTC */

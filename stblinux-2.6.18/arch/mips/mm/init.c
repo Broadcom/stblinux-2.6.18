@@ -140,6 +140,12 @@ static inline void *kmap_coherent(struct page *page, unsigned long addr)
 
 	inc_preempt_count();
 #if defined(CONFIG_MIPS_BRCM97XXX)
+	/* PR33098: flush dirty pages before kmap_coherent() */
+	if(Page_dcache_dirty(page)) {
+		flush_data_cache_page((unsigned long)page_address(page));
+		ClearPageDcacheDirty(page);
+	}
+
 	/*
 	 * Preventing L1 cache aliasing between addr and vaddr:
 	 *
@@ -351,8 +357,10 @@ void __init fixrange_init(unsigned long start, unsigned long end,
 #endif
 }
 
-#ifndef CONFIG_NEED_MULTIPLE_NODES
+#if defined(CONFIG_MIPS_BRCM97XXX) || ! defined(CONFIG_NEED_MULTIPLE_NODES)
 extern void pagetable_init(void);
+extern unsigned long g_board_RAM_size;
+extern unsigned long max_mapnr;
 
 static int __init page_is_ram(unsigned long pagenr)
 {
@@ -418,6 +426,27 @@ void __init paging_init(void)
 
 #ifdef CONFIG_FLATMEM
 	free_area_init(zones_size);
+#elif CONFIG_MIPS_BCM7405
+	if(g_board_RAM_size <= LOWER_RAM_SIZE) {
+		zones_size[ZONE_DMA] = PFN_DOWN(g_board_RAM_size);
+		zones_size[ZONE_NORMAL] = 0;
+		zones_size[ZONE_HIGHMEM] = 0;
+		free_area_init_node(0, NODE_DATA(0), zones_size, 0, 0);
+		node_set_online(0);
+	} else {
+		zones_size[ZONE_DMA] = PFN_DOWN(LOWER_RAM_SIZE);
+		zones_size[ZONE_NORMAL] = 0;
+		zones_size[ZONE_HIGHMEM] = 0;
+		free_area_init_node(0, NODE_DATA(0), zones_size, 0, 0);
+		node_set_online(0);
+
+		zones_size[ZONE_DMA] = PFN_DOWN(g_board_RAM_size - LOWER_RAM_SIZE);
+		zones_size[ZONE_NORMAL] = 0;
+		zones_size[ZONE_HIGHMEM] = 0;
+		free_area_init_node(1, NODE_DATA(1), zones_size,
+			PFN_DOWN(UPPER_RAM_BASE), 0);
+		node_set_online(1);
+	}
 #else
 	pfn = 0;
 	for (i = 0; i < MAX_NR_ZONES; i++)
@@ -444,11 +473,18 @@ void __init mem_init(void)
 #endif
 	max_mapnr = highend_pfn;
 #else
+#ifndef CONFIG_DISCONTIGMEM
 	max_mapnr = max_low_pfn;
+#endif
 #endif
 	high_memory = (void *) __va(max_low_pfn << PAGE_SHIFT);
 
+#ifndef CONFIG_DISCONTIGMEM
 	totalram_pages += free_all_bootmem();
+#else
+	for(tmp = 0; tmp < numnodes; tmp++)
+		totalram_pages += free_all_bootmem_node(NODE_DATA(tmp));
+#endif
 	totalram_pages -= setup_zero_pages();	/* Setup zeroed pages.  */
 
 	reservedpages = ram = 0;

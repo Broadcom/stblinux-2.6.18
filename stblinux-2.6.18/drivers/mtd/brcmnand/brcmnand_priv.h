@@ -166,8 +166,8 @@ __ll_add32(L_OFF_T left, int right)
 /*
  * Returns (ll >> shift)
  */
-static inline L_OFF_T
-__ll_RightShift(L_OFF_T ll, int shift)
+static inline UL_OFF_T
+__ll_RightShift(UL_OFF_T ll, int shift)
 {
 	DIunion src, res;
 
@@ -175,11 +175,12 @@ __ll_RightShift(L_OFF_T ll, int shift)
 	bitmap_shift_right((unsigned long*) &res, (unsigned long*) &src, shift, LONGLONG_TO_BITS);
 	return res.ll;
 }
+#define __ll_RightShift32(ll,s) __ll_RightShift(ll,s)
 
 /*
  * Returns (ul << shift) with ul a 32-bit unsigned integer.  Returned value is a 64bit integer
  */
-static inline L_OFF_T
+static inline UL_OFF_T
 __ll_LeftShift32(unsigned long ul, int shift)
 {
 	DIunion src, res;
@@ -219,7 +220,7 @@ __ll_is_positive(L_OFF_T ll)
 	DIunion u;
 
 	u.ll = ll;
-	return ((int) u.s.high > 0);
+	return ((int) u.s.high > 0 || (((int) u.s.high) == 0 && ((unsigned int) u.s.low) > 0));
 }
 
 static inline int
@@ -274,21 +275,21 @@ __ll_high(L_OFF_T ll)
 
 
 
-#define __ll_sprintf(msg, offset) (sprintf(msg, "%08x", offset), msg)
-#define __ll_mult32(left, right) (left*right)
-#define __ll_sub(left, right) (left - right)
-#define __ll_sub32(left, right) (left - right)
-#define __ll_isub(left, right) (left - right)
-#define __ll_add(left, right) (left + right)
-#define __ll_add32(left, right) (left + right)
+#define __ll_sprintf(msg, offset) (sprintf((msg), "%08x", (offset)), (msg))
+#define __ll_mult32(left, right) ((left)*(right))
+#define __ll_sub(left, right) ((left) - (right))
+#define __ll_sub32(left, right) ((left) - (right))
+#define __ll_isub(left, right) ((left) - (right))
+#define __ll_add(left, right) ((left) + (right))
+#define __ll_add32(left, right) ((left) + (right))
 #define __ll_RightShift(l, shift) ((unsigned long) (l) >> (shift))
 #define __ll_LeftShift32(l, shift) ((unsigned long) (l) << (shift))
 #define __ll_and(left, right) ((unsigned long) (left) & (unsigned long) (right))
-#define __ll_and32(left, right) ((unsigned long) (left) & (right))
-#define __ll_is_positive(v) (v > 0)
-#define __ll_is_zero(v) (v == 0)
-#define __ll_is_greater(l,r) (l > r)
-#define __ll_is_less(l,r) (l < r)
+#define __ll_and32(left, right) ((unsigned long) (left) & (unsigned long)(right))
+#define __ll_is_positive(v) ((v) > 0)
+#define __ll_is_zero(v) ((v) == 0)
+#define __ll_is_greater(l,r) ((l) > (r))
+#define __ll_is_less(l,r) ((l) < (r))
 #define __ll_low(l)	(l)
 #define __ll_high(l)	(0)
 #define __ll_constructor(h,l)	(l)

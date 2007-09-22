@@ -205,6 +205,103 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
 	},
+
+	{	/* 9 */
+		.chipId = SPANSION_S30ML512P_08,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION S30ML512P_08",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 10 */
+		.chipId = SPANSION_S30ML512P_16,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION S30ML512P_16",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 11 */
+		.chipId = SPANSION_S30ML256P_08,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION S30ML256P_08",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 12 */
+		.chipId = SPANSION_S30ML256P_16,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION S30ML256P_16",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 13 */
+		.chipId = SPANSION_S30ML128P_08,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION S30ML128P_08",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 14 */
+		.chipId = SPANSION_S30ML128P_16,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION S30ML128P_16",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 15 */
+		.chipId = SPANSION_S30ML01GP_08,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION_S30ML01GP_08",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 16 */
+		.chipId = SPANSION_S30ML01GP_16,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION_S30ML01GP_16",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 17 */
+		.chipId = SPANSION_S30ML02GP_08,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION_S30ML02GP_08",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 18 */
+		.chipId = SPANSION_S30ML02GP_16,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION_S30ML02GP_16",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 19 */
+		.chipId = SPANSION_S30ML04GP_08,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION_S30ML04GP_08",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
+	{	/* 20 */
+		.chipId = SPANSION_S30ML04GP_16,
+		.mafId = FLASHTYPE_SPANSION,
+		.chipIdStr = "SPANSION_S30ML04GP_16",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+	},
+
 #if 0
 	{	/* 9 */
 		.chipId = SAMSUNG_K9K8G08UOA,
@@ -471,9 +568,7 @@ if (gdebug) printk("%s: pucFlash=%p, len=%d\n", __FUNCTION__, pucFlash, len);
 	for (i=0; i< (len>>2); i++) {
 		pDest[i] = /* THT 8/29/06  cpu_to_be32 */(pSrc[i]);
 	}
-#endif
 
-#if 0
 
 	/*
 	 * Take care of the trailing odd bytes.  
@@ -506,7 +601,7 @@ static int brcmnand_to_flash_memcpy32(struct brcmnand_chip* chip, L_OFF_T offset
 	//int i;
 	//uint32_t* pDest = (uint32_t*) flash;
 	//uint32_t* pSrc = (uint32_t*) src;
-	
+#if 0 
 	if (unlikely((unsigned long) flash & 0x3)) {
 		printk(KERN_ERR "brcmnand_memcpy32 dest=%p not DW aligned\n", flash);
 		return -EINVAL;
@@ -519,6 +614,7 @@ static int brcmnand_to_flash_memcpy32(struct brcmnand_chip* chip, L_OFF_T offset
 		printk(KERN_ERR "brcmnand_memcpy32 len=%d not DW aligned\n", len);
 		return -EINVAL;
 	}
+#endif
 
 #if 1
 	// Use memcpy to take advantage of Prefetch
@@ -2817,6 +2913,9 @@ static int brcmnand_default_block_markbad(struct mtd_info *mtd, loff_t ofs)
 	// Lock already held by caller, so cant call mtd->write_oob directly
 	ret = chip->write_page_oob(mtd, buf, page);
 	
+
+	// Ignoring ret.  Even if we fail to write the BI bytes, just ignore it, and mark the block as bad in the BBT
+	brcmnand_update_bbt(mtd, ulofs);
 	if (!ret)
 		mtd->ecc_stats.badblocks++;
 	return ret;
@@ -3132,51 +3231,79 @@ static int brcmnand_probe(struct mtd_info *mtd, unsigned int chipSelect)
 
 	nand_config = chip->ctrl_read(BCHP_NAND_CONFIG);
 
+	/*
+	 * Special treatment for Spansion OrNand chips which do not conform to standard ID
+	 */
+
+	chip->disableECC = 0;
+	if (FLASHTYPE_SPANSION == brcmnand_maf_id) {
+		unsigned char devId3rdByte =  (chip->device_id >> 8) & 0xff;
+
+		switch (devId3rdByte) {
+			case 0x04:
+			case 0x00:
+				/* ECC Needed, device with up to 2% bad blocks */
+				break;
+
+			case 0x01:
+			case 0x03:
+				/* ECC NOT Needed, device is 100% valid blocks */
+				chip->disableECC = 1;
+				break;
+		}
+
+		/* Correct erase Block Size to read 512K for all Spansion OrNand chips */
+		nand_config &= ~(0x3 << 28);
+		nand_config |= (0x3 << 28); // bit 29:28 = 3 ===> 512K erase block
+		chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);
+	} else {
+
 #if CONFIG_MTD_BRCMNAND_VERSION == CONFIG_MTD_BRCMNAND_VERS_0_0
-	// Workaround for bug in 7400A0 returning invalid config
-	switch(i) { 
-	case 0: /* SamSung NAND 1Gbit */
-	case 1: /* ST NAND 1Gbit */
-	case 4:
-	case 5:
-		/* Large page, 128K erase block
-		PAGE_SIZE = 0x1 = 1b = PG_SIZE_2KB
-		BLOCK_SIZE = 0x1 = 01b = BK_SIZE_128KB
-		DEVICE_SIZE = 0x5 = 101b = DVC_SIZE_128MB
-		DEVICE_WIDTH = 0x0 = 0b = DVC_WIDTH_8
-		FUL_ADR_BYTES = 5 = 101b
-		COL_ADR_BYTES = 2 = 010b
-		BLK_ADR_BYTES = 3 = 011b
-		*/
-		nand_config &= ~0x30000000;
-		nand_config |= 0x10000000; // bit 29:28 = 1 ===> 128K erase block
-		//nand_config = 0x55042200; //128MB, 0x55052300  for 256MB
-		chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);
+		// Workaround for bug in 7400A0 returning invalid config
+		switch(i) { 
+			case 0: /* SamSung NAND 1Gbit */
+			case 1: /* ST NAND 1Gbit */
+			case 4:
+			case 5:
+				/* Large page, 128K erase block
+				   PAGE_SIZE = 0x1 = 1b = PG_SIZE_2KB
+				   BLOCK_SIZE = 0x1 = 01b = BK_SIZE_128KB
+				   DEVICE_SIZE = 0x5 = 101b = DVC_SIZE_128MB
+				   DEVICE_WIDTH = 0x0 = 0b = DVC_WIDTH_8
+				   FUL_ADR_BYTES = 5 = 101b
+				   COL_ADR_BYTES = 2 = 010b
+				   BLK_ADR_BYTES = 3 = 011b
+				 */
+				nand_config &= ~0x30000000;
+				nand_config |= 0x10000000; // bit 29:28 = 1 ===> 128K erase block
+				//nand_config = 0x55042200; //128MB, 0x55052300  for 256MB
+				chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);
 
-		break;
+				break;
 
-	case 2:
-	case 3:
-		/* Small page, 16K erase block
-		PAGE_SIZE = 0x0 = 0b = PG_SIZE_512B
-		BLOCK_SIZE = 0x0 = 0b = BK_SIZE_16KB
-		DEVICE_SIZE = 0x5 = 101b = DVC_SIZE_128MB
-		DEVICE_WIDTH = 0x0 = 0b = DVC_WIDTH_8
-		FUL_ADR_BYTES = 5 = 101b
-		COL_ADR_BYTES = 2 = 010b
-		BLK_ADR_BYTES = 3 = 011b
-		*/
-		nand_config &= ~0x70000000;
-		chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);
+			case 2:
+			case 3:
+				/* Small page, 16K erase block
+				   PAGE_SIZE = 0x0 = 0b = PG_SIZE_512B
+				   BLOCK_SIZE = 0x0 = 0b = BK_SIZE_16KB
+				   DEVICE_SIZE = 0x5 = 101b = DVC_SIZE_128MB
+				   DEVICE_WIDTH = 0x0 = 0b = DVC_WIDTH_8
+				   FUL_ADR_BYTES = 5 = 101b
+				   COL_ADR_BYTES = 2 = 010b
+				   BLK_ADR_BYTES = 3 = 011b
+				 */
+				nand_config &= ~0x70000000;
+				chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);
 
-		break;
-	
-	default:
-		printk(KERN_ERR "%s: DevId %08x not supported\n", __FUNCTION__, (unsigned int) chip->device_id);
-		BUG();
-		break;
-	}
+				break;
+
+			default:
+				printk(KERN_ERR "%s: DevId %08x not supported\n", __FUNCTION__, (unsigned int) chip->device_id);
+				BUG();
+				break;
+		}
 #endif
+	}
 	brcmnand_decode_config(chip, nand_config);
 
 	// Also works for dummy entries, but no adjustments possible
@@ -3193,6 +3320,9 @@ static int brcmnand_probe(struct mtd_info *mtd, unsigned int chipSelect)
 
 	/* Fix me: When we have both a NOR and NAND flash on board */
 	/* For now, we will adjust the mtd->size for version 0.0 and 0.1 later in scan routine */
+
+	if (chip->numchips == 0) 
+		chip->numchips = 1;
 	chip->mtdSize = __ll_mult32(chip->chipSize, chip->numchips);
 	mtd->size = __ll_low(chip->mtdSize); // Nothing we can do really
 	//mtd->size_hi = __ll_high(chip->mtdSize);
@@ -3276,7 +3406,7 @@ brcmnand_sort_chipSelects(struct mtd_info *mtd , int maxchips, int* argNandCS, i
 
 	chip->numchips = 0;
 	for (i=0; i<MAX_NAND_CS; i++) {
-		cs[i] = -1;
+		chip->CS[i] = cs[i] = -1;
 	}
 	for (i=0; i<maxchips; i++) {
 		cs[argNandCS[i]] = argNandCS[i];
@@ -3284,7 +3414,7 @@ brcmnand_sort_chipSelects(struct mtd_info *mtd , int maxchips, int* argNandCS, i
 	for (i=0; i<MAX_NAND_CS;i++) {
 		if (cs[i] != -1) {
 			chip->CS[chip->numchips++] = cs[i];
-			printk("CS[%d] = %d\n", i, cs[i]);
+			printk("i=%d, CS[%d] = %d\n", i, chip->numchips-1, cs[i]);
 		}
 	}
 
@@ -3310,6 +3440,8 @@ brcmnand_validate_cs(struct mtd_info *mtd )
 				chip->CS[0], chip->device_id, chip->CS[i], dev_id);
 			return 1;
 		}
+		printk("Found NAND chip on Chip Select %d, chipSize=%dMB, usable size=%dMB, base=%08x\n", 
+			chip->CS[i], chip->chipSize>>20, mtd->size>>20, chip->pbase);
 	}
 	return 0;
 }
@@ -3412,9 +3544,11 @@ int brcmnand_scan(struct mtd_info *mtd , int maxchips )
 		chip->numchips = 1;
 	}
 	else { // Chip Select via Kernel parameters, currently the only way to allow more than one CS to be set
-		cs = chip->numchips = gNumNand;
+		//cs = chip->numchips = gNumNand;
 		if (brcmnand_sort_chipSelects(mtd, maxchips, gNandCS, chip->CS))
 			return (-EINVAL);
+		cs = chip->CS[chip->numchips - 1];
+PRINTK("gNumNand=%d, cs=%d\n", gNumNand, cs);
 	}
 	
 #endif
@@ -3438,7 +3572,7 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 		volatile unsigned long wr_protect;
 		volatile unsigned long acc_control;
 
-		
+		chip->numchips = 1;
 		if (chip->chipSize >= (128 << 20)) {
 			chip->pbase = 0x11000000; /* Skip 16MB EBI Registers */
 			mtd->size = chip->chipSize - (16<<20); // Maximum size on a 128MB/256MB flash
@@ -3488,6 +3622,8 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 	else {
 		/* NAND chip on Chip Select 0 */
 		chip->CS[0] = 0;
+	
+		chip->numchips = 1;
 	
 		/* Set up base, based on flash size */
 		if (chip->chipSize >= (256 << 20)) {

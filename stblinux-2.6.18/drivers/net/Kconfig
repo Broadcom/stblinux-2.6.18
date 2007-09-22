@@ -212,17 +212,27 @@ config BCMINTEMAC
 	depends on MIPS_BCM7110 || MIPS_BCM7111
 	select CRC32
 	help 
-	  Broadcom Inernal MAC 100 Mbps Ethernet controller BCM97110,97111-DSG STB
+	  Broadcom Internal MAC 100 Mbps Ethernet controller BCM97110,97111-DSG STB
 	  
 config BCMINTEMAC_7038
 	tristate "Broadcom Internal Ethernet (ISB) support"
 	depends on NET_ETHERNET
-	depends on MIPS_BCM7038 || MIPS_BCM7318 || MIPS_BCM7401 || MIPS_BCM7400 || MIPS_BCM7402 || MIPS_BCM7402S || MIPS_BCM7440 || MIPS_BCM7402B0S || MIPS_BCM7403
+	depends on MIPS_BCM7038 || MIPS_BCM7318 || MIPS_BCM7401 || MIPS_BCM7400 || MIPS_BCM7402 || MIPS_BCM7402S || MIPS_BCM7440 || MIPS_BCM7402B0S || MIPS_BCM7403 || MIPS_BCM7405
 	select CRC32
 	help 
 	  Broadcom Internal MAC 100 Mbps Ethernet controller 
-	  for BCM97038, BCM97318, bcm7400 & BCM7401 STBs
-	  	
+	  for BCM97038, BCM97318, bcm7400, BCM7401 & BCM7405 STBs
+
+config BCMINTEMAC_7038_STREAMING
+	bool "Extra buffers for Broadcom streaming"
+	depends on BCMINTEMAC_7038
+	help
+	  Say Y to allocate extra RX buffers (NR_RX_BDS * 12) to support
+	  network-intensive streaming and home DLNA applications.
+	  The default is to allocate (NR_RX_BDS * 4), which conserves
+	  kernel memory.
+
+	  If unsure, say N.
 
 source "drivers/net/arm/Kconfig"
 

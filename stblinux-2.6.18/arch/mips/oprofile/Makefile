@@ -21,3 +21,4 @@ oprofile-$(CONFIG_MIPS_BCM7401)			+= op_model_brcm3300.o
 oprofile-$(CONFIG_MIPS_BCM7403)			+= op_model_brcm3300.o
 oprofile-$(CONFIG_MIPS_BCM7118)			+= op_model_brcm3300.o
 oprofile-$(CONFIG_MIPS_BCM7400)			+= op_model_brcm4350.o
+oprofile-$(CONFIG_MIPS_BCM7405)			+= op_model_brcm4350.o

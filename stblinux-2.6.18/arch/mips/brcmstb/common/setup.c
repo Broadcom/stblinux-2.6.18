@@ -66,6 +66,7 @@ extern struct kbd_ops brcm_kbd_ops;
 #endif
 
 extern void uart_puts(const char*);
+extern void brcm_numa_init(void);
 
 void __init bus_error_init(void) { /* nothing */ }
 
@@ -79,7 +80,8 @@ static void brcm_machine_restart(char *command)
 	|| defined( CONFIG_MIPS_BCM3560 ) || defined( CONFIG_MIPS_BCM7038C0 ) \
 	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7402S ) \
 	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 )  \
-        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 )
+        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 ) \
+	|| defined( CONFIG_MIPS_BCM7405 )
 #define SUN_TOP_CTRL_RESET_CTRL		0xb0404008
 #define MASTER_RESET_ENABLE 		(1<<3)
   
@@ -90,7 +92,8 @@ static void brcm_machine_restart(char *command)
   #elif defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401B0 ) \
   	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7440 ) \
 	|| defined(CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7118A0 ) \
-        || defined(CONFIG_MIPS_BCM7403A0) || defined( CONFIG_MIPS_BCM7452A0 )
+        || defined(CONFIG_MIPS_BCM7403A0) || defined( CONFIG_MIPS_BCM7452A0 ) \
+	|| defined(CONFIG_MIPS_BCM7405A0)
   #define SUN_TOP_CTRL_SW_RESET		0xb0404014
   #endif
 #define CHIP_MASTER_RESET 			(1<<31)
@@ -188,7 +191,7 @@ void __init plat_mem_setup(void)
 	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM3560 ) \
 	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
 	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 ) \
-        || defined( CONFIG_MIPS_BCM7403 )
+        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7405 )
 	
 	set_io_port_base(0xf0000000);  /* start of PCI IO space. */
 #elif defined( CONFIG_MIPS_BCM7329 )
@@ -221,6 +224,10 @@ void __init plat_mem_setup(void)
 #endif
 #ifdef CONFIG_VT
 	conswitchp = &dummy_con;
+#endif
+
+#ifdef CONFIG_DISCONTIGMEM
+        brcm_numa_init();
 #endif
 }
 

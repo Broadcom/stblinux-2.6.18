@@ -3348,7 +3348,15 @@ static __always_inline void *__do_kmalloc(size_t size, gfp_t flags,
 	cachep = __find_general_cachep(size, flags);
 	if (unlikely(cachep == NULL))
 		return NULL;
+#ifndef CONFIG_KLOB
+	{
+		void *objp = __cache_alloc(cachep, flags, caller);
+		kmalloc_account(objp, obj_size(cachep), size);
+		return(objp);
+	}
+#else
 	return __cache_alloc(cachep, flags, caller);
+#endif
 }
 
 
@@ -3448,10 +3456,18 @@ EXPORT_SYMBOL(kmem_cache_free);
  * Don't free memory not originally allocated by kmalloc()
  * or you will run into trouble.
  */
+#ifdef CONFIG_KLOB
+void __kfree(const void *objp)
+#else
 void kfree(const void *objp)
+#endif
 {
 	struct kmem_cache *c;
 	unsigned long flags;
+
+#ifndef CONFIG_KLOB
+	kfree_account(objp, ksize(objp));
+#endif
 
 	if (unlikely(!objp))
 		return;
@@ -3462,7 +3478,9 @@ void kfree(const void *objp)
 	__cache_free(c, (void *)objp);
 	local_irq_restore(flags);
 }
+#ifndef CONFIG_KLOB
 EXPORT_SYMBOL(kfree);
+#endif
 
 #ifdef CONFIG_SMP
 /**
@@ -4181,7 +4199,11 @@ struct seq_operations slabstats_op = {
  * allocated with either kmalloc() or kmem_cache_alloc(). The object
  * must not be freed during the duration of the call.
  */
+#ifdef CONFIG_KLOB
+unsigned int __ksize(const void *objp)
+#else
 unsigned int ksize(const void *objp)
+#endif
 {
 	if (unlikely(objp == NULL))
 		return 0;

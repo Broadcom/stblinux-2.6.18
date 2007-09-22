@@ -98,6 +98,8 @@ EXPORT_SYMBOL(isa_slot_offset);
 static struct resource code_resource = { .name = "Kernel code", };
 static struct resource data_resource = { .name = "Kernel data", };
 
+extern unsigned long g_board_RAM_size;
+
 void __init add_memory_region(phys_t start, phys_t size, long type)
 {
 	int x = boot_mem_map.nr_map;
@@ -367,7 +369,7 @@ static void brcm_print_memory_map(void)
 /*
  * By default, set the kernel to use 32MB if the user does not specify mem=nnM on the command line
  */
-static inline void brcm_default_boot_mem()
+static inline void brcm_default_boot_mem(void)
 {
 	int ramSizeMB = get_RAM_size() >> 20;
 	int size;
@@ -444,7 +446,7 @@ static void inline brcm_reserve_bootmem_node(unsigned long firstUsableAddr)
 				brcm_mmap.map[i].size);	
 			printk(KERN_NOTICE "Reserving %ld MB upper memory starting at %08x\n", 
 				brcm_mmap.map[i].size >> 20,
-				brcm_mmap.map[i].addr);
+				(unsigned int)brcm_mmap.map[i].addr);
 #endif
 		}
 
@@ -613,10 +615,6 @@ static inline int parse_rd_cmdline(unsigned long* rd_start, unsigned long* rd_en
 	return 0;
 }
 
-#define PFN_UP(x)	(((x) + PAGE_SIZE - 1) >> PAGE_SHIFT)
-#define PFN_DOWN(x)	((x) >> PAGE_SHIFT)
-#define PFN_PHYS(x)	((x) << PAGE_SHIFT)
-
 #define MAXMEM		HIGHMEM_START
 #define MAXMEM_PFN	PFN_DOWN(MAXMEM)
 
@@ -626,7 +624,11 @@ static inline void bootmem_init(void)
 	unsigned long reserved_end = (unsigned long)&_end;
 #ifndef CONFIG_SGI_IP27
 	unsigned long first_usable_pfn;
+#ifdef CONFIG_DISCONTIGMEM
+	unsigned long bootmap_size[NR_NODES];
+#else
 	unsigned long bootmap_size;
+#endif
 	int i;
 #endif
 	unsigned long firstUsableAddr;
@@ -724,8 +726,28 @@ static inline void bootmem_init(void)
 	}
 #endif
 
+#ifndef CONFIG_DISCONTIGMEM
 	/* Initialize the boot-time allocator with low memory only.  */
 	bootmap_size = init_bootmem(first_usable_pfn, max_low_pfn);
+#else
+	min_low_pfn = first_usable_pfn;
+	if(g_board_RAM_size <= LOWER_RAM_SIZE) {
+		bootmap_size[0] = init_bootmem_node(NODE_DATA(0),
+						    first_usable_pfn,
+						    PFN_UP(0),
+						    PFN_DOWN(g_board_RAM_size));
+		bootmap_size[1] = 0;
+	} else {
+		bootmap_size[0] = init_bootmem_node(NODE_DATA(0),
+			first_usable_pfn,
+			PFN_UP(0),
+			PFN_DOWN(LOWER_RAM_SIZE));
+		bootmap_size[1] = init_bootmem_node(NODE_DATA(1),
+			PFN_UP(UPPER_RAM_BASE),
+			PFN_UP(UPPER_RAM_BASE),
+			PFN_DOWN(UPPER_RAM_BASE + g_board_RAM_size - LOWER_RAM_SIZE));
+	}
+#endif
 
 	/*
 	 * Register fully available low RAM pages with the bootmem allocator.
@@ -776,8 +798,12 @@ static inline void bootmem_init(void)
 			continue;
 
 		/* Register lowmem ranges */
+#ifndef CONFIG_DISCONTIGMEM
 		free_bootmem(PFN_PHYS(curr_pfn), PFN_PHYS(size));
-		//memory_present(0, curr_pfn, curr_pfn + size - 1);
+#else
+		free_bootmem_node(NODE_DATA(pa_to_nid(PFN_PHYS(curr_pfn))),
+			PFN_PHYS(curr_pfn), PFN_PHYS(size));
+#endif
 	}
 
 	/* Reserve the bootmap memory.  */
@@ -788,7 +814,8 @@ static inline void bootmem_init(void)
 #else
 	
 	reserve_bootmem_node(NODE_DATA(0), PFN_PHYS(first_usable_pfn), bootmap_size[0]);
-	reserve_bootmem_node(NODE_DATA(1), 0x20000000, bootmap_size[1]);
+	if(bootmap_size[1])
+		reserve_bootmem_node(NODE_DATA(1), UPPER_RAM_BASE, bootmap_size[1]);
 	firstUsableAddr = PFN_PHYS(first_usable_pfn) + bootmap_size[0];
 
 #endif
@@ -933,6 +960,10 @@ void __init setup_arch(char **cmdline_p)
 	cpu_probe();
 	prom_init();
 	cpu_report();
+#ifdef CONFIG_DISCONTIGMEM
+	cpu_cache_init();
+	tlb_init();
+#endif
 
 #if defined(CONFIG_VT)
 #if defined(CONFIG_VGA_CONSOLE)

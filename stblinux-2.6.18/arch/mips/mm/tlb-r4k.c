@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
+#include <linux/mmzone.h>
 
 #include <asm/cpu.h>
 #include <asm/bootinfo.h>
@@ -34,10 +35,20 @@ extern void build_tlb_refill_handler(void);
 				     "nop; nop; nop; nop; nop; nop;\n\t" \
 				     ".set reorder\n\t")
 
+#ifdef DPRINTK
+#undef DPRINTK
+#endif
+#if 0
+#define DPRINTK printk
+#else
+#define DPRINTK(...) do { } while(0)
+#endif
+
 #if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM3560 ) \
 	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401 ) \
 	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7118 ) \
-	|| defined( CONFIG_MIPS_BCM7440 ) || defined( CONFIG_MIPS_BCM7403 )
+	|| defined( CONFIG_MIPS_BCM7440 ) || defined( CONFIG_MIPS_BCM7403 ) \
+	|| defined( CONFIG_MIPS_BCM7405 )
 
 #ifdef CONFIG_MIPS_BCM7038A0
 #include <asm/brcmstb/brcm97038/bchp_pci_cfg.h>
@@ -71,6 +82,11 @@ extern void build_tlb_refill_handler(void);
 #include <asm/brcmstb/brcm97400b0/bchp_pcix_bridge.h>
 #include <asm/brcmstb/brcm97400b0/bchp_pci_cfg.h>
 #include <asm/brcmstb/brcm97400b0/boardmap.h>
+
+#elif defined(CONFIG_MIPS_BCM7405A0)
+#include <asm/brcmstb/brcm97405a0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97405a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97405a0/boardmap.h>
 
 #elif defined(CONFIG_MIPS_BCM7401B0) || defined(CONFIG_MIPS_BCM7402A0)
 #include <asm/brcmstb/brcm97401b0/bchp_pci_cfg.h>
@@ -172,7 +188,84 @@ void local_init_tlb(void)
 #endif
 
 
-#if defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7440 )
+#if defined(CONFIG_DISCONTIGMEM) && defined(CONFIG_MIPS_BCM7405)
+{
+	/*
+	 * 7405 with DISCONTIG:
+	 *
+	 * 0000_0000 - 7fff_ffff - USER
+	 * 8000_0000 - 8fff_ffff - kseg0 - DDR_0 (256MB @ 0000_0000)
+	 * 9000_0000 - 9fff_ffff - kseg0 - EBI/Registers (256MB)
+	 * a000_0000 - afff_ffff - kseg1 - DDR_0 (256MB @ 0000_0000)
+	 * b000_0000 - bfff_ffff - kseg1 - EBI/Registers (256MB)
+	 * c000_0000 - cfff_ffff - vmalloc, kernel modules, etc. (256MB)
+	 * d000_0000 - dfff_ffff - PCI MEM (256MB)
+	 * e000_0000 - efff_ffff - DDR_0 (256MB @ 2000_0000)
+	 * f000_0000 - f060_000b - PCI I/O (6MB)
+	 * ff20_0000 - ff3f_ffff - EJTAG
+	 * ff40_0000 - ffff_ffff - FIXMAP, etc.
+	 */
+
+	local_irq_save(flags);
+	old_ctx = (read_c0_entryhi() & 0xff);
+	entry = wired = 0;
+
+#define ATTR_UNCACHED	0x17
+#define ATTR_CACHED	0x1f
+#define WR_TLB(va, pa0, pa1, attr) do \
+	{ \
+		hi = ((va) & 0xffffe000); \
+		lo0 = (((pa0) >> (4+2)) & 0x3fffffc0) | (attr); \
+		lo1 = (((pa1) >> (4+2)) & 0x3fffffc0) | (attr); \
+		write_c0_entrylo0(lo0); \
+		write_c0_entrylo1(lo1); \
+		BARRIER; \
+		write_c0_entryhi(hi); \
+		write_c0_index(entry); \
+		BARRIER; \
+		tlb_write_indexed(); \
+		BARRIER; \
+		entry++; \
+	} while(0)
+
+	write_c0_pagemask(PM_64M);	/* each entry has 2x 64MB mappings */
+
+	WR_TLB(PCI_MEM_WIN_BASE,
+		CPU2PCI_CPU_PHYS_MEM_WIN_BASE,
+		CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_64MBYTES,
+		ATTR_UNCACHED);
+	WR_TLB(PCI_MEM_WIN_BASE + OFFSET_128MBYTES,
+		CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_128MBYTES,
+		CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_128MBYTES + OFFSET_64MBYTES,
+		ATTR_UNCACHED);
+	WR_TLB(UPPER_RAM_VBASE,
+		UPPER_RAM_BASE,
+		UPPER_RAM_BASE + OFFSET_64MBYTES,
+		ATTR_CACHED);
+	WR_TLB(UPPER_RAM_VBASE + OFFSET_128MBYTES,
+		UPPER_RAM_BASE + OFFSET_128MBYTES,
+		UPPER_RAM_BASE + OFFSET_128MBYTES + OFFSET_64MBYTES,
+		ATTR_CACHED);
+
+	write_c0_pagemask(PM_4M);
+	WR_TLB(PCI_IO_WIN_BASE,
+		PCI_IO_WIN_BASE,
+		PCI_IO_WIN_BASE + OFFSET_4MBYTES,
+		ATTR_UNCACHED);
+
+#undef WR_TLB
+#undef ATTR_CACHED
+#undef ATTR_UNCACHED
+
+	/* restore original state; save new wired index */
+	write_c0_pagemask(PM_4K);
+	write_c0_entryhi(old_ctx);
+	write_c0_wired(entry);
+
+	local_irq_restore(flags);
+}
+#elif defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7440 ) || \
+      defined( CONFIG_MIPS_BCM7405 )
 /* Use 64MB page size mapping */
 	write_c0_pagemask(PM_64M);  /* The next best thing we can have since 256MB does not work */
 
@@ -1056,11 +1149,11 @@ printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
 	*((volatile unsigned long *)PCI_CFG_CPU_2_PCI_IO_WIN) = 0x00000000;
 	//*((volatile unsigned long *)PCI_REG_PCI_CTRL) |= 0x04;
 
-#elif defined( CONFIG_MIPS_BCM7400B0)
+#elif defined( CONFIG_MIPS_BCM7400B0) || defined( CONFIG_MIPS_BCM7405A0 )
 
 	local_init_tlb();
 
-	// tht 3/01/07: The external PCI bus remains the same between 7400A0/7440A0-B0 and 7400B0.
+	// tht 3/01/07: The external PCI bus remains the same between 7400A0/7440A0-B0, 7400B0 and 7405A0.
   
 #define MIPS_PCI_SATA_XCFG_INDEX     (0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)
 #define MIPS_PCI_SATA_XCFG_DATA      (0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)
@@ -1068,7 +1161,7 @@ printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
 	// THT & Chanshine: Setup PCIX Bridge
 	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_REVISION)) = 0x100;     // 10500200H	
 
-printk("######### SUN_TOP_CTRL_SW_RESET @%08x = %08x\n", 
+DPRINTK("######### SUN_TOP_CTRL_SW_RESET @%08x = %08lx\n", 
 	0xb0000000+0x00404014, *((volatile unsigned long *)(0xb0000000+0x00404014)));
 
 	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_CTRL)) = 0x33;     // 10500204H=PERR|SERR|BM|MEM
@@ -1087,28 +1180,28 @@ printk("######### SUN_TOP_CTRL_SW_RESET @%08x = %08x\n",
 	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER)) = 0; //10500220
 
 
-printk("######### PCI-X Bridge RevID @%08x = %08x\n", 
+DPRINTK("######### PCI-X Bridge RevID @%08x = %08lx\n", 
 	0xb0000000+BCHP_PCIX_BRIDGE_REVISION, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_REVISION)));
-printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_SATA_CFG_INDEX @%08x = %08x\n", 
+DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_SATA_CFG_INDEX @%08x = %08lx\n", 
 	0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)));
-printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_SATA_CFG_DATA @%08x = %08x\n", 
+DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_SATA_CFG_DATA @%08x = %08lx\n", 
 	0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)));
-printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE @%08x = %08x\n", 
+DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE @%08x = %08lx\n", 
 	0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE)));
-printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE @%08x = %08x\n", 
+DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE @%08x = %08lx\n", 
 	0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE)));
-printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE @%08x = %08x\n", 
+DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE @%08x = %08lx\n", 
 	0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE)));
-printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE @%08x = %08x\n", 
+DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE @%08x = %08lx\n", 
 	0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE)));
-printk("######### PCI-X Bridge BCHP_PCIX_BRIDGE_RETRY_TIMER @%08x = %08x\n", 
+DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_RETRY_TIMER @%08x = %08lx\n", 
 	0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER)));
 		
 
 
 		// do a pci config read.
 *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX) = 0x80000000|PCI_DEV_NUM_SATA;
-	printk("$$$$$$$$$$SATA dev id @%08x = %08x\n", MIPS_PCI_SATA_XCFG_DATA, *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_DATA));
+	DPRINTK("$$$$$$$$$$SATA dev id @%08x = %08lx\n", MIPS_PCI_SATA_XCFG_DATA, *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_DATA));
 
 #if 0
 if (0) {
@@ -1117,11 +1210,11 @@ if (0) {
 
 	for(i=0; i<16;i++) {
 	*((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX) = 0x80000000|i<<2; //PCI_DEV_NUM_SATA;
-	printk("$$$$$$$$$$SATA dev id[%d] @%08x = %08x\n", i, *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX), *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_DATA));
+	DPRINTK("$$$$$$$$$$SATA dev id[%d] @%08x = %08x\n", i, *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX), *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_DATA));
 		}
 
 	for (addr=0xb0520000; addr<0xb052003c; addr+=4) {
-		printk("$$$$$$$$$$SATACFG[%08x] = %08x\n", addr, *((volatile unsigned long *) addr));
+		DPRINTK("$$$$$$$$$$SATACFG[%08x] = %08x\n", addr, *((volatile unsigned long *) addr));
 	}
 }
 #endif	
@@ -1165,11 +1258,11 @@ if (0) {
 
 	// do a pci config read.
 	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_1394;
-	printk("$$$$$$$$$$ 1394 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
+	DPRINTK("$$$$$$$$$$ 1394 dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
 	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_MINI;
-	printk("$$$$$$$$$$ mini slot dev id %08x\n", *((volatile unsigned long *)0xf0600008));
+	DPRINTK("$$$$$$$$$$ mini slot dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
 	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
-	printk("$$$$$$$$$$ external dev id %08x\n", *((volatile unsigned long *)0xf0600008));
+	DPRINTK("$$$$$$$$$$ external dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
 
 #elif defined( CONFIG_MIPS_BCM7400A0) || defined( CONFIG_MIPS_BCM7440 )
 	local_init_tlb();
@@ -1413,6 +1506,8 @@ done2:
   #endif /* CONFIG_SATA_SVW */
 #endif /* 7401 */
 
+#ifdef	CONFIG_MIPS_BCM7118A0
 done3:
+#endif
 	build_tlb_refill_handler();
 }

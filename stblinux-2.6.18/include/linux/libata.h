@@ -36,8 +36,15 @@
 #include <linux/workqueue.h>
 #include <scsi/scsi_host.h>
 
-#define         DMAWRITE_BUG
+// jipeng - old sata core require this workaround
+#ifndef	CONFIG_MIPS_BCM7405
+#define	SATA_SVW_BRCM_WA
+#endif
+
+#ifdef	SATA_SVW_BRCM_WA
 extern int dma_write_wa_needed;
+#endif
+
 /*
  * Define if arch has non-standard setup.  This is a _PCI_ standard
  * not a legacy or ISA standard.
@@ -1235,12 +1242,12 @@ static inline u8 ata_busy_wait(struct ata_port *ap, unsigned int bits,
 
 static inline u8 ata_wait_idle(struct ata_port *ap)
 {
-	u8 status = ata_busy_wait(ap, ATA_BUSY | ATA_DRQ, 1000);
+	u8 status = ata_busy_wait(ap, ATA_BUSY | ATA_DRQ, 3000);
 
 	if (status != 0xff && (status & (ATA_BUSY | ATA_DRQ))) {
-		unsigned long l = ap->ioaddr.status_addr;
+		//unsigned long l = ap->ioaddr.status_addr;
 		if (ata_msg_warn(ap))
-			printk(KERN_WARNING "ATA: abnormal status 0x%X on port 0x%p\n",
+			printk(KERN_WARNING "ATA: abnormal status 0x%X on port 0x%lx\n",
 				status, ap->ioaddr.status_addr);
 	}
 

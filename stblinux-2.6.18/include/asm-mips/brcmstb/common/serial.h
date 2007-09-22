@@ -35,7 +35,7 @@
 
 
 #elif defined(CONFIG_MIPS_BCM7400) || defined( CONFIG_MIPS_BCM7118 ) \
-
+	|| defined( CONFIG_MIPS_BCM7405 )
 // Use UARTA as /dev/ttyS0
 #define BRCM_SERIAL1_BASE	UARTA_ADR_BASE
 #define BRCM_SERIAL2_BASE	UARTB_ADR_BASE
@@ -71,7 +71,8 @@
 #define BRCM_SERIAL3_IRQ	BCM_LINUX_UARTC_IRQ
 #define BRCM_SERIAL4_IRQ	BCM_LINUX_UARTD_IRQ
 
-#elif defined( CONFIG_MIPS_BCM7400) || defined( CONFIG_MIPS_BCM7118 )
+#elif defined( CONFIG_MIPS_BCM7400) || defined( CONFIG_MIPS_BCM7118 ) \
+	|| defined( CONFIG_MIPS_BCM7405 )
 #define BRCM_SERIAL3_IRQ	BCM_LINUX_UARTC_IRQ
 
 #endif
@@ -133,7 +134,7 @@
   #endif //7401B0
 
 #elif defined(CONFIG_MIPS_BCM7400) || defined( CONFIG_MIPS_BCM7118 ) \
-	|| defined(CONFIG_MIPS_BCM7440)
+	|| defined(CONFIG_MIPS_BCM7440) || defined(CONFIG_MIPS_BCM7405)
 
 // baud rate = (serial_clock_freq) / (16 * divisor).  
 // The serial clock freq is 81MHz by default.

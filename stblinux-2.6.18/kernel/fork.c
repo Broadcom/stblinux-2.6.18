@@ -76,6 +76,30 @@ int nr_processes(void)
 	return total;
 }
 
+#ifdef CONFIG_KLOB
+/*
+ *  Use a kernel cache for allocating thread_info structures with PAGE ALIGNMENT
+ */
+
+static kmem_cache_t *thread_info_cachep;
+
+#ifdef CONFIG_DEBUG_STACK_USAGE
+#define alloc_thread_info(tsk)						\
+({									\
+	struct thread_info * ret;					\
+	ret = (struct thread_info *)kmem_cache_alloc(			\
+			thread_info_cachep, GFP_KERNEL);		\
+	if (ret)							\
+		memset(ret, 0, THREAD_SIZE);				\
+	ret;
+})
+#else /* CONFIG_DEBUG_STACK_USAGE */
+#define alloc_thread_info(tsk)	kmem_cache_alloc(thread_info_cachep, GFP_KERNEL)
+#endif /* CONFIG_DEBUG_STACK_USAGE */
+
+#define free_thread_info(info)	kmem_cache_free(thread_info_cachep, (info))
+#endif /* CONFIG_KLOB */
+
 #ifndef __HAVE_ARCH_TASK_STRUCT_ALLOCATOR
 # define alloc_task_struct()	kmem_cache_alloc(task_struct_cachep, GFP_KERNEL)
 # define free_task_struct(tsk)	kmem_cache_free(task_struct_cachep, (tsk))
@@ -133,6 +157,13 @@ void __init fork_init(unsigned long mempages)
 	task_struct_cachep =
 		kmem_cache_create("task_struct", sizeof(struct task_struct),
 			ARCH_MIN_TASKALIGN, SLAB_PANIC, NULL, NULL);
+#endif
+
+#ifdef CONFIG_KLOB
+	thread_info_cachep =
+		kmem_cache_create("thread_info", THREAD_SIZE,
+			ARCH_KMALLOC_MINALIGN, (SLAB_HWCACHE_ALIGN|SLAB_PANIC),
+			NULL, NULL);
 #endif
 
 	/*

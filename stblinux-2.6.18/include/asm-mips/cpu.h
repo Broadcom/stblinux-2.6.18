@@ -55,6 +55,7 @@
 #define PRID_IMP_BCM7401        0x0000 /* B0 still have same bug */
 #define PRID_IMP_BCM7403        0x0000 /* bug is still there with 7403 */
 #define PRID_IMP_BCM7400	0xa000
+#define PRID_IMP_BCM7405	0xa000
 #define PRID_IMP_BCM7118	0xa000
 #define PRID_IMP_BCM7440	0xa000
 
@@ -252,6 +253,7 @@
 #define CPU_BCM7401		CPU_BMIPS3300
 #define CPU_BCM7403             CPU_BMIPS3300
 #define CPU_BCM7400		CPU_BMIPS4350
+#define CPU_BCM7405		CPU_BMIPS4350
 #define CPU_BCM7118		CPU_BMIPS4350
 #define CPU_BCM7440		CPU_BMIPS4350
 

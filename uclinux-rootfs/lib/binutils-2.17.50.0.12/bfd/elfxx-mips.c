@@ -3615,7 +3615,6 @@ mips_elf_next_relocation (bfd *abfd ATTRIBUTE_UNUSED, unsigned int r_type,
     }
 
   /* We didn't find it.  */
-  bfd_set_error (bfd_error_bad_value);
   return NULL;
 }
 
@@ -7849,32 +7848,36 @@ _bfd_mips_elf_relocate_section (bfd *output_bfd, struct bfd_link_info *info,
 		     several relocations for the same address.  In
 		     that case, the R_MIPS_LO16 relocation may occur
 		     as one of these.  We permit a similar extension
-		     in general, as that is useful for GCC.  */
+		     in general, as that is useful for GCC.
+
+		     In some cases GCC dead code elimination removes
+		     the LO16 but keeps the corresponding HI16.  */
 		  lo16_relocation = mips_elf_next_relocation (input_bfd,
 							      lo16_type,
 							      rel, relend);
-		  if (lo16_relocation == NULL)
-		    return FALSE;
+		  if (lo16_relocation != NULL)
+		    {
+		      lo16_location = contents + lo16_relocation->r_offset;
 
-		  lo16_location = contents + lo16_relocation->r_offset;
+		      /* Obtain the addend kept there.  */
+		      lo16_howto = MIPS_ELF_RTYPE_TO_HOWTO (input_bfd,
+							    lo16_type, FALSE);
+		      _bfd_mips16_elf_reloc_unshuffle (input_bfd, lo16_type,
+						       FALSE, lo16_location);
+		      l = mips_elf_obtain_contents (lo16_howto,
+						    lo16_relocation,
+						    input_bfd, contents);
+		      _bfd_mips16_elf_reloc_shuffle (input_bfd, lo16_type,
+						     FALSE, lo16_location);
+		      l &= lo16_howto->src_mask;
+		      l <<= lo16_howto->rightshift;
+		      l = _bfd_mips_elf_sign_extend (l, 16);
 
-		  /* Obtain the addend kept there.  */
-		  lo16_howto = MIPS_ELF_RTYPE_TO_HOWTO (input_bfd,
-							lo16_type, FALSE);
-		  _bfd_mips16_elf_reloc_unshuffle (input_bfd, lo16_type, FALSE,
-						   lo16_location);
-		  l = mips_elf_obtain_contents (lo16_howto, lo16_relocation,
-						input_bfd, contents);
-		  _bfd_mips16_elf_reloc_shuffle (input_bfd, lo16_type, FALSE,
-						 lo16_location);
-		  l &= lo16_howto->src_mask;
-		  l <<= lo16_howto->rightshift;
-		  l = _bfd_mips_elf_sign_extend (l, 16);
+		      addend <<= 16;
 
-		  addend <<= 16;
-
-		  /* Compute the combined addend.  */
-		  addend += l;
+		      /* Compute the combined addend.  */
+		      addend += l;
+		    }
 		}
 	      else
 		addend <<= howto->rightshift;

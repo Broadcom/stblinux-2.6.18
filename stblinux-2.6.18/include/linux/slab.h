@@ -131,8 +131,29 @@ extern void *__kmalloc_track_caller(size_t, gfp_t, void*);
  *
  * %__GFP_REPEAT - If allocation fails initially, try once more before failing.
  */
+
+#ifdef CONFIG_KMALLOC_ACCOUNTING
+void __kmalloc_account(const void *, const void *, int, int);
+static void inline kmalloc_account(const void * addr, int size, int req)
+{
+	__kmalloc_account(__builtin_return_address(0), addr, size, req);
+}
+static void inline kfree_account(const void * addr, int size)
+{
+	__kmalloc_account(__builtin_return_address(0), addr, size, -1);
+}
+#else
+#define kmalloc_account(a,b,c)
+#define kfree_account(a,b)
+#endif
+
+#ifdef CONFIG_KLOB
+extern void klob_init(void);
+extern void *kmalloc(size_t size, int flags);
+#else
 static inline void *kmalloc(size_t size, gfp_t flags)
 {
+#ifndef CONFIG_KMALLOC_ACCOUNTING
 	if (__builtin_constant_p(size)) {
 		int i = 0;
 #define CACHE(x) \
@@ -151,8 +172,10 @@ found:
 			malloc_sizes[i].cs_dmacachep :
 			malloc_sizes[i].cs_cachep, flags);
 	}
+#endif /* CONFIG_KMALLOC_ACCOUNTING */
 	return __kmalloc(size, flags);
 }
+#endif /* CONFIG_KLOB */
 
 extern void *__kzalloc(size_t, gfp_t);
 
@@ -181,7 +204,17 @@ found:
 			malloc_sizes[i].cs_dmacachep :
 			malloc_sizes[i].cs_cachep, flags);
 	}
+#ifdef CONFIG_KMALLOC_ACCOUNTING
+	/* make this inline so we get the right return addr */
+	{
+		void *ret = ____kmalloc(size, flags);
+		if(ret)
+			memset(ret, 0, size);
+		return(ret);
+	}
+#else
 	return __kzalloc(size, flags);
+#endif
 }
 
 /**

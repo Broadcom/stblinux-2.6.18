@@ -38,6 +38,13 @@ extern int par_val;
 extern char cfeBootParms[]; 
 extern unsigned long rac_config0, rac_config1, rac_address_range;
 
+#if defined (CONFIG_SMP) && \
+   (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0) || \
+    defined (CONFIG_MIPS_BCM7405))
+/* TDT - 7400SMP CMT WAR */
+#define BRCM_CMT_CACHE_WAR
+#endif
+
 #ifdef CONFIG_CACHE_STATS
 /*
  * NOTE: would be nice to use atomic64_t here, but it doesn't seem to be
@@ -159,7 +166,8 @@ void bcm_local_inv_rac_all(void)
 		local_irq_restore(flags);
 	}
 
-#elif defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440)
+#elif defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440) \
+	|| defined (CONFIG_MIPS_BCM7405)
 #ifndef CONFIG_SMP
 	if (*((volatile unsigned long *)rac_config0) & 0x02)	/* check RAC_D bit in RAC Config Register for TP0 */
 #else
@@ -500,8 +508,7 @@ static void r4k_flush_cache_all(void)
 	if (!cpu_has_dc_aliases)
 		return;
 
-/* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
+#ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_all(NULL);
 #else
 	on_each_cpu(local_r4k_flush_cache_all, NULL, 1, 1);
@@ -529,8 +536,7 @@ static inline void local_r4k___flush_cache_all(void * args)
 
 static void r4k___flush_cache_all(void)
 {
-/* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
+#ifdef BRCM_CMT_CACHE_WAR
 	local_r4k___flush_cache_all(NULL);
 #else
 	on_each_cpu(local_r4k___flush_cache_all, NULL, 1, 1);
@@ -624,7 +630,7 @@ void brcm_r4k_flush_cache_range(struct vm_area_struct *vma, unsigned long start,
 static void r4k_flush_cache_range(struct vm_area_struct *vma,
 	unsigned long start, unsigned long end)
 {
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
+#ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_range(vma);
 #else
 	on_each_cpu(local_r4k_flush_cache_range, vma, 1, 1);
@@ -664,8 +670,7 @@ static void r4k_flush_cache_mm(struct mm_struct *mm)
 	if (!cpu_has_dc_aliases)
 		return;
 
-/* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
+#ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_mm(mm);
 #else
 	on_each_cpu(local_r4k_flush_cache_mm, mm, 1, 1);
@@ -770,8 +775,7 @@ static void r4k_flush_cache_page(struct vm_area_struct *vma,
 	args.pfn = pfn;
 
 
-/* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
+#ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_page(&args);
 #else
 	on_each_cpu(local_r4k_flush_cache_page, &args, 1, 1);
@@ -787,9 +791,7 @@ static inline void local_r4k_flush_data_cache_page(void * addr)
 
 static void r4k_flush_data_cache_page(unsigned long addr)
 {
-/* TDT - 7400SMP CMT WAR */
-/* NOTE: local dcache flush is safe on 7400b0 because the dcache is shared */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
+#ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_data_cache_page((void *) addr);
 #else
 	on_each_cpu(local_r4k_flush_data_cache_page, (void *) addr, 1, 1);
@@ -838,8 +840,7 @@ static void r4k_flush_icache_range(unsigned long start, unsigned long end)
 	args.start = start;
 	args.end = end;
 
-/* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
+#ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_icache_range(&args);
 #else
 	on_each_cpu(local_r4k_flush_icache_range, &args, 1, 1);
@@ -923,8 +924,7 @@ static void r4k_flush_icache_page(struct vm_area_struct *vma,
 	args.vma = vma;
 	args.page = page;
 
-/* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
+#ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_icache_page(&args);
 #else
 	on_each_cpu(local_r4k_flush_icache_page, &args, 1, 1);
@@ -1040,8 +1040,7 @@ static void local_r4k_flush_cache_sigtramp(void * arg)
 
 static void r4k_flush_cache_sigtramp(unsigned long addr)
 {
-/* TDT - 7400SMP CMT WAR */
-#if defined (CONFIG_SMP) && (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0))
+#ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_sigtramp((void *) addr);
 #else
 	on_each_cpu(local_r4k_flush_cache_sigtramp, (void *) addr, 1, 1);

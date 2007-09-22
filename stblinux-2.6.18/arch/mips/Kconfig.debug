@@ -91,4 +91,18 @@ config CACHE_STATS
 	  for all cache flush operations, and display them in /proc/cpuinfo.
 	  If unsure, say N.
 
+config KMALLOC_ACCOUNTING
+	bool "kmalloc accounting"
+	depends on DEBUG_KERNEL
+	help
+	  This option records kmalloc and kfree activity and reports it via
+	  /proc/kmalloc.
+
+config VMALLOC_ACCOUNTING
+	bool "vmalloc accounting"
+	depends on DEBUG_KERNEL
+	help
+	  This option records vmalloc and vfree activity and reports it via
+	  /proc/vmalloc.
+
 endmenu

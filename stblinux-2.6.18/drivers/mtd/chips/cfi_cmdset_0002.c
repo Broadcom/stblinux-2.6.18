@@ -199,6 +199,17 @@ static void fixup_S29GLxxxN_use_write_words(struct mtd_info *mtd, void *param)
 		printk(KERN_INFO "Disabling write buffers for S29GLxxxN\n");
 		mtd->write = cfi_amdstd_write_words;
 	}
+#ifdef  CONFIG_MIPS_BCM7118A0
+        /*
+         * unconditionally enable workaround on 7118a0, because chip probe
+         * might not reliably detect the flash mfr/id
+         */
+        else {
+                printk(KERN_INFO "On 7118A0, disabling write buffers for S29GLxxxN\n");
+                mtd->write = cfi_amdstd_write_words;
+        }
+#endif
+
 }
 
 static void fixup_use_secsi(struct mtd_info *mtd, void *param)
@@ -212,6 +223,10 @@ static void fixup_use_erase_chip(struct mtd_info *mtd, void *param)
 {
 	struct map_info *map = mtd->priv;
 	struct cfi_private *cfi = map->fldrv_priv;
+	
+	printk(KERN_NOTICE "fixup_use_erase_chip\n");
+	
+	
 	if ((cfi->cfiq->NumEraseRegions == 1) &&
 		((cfi->cfiq->EraseRegionInfo[0] & 0xffff) == 0)) {
 		mtd->erase = cfi_amdstd_erase_chip;
@@ -231,7 +246,7 @@ static struct cfi_fixup cfi_fixup_table[] = {
 	{ CFI_MFR_AMD, 0x005F, fixup_use_secsi, NULL, },
 #if !FORCE_WORD_WRITE
 	{ CFI_MFR_ANY, CFI_ID_ANY, fixup_use_write_buffers, NULL, },
-#if ! defined(CONFIG_MIPS_BCM7400B0)
+#if  defined(CONFIG_MIPS_BCM7400A0)
 	/*
          * THT: PR22727: Disable write buffers for S29GLxxxN.
 	 * Placing this after the previous entry will override it.

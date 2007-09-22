@@ -14,7 +14,7 @@
 
 CC=mips-linux-gcc
 
-CFLAGS=-O2 -g  -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include -DHAVE_UNISTD_H -DUSE_MMAP
+CFLAGS=-O2 -g  -fno-builtin -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -DHAVE_UNISTD_H -DUSE_MMAP
 #CFLAGS=-O -DMAX_WBITS=14 -DMAX_MEM_LEVEL=7
 #CFLAGS=-g -DDEBUG
 #CFLAGS=-O3 -Wall -Wwrite-strings -Wpointer-arith -Wconversion \
@@ -33,7 +33,7 @@ RANLIB=mips-linux-ranlib
 TAR=tar
 SHELL=/bin/sh
 
-prefix =/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/romfs
+prefix =/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs
 exec_prefix =${prefix}
 libdir =${exec_prefix}/lib
 includedir =${prefix}/include

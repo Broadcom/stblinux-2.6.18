@@ -52,7 +52,14 @@ ret_value:
 ###################################################################################
 		LEAF(cfe_start)
 		.set	at
-	# Check to see if we were really launched by CFE
+#ifdef CONFIG_KGDB
+	# PR33365: enable JTAG interface for hot attach
+		lui k0, 0xff30
+		li  k1, 0x1a
+		sw  k1, 0(k0)
+#endif
+		
+	#Check to see if we were really launched by CFE
 		sw  a3, cfe_seal
 		li  t0, CFE_SEAL
 		bne t0, a3, done

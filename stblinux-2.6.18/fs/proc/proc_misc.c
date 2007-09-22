@@ -399,6 +399,50 @@ static struct file_operations proc_slabinfo_operations = {
 	.release	= seq_release,
 };
 
+#ifdef CONFIG_KLOB
+extern struct seq_operations klobinfo_op;
+int klobinfo_open(struct inode *inode, struct file *filp)
+{
+	return seq_open(filp, &klobinfo_op);
+}
+static struct file_operations proc_klobinfo_operations = {
+	.open		= klobinfo_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+#endif
+
+#ifdef CONFIG_KMALLOC_ACCOUNTING
+extern struct seq_operations kmalloc_account_op;
+static int kmalloc_account_open(struct inode * inode, struct file * file)
+{
+	return seq_open(file, &kmalloc_account_op);
+}
+
+static struct file_operations proc_kmalloc_account_operations = {
+	.open		= kmalloc_account_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+#endif
+
+#ifdef CONFIG_VMALLOC_ACCOUNTING
+extern struct seq_operations vmalloc_account_op;
+static int vmalloc_account_open(struct inode * inode, struct file * file)
+{
+	return seq_open(file, &vmalloc_account_op);
+}
+
+static struct file_operations proc_vmalloc_account_operations = {
+	.open		= vmalloc_account_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+#endif
+
 #ifdef CONFIG_DEBUG_SLAB_LEAK
 extern struct seq_operations slabstats_op;
 static int slabstats_open(struct inode *inode, struct file *file)
@@ -691,6 +735,15 @@ void __init proc_misc_init(void)
 	create_seq_entry("interrupts", 0, &proc_interrupts_operations);
 #ifdef CONFIG_SLAB
 	create_seq_entry("slabinfo",S_IWUSR|S_IRUGO,&proc_slabinfo_operations);
+#ifdef CONFIG_KLOB
+	create_seq_entry("klobinfo", S_IRUGO, &proc_klobinfo_operations);
+#endif
+#ifdef CONFIG_KMALLOC_ACCOUNTING
+	create_seq_entry("kmalloc", S_IRUGO, &proc_kmalloc_account_operations);
+#endif
+#ifdef CONFIG_VMALLOC_ACCOUNTING
+	create_seq_entry("vmalloc", S_IRUGO, &proc_vmalloc_account_operations);
+#endif
 #ifdef CONFIG_DEBUG_SLAB_LEAK
 	create_seq_entry("slab_allocators", 0 ,&proc_slabstats_operations);
 #endif

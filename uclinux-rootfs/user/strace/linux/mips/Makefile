@@ -19,7 +19,7 @@ WARNFLAGS = -Wall
 CPPFLAGS =
 INCLUDES = -I. -I.. -I$(srcdir)/.. -I../.. -I$(srcdir)
 
-includedir = /opt/toolchains-2.6.12_3.4.6/crosstools_linux-2.6.12.0_gcc-3.4.6-19_uclibc-0.9.28-20050817-20061010/bin/../lib/gcc/mips-linux-uclibc/3.4.6/../../../../mips-linux-uclibc/sys-include
+includedir = /projects/stbtc/crosstools_hf-linux-2.6.18.0_gcc-4.2-5_uclibc-nptl-0.9.29-20070423_20070907/bin/../lib/gcc/mips-linux-uclibc/4.2.0/../../../../mips-linux-uclibc/sys-include
 
 all: ioctlent.h errnoent.h signalent.h syscallent.h
 

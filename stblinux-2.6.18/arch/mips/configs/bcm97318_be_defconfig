@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.18-2.0
-# Sat Jun 16 11:14:46 2007
+# Linux kernel version: 2.6.18-3.0
+# Wed Aug  8 15:58:53 2007
 #
 CONFIG_MIPS=y
 
@@ -31,6 +31,7 @@ CONFIG_MIPS_BCM7318=y
 # CONFIG_MIPS_BCM97456 is not set
 # CONFIG_MIPS_BCM7400AX is not set
 # CONFIG_MIPS_BCM7400AX_NAND is not set
+# CONFIG_MIPS_BCM7405AX is not set
 # CONFIG_MIPS_BCM97456BX is not set
 # CONFIG_MIPS_BCM7400BX is not set
 # CONFIG_MIPS_BCM7400BX_NAND is not set
@@ -237,6 +238,8 @@ CONFIG_FUTEX=y
 CONFIG_EPOLL=y
 CONFIG_SHMEM=y
 CONFIG_SLAB=y
+# CONFIG_KLOB is not set
+# CONFIG_VMALLOC_NOGUARD is not set
 CONFIG_VM_EVENT_COUNTERS=y
 CONFIG_RT_MUTEXES=y
 # CONFIG_TINY_SHMEM is not set
@@ -613,6 +616,7 @@ CONFIG_NETDEVICES=y
 CONFIG_NET_ETHERNET=y
 CONFIG_MII=y
 CONFIG_BCMINTEMAC_7038=y
+# CONFIG_BCMINTEMAC_7038_STREAMING is not set
 # CONFIG_DM9000 is not set
 
 #

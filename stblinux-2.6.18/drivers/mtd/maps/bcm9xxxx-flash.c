@@ -70,9 +70,10 @@ extern int bcm7401Cx_rev;
 extern int bcm7118Ax_rev;
 extern int bcm7403Ax_rev;
 
+static DEFINE_SPINLOCK(bcm9XXXX_lock);
+
 static inline void bcm9XXXX_map_copy_from_16bytes(void *to, unsigned long from, ssize_t len)
 {
-	static DEFINE_SPINLOCK(bcm9XXXX_lock);
 	unsigned long flags;
 	
 	spin_lock_irqsave(&bcm9XXXX_lock, flags);
@@ -84,7 +85,7 @@ static inline void bcm9XXXX_map_copy_from_16bytes(void *to, unsigned long from, 
 	*(volatile unsigned long*)0xbffff880 = 0xFFFF;
 	*(volatile unsigned long*)0xbffff880 = 0xFFFF;
 	*(volatile unsigned long*)0xbffff880 = 0xFFFF;
-	memcpy_fromio(to, from, len);
+	memcpy_fromio(to, (void *)from, len);
 	spin_unlock_irqrestore(&bcm9XXXX_lock, flags);
 }
 
@@ -95,7 +96,6 @@ static map_word bcm9XXXX_map_read(struct map_info *map, unsigned long ofs)
                                  || bcm7403Ax_rev == 0x20)
 	{	
 		map_word r;
-		static DEFINE_SPINLOCK(bcm9XXXX_lock);
 		unsigned long flags;
 	
 		spin_lock_irqsave(&bcm9XXXX_lock, flags);
@@ -125,15 +125,17 @@ static void bcm9XXXX_map_copy_from(struct map_info *map, void *to, unsigned long
 		{
 			while(len >= 16)
 			{
-				bcm9XXXX_map_copy_from_16bytes(to, map->virt + from, 16);
-				(volatile unsigned long*)to += 4;
-				(volatile unsigned long*)from += 4;
+				bcm9XXXX_map_copy_from_16bytes(to,
+					(unsigned long) map->virt + from,
+					16);
+				to += 16;
+				from += 16;
 				len -= 16;
 			}
 		}
 	
 		if(len > 0)
-		bcm9XXXX_map_copy_from_16bytes(to, map->virt + from, len);
+			bcm9XXXX_map_copy_from_16bytes(to, (unsigned long) map->virt + from, len);
 	}	
 	else	
 		memcpy_fromio(to, map->virt + from, len);
@@ -169,6 +171,24 @@ struct map_info bcm9XXXX_map
  * Don't define DEFAULT_SIZE_MB if the platform does not support a standard partition table.
  * Defining it will allow the user to specify flashsize=nnM at boot time for non-standard flash size, however.
  */
+
+#define SMALLEST_FLASH_SIZE	(16<<20)
+#define DEFAULT_RESERVED_SIZE (4<<20)  // CFE areas, from 1FC0_0000H to 2000_0000H
+
+#ifdef CONFIG_MTD_ECM_PARTITION
+#define DEFAULT_OCAP_SIZE		(6<<20)
+#define DEFAULT_AVAIL1_SIZE 	(32<<20)
+#define DEFAULT_ECM_SIZE 		(DEFAULT_OCAP_SIZE+DEFAULT_AVAIL1_SIZE)
+#define AVAIL1_PART				(1)
+#define OCAP_PART				(2)
+#else
+#define DEFAULT_ECM_SIZE		(0)
+#define DEFAULT_OCAP_SIZE		(0)
+#define DEFAULT_AVAIL1_SIZE		(0)
+#endif
+// DEFAULT_SIZE_MB will be defined later based on platforms.
+#define DEFAULT_ROOTFS_SIZE (DEFAULT_SIZE_MB - DEFAULT_RESERVED_SIZE - DEFAULT_ECM_SIZE)
+
 
 static struct mtd_partition bcm9XXXX_parts[] = {
 #ifdef CONFIG_BCM93730   /* BCM937xx STBs with PMON bootloader */
@@ -216,16 +236,14 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 #elif defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) || \
       defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) || \
       defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7118 ) || \
-      defined( CONFIG_MIPS_BCM7452 )
+      defined( CONFIG_MIPS_BCM7452 ) || defined( CONFIG_MIPS_BCM7405 )
 	
 #define DEFAULT_SIZE_MB 32 /* 32MB flash */  
   #if defined( CONFIG_MTD_ECM_PARTITION)
-	{ name: "rootfs",		offset: 0,		    	size: 19*1024*1024 },
-	{ name: "ecmboot",	offset: 0x01300000,	size: 128*1024 },
-	{ name: "dyncfg",		offset: 0x01320000,	size: 128*1024 },
-	{ name: "permcfg",	offset: 0x01340000,	size: 128*1024 },
-	{ name: "docsis0",	offset: 0x01360000,	size: 6*1024*1024 },
-	{ name: "docsis1",	offset: 0x01960000,	size: 2688*1024 },
+	{ name: "rootfs",		offset: 0,		    		size: DEFAULT_ROOTFS_SIZE },
+	{ name: "avail1",		offset: DEFAULT_ROOTFS_SIZE,	size: DEFAULT_AVAIL1_SIZE },
+	{ name: "ocap",		offset: DEFAULT_ROOTFS_SIZE+DEFAULT_AVAIL1_SIZE,	size: DEFAULT_OCAP_SIZE },
+
   #else
 	{ name: "rootfs",		offset: 0,			size: 28*1024*1024 },
   #endif
@@ -240,7 +258,8 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 
 	{ name: "rootfs",		offset: 0,		size: 60*1024*1024 },
 	{ name: "cfe",		offset: 0x03C00000, size: 512*1024 },
-	{ name: "vmlinux",	offset: 0x03C80000, size: 3582*1024 },
+    { name: "vmlinux",      offset: 0x03C80000, size: 3454*1024 },
+    { name: "drmregion",    offset: 0x03FDF800, size:  128*1024 },
 	{ name: "config",		offset: 0x03FFF800,	size: 144 },
 	{ name: "nvram",		offset: 0x03FFF890,	size: 1904 },
 
@@ -271,22 +290,69 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 
 int __init init_bcm9XXXX_map(void)
 {
-	printk(KERN_NOTICE "BCM97XXX flash device: 0x%8x at 0x%8x\n", WINDOW_SIZE, WINDOW_ADDR);
+	unsigned int ecm_size = DEFAULT_ECM_SIZE;
+	unsigned int ocap_size = DEFAULT_OCAP_SIZE;
+	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
+	int i, numparts;
+	
+	printk(KERN_NOTICE "BCM97XXX flash device: 0x%08x @ 0x%08x\n", WINDOW_SIZE, WINDOW_ADDR);
 	bcm9XXXX_map.size = WINDOW_SIZE;
+	numparts = ARRAY_SIZE(bcm9XXXX_parts);
+	
 	/* Adjust partition table */
-#ifdef DEFAULT_SIZE_MB
+#ifdef CONFIG_MTD_ECM_PARTITION
+	if (WINDOW_SIZE < (64<<20)) {
+		ecm_size = DEFAULT_OCAP_SIZE;
+		avail1_size = 0;
+		bcm9XXXX_parts[AVAIL1_PART].size = avail1_size;
+		numparts--;
+	}
+	else {
+		int factor = WINDOW_SIZE / (64 << 20);
+		
+		bcm9XXXX_parts[OCAP_PART].size = ocap_size = factor*DEFAULT_OCAP_SIZE;
+		bcm9XXXX_parts[AVAIL1_PART].size = avail1_size = factor*DEFAULT_AVAIL1_SIZE;
+		ecm_size = ocap_size + avail1_size;
+	}
+
+	bcm9XXXX_parts[0].size = WINDOW_SIZE - (DEFAULT_RESERVED_SIZE + ecm_size);
+printk("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
+	for (i=1; i<ARRAY_SIZE(bcm9XXXX_parts); i++) {
+		/* Skip avail1 if 0 size */
+		if (0 == bcm9XXXX_parts[i].size && i == AVAIL1_PART) {
+			bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i-1].size + bcm9XXXX_parts[i-1].offset;
+			continue;
+		}
+	
+		bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i-1].size + bcm9XXXX_parts[i-1].offset;
+		
+printk("Part[%d] name=%s, size=%x, offset=%x\n", avail1_size ? i : i-1, 
+bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
+	}
+
+	/* Shift partitions 1 up if avail1_size is 0 */
+	if (0 == avail1_size) {
+		for (i=AVAIL1_PART; i < numparts; i++) {
+			bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i+1].offset;
+			bcm9XXXX_parts[i].size = bcm9XXXX_parts[i+1].size;
+		}
+		bcm9XXXX_parts[numparts].offset = 0;
+		bcm9XXXX_parts[numparts].size = 0;
+	}
+
+		
+#elif defined( DEFAULT_SIZE_MB )
 	if (WINDOW_SIZE != (DEFAULT_SIZE_MB << 20)) {
-		int i;
 		
 		bcm9XXXX_parts[0].size += WINDOW_SIZE - (DEFAULT_SIZE_MB << 20);
-//printk("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
+printk("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
 		for (i=1; i<ARRAY_SIZE(bcm9XXXX_parts); i++) {
 			bcm9XXXX_parts[i].offset += WINDOW_SIZE - (DEFAULT_SIZE_MB << 20);
-//printk("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
+printk("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 		}
 	}
 #endif
-	bcm9XXXX_map.virt = (unsigned long)ioremap(WINDOW_ADDR, WINDOW_SIZE);
+	bcm9XXXX_map.virt = ioremap((unsigned long)WINDOW_ADDR, WINDOW_SIZE);
 
 	if (!bcm9XXXX_map.virt) {
 		printk("Failed to ioremap\n");
@@ -299,7 +365,7 @@ int __init init_bcm9XXXX_map(void)
 		return -ENXIO;
 	}
 		
-	add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, sizeof(bcm9XXXX_parts)/sizeof(bcm9XXXX_parts[0]));
+	add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, numparts);
 	bcm9XXXX_mtd->owner = THIS_MODULE;
 	return 0;
 }

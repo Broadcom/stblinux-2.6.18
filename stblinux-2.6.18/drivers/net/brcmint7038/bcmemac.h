@@ -37,12 +37,17 @@
 //#include <linux/tqueue.h>
 #endif
 
+#ifdef CONFIG_BCMINTEMAC_NETLINK 
+#include <linux/rtnetlink.h>	
+#endif	
+
+
 /*---------------------------------------------------------------------*/
 /* specify number of BDs and buffers to use                            */
 /*---------------------------------------------------------------------*/
 #if defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7402C0 )  \
     || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400B0 ) \
-    || defined( CONFIG_MIPS_BCM7452A0 )
+    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405A0 )
 
 #define TOTAL_DESC				256		/* total number of Buffer Descriptors */
 #define RX_RATIO				1/2		/* ratio of RX descriptors number in total */
@@ -58,7 +63,12 @@
 
 #define ENET_MAX_MTU_SIZE       1536    /* Body(1500) + EH_SIZE(14) + VLANTAG(4) + BRCMTAG(6) + FCS(4) = 1528.  1536 is multiple of 256 bytes */
 #define DMA_MAX_BURST_LENGTH    0x40    /* in 32 bit words = 256 bytes  THT per David F, to allow 256B burst */
+
+#ifdef CONFIG_BCMINTEMAC_7038_STREAMING
+#define MAX_RX_BUFS             (NR_RX_BDS * 12)
+#else
 #define MAX_RX_BUFS             (NR_RX_BDS * 4)
+#endif
 
 #define ETH_CRC_LEN             4
 /* misc. configuration */
@@ -68,11 +78,12 @@
 #if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) \
 	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
 	|| defined( CONFIG_MIPS_BCM7402S ) || defined( CONFIG_MIPS_BCM7440 ) \
-        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 )
+        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 ) \
+	|| defined( CONFIG_MIPS_BCM7405 )
 
 #if defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7402C0 ) \
     || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400B0 ) \
-    || defined( CONFIG_MIPS_BCM7452A0 )
+    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405A0 )
  
 #define EMAC_RX_DESC_BASE   	0xb0082800	/* MAC DMA Rx Descriptor word */
 #else
@@ -246,6 +257,9 @@ typedef struct BcmEnet_devctrl {
 #endif
     bool            bIPHdrOptimize;
     int             linkState;
+#ifdef CONFIG_BCMINTEMAC_NETLINK 	
+	struct work_struct link_change_task;
+#endif	
     ethsw_info_t    ethSwitch;          /* external switch */
     ETHERNET_MAC_INFO EnetInfo;
 } BcmEnet_devctrl;

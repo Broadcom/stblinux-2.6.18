@@ -1,6 +1,6 @@
-@(#) BLURB 1.4 96/05/31 15:50:39
+@(#) BLURB 1.5 96/07/06 23:09:45
 
-This is the fourth replacement portmapper release.
+This is the fifth replacement portmapper release.
 
 There is an increasing interest in access control for the NIS, mount
 and other RPC-based services that are normally registered with the

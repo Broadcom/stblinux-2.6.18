@@ -46,11 +46,14 @@ static char sccsid[] = "@(#) from_local.c 1.3 96/05/31 15:52:57";
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <syslog.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifndef TRUE
 #define	TRUE	1
@@ -95,7 +98,7 @@ static int grow_addrs()
 }
 
 /* find_local - find all IP addresses for this host */
-
+int
 find_local()
 {
     struct ifconf ifc;
@@ -153,7 +156,7 @@ find_local()
 }
 
 /* from_local - determine whether request comes from the local system */
-
+int
 from_local(addr)
 struct sockaddr_in *addr;
 {

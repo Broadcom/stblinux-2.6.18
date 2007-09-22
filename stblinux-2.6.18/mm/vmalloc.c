@@ -20,6 +20,123 @@
 #include <asm/uaccess.h>
 #include <asm/tlbflush.h>
 
+/*
+ * Save memory required by  guard page per vmalloced object
+ */
+
+#ifdef CONFIG_VMALLOC_NOGUARD
+#undef VMALLOC_GUARDPAGE
+#else
+#define VMALLOC_GUARDPAGE
+#endif
+
+#ifdef CONFIG_VMALLOC_ACCOUNTING
+#include        <linux/seq_file.h>
+
+struct vmalloc_trace_item {
+	const void * caller;
+	const void * addr;
+	int size;
+	int slack;
+};
+
+#define VMALLOC_TRACE_SIZE 32*1024
+struct vmalloc_trace_item vmalloc_buffer[VMALLOC_TRACE_SIZE];
+struct vmalloc_trace_item * vmalloc_trace_buffer_p = vmalloc_buffer;
+int vmalloc_trace_index = 0;
+int vmalloc_display_index = 0;
+
+
+/*
+ * Tracing stops on display.
+ */
+static void vmalloc_trace_display_start(void)
+{
+	if (vmalloc_display_index == 0) {	/* Stop tracing*/
+		vmalloc_display_index = vmalloc_trace_index;
+		vmalloc_trace_index = VMALLOC_TRACE_SIZE + 1;
+
+		printk("Bootup Trace contains %d records\n\n", vmalloc_display_index );
+        }
+}
+
+static void vmalloc_trace_display_stop(void)
+{
+	if ((vmalloc_trace_buffer_p != (struct vmalloc_trace_item *) NULL)
+	   && (vmalloc_display_index < vmalloc_trace_index)) {
+
+		int i = 1;
+		struct vmalloc_trace_item * item_p = vmalloc_trace_buffer_p;
+		int index = vmalloc_display_index;
+
+		vmalloc_display_index = vmalloc_trace_index;
+
+		printk( "        [ Address ]   Sz=+A|-F  Slack  Caller_Name\n");
+
+		while ( index ) {
+			printk( "%6d. 0x%08x %8d %8d [<%08x>]\n",
+				i++, (int) item_p->addr, item_p->size,
+				item_p->slack, (int)item_p->caller );
+			item_p++;
+			index--;
+		}
+
+		printk("\nDone : total %d items printked\n\n", i-1 );
+	}
+
+	vmalloc_display_index = vmalloc_trace_index;
+}
+
+static void vmalloc_trace_log(const void *caller, const void *addr,
+                              int size, int slack )
+{
+        struct vmalloc_trace_item * item_p;
+
+        if (vmalloc_trace_index >= VMALLOC_TRACE_SIZE)
+                return;
+
+        item_p = vmalloc_trace_buffer_p + vmalloc_trace_index;
+
+        vmalloc_trace_index++;
+
+        item_p->caller = caller;
+        item_p->addr = addr;
+        item_p->size = size;
+        item_p->slack = slack;
+}
+
+static void *as_start(struct seq_file *m, loff_t *pos)
+{
+        loff_t n = *pos;
+
+        if (!n) {
+
+                vmalloc_trace_display_start();
+        }
+        return 0;
+}
+static void *as_next(struct seq_file *m, void *p, loff_t *pos)
+{
+        return 0;
+}
+static void as_stop(struct seq_file *m, void *p)
+{
+        vmalloc_trace_display_stop();
+}
+
+static int as_show(struct seq_file *m, void *p)
+{
+        return 0;
+}
+
+struct seq_operations vmalloc_account_op = {
+        .start  = as_start,
+        .next   = as_next,
+        .stop   = as_stop,
+        .show   = as_show,
+};
+
+#endif
 
 DEFINE_RWLOCK(vmlist_lock);
 struct vm_struct *vmlist;
@@ -145,6 +262,10 @@ int map_vm_area(struct vm_struct *area, pgprot_t prot, struct page ***pages)
 	unsigned long end = addr + area->size - PAGE_SIZE;
 	int err;
 
+#ifndef VMALLOC_GUARDPAGE
+	end -= PAGE_SIZE;	/* Exclude guard page in map */
+#endif
+
 	BUG_ON(addr >= end);
 	pgd = pgd_offset_k(addr);
 	do {
@@ -186,10 +307,12 @@ struct vm_struct *__get_vm_area_node(unsigned long size, unsigned long flags,
 		return NULL;
 	}
 
+#ifdef VMALLOC_GUARDPAGE
 	/*
 	 * We always allocate a guard page.
 	 */
 	size += PAGE_SIZE;
+#endif
 
 	write_lock(&vmlist_lock);
 	for (p = &vmlist; (tmp = *p) != NULL ;p = &tmp->next) {
@@ -363,6 +486,9 @@ void __vunmap(void *addr, int deallocate_pages)
  */
 void vfree(void *addr)
 {
+#ifdef CONFIG_VMALLOC_ACCOUNTING
+	vmalloc_trace_log((void*)__builtin_return_address(0), addr, 0, 0);
+#endif
 	BUG_ON(in_interrupt());
 	__vunmap(addr, 1);
 }
@@ -422,6 +548,11 @@ void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 	struct page **pages;
 	unsigned int nr_pages, array_size, i;
 
+#ifdef CONFIG_VMALLOC_ACCOUNTING
+	unsigned long allocatedsize;
+	unsigned long origsize = area->size;
+#endif
+
 	nr_pages = (area->size - PAGE_SIZE) >> PAGE_SHIFT;
 	array_size = (nr_pages * sizeof(struct page *));
 
@@ -454,6 +585,13 @@ void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 
 	if (map_vm_area(area, prot, &pages))
 		goto fail;
+
+#ifdef CONFIG_VMALLOC_ACCOUNTING
+	allocatedsize = sizeof(struct vm_struct) + ksize(area->pages) +
+		 (area->nr_pages*PAGE_SIZE) + PAGE_SIZE;
+	vmalloc_trace_log((void*)__builtin_return_address(0), area->addr,
+                allocatedsize, allocatedsize - origsize);
+#endif
 	return area->addr;
 
 fail:
@@ -629,8 +767,13 @@ long vread(char *buf, char *addr, unsigned long count)
 	read_lock(&vmlist_lock);
 	for (tmp = vmlist; tmp; tmp = tmp->next) {
 		vaddr = (char *) tmp->addr;
+#ifdef VMALLOC_GUARDPAGE
 		if (addr >= vaddr + tmp->size - PAGE_SIZE)
 			continue;
+#else
+		if (addr >= vaddr + tmp->size)
+			continue;
+#endif
 		while (addr < vaddr) {
 			if (count == 0)
 				goto finished;
@@ -639,7 +782,11 @@ long vread(char *buf, char *addr, unsigned long count)
 			addr++;
 			count--;
 		}
+#ifdef VMALLOC_GUARDPAGE
 		n = vaddr + tmp->size - PAGE_SIZE - addr;
+#else
+		n = vaddr + tmp->size - addr;
+#endif
 		do {
 			if (count == 0)
 				goto finished;
@@ -667,8 +814,13 @@ long vwrite(char *buf, char *addr, unsigned long count)
 	read_lock(&vmlist_lock);
 	for (tmp = vmlist; tmp; tmp = tmp->next) {
 		vaddr = (char *) tmp->addr;
+#ifdef VMALLOC_GUARDPAGE
 		if (addr >= vaddr + tmp->size - PAGE_SIZE)
 			continue;
+#else
+		if (addr >= vaddr + tmp->size)
+			continue;
+#endif
 		while (addr < vaddr) {
 			if (count == 0)
 				goto finished;
@@ -676,7 +828,11 @@ long vwrite(char *buf, char *addr, unsigned long count)
 			addr++;
 			count--;
 		}
+#ifdef VMALLOC_GUARDPAGE
 		n = vaddr + tmp->size - PAGE_SIZE - addr;
+#else
+		n = vaddr + tmp->size - addr;
+#endif
 		do {
 			if (count == 0)
 				goto finished;

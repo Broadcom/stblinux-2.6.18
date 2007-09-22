@@ -105,7 +105,7 @@
 #include <asm/brcmstb/common/brcmstb.h>
 #define WINDOW_ADDR PHYS_FLASH_BASE
 
-#elif defined(CONFIG_MIPS_BCM7400)
+#elif defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7405)
 /* Both A0 and B0 revs */
 #include <asm/brcmstb/common/brcmstb.h>
 #define WINDOW_ADDR CPU_PHYS_FLASH_BASE

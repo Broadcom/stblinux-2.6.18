@@ -3,11 +3,11 @@ running configure, to aid debugging if configure makes a mistake.
 
 configure:642: checking host system type
 configure:676: checking for gcc
-configure:789: checking whether the C compiler (mipsel-linux-gcc  ) works
-configure:805: mipsel-linux-gcc -o conftest    conftest.c  1>&5
-configure:831: checking whether the C compiler (mipsel-linux-gcc  ) is a cross-compiler
+configure:789: checking whether the C compiler (mips-linux-gcc -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include ) works
+configure:805: mips-linux-gcc -o conftest -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include   conftest.c  1>&5
+configure:831: checking whether the C compiler (mips-linux-gcc -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-3.0.5/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include ) is a cross-compiler
 configure:836: checking whether we are using GNU C
-configure:864: checking whether mipsel-linux-gcc accepts -g
+configure:864: checking whether mips-linux-gcc accepts -g
 configure:913: checking how to run the C preprocessor
 configure:994: checking for linux/fs.h
 configure:1449: checking whether make sets ${MAKE}
@@ -56,9 +56,9 @@ configure:3694: checking for sed
 configure:3730: checking for perl
 configure:3766: checking for ldconfig
 configure:3800: checking build system type
-configure:3826: checking for ar
-configure:3893: checking for ranlib
-configure:3960: checking for strip
+configure:3826: checking for mips-linux-ar
+configure:3893: checking for mips-linux-ranlib
+configure:3960: checking for mips-linux-strip
 configure:4036: checking for a BSD compatible install
 configure:4098: checking for gcc
 configure:4132: checking for stdlib.h

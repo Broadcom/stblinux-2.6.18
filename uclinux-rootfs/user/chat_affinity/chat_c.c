@@ -45,7 +45,7 @@
 /*
  * system calls
  */
-int __clone (int (*fn) (void *arg), void *thread_stack, int flags, void *arg);
+int __clone (int (*fn) (void *arg), void *thread_stack, int flags, void *arg, ...);
 // TDT
 _syscall3 (int, sched_setaffinity, pid_t, pid, unsigned int, len, unsigned long *, user_mask_ptr)
 _syscall3 (int, sched_getaffinity, pid_t, pid, unsigned int, len, unsigned long *, user_mask_ptr)

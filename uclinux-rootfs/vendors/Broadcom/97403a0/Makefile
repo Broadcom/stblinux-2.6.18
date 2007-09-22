@@ -239,6 +239,10 @@ initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data_nodev.cpio
 $(JFFS2IMG): initramfs_dir
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o $(JFFS2IMG) -q -e 65536 -d \
 		$(INITRAMFS_DIR)
+ifdef CONFIG_JFFS2_SUMMARY
+	mv ${JFFS2IMG} ${JFFS2IMG}.nosummary
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2IMG}.nosummary -o $(JFFS2IMG) -e 64KiB
+endif
 
 $(JFFSIMG):
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs -o $(JFFSIMG) -d $(ROMFSDIR)

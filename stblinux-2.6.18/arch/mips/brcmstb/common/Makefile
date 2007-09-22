@@ -33,5 +33,6 @@ obj-y	 += prom.o setup.o cfe_call.o cfe_entry.o \
 
 obj-$(CONFIG_KGDB)	+= dbg_io.o
 obj-$(CONFIG_SMP)	+= bmips-smp.o timerx.o
+obj-$(CONFIG_DISCONTIGMEM) += discontig.o
 
 

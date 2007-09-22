@@ -1,4 +1,15 @@
-@(#) CHANGES 1.1 96/05/31 15:50:39
+@(#) CHANGES 1.2 96/07/06 23:06:17
+
+Changes with release 5 (July 1996)
+
+Unprivileged clients can no longer unset or set the nfsd port.
+
+The really desperate can force all set/unset requests to arrive via the
+loopback interface and block set/unset requests from outside. Besides
+changes to the portmapper, this requires changes to system libraries,
+to statically linked rpc servers, to the kernel configuration (no IP
+source routing), and perhaps even to system startup procedures. Not for
+the faint of hart.
 
 Changes with release 4 (May 1996)
 

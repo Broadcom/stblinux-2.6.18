@@ -40,7 +40,7 @@
 #elif defined(CONFIG_MIPS_BCM7038) || defined(CONFIG_MIPS_BCM7401) 	\
 	|| defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7402) \
 	|| defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7440) \
-        || defined(CONFIG_MIPS_BCM7403)
+        || defined(CONFIG_MIPS_BCM7403) || defined(CONFIG_MIPS_BCM7405)
 #define _ASMLANGUAGE
 
 	#if defined (CONFIG_MIPS_BCM7038A0)
@@ -58,7 +58,7 @@
 	#elif defined(CONFIG_MIPS_BCM7400A0)
 	#include <asm/brcmstb/brcm97400a0/bcmtimer.h>
 
-	#elif defined(CONFIG_MIPS_BCM7400B0)
+	#elif defined(CONFIG_MIPS_BCM7400B0) || defined(CONFIG_MIPS_BCM7405A0)
 	#include <asm/brcmstb/brcm97400b0/bcmtimer.h>
 
 	/* FIXME when we have a 7402 PCI slave with 7401b0 chip */
@@ -78,7 +78,7 @@
 	#include <asm/brcmstb/brcm97403a0/bcmtimer.h>
 
 	#else
-	#error "Unsupported 7038/7400/7401/7403 revision"
+	#error "Unsupported 7038/7400/7401/7403/7405 revision"
 	#endif
 
 #define TIMER_0_CTL TIMER_TIMER0_CTRL

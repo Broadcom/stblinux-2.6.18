@@ -85,7 +85,11 @@ extern void paging_init(void);
  * Conversion functions: convert a page and protection to a page entry,
  * and a page entry and page directory to the page they refer to.
  */
+#ifdef CONFIG_DISCONTIGMEM
+#define pmd_phys(pmd)		(__pa(pmd_val(pmd)))
+#else
 #define pmd_phys(pmd)		(pmd_val(pmd) - PAGE_OFFSET)
+#endif
 #define pmd_page(pmd)		(pfn_to_page(pmd_phys(pmd) >> PAGE_SHIFT))
 #define pmd_page_kernel(pmd)	pmd_val(pmd)
 

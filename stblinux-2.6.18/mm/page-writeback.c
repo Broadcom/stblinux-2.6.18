@@ -521,11 +521,16 @@ void __init page_writeback_init(void)
 {
 	long buffer_pages = nr_free_buffer_pages();
 	long correction;
-
+#ifdef CONFIG_MIPS_BRCM
+	/*
+	 * PR25405, PR27288:PR33615(on 2618)
+	 * don't include reserved pages when calculating writeback thresholds
+	 */
+	total_pages = nr_free_pagecache_pages() - (get_RSVD_size() >> PAGE_SHIFT);
+#else
 	total_pages = nr_free_pagecache_pages();
-
+#endif
 	correction = (100 * 4 * buffer_pages) / total_pages;
-
 	if (correction < 100) {
 		dirty_background_ratio *= correction;
 		dirty_background_ratio /= 100;

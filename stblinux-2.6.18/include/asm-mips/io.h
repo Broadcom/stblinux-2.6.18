@@ -15,6 +15,7 @@
 #include <linux/compiler.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
+#include <linux/mmzone.h>
 
 #include <asm/addrspace.h>
 #include <asm/byteorder.h>
@@ -120,7 +121,11 @@ static inline void set_io_port_base(unsigned long base)
  */
 static inline unsigned long virt_to_phys(volatile void * address)
 {
+#ifdef CONFIG_DISCONTIGMEM
+	return __pa((unsigned long)address);
+#else
 	return (unsigned long)address - PAGE_OFFSET;
+#endif
 }
 
 /*
@@ -137,7 +142,11 @@ static inline unsigned long virt_to_phys(volatile void * address)
  */
 static inline void * phys_to_virt(unsigned long address)
 {
+#ifdef CONFIG_DISCONTIGMEM
+	return (void *)(__va(address));
+#else
 	return (void *)(address + PAGE_OFFSET);
+#endif
 }
 
 /*
@@ -145,12 +154,20 @@ static inline void * phys_to_virt(unsigned long address)
  */
 static inline unsigned long isa_virt_to_bus(volatile void * address)
 {
+#ifdef CONFIG_DISCONTIGMEM
+	return __pa((unsigned long)address);
+#else
 	return (unsigned long)address - PAGE_OFFSET;
+#endif
 }
 
 static inline void * isa_bus_to_virt(unsigned long address)
 {
+#ifdef CONFIG_DISCONTIGMEM
+	return (void *)(__va(address));
+#else
 	return (void *)(address + PAGE_OFFSET);
+#endif
 }
 
 #define isa_page_to_bus page_to_phys

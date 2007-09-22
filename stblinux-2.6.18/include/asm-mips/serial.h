@@ -104,8 +104,8 @@
 	}
 #endif // If On Ikos, turn on WARP
 
-/* 3 or more 16550 UART on 7400 and 7118 */
-#if defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7118) 
+/* 3 or more 16550 UART on 7400 and 7118 and 7405*/
+#if defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7405)
 
 /* 3 16550A compatible UARTs */
 #define BRCM_UART_PORT_DEFNS				\

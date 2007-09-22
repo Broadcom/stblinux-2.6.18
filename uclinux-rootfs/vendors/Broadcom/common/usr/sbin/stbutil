@@ -433,34 +433,27 @@ esac
 		;;
 
 	6|7)  # YAFFS2
-		#
-		# Since
-		# 	(1) we can't build BE images from LE host,
-		#	(2) Writing to NAND flash is very fast, compared to NOR
-		# we will do it the same way we do with HD, i.e. tar the rootfs into an empty File System.
-		#
-		#case "${ERASE_SIZE}" in
-		#128)
-		#	IMAGE="yaffs2-`uname -m`${DOCSIS}${ENDIAN}.img"
-		#	;;
-		#16)
-		#	IMAGE="yaffs1-`uname -m`${DOCSIS}${ENDIAN}.img"
-		#	;;
-		#esac
-		#echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
-		#tftp -gr ${IMGPFX}/${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
-		#if [ -e /tmp/${IMAGE} ]; then
-        	#	nandwrite -a -o ${FDEV} /tmp/${IMAGE}
-		#fi
+		# sidc - PR33102 Since we derive a yaffs2 image from cramfs fs image we do not
+		# need to check the erase size. 
+		# Source: cramfs image mounted in loopback Dest: yaffs image to be created
+		IMAGE="yaffs-frm-cramfs-`uname -m`${DOCSIS}${ENDIAN}-nand.img"
 		mount -t ${FSTYPE} "$MTD_DEV" /mnt/flash
+     		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
+     		tftp -gr ${IMGPFX}${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
+		if [ -e /tmp/$IMAGE ]; then
+			mkdir -p /mnt/yaffs_src
+			mount -t cramfs -o loopback /tmp/${IMAGE} /mnt/yaffs_src
+			cd /mnt/yaffs_src
+			echo "Creating files for yaffs2 image..."
+			#tar -cf - `ls` | (cd /mnt/flash; tar xvf -) 2>&1 > /dev/null
+			cp -dpR . /mnt/flash
+		else
+			echo "Cannot fetch flash image ${IMGPFX}${IMAGE} from ${TFTP_SERVER}"
+			exit 2
+		fi
 		cd /
-		tar -cf - `ls | grep -vE '\<mnt\>|\<tmp\>|\<proc\>|\<lost\+found\>|\<sys\>'` | (cd /mnt/flash; tar xvf -)
-		mkdir -p /mnt/flash/mnt/nfs
-		mkdir /mnt/flash/mnt/hd
-		mkdir /mnt/flash/proc
-		mkdir /mnt/flash/tmp
-		mkdir /mnt/flash/opt
-		mkdir /mnt/flash/data
+		umount /mnt/yaffs_src
+		rm -rf /mnt/yaffs_src
 		;;
 
 	esac

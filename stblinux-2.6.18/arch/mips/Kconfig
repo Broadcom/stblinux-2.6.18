@@ -246,6 +246,18 @@ config MIPS_BCM7400AX_NAND
 	select MTD_BRCMNAND_VERIFY_WRITE
 	select MTD_BLOCK_ROMBLOCK
 
+config MIPS_BCM7405AX
+        bool "Support for BCM97405Ax with NOR flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7405A0
+        select MIPS_BCM7405
+        select HW_HAS_PCI
+        select SYS_SUPPORTS_32BIT_KERNEL
+        select SYS_SUPPORTS_BIG_ENDIAN
+        select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_SUPPORTS_SMP
+	select SYS_HAS_CPU_MIPS32_R1
+    # select MIPS_BRCM_IKOS
 
 config MIPS_BCM97456BX
 	bool "Support for BCM97456BX board with NOR flash"
@@ -560,7 +572,6 @@ config MIPS_BCM7403AX_NAND
 	select MTD_BRCMNAND
 	select MTD_BRCMNAND_VERIFY_WRITE
 	select MTD_BLOCK_ROMBLOCK
-
 
 config MIPS_BCM7440AX
 	bool "Support for BCM97440Ax with NOR flash"
@@ -1526,7 +1537,7 @@ config MIPS_BRCM97XXX
 	select MIPS_BRCM
 	# Only swap on 32 bit.
 	# select SWAP_IO_SPACE_L
-	select BRCM_7XXX_SERIAL if ! (MIPS_BCM7400 || MIPS_BCM7440 || MIPS_BCM7118)
+	select BRCM_7XXX_SERIAL if ! (MIPS_BCM7400 || MIPS_BCM7440 || MIPS_BCM7118 || MIPS_BCM7405)
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
@@ -1623,6 +1634,13 @@ config MIPS_BCM7118A0
 	depends MIPS_BCM7118AX || MIPS_BCM7118AX_NAND
 	select MTD_ECM_PARTITION
 
+config MIPS_BCM7405A0
+        bool
+        depends MIPS_BCM7405AX
+
+config MIPS_BCM7405
+        bool
+        depends MIPS_BCM7405A0
 
 config MIPS_BCM7440A0
 	bool
@@ -1788,7 +1806,7 @@ config MIPS_L1_CACHE_SHIFT
 	int
 	default "4" if MACH_DECSTATION
 	default "7" if SGI_IP27
-	default "6" if MIPS_BCM7400B0
+	default "6" if MIPS_BCM7400B0 || MIPS_BCM7405A0
 	default "5"
 
 config HAVE_STD_PC_SERIAL_PORT
@@ -2396,7 +2414,7 @@ config ARCH_FLATMEM_ENABLE
 
 config ARCH_DISCONTIGMEM_ENABLE
 	bool
-	default y if SGI_IP27
+	default y if SGI_IP27 || MIPS_BCM7405
 	help
 	  Say Y to upport efficient handling of discontiguous physical memory,
 	  for architectures which are either NUMA (Non-Uniform Memory Access)

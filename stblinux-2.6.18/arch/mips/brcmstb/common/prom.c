@@ -35,6 +35,9 @@
 unsigned int par_val = 0x00;	/* for RAC Mode setting, 0x00-Disabled, 0xD4-I&D Enabled, 0x94-I Only */
 unsigned int par_val2 = 0x00;	/* for RAC Cacheable Space setting */
 
+/* Enable SATA2 3Gbps, only works on 65nm chips (7400b0, 7405) no-op otherwise */
+int gSata2_3Gbps = 0;
+
 /* Customized flash size in MB */
 unsigned int gFlashSize = 0;	/* Default size on 97438 is 64 */
 unsigned int gFlashCode = 0; 	/* Special reset codes, 1 for writing 0xF0 to offset 55 for Spansion flash */
@@ -201,7 +204,6 @@ void __init prom_init(void)
 	int hasCfeParms = 0;
 	int res = -1;
 	char msg[COMMAND_LINE_SIZE];
-	unsigned long board_RAM_size = 0;	//Updated by get_RAM_size();;
 	extern void determineBootFromFlashOrRom(void);
 
 
@@ -338,6 +340,9 @@ void __init prom_init(void)
 #ifdef CONFIG_MIPS_BCM7400
 		mips_machtype  = MACH_BRCM_7400;
 #endif
+#ifdef CONFIG_MIPS_BCM7405
+		mips_machtype  = MACH_BRCM_7405;
+#endif
 #ifdef CONFIG_MIPS_BCM7118
 		mips_machtype  = MACH_BRCM_7118;		
 #endif
@@ -438,7 +443,7 @@ void __init prom_init(void)
 			sprintf(msg, "STR1 : %s    STR2 : %s\n", str1, str2);
 		        uart_puts(msg);
 			sscanf( str1, "%u", &par_val );
-			sscanf( str2, "%u", &par_val2 );
+			sscanf( str2, "%x", &par_val2 );
 			if (par_val2 == 0x00) par_val2 = (get_RAM_size()-1) & 0xffff0000;
 		} else {
 			sprintf(msg, "RAC Cacheable Space is set to default...\n");
@@ -448,13 +453,32 @@ void __init prom_init(void)
 		}
 	  }
 	  else {
-#if defined(CONFIG_MIPS_BCM7400B0)
+#if defined(CONFIG_MIPS_BCM7400B0) || defined(CONFIG_MIPS_BCM7405A0)
 		par_val = 0xff;		/* default: keep CFE setting */
 #else
 		par_val = 0x03;		/* set default to I/D RAC on */
 #endif
 		par_val2 = (get_RAM_size()-1) & 0xffff0000;
 	  }
+	}
+
+
+	/* bcmsata2=1 */
+	{
+		char c = ' ', *from = cfeBootParms;
+		int len = 0;
+
+		for (;;) {
+			if (c == ' ' && !memcmp(from, "bcmsata2=", 9)) {
+				gSata2_3Gbps= memparse(from + 9, &from);
+				break;
+			}
+			c = *(from++);
+			if (!c)
+				break;
+			if (CL_SIZE <= ++len)
+				break;
+		}
 	}
 
 	/* flashsize=nnM */
@@ -682,8 +706,6 @@ void __init prom_init(void)
 			add_memory_region(0, 256<<20, BOOT_MEM_RAM);
 #ifdef CONFIG_DISCONTIGMEM
 			add_memory_region(512<<20, (ramSizeMB - 256)<<20, BOOT_MEM_RAM);
-#else
-			uart_puts("Extra RAM beyond 256MB ignored.  Please use a kernel that supports NUMA\n");
 #endif
 		}
 	} 
@@ -780,19 +802,19 @@ void __init prom_init(void)
 		if(chipId == 0x7401)
 		{
 			bcm7401Cx_rev = (*pSundryRev) & 0xFF;
-			sprintf(msg, "Sundry 0x%08x, chipId 0x%08x, bcm7401Cx 0x%02x\n",  pSundryRev, chipId, bcm7401Cx_rev);
+			sprintf(msg, "Sundry 0x%08x, chipId 0x%08lx, bcm7401Cx 0x%02x\n",  (int)pSundryRev, chipId, bcm7401Cx_rev);
 			uart_puts(msg);
 		}
 		else if(chipId == 0x7118)
 		{
 			bcm7118Ax_rev = (*pSundryRev) & 0xFF;
-			sprintf(msg, "Sundry 0x%08x, chipId 0x%08x, bcm7118Ax 0x%02x\n",  pSundryRev, chipId, bcm7118Ax_rev);
+			sprintf(msg, "Sundry 0x%08x, chipId 0x%08lx, bcm7118Ax 0x%02x\n",  (int)pSundryRev, chipId, bcm7118Ax_rev);
 			uart_puts(msg);
 		}
 		else if(chipId == 0x7403)
 		{
 			bcm7403Ax_rev = (*pSundryRev) & 0xFF;
-			sprintf(msg, "Sundry 0x%08x, chipId 0x%08x, bcm7403Ax %02x\n",  pSundryRev, chipId, bcm7403Ax_rev);
+			sprintf(msg, "Sundry 0x%08x, chipId 0x%08lx, bcm7403Ax %02x\n",  (int)pSundryRev, chipId, bcm7403Ax_rev);
 			uart_puts(msg);
 		}
 

@@ -4925,11 +4925,11 @@ unsigned int ata_qc_issue_prot(struct ata_queued_cmd *qc)
 	/* select the device */
 	if (ap->nr_pmp_links)
 	{
-#ifdef	DMAWRITE_BUG
-		if(qc->tf.protocol == ATA_PROT_DMA && qc->tf.command == ATA_CMD_WRITE )
+#ifdef	SATA_SVW_BRCM_WA
+		if(qc->tf.protocol == ATA_PROT_DMA && qc->dma_dir == DMA_TO_DEVICE )
 		dma_write_wa_needed = 1;
 #endif
-	ata_dev_select(ap, qc->dev->link->pmp, 1, 0);
+		ata_dev_select(ap, qc->dev->link->pmp, 1, 0);
 	}
 	else
 	ata_dev_select(ap, qc->dev->devno, 1, 0);
