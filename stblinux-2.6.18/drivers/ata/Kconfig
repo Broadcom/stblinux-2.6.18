@@ -43,6 +43,24 @@ config SATA_SVW
 
 	  If unsure, say N.
 
+config SATA_SVW_NCQ
+	boolean "Support for Native Command Queueing (EXPERIMENTAL)"
+	default n
+	depends on SATA_SVW && EXPERIMENTAL && \
+		   (MIPS_BCM7405 || MIPS_BCM7400B0)
+	help
+	  This option builds the QDMA/NCQ version of the Serverworks driver.
+	  NCQ can improve overall throughput when there are a large number
+	  of readers and writers, as it allows the drive to reschedule
+	  requests in a way that minimizes rotational and seek latencies.
+	  However, it may slightly penalize large sequential reads due to
+	  the extra protocol overhead or changes in drive behavior when in
+	  NCQ mode.
+
+	  Port multipliers are currently not supported in QDMA/NCQ mode.
+
+	  If unsure, say N.
+
 config ATA_PIIX
 	tristate "Intel PIIX/ICH SATA support"
 	depends on PCI

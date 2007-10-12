@@ -28,7 +28,7 @@ config MTD_BRCMNAND_VERIFY_WRITE
 # endmenu
 
 config MTD_BRCMNAND_VERSION
-	int "	Broadcom Controller version number: 0 = v0.0, 1 = v0.1, 2 = v1.0"
+	int "Broadcom Controller version number: 0 = v0.0, 1 = v0.1, 2 = v1.0"
 	default 1
 	depends on MTD_BRCMNAND
 	help

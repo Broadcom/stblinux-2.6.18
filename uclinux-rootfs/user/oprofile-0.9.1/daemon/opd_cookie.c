@@ -16,6 +16,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <limits.h>
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>

@@ -206,6 +206,10 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 
 	kernel_entry_setup			# cpu specific setup
 
+	setup_c0_status_pri
+
+	ARC64_TWIDDLE_PC
+
 #ifdef CONFIG_MIPS_MT_SMTC
 	/*
 	 * In SMTC kernel, "CLI" is thread-specific, in TCStatus.
@@ -239,7 +243,8 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 
 	MTC0		zero, CP0_CONTEXT	# clear context register
 	PTR_LA		$28, init_thread_union
-	PTR_ADDIU	sp, $28, _THREAD_SIZE - 32
+	PTR_LI		sp, _THREAD_SIZE - 32
+	PTR_ADDU	sp, $28
 	set_saved_sp	sp, t0, t1
 	PTR_SUBU	sp, 4 * SZREG		# init stack pointer
 

@@ -60,8 +60,25 @@ static BOARD_PARAMETERS g_bcm97401_cfg1 =
       BP_ENET_REVERSE_MII},                 /* usReverseMii */
 };
 
+#ifdef CONFIG_BCMINTEMAC_7038_EXTMII
+static BOARD_PARAMETERS g_bcm97401_cfg2 =
+{
+    "EXT_PHY",				    /* szBoardId */
+    {BP_ENET_EXTERNAL_PHY,                  /* ucPhyType */
+      CONFIG_BCMINTEMAC_7038_PHY_ID,        /* ucPhyAddress */
+      0x01,                                 /* numSwitchPorts */
+      BP_NOT_DEFINED,                       /* usManagementSwitch */
+      BP_ENET_CONFIG_MDIO,                  /* usConfigType */
+      BP_NOT_DEFINED},                      /* usReverseMii */
+};
+#endif
+
 static PBOARD_PARAMETERS g_BoardParms[] =
-    {&g_bcm97401_cfg0, &g_bcm97401_cfg1, 0};
+    {&g_bcm97401_cfg0, &g_bcm97401_cfg1,
+#ifdef CONFIG_BCMINTEMAC_7038_EXTMII
+    &g_bcm97401_cfg2,
+#endif
+    0};
 
 
 static PBOARD_PARAMETERS g_pCurrentBp = 0;

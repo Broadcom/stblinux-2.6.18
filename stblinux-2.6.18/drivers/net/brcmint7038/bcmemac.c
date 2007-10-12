@@ -69,6 +69,7 @@
 #include <linux/skbuff.h>
 
 #include <asm/mipsregs.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 #if 1
 /* 5/24/06: Regardless of flash size, the offset of the MAC-addr is always the same */
@@ -76,7 +77,6 @@
 #else
 
   #ifdef CONFIG_MIPS_BCM7318
-  #include <asm/brcmstb/common/brcmstb.h>
   /* 16MB Flash */
   #define FLASH_MACADDR_OFFSET 0x00FFF824
   
@@ -104,6 +104,7 @@
 #define PROC_ENTRY_NAME     "driver/ethinfo"
 #endif
 
+#ifdef CONFIG_MIPS_BCM97401CX_SW
 #define BCHP_PHYSICAL_OFFSET                    0x10000000
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_1        0x00404098 /* Pin mux control register 1 */
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2        0x0040409c /* Pin mux control register 2 */
@@ -147,6 +148,7 @@
 #define GPIO_45         (0xC7FFFFFF)
 
 #define GPIO45_OFFSET   (0x00002000)
+#endif
 
 extern void bcm_inv_rac_all(void);
 extern unsigned long getPhysFlashBase(void);
@@ -2102,15 +2104,16 @@ static void clear_mib(volatile EmacRegisters *emac)
 static int init_emac(BcmEnet_devctrl *pDevCtrl)
 {
     volatile EmacRegisters *emac;
-    volatile uint32 *pin_mux_ctrl;
-    uint32 data;
 
     TRACE(("bcmemacenet: init_emac\n"));
 
     pDevCtrl->emac = (volatile EmacRegisters * const)ENET_MAC_ADR_BASE;
     emac = pDevCtrl->emac;
 
+#ifdef CONFIG_MIPS_BCM97401CX_SW
     if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH) {
+	volatile uint32 *pin_mux_ctrl;
+	uint32 data;
         pin_mux_ctrl = (volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_1);
         *pin_mux_ctrl |= (uint32)(ALT_MII_TX_EN |
                                 ALT_MII_TX_ERR |
@@ -2151,6 +2154,19 @@ static int init_emac(BcmEnet_devctrl *pDevCtrl)
         udelay(1000);
         data |= (uint32)GPIO45_OFFSET; // set bit 13 to 1
         *(volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_GIO_DATA_HI) = data;
+    }
+#endif
+    if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_PHY) {
+	/* set up pinmux for external MII */
+#ifdef CONFIG_MIPS_BCM7405
+	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2,
+	    (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2) & 0x3ffffff) | 0x24000000);
+	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3, 0x09249249);
+	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4,
+	    (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4) & 0xfffc0000) | 0x9249);
+#endif
+	/* enable external PHY */
+	emac->config |= EMAC_EXT_PHY;
     }
 
     /* Initialize the Ethernet Switch MIB registers */
@@ -3103,6 +3119,8 @@ int __init bcmemac_net_probe(void)
     if (probed == 0) {
 #if defined(CONFIG_BCM5325_SWITCH) && (CONFIG_BCM5325_SWITCH == 1)
         if (BpSetBoardId("EXT_5325_MANAGEMENT") != BP_SUCCESS)
+#elif defined(CONFIG_BCMINTEMAC_7038_EXTMII)
+        if (BpSetBoardId("EXT_PHY") != BP_SUCCESS)
 #else
         if (BpSetBoardId("INT_PHY") != BP_SUCCESS)
 #endif

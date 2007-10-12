@@ -914,11 +914,7 @@ uart_tiocmset(struct tty_struct *tty, struct file *file,
 static void uart_break_ctl(struct tty_struct *tty, int break_state)
 {
 	struct uart_state *state = tty->driver_data;
-	struct uart_port *port;
-
-	if (!state)
-		return;
-	port = state->port;
+	struct uart_port *port = state->port;
 
 	BUG_ON(!kernel_locked());
 
@@ -1946,6 +1942,9 @@ int uart_suspend_port(struct uart_driver *drv, struct uart_port *port)
 	if (state->info && state->info->flags & UIF_INITIALIZED) {
 		const struct uart_ops *ops = port->ops;
 
+		state->info->flags = (state->info->flags & ~UIF_INITIALIZED)
+				     | UIF_SUSPENDED;
+
 		spin_lock_irq(&port->lock);
 		ops->stop_tx(port);
 		ops->set_mctrl(port, 0);
@@ -2005,7 +2004,7 @@ int uart_resume_port(struct uart_driver *drv, struct uart_port *port)
 		console_start(port->cons);
 	}
 
-	if (state->info && state->info->flags & UIF_INITIALIZED) {
+	if (state->info && state->info->flags & UIF_SUSPENDED) {
 		const struct uart_ops *ops = port->ops;
 		int ret;
 
@@ -2017,15 +2016,17 @@ int uart_resume_port(struct uart_driver *drv, struct uart_port *port)
 			ops->set_mctrl(port, port->mctrl);
 			ops->start_tx(port);
 			spin_unlock_irq(&port->lock);
+			state->info->flags |= UIF_INITIALIZED;
 		} else {
 			/*
 			 * Failed to resume - maybe hardware went away?
 			 * Clear the "initialized" flag so we won't try
 			 * to call the low level drivers shutdown method.
 			 */
-			state->info->flags &= ~UIF_INITIALIZED;
 			uart_shutdown(state);
 		}
+
+		state->info->flags &= ~UIF_SUSPENDED;
 	}
 
 	mutex_unlock(&state->mutex);
@@ -2179,7 +2180,6 @@ int uart_register_driver(struct uart_driver *drv)
 	normal->name		= drv->dev_name;
 	normal->major		= drv->major;
 	normal->minor_start	= drv->minor;
-	printk("minor device is %d\n",drv->minor);
 	normal->type		= TTY_DRIVER_TYPE_SERIAL;
 	normal->subtype		= SERIAL_TYPE_NORMAL;
 	normal->init_termios	= tty_std_termios;
@@ -2284,6 +2284,7 @@ int uart_add_one_port(struct uart_driver *drv, struct uart_port *port)
 	 * setserial to be used to alter this ports parameters.
 	 */
 	tty_register_device(drv->tty_driver, port->line, port->dev);
+
 	/*
 	 * If this driver supports console, and it hasn't been
 	 * successfully registered yet, try to re-register it.
@@ -2394,7 +2395,7 @@ int uart_match_port(struct uart_port *port1, struct uart_port *port2)
 	case UPIO_MEM32:
 	case UPIO_AU:
 	case UPIO_TSI:
- 		return (port1->mapbase == port2->mapbase);
+		return (port1->mapbase == port2->mapbase);
 	}
 	return 0;
 }

@@ -165,6 +165,7 @@
 #include <asm/brcmstb/brcm97405a0/bcmintrnum.h>
 #include <asm/brcmstb/brcm97405a0/bchp_nand.h>
 #include <asm/brcmstb/brcm97405a0/bchp_ebi.h>
+#include <asm/brcmstb/brcm97405a0/bchp_sun_top_ctrl.h>
 #include <asm/brcmstb/brcm97405a0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97405a0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97405a0/bchp_usb_ehci1.h>

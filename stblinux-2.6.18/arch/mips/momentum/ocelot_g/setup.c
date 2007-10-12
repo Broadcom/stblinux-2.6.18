@@ -57,6 +57,7 @@
 #include <asm/gt64240.h>
 #include <asm/irq.h>
 #include <asm/pci.h>
+#include <asm/pgtable.h>
 #include <asm/processor.h>
 #include <asm/ptrace.h>
 #include <asm/reboot.h>
@@ -64,7 +65,7 @@
 
 #include "ocelot_pld.h"
 
-#ifdef CONFIG_GALILLEO_GT64240_ETH
+#ifdef CONFIG_GALILEO_GT64240_ETH
 extern unsigned char prom_mac_addr_base[6];
 #endif
 
@@ -161,6 +162,10 @@ static void __init setup_l3cache(unsigned long size)
 	printk("Done\n");
 }
 
+void __init plat_timer_setup(struct irqaction *irq)
+{
+}
+
 void __init plat_mem_setup(void)
 {
 	void (*l3func)(unsigned long) = (void *) KSEG1ADDR(setup_l3cache);
@@ -181,7 +186,7 @@ void __init plat_mem_setup(void)
 	/* do handoff reconfiguration */
 	PMON_v2_setup();
 
-#ifdef CONFIG_GALILLEO_GT64240_ETH
+#ifdef CONFIG_GALILEO_GT64240_ETH
 	/* get the mac addr */
 	memcpy(prom_mac_addr_base, (void*)0xfc807cf2, 6);
 #endif

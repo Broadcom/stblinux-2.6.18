@@ -138,7 +138,7 @@ static void romblock_remove_dev(struct mtd_blktrans_dev *dev)
 
 static struct mtd_blktrans_ops romblock_tr = {
 	.name		= "romblock",
-	.major		= 240,
+	.major		= 253,
 	.part_bits	= 0,
 	.readsect	= romblock_readsect,
 	.writesect	= romblock_writesect,

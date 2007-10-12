@@ -88,7 +88,7 @@ char *cstr;		/* replace single quotes with space */
 void execute_on_change(prm)
 char *prm;
 {
-#ifdef EMBED
+#if 0 //def EMBED
   if ( vfork() == 0 )
 #else
   if ( fork() == 0 )

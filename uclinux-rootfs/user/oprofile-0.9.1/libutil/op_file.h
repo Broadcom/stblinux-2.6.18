@@ -15,7 +15,7 @@
 #ifdef __cplusplus
 extern "C" {
 
-#include <bits/atomicity.h>
+#include <ext/atomicity.h>
 #endif
 
 #include <sys/types.h>

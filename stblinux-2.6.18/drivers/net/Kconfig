@@ -224,8 +224,9 @@ config BCMINTEMAC_7038
 	  for BCM97038, BCM97318, bcm7400, BCM7401 & BCM7405 STBs
 
 config BCMINTEMAC_7038_STREAMING
-	bool "Extra buffers for Broadcom streaming"
+	bool "Extra buffers for streaming applications"
 	depends on BCMINTEMAC_7038
+	default n
 	help
 	  Say Y to allocate extra RX buffers (NR_RX_BDS * 12) to support
 	  network-intensive streaming and home DLNA applications.
@@ -233,6 +234,25 @@ config BCMINTEMAC_7038_STREAMING
 	  kernel memory.
 
 	  If unsure, say N.
+
+config BCMINTEMAC_7038_EXTMII
+	bool "Use external MII interface"
+	depends on BCMINTEMAC_7038 && MIPS_BCM7405
+	default n
+	help
+	  Say Y to use the external MII interface instead of the internal
+	  Ethernet PHY.  This is typically used to connect HPNA or MoCA
+	  devices.
+
+	  If unsure, say N.
+
+config BCMINTEMAC_7038_PHY_ID
+	int "External PHY ID"
+	depends on BCMINTEMAC_7038_EXTMII
+	default 1
+	help
+	  MII device ID for the external PHY.  Use 31 for the Broadcom
+	  HPNA daughtercard, 1 for most other PHYs.
 
 source "drivers/net/arm/Kconfig"
 
@@ -522,15 +542,7 @@ config SGI_IOC3_ETH
 
 config MIPS_SIM_NET
 	tristate "MIPS simulator Network device (EXPERIMENTAL)"
-	depends on NETDEVICES && MIPS_SIM && EXPERIMENTAL
-	help
-	  The MIPSNET device is a simple Ethernet network device which is
-	  emulated by the MIPS Simulator.
-	  If you are not using a MIPSsim or are unsure, say N.
-
-config MIPS_SIM_NET
-	tristate "MIPS simulator Network device (EXPERIMENTAL)"
-	depends on NETDEVICES && MIPS_SIM && EXPERIMENTAL
+	depends on NET_ETHERNET && MIPS_SIM && EXPERIMENTAL
 	help
 	  The MIPSNET device is a simple Ethernet network device which is
 	  emulated by the MIPS Simulator.

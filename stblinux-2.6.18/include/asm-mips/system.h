@@ -395,7 +395,7 @@ static inline unsigned long __cmpxchg_u64(volatile int * m, unsigned long old,
 {
 	__u64 retval;
 
-	if (cpu_has_llsc) {
+	if (cpu_has_llsc && R10000_LLSC_WAR) {
 		__asm__ __volatile__(
 		"	.set	push					\n"
 		"	.set	noat					\n"
@@ -474,14 +474,6 @@ extern void *set_vi_handler (int n, void *addr);
 extern void *set_except_vector(int n, void *addr);
 extern unsigned long ebase;
 extern void per_cpu_trap_init(void);
-
-extern NORET_TYPE void die(const char *, struct pt_regs *);
-
-static inline void die_if_kernel(const char *str, struct pt_regs *regs)
-{
-	if (unlikely(!user_mode(regs)))
-		die(str, regs);
-}
 
 extern int stop_a_enabled;
 

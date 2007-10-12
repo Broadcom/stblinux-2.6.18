@@ -20,7 +20,7 @@ CFLAGS += -I. $(INCZ) -D__USE_BSD
 LDPATH += -L$(ROOTDIR)/lib/zlib
 
 TARGETS = flash_erase flash_eraseall flash_lock flash_unlock flash_info mtd_debug flashcp \
-	jffs2dump #jffs2reader
+	jffs2dump norcleanmark #jffs2reader
 HOST_TARGETS = jffs2dump
 ifneq ($(CONFIG_FTL),)
 TARGETS += ftl_format ftl_check
@@ -40,12 +40,10 @@ ifneq ($(CONFIG_JFFS2_FS),)
 TARGETS += mkfs.jffs2
 HOST_TARGETS += mkfs.jffs2
 endif
-# PR33100 - workaround to disable JFFS2 summary
-# TODO: fix sumtool, summary patch to resolve umount issue
-#ifneq ($(CONFIG_JFFS2_SUMMARY),)
+ifneq ($(CONFIG_JFFS2_SUMMARY),)
 TARGETS += sumtool
 HOST_TARGETS += sumtool
-#endif
+endif
 ifneq ($(CONFIG_MTD_DOCPROBE),)
 TARGETS += doc_loadbios 
 else
@@ -87,6 +85,7 @@ romfs:
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_ERASE        /bin/flash_erase
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_ERASE -s /bin/flash_erase /bin/erase
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_ERASEALL     /bin/flash_eraseall
+	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_ERASEALL     /bin/norcleanmark
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_ERASEALL -s /bin/flash_eraseall /bin/eraseall
 ifneq ($(CONFIG_FTL),)
 	$(ROMFSINST) -e CONFIG_USER_MTDUTILS_FTL_CHECK    /bin/ftl_check
@@ -142,6 +141,8 @@ build/mkfs.jffs2: $(BUILD_JFFS2_OBJS)
 flash_eraseall: crc32.o flash_eraseall.o $(UTILS_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^
 
+norcleanmark: crc32.o norcleanmark.o $(UTILS_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^
 
 #build/flash_eraseall: build/crc32.o build/flash_eraseall.o
 #	$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^
@@ -160,11 +161,7 @@ build/jffs2dump: build/jffs2dump.o build/crc32.o
 	$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^
 
 build/sumtool: build/sumtool.o build/crc32.o
-	#$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^
-	echo "#!/bin/sh" > build/sumtool
-	echo 'cp $$3 $$5' >> build/sumtool
-	echo "echo 'sumtool temporary fix - does a dummy cp TODO PR33100'" >> build/sumtool
-	chmod 0755 build/sumtool
+	$(BUILD_CC) $(BUILD_CFLAGS) -o $@ $^
 
 build/%.o: %.c
 	$(BUILD_CC) $(BUILD_CFLAGS) -c -o $@ $<

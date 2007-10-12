@@ -608,9 +608,9 @@ bool 'uptime'			CONFIG_USER_PROCPS_UPTIME
 bool 'vmstat'			CONFIG_USER_PROCPS_VMSTAT
 bool 'w'			CONFIG_USER_PROCPS_W
 bool 'watch'			CONFIG_USER_PROCPS_WATCH
-if [ "$CONFIG_USER_PROCPS_TOP" = "y" ]; then
-	define_bool 	CONFIG_LIB_NCURSES y
-fi
+#if [ "$CONFIG_USER_PROCPS_TOP" = "y" ]; then
+#	define_bool 	CONFIG_LIB_NCURSES y
+#fi
 
 comment 'PCI utilities'
 bool 'lspci'			CONFIG_USER_PCIUTILS_LSPCI

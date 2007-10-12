@@ -15,12 +15,12 @@
 #include <linux/compiler.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
-#include <linux/mmzone.h>
 
 #include <asm/addrspace.h>
 #include <asm/byteorder.h>
 #include <asm/cpu.h>
 #include <asm/cpu-features.h>
+#include <asm-generic/iomap.h>
 #include <asm/page.h>
 #include <asm/pgtable-bits.h>
 #include <asm/processor.h>
@@ -194,7 +194,7 @@ extern unsigned long isa_slot_offset;
 #define page_to_phys(page)	((dma_addr_t)page_to_pfn(page) << PAGE_SHIFT)
 
 extern void __iomem * __ioremap(phys_t offset, phys_t size, unsigned long flags);
-extern void __iounmap(volatile void __iomem *addr);
+extern void __iounmap(const volatile void __iomem *addr);
 
 static inline void __iomem * __ioremap_mode(phys_t offset, unsigned long size,
 	unsigned long flags)
@@ -301,7 +301,7 @@ static inline void __iomem * __ioremap_mode(phys_t offset, unsigned long size,
 #define ioremap_uncached_accelerated(offset, size)			\
 	__ioremap_mode((offset), (size), _CACHE_UNCACHED_ACCELERATED)
 
-static inline void iounmap(volatile void __iomem *addr)
+static inline void iounmap(const volatile void __iomem *addr)
 {
 #define __IS_KSEG1(addr) (((unsigned long)(addr) & ~0x1fffffffUL) == CKSEG1)
 
@@ -542,6 +542,7 @@ static inline void memcpy_toio(volatile void __iomem *dst, const void *src, int 
 /*
  * Memory Mapped I/O
  */
+#if	0	// jipeng - it is redefined in iomap.c to check argument type
 #define ioread8(addr)		readb(addr)
 #define ioread16(addr)		readw(addr)
 #define ioread32(addr)		readl(addr)
@@ -557,6 +558,7 @@ static inline void memcpy_toio(volatile void __iomem *dst, const void *src, int 
 #define iowrite8_rep(a,b,c)	writesb(a,b,c)
 #define iowrite16_rep(a,b,c)	writesw(a,b,c)
 #define iowrite32_rep(a,b,c)	writesl(a,b,c)
+#endif	// 0
 
 /* Create a virtual mapping cookie for an IO port range */
 extern void __iomem *ioport_map(unsigned long port, unsigned int nr);

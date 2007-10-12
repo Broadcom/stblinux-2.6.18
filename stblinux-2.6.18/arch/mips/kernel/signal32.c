@@ -8,6 +8,7 @@
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  */
 #include <linux/cache.h>
+#include <linux/compat.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
@@ -24,6 +25,7 @@
 
 #include <asm/abi.h>
 #include <asm/asm.h>
+#include <asm/compat-signal.h>
 #include <linux/bitops.h>
 #include <asm/cacheflush.h>
 #include <asm/sim.h>
@@ -108,13 +110,6 @@ typedef struct compat_siginfo {
 
 /* 32-bit compatibility types */
 
-#define _NSIG_BPW32	32
-#define _NSIG_WORDS32	(_NSIG / _NSIG_BPW32)
-
-typedef struct {
-	unsigned int sig[_NSIG_WORDS32];
-} sigset_t32;
-
 typedef unsigned int __sighandler32_t;
 typedef void (*vfptr_t)(void);
 
@@ -136,8 +131,23 @@ struct ucontext32 {
 	s32                 uc_link;
 	stack32_t           uc_stack;
 	struct sigcontext32 uc_mcontext;
-	sigset_t32          uc_sigmask;   /* mask last for extensibility */
+	compat_sigset_t     uc_sigmask;   /* mask last for extensibility */
 };
+
+/* Check and clear pending FPU exceptions in saved CSR */
+extern int fpcsr_pending(unsigned int __user *fpcsr);
+
+static int
+check_and_restore_fp_context32(struct sigcontext32 __user *sc)
+{
+	int err, sig;
+
+	err = sig = fpcsr_pending(&sc->sc_fpc_csr);
+	if (err > 0)
+		err = 0;
+	err |= restore_fp_context32(sc);
+	return err ?: sig;
+}
 
 extern void __put_sigset_unknown_nsig(void);
 extern void __get_sigset_unknown_nsig(void);
@@ -372,13 +382,16 @@ static int restore_sigcontext32(struct pt_regs *regs, struct sigcontext32 __user
 	if (used_math()) {
 		/* restore fpu context if we have used it before */
 		own_fpu();
-		err |= restore_fp_context32(sc);
+		preempt_enable();
+		enable_fp_in_kernel();
+		if (!err)
+			err = check_and_restore_fp_context32(sc);
+		disable_fp_in_kernel();
 	} else {
 		/* signal handler may have used FPU.  Give it up. */
 		lose_fpu();
+		preempt_enable();
 	}
-
-	preempt_enable();
 
 	return err;
 }
@@ -391,7 +404,7 @@ struct sigframe {
 	u32 sf_code[2];			/* signal trampoline */
 #endif
 	struct sigcontext32 sf_sc;
-	sigset_t sf_mask;
+	compat_sigset_t sf_mask;
 #if ICACHE_REFILLS_WORKAROUND_WAR
 	u32 sf_code[8] ____cacheline_aligned;	/* signal trampoline */
 #endif
@@ -469,11 +482,12 @@ _sys32_sigreturn(nabi_no_regargs struct pt_regs regs)
 {
 	struct sigframe __user *frame;
 	sigset_t blocked;
+	int sig;
 
 	frame = (struct sigframe __user *) regs.regs[29];
 	if (!access_ok(VERIFY_READ, frame, sizeof(*frame)))
 		goto badframe;
-	if (__copy_from_user(&blocked, &frame->sf_mask, sizeof(blocked)))
+	if (__copy_conv_sigset_from_user(&blocked, &frame->sf_mask))
 		goto badframe;
 
 	sigdelsetmask(&blocked, ~_BLOCKABLE);
@@ -482,8 +496,11 @@ _sys32_sigreturn(nabi_no_regargs struct pt_regs regs)
 	recalc_sigpending();
 	spin_unlock_irq(&current->sighand->siglock);
 
-	if (restore_sigcontext32(&regs, &frame->sf_sc))
+	sig = restore_sigcontext32(&regs, &frame->sf_sc);
+	if (sig < 0)
 		goto badframe;
+	else if (sig)
+		force_sig(sig, current);
 
 	/*
 	 * Don't let your children do this ...
@@ -508,11 +525,12 @@ _sys32_rt_sigreturn(nabi_no_regargs struct pt_regs regs)
 	sigset_t set;
 	stack_t st;
 	s32 sp;
+	int sig;
 
 	frame = (struct rt_sigframe32 __user *) regs.regs[29];
 	if (!access_ok(VERIFY_READ, frame, sizeof(*frame)))
 		goto badframe;
-	if (__copy_from_user(&set, &frame->rs_uc.uc_sigmask, sizeof(set)))
+	if (__copy_conv_sigset_from_user(&set, &frame->rs_uc.uc_sigmask))
 		goto badframe;
 
 	sigdelsetmask(&set, ~_BLOCKABLE);
@@ -521,8 +539,11 @@ _sys32_rt_sigreturn(nabi_no_regargs struct pt_regs regs)
 	recalc_sigpending();
 	spin_unlock_irq(&current->sighand->siglock);
 
-	if (restore_sigcontext32(&regs, &frame->rs_uc.uc_mcontext))
+	sig = restore_sigcontext32(&regs, &frame->rs_uc.uc_mcontext);
+	if (sig < 0)
 		goto badframe;
+	else if (sig)
+		force_sig(sig, current);
 
 	/* The ucontext contains a stack32_t, so we must convert!  */
 	if (__get_user(sp, &frame->rs_uc.uc_stack.ss_sp))
@@ -603,9 +624,11 @@ static inline int setup_sigcontext32(struct pt_regs *regs,
 		own_fpu();
 		restore_fp(current);
 	}
-	err |= save_fp_context32(sc);
 
 	preempt_enable();
+	enable_fp_in_kernel();
+	err |= save_fp_context32(sc);
+	disable_fp_in_kernel();
 
 out:
 	return err;
@@ -658,7 +681,8 @@ int setup_frame_32(struct k_sigaction * ka, struct pt_regs *regs,
 	flush_cache_sigtramp((unsigned long) frame->sf_code);
 
 	err |= setup_sigcontext32(regs, &frame->sf_sc);
-	err |= __copy_to_user(&frame->sf_mask, set, sizeof(*set));
+	err |= __copy_conv_sigset_to_user(&frame->sf_mask, set);
+
 	if (err)
 		goto give_sigsegv;
 
@@ -728,7 +752,7 @@ int setup_rt_frame_32(struct k_sigaction * ka, struct pt_regs *regs,
 	err |= __put_user(current->sas_ss_size,
 	                  &frame->rs_uc.uc_stack.ss_size);
 	err |= setup_sigcontext32(regs, &frame->rs_uc.uc_mcontext);
-	err |= __copy_to_user(&frame->rs_uc.uc_sigmask, set, sizeof(*set));
+	err |= __copy_conv_sigset_to_user(&frame->rs_uc.uc_sigmask, set);
 
 	if (err)
 		goto give_sigsegv;
@@ -815,9 +839,6 @@ void do_signal32(struct pt_regs *regs)
 	if (!user_mode(regs))
 		return;
 
-	if (try_to_freeze())
-		goto no_signal;
-
 	if (test_thread_flag(TIF_RESTORE_SIGMASK))
 		oldset = &current->saved_sigmask;
 	else
@@ -836,9 +857,10 @@ void do_signal32(struct pt_regs *regs)
 			if (test_thread_flag(TIF_RESTORE_SIGMASK))
 				clear_thread_flag(TIF_RESTORE_SIGMASK);
 		}
+
+		return;
 	}
 
-no_signal:
 	/*
 	 * Who's code doesn't conform to the restartable syscall convention
 	 * dies here!!!  The li instruction, a single machine instruction,
@@ -856,6 +878,7 @@ no_signal:
 			regs->regs[7] = regs->regs[26];
 			regs->cp0_epc -= 4;
 		}
+		regs->regs[0] = 0;	/* Don't deal with this again.  */
 	}
 
 	/*

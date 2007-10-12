@@ -4,6 +4,7 @@
 #include <linux/sched.h>
 #include <linux/cpumask.h>
 #include <linux/interrupt.h>
+#include <linux/module.h>
 
 #include <asm/cpu.h>
 #include <asm/processor.h>
@@ -150,10 +151,7 @@ __setup("ipibufs=", ipibufs);
 __setup("nostlb", stlb_disable);
 __setup("asidmask=", asidmask_set);
 
-/* Enable additional debug checks before going into CPU idle loop */
-#define SMTC_IDLE_HOOK_DEBUG
-
-#ifdef SMTC_IDLE_HOOK_DEBUG
+#ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 
 static int hang_trig = 0;
 
@@ -185,7 +183,7 @@ int tcnoprog[NR_CPUS];
 static atomic_t idle_hook_initialized = {0};
 static int clock_hang_reported[NR_CPUS];
 
-#endif /* SMTC_IDLE_HOOK_DEBUG */
+#endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
 
 /* Initialize shared TLB - the should probably migrate to smtc_setup_cpus() */
 
@@ -261,6 +259,7 @@ void smtc_configure_tlb(void)
 		    }
 		}
 		write_c0_mvpcontrol(read_c0_mvpcontrol() | MVPCONTROL_STLB);
+		ehb();
 
 		/*
 		 * Setup kernel data structures to use software total,
@@ -269,9 +268,12 @@ void smtc_configure_tlb(void)
 		 * of their initialization in smtc_cpu_setup().
 		 */
 
-		tlbsiz = tlbsiz & 0x3f;	/* MIPS32 limits TLB indices to 64 */
-		cpu_data[0].tlbsize = tlbsiz;
+		/* MIPS32 limits TLB indices to 64 */
+		if (tlbsiz > 64)
+			tlbsiz = 64;
+		cpu_data[0].tlbsize = current_cpu_data.tlbsize = tlbsiz;
 		smtc_status |= SMTC_TLB_SHARED;
+		local_flush_tlb_all();
 
 		printk("TLB of %d entry pairs shared by %d VPEs\n",
 			tlbsiz, vpes);
@@ -399,10 +401,10 @@ void mipsmt_prepare_cpus(void)
 		printk("ASID mask value override to 0x%x\n", asidmask);
 
 	/* Temporary */
-#ifdef SMTC_IDLE_HOOK_DEBUG
+#ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 	if (hang_trig)
 		printk("Logic Analyser Trigger on suspected TC hang\n");
-#endif /* SMTC_IDLE_HOOK_DEBUG */
+#endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
 
 	/* Put MVPE's into 'configuration state' */
 	write_c0_mvpcontrol( read_c0_mvpcontrol() | MVPCONTROL_VPC );
@@ -843,9 +845,9 @@ void ipi_decode(struct pt_regs *regs, struct smtc_ipi *pipi)
 	case SMTC_CLOCK_TICK:
 		/* Invoke Clock "Interrupt" */
 		ipi_timer_latch[dest_copy] = 0;
-#ifdef SMTC_IDLE_HOOK_DEBUG
+#ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 		clock_hang_reported[dest_copy] = 0;
-#endif /* SMTC_IDLE_HOOK_DEBUG */
+#endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
 		local_timer_interrupt(0, NULL, regs);
 		break;
 	case LINUX_SMP_IPI:
@@ -1014,9 +1016,38 @@ void setup_cross_vpe_interrupts(void)
  * SMTC-specific hacks invoked from elsewhere in the kernel.
  */
 
+void smtc_ipi_replay(void)
+{
+	/*
+	 * To the extent that we've ever turned interrupts off,
+	 * we may have accumulated deferred IPIs.  This is subtle.
+	 * If we use the smtc_ipi_qdepth() macro, we'll get an
+	 * exact number - but we'll also disable interrupts
+	 * and create a window of failure where a new IPI gets
+	 * queued after we test the depth but before we re-enable
+	 * interrupts. So long as IXMT never gets set, however,
+	 * we should be OK:  If we pick up something and dispatch
+	 * it here, that's great. If we see nothing, but concurrent
+	 * with this operation, another TC sends us an IPI, IXMT
+	 * is clear, and we'll handle it as a real pseudo-interrupt
+	 * and not a pseudo-pseudo interrupt.
+	 */
+	if (IPIQ[smp_processor_id()].depth > 0) {
+		struct smtc_ipi *pipi;
+		extern void self_ipi(struct smtc_ipi *);
+
+		while ((pipi = smtc_ipi_dq(&IPIQ[smp_processor_id()]))) {
+			self_ipi(pipi);
+			smtc_cpu_stats[smp_processor_id()].selfipis++;
+		}
+	}
+}
+
+EXPORT_SYMBOL(smtc_ipi_replay);
+
 void smtc_idle_loop_hook(void)
 {
-#ifdef SMTC_IDLE_HOOK_DEBUG
+#ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 	int im;
 	int flags;
 	int mtflags;
@@ -1109,30 +1140,15 @@ void smtc_idle_loop_hook(void)
 	local_irq_restore(flags);
 	if (pdb_msg != &id_ho_db_msg[0])
 		printk("CPU%d: %s", smp_processor_id(), id_ho_db_msg);
-#endif /* SMTC_IDLE_HOOK_DEBUG */
-	/*
-	 * To the extent that we've ever turned interrupts off,
-	 * we may have accumulated deferred IPIs.  This is subtle.
-	 * If we use the smtc_ipi_qdepth() macro, we'll get an
-	 * exact number - but we'll also disable interrupts
-	 * and create a window of failure where a new IPI gets
-	 * queued after we test the depth but before we re-enable
-	 * interrupts. So long as IXMT never gets set, however,
-	 * we should be OK:  If we pick up something and dispatch
-	 * it here, that's great. If we see nothing, but concurrent
-	 * with this operation, another TC sends us an IPI, IXMT
-	 * is clear, and we'll handle it as a real pseudo-interrupt
-	 * and not a pseudo-pseudo interrupt.
-	 */
-	if (IPIQ[smp_processor_id()].depth > 0) {
-		struct smtc_ipi *pipi;
-		extern void self_ipi(struct smtc_ipi *);
+#endif /* CONFIG_SMTC_IDLE_HOOK_DEBUG */
 
-		if ((pipi = smtc_ipi_dq(&IPIQ[smp_processor_id()])) != NULL) {
-			self_ipi(pipi);
-			smtc_cpu_stats[smp_processor_id()].selfipis++;
-		}
-	}
+	/*
+	 * Replay any accumulated deferred IPIs. If "Instant Replay"
+	 * is in use, there should never be any.
+	 */
+#ifndef CONFIG_MIPS_MT_SMTC_INSTANT_REPLAY
+	smtc_ipi_replay();
+#endif /* CONFIG_MIPS_MT_SMTC_INSTANT_REPLAY */
 }
 
 void smtc_soft_dump(void)

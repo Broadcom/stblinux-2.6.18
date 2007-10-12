@@ -226,7 +226,7 @@ sys_call_table:
 	PTR	sys_ni_syscall			/* was sys_stat */
 	PTR	sys_lseek
 	PTR	sys_getpid			/* 4020 */
-	PTR	sys_mount
+	PTR	compat_sys_mount
 	PTR	sys_oldumount
 	PTR	sys_setuid
 	PTR	sys_getuid
@@ -498,7 +498,7 @@ sys_call_table:
 	PTR	sys_mknodat			/* 4290 */
 	PTR	sys_fchownat
 	PTR	compat_sys_futimesat
-	PTR	compat_sys_newfstatat
+	PTR	sys_newfstatat
 	PTR	sys_unlinkat
 	PTR	sys_renameat			/* 4295 */
 	PTR	sys_linkat
@@ -506,7 +506,7 @@ sys_call_table:
 	PTR	sys_readlinkat
 	PTR	sys_fchmodat
 	PTR	sys_faccessat			/* 4300 */
-	PTR	sys_pselect6
+	PTR	compat_sys_pselect6
 	PTR	sys_ppoll
 	PTR	sys_unshare
 	PTR	sys_splice
@@ -514,4 +514,11 @@ sys_call_table:
 	PTR	sys_tee
 	PTR	sys_vmsplice
 	PTR	compat_sys_move_pages
+	PTR	compat_sys_set_robust_list
+	PTR	compat_sys_get_robust_list	/* 4310 */
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ioprio_set
+	PTR	sys_ioprio_get			/* 4315 */
 	.size	sys_call_table,.-sys_call_table

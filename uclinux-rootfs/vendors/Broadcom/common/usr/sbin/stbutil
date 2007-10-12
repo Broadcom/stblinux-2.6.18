@@ -126,7 +126,7 @@ do
 
    if [ $RESPONSE -eq 3 ]; then
        case `uname -m` in
-          356*|7112|7312|7319|7328|7402*)
+          356*|7112|7312|7319|7328|7402|7454*)
               echo "HD install not applicable to diskless STBs"
               continue
               ;;
@@ -384,6 +384,12 @@ esac
      ERASE_SIZE=`flash_info "$FDEV" |grep Erase|cut -f2 -d ':' | cut -f2 -d' ' `
 
 
+     case "$FLASH_TYPE" in
+     NOR*)
+     	# Do not use the -j flag with summary on NOR flash
+     	ERASE_FLAG=
+     	;;
+     esac
 
      echo "Erasing $FLASH_TYPE flash with $ERASE_SIZE kB erase sectors on $FDEV..."
      eraseall $ERASE_FLAG "$FDEV"
@@ -465,6 +471,12 @@ esac
         if [ -e /tmp/$IMAGE ]; then
 		echo "Writing flash image..."
 		cat /tmp/$IMAGE > $FDEV
+		# With Summary enabled, append the JFFS2 image with 
+		# cleanmarkers for faster umount time
+		if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 ]; then
+			imgsize=`ls -l /tmp/$IMAGE | awk '{print $5}'`
+			/bin/norcleanmark $FDEV $imgsize
+		fi
 	else
 		echo "Cannot fetch flash image ${IMGPFX}${IMAGE} from ${TFTP_SERVER}"
 		exit 2

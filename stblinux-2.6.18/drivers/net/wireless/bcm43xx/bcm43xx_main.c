@@ -1449,17 +1449,32 @@ static void handle_irq_transmit_status(struct bcm43xx_private *bcm)
 
 		bcm43xx_debugfs_log_txstat(bcm, &stat);
 
-		if (stat.flags & BCM43xx_TXSTAT_FLAG_IGNORE)
+		if (stat.flags & BCM43xx_TXSTAT_FLAG_AMPDU)
 			continue;
-		if (!(stat.flags & BCM43xx_TXSTAT_FLAG_ACK)) {
-			//TODO: packet was not acked (was lost)
-		}
-		//TODO: There are more (unknown) flags to test. see bcm43xx_main.h
+		if (stat.flags & BCM43xx_TXSTAT_FLAG_INTER)
+			continue;
 
 		if (bcm43xx_using_pio(bcm))
 			bcm43xx_pio_handle_xmitstatus(bcm, &stat);
 		else
 			bcm43xx_dma_handle_xmitstatus(bcm, &stat);
+	}
+}
+
+static void drain_txstatus_queue(struct bcm43xx_private *bcm)
+{
+	u32 dummy;
+
+	if (bcm->current_core->rev < 5)
+		return;
+	/* Read all entries from the microcode TXstatus FIFO
+	 * and throw them away.
+	 */
+	while (1) {
+		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_0);
+		if (!dummy)
+			break;
+		dummy = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_1);
 	}
 }
 
@@ -3165,7 +3180,15 @@ static void bcm43xx_periodic_work_handler(void *d)
 
 	badness = estimate_periodic_work_badness(bcm->periodic_state);
 	mutex_lock(&bcm->mutex);
+
+	/* We must fake a started transmission here, as we are going to
+	 * disable TX. If we wouldn't fake a TX, it would be possible to
+	 * trigger the netdev watchdog, if the last real TX is already
+	 * some time on the past (slightly less than 5secs)
+	 */
+	bcm->net_dev->trans_start = jiffies;
 	netif_tx_disable(bcm->net_dev);
+
 	spin_lock_irqsave(&bcm->irq_lock, flags);
 	if (badness > BADNESS_LIMIT) {
 		/* Periodic work will take a long time, so we want it to
@@ -3509,6 +3532,7 @@ int bcm43xx_select_wireless_core(struct bcm43xx_private *bcm,
 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
 	bcm43xx_security_init(bcm);
+	drain_txstatus_queue(bcm);
 	ieee80211softmac_start(bcm->net_dev);
 
 	/* Let's go! Be careful after enabling the IRQs.

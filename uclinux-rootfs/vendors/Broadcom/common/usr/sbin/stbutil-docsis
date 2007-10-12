@@ -93,7 +93,7 @@ echo ""
 # Format /dev/hda4 with EXT2 on HD systems (bcm937xx and bcm97038),
 # and with ext3 on all others
    case `uname -m` in
-   3560*|7112|7312|7319|7328|7402*)
+   3560*|7112|7312|7319|7328|7402|7454*)
         echo "HD install not applicable to diskless STBs"
     exit 1
     ;;

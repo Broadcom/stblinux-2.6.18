@@ -84,6 +84,14 @@ void __init register_pci_controller(struct pci_controller *hose)
 {
 	*hose_tail = hose;
 	hose_tail = &hose->next;
+
+	/*
+	 * Do not panic here but later - this might hapen before console init.
+	 */
+	if (!hose->io_map_base) {
+		printk(KERN_WARNING
+		       "registering PCI controller with io_map_base unset\n");
+	}
 }
 
 /* Most MIPS systems have straight-forward swizzling needs.  */
@@ -108,10 +116,15 @@ static u8 __init common_swizzle(struct pci_dev *dev, u8 *pinp)
 	return PCI_SLOT(dev->devfn);
 }
 
+int mips_system_has_legacy_ide;
+
+EXPORT_SYMBOL_GPL(mips_system_has_legacy_ide);
+
 static int __init pcibios_init(void)
 {
 	struct pci_controller *hose;
 	struct pci_bus *bus;
+	struct pci_dev *dev;
 	int next_busno;
 	int need_domain_info = 0;
 
@@ -154,6 +167,13 @@ out:
 	if (!pci_probe_only)
 		pci_assign_unassigned_resources();
 	pci_fixup_irqs(common_swizzle, pcibios_map_irq);
+
+	if ((dev = pci_get_class(PCI_CLASS_BRIDGE_EISA << 8, NULL)) != NULL ||
+	    (dev = pci_get_class(PCI_CLASS_BRIDGE_ISA << 8, NULL)) != NULL) {
+		pci_dev_put(dev);
+
+		mips_system_has_legacy_ide = 1;
+	}
 
 	return 0;
 }
@@ -228,7 +248,7 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
 	return pcibios_plat_dev_init(dev);
 }
 
-static void __init pcibios_fixup_device_resources(struct pci_dev *dev,
+static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev,
 	struct pci_bus *bus)
 {
 	/* Update device resources.  */
@@ -246,7 +266,7 @@ static void __init pcibios_fixup_device_resources(struct pci_dev *dev,
 
 		dev->resource[i].start += offset;
 		dev->resource[i].end += offset;
- 	}
+	}
 }
 
 void __devinit pcibios_fixup_bus(struct pci_bus *bus)

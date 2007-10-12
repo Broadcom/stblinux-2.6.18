@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.18-3.0
-# Wed Aug  8 15:59:00 2007
+# Wed Sep 19 17:02:16 2007
 #
 CONFIG_MIPS=y
 
@@ -53,6 +53,7 @@ CONFIG_MIPS_BCM97456BX=y
 # CONFIG_MIPS_BCM7402A0 is not set
 # CONFIG_MIPS_BCM7402CX is not set
 # CONFIG_MIPS_BCM7402CX_NAND is not set
+# CONFIG_MIPS_BCM7454 is not set
 # CONFIG_MIPS_BCM7403AX is not set
 # CONFIG_MIPS_BCM7403AX_NAND is not set
 # CONFIG_MIPS_BCM7440AX is not set
@@ -599,6 +600,7 @@ CONFIG_ATA=y
 # CONFIG_SATA_FORCE_SPINUP is not set
 # CONFIG_SATA_AHCI is not set
 CONFIG_SATA_SVW=y
+# CONFIG_SATA_SVW_NCQ is not set
 # CONFIG_ATA_PIIX is not set
 # CONFIG_SATA_MV is not set
 # CONFIG_SATA_NV is not set

@@ -60,11 +60,13 @@ vmlinux-32		= vmlinux.32
 vmlinux-64		= vmlinux
 
 cflags-y		+= -mabi=64
-	ifdef CONFIG_BUILD_ELF64
-	cflags-y		+= $(call cc-option,-mno-explicit-relocs)
-	else
-	cflags-y		+= $(call cc-option,-msym32)
-	endif
+ifdef CONFIG_BUILD_ELF64
+cflags-y		+= $(call cc-option,-mno-explicit-relocs)
+else
+# -msym32 can not be used for modules since they are loaded into XKSEG
+CFLAGS_MODULE		+= $(call cc-option,-mno-explicit-relocs)
+CFLAGS_KERNEL		+= $(call cc-option,-msym32)
+endif
 endif
 
 
@@ -91,8 +93,17 @@ cflags-y += -ffreestanding
 # carefully avoid to add it redundantly because gcc 3.3/3.4 complains
 # when fed the toolchain default!
 #
-cflags-$(CONFIG_CPU_BIG_ENDIAN)		+= $(shell $(CC) -dumpmachine |grep -q 'mips.*el-.*' && echo -EB -D__MIPSEB__)
-cflags-$(CONFIG_CPU_LITTLE_ENDIAN)	+= $(shell $(CC) -dumpmachine |grep -q 'mips.*el-.*' || echo -EL -D__MIPSEL__)
+# Certain gcc versions upto gcc 4.1.1 (probably 4.2-subversion as of
+# 2006-10-10 don't properly change the the predefined symbols if -EB / -EL
+# are used, so we kludge that here.  A bug has been filed at
+# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=29413.
+#
+undef-all += -UMIPSEB -U_MIPSEB -U__MIPSEB -U__MIPSEB__
+undef-all += -UMIPSEL -U_MIPSEL -U__MIPSEL -U__MIPSEL__
+predef-be += -DMIPSEB -D_MIPSEB -D__MIPSEB -D__MIPSEB__
+predef-le += -DMIPSEL -D_MIPSEL -D__MIPSEL -D__MIPSEL__
+cflags-$(CONFIG_CPU_BIG_ENDIAN)		+= $(shell $(CC) -dumpmachine |grep -q 'mips.*el-.*' && echo -EB $(undef-all) $(predef-be))
+cflags-$(CONFIG_CPU_LITTLE_ENDIAN)	+= $(shell $(CC) -dumpmachine |grep -q 'mips.*el-.*' || echo -EL $(undef-all) $(predef-le))
 
 cflags-$(CONFIG_SB1XXX_CORELIS)	+= $(call cc-option,-mno-sched-prolog) \
 				   -fno-omit-frame-pointer
@@ -131,9 +142,9 @@ cflags-$(CONFIG_CPU_R10000)	+= $(call cc-option,-march=r10000,-march=r8000) \
 			-Wa,--trap
 
 ifdef CONFIG_CPU_SB1
-	ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
-	MODFLAGS	+= -msb1-pass1-workarounds
-	endif
+ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
+MODFLAGS	+= -msb1-pass1-workarounds
+endif
 endif
 
 #
@@ -330,6 +341,7 @@ load-$(CONFIG_MIPS_MALTA)	+= 0xffffffff80100000
 # MIPS SEAD board
 #
 core-$(CONFIG_MIPS_SEAD)	+= arch/mips/mips-boards/sead/
+cflags-$(CONFIG_MIPS_SEAD)	+= -Iinclude/asm-mips/mach-mips
 load-$(CONFIG_MIPS_SEAD)	+= 0xffffffff80100000
 
 #
@@ -400,7 +412,11 @@ load-$(CONFIG_BASLER_EXCITE)	+= 0x80100000
 #
 core-$(CONFIG_MOMENCO_JAGUAR_ATX)	+= arch/mips/momentum/jaguar_atx/
 cflags-$(CONFIG_MOMENCO_JAGUAR_ATX)	+= -Iinclude/asm-mips/mach-ja
+#ifdef CONFIG_JAGUAR_DMALOW
+#load-$(CONFIG_MOMENCO_JAGUAR_ATX)	+= 0xffffffff88000000
+#else
 load-$(CONFIG_MOMENCO_JAGUAR_ATX)	+= 0xffffffff80100000
+#endif
 
 #
 # NEC DDB
@@ -506,14 +522,14 @@ endif
 ifdef CONFIG_SGI_IP27
 core-$(CONFIG_SGI_IP27)		+= arch/mips/sgi-ip27/
 cflags-$(CONFIG_SGI_IP27)	+= -Iinclude/asm-mips/mach-ip27
-	ifdef CONFIG_MAPPED_KERNEL
-	load-$(CONFIG_SGI_IP27)		+= 0xc00000004001c000
-	OBJCOPYFLAGS			:= --change-addresses=0x3fffffff80000000
-	dataoffset-$(CONFIG_SGI_IP27)	+= 0x01000000
-	else
-	load-$(CONFIG_SGI_IP27)		+= 0xa80000000001c000
-	OBJCOPYFLAGS			:= --change-addresses=0x57ffffff80000000
-	endif
+ifdef CONFIG_MAPPED_KERNEL
+load-$(CONFIG_SGI_IP27)		+= 0xc00000004001c000
+OBJCOPYFLAGS			:= --change-addresses=0x3fffffff80000000
+dataoffset-$(CONFIG_SGI_IP27)	+= 0x01000000
+else
+load-$(CONFIG_SGI_IP27)		+= 0xa80000000001c000
+OBJCOPYFLAGS			:= --change-addresses=0x57ffffff80000000
+endif
 endif
 
 #
@@ -963,7 +979,9 @@ endif
 ifdef CONFIG_MIPS_BCM97455C0
     UTS_MACHINE:=97455c0
 endif
-
+ifdef CONFIG_MIPS_BCM7454
+    UTS_MACHINE:=7454
+endif
 #
 #
 #  BCM97402S (PCI Slave)
@@ -1035,11 +1053,11 @@ cflags-y			+= -Iinclude/asm-mips/mach-generic
 drivers-$(CONFIG_PCI)		+= arch/mips/pci/
 
 ifdef CONFIG_32BIT
-	ifdef CONFIG_CPU_LITTLE_ENDIAN
-	JIFFIES			= jiffies_64
-	else
-	JIFFIES			= jiffies_64 + 4
-	endif
+ifdef CONFIG_CPU_LITTLE_ENDIAN
+JIFFIES			= jiffies_64
+else
+JIFFIES			= jiffies_64 + 4
+endif
 else
 JIFFIES			= jiffies_64
 endif
@@ -1051,11 +1069,11 @@ CFLAGS		+= $(cflags-y)
 
 ifdef CONFIG_MIPS
 CHECKFLAGS += $(shell $(CC) $(CFLAGS) -dM -E -xc /dev/null | \
-	egrep -vw '__GNUC_(MAJOR|MINOR|PATCHLEVEL)__' | \
+	egrep -vw '__GNUC_(|MINOR_|PATCHLEVEL_)_' | \
 	sed -e 's/^\#define /-D/' -e "s/ /='/" -e "s/$$/'/")
-	ifdef CONFIG_64BIT
-	CHECKFLAGS		+= -m64
-	endif
+ifdef CONFIG_64BIT
+CHECKFLAGS		+= -m64
+endif
 endif
 
 OBJCOPYFLAGS		+= --remove-section=.reginfo

@@ -534,8 +534,7 @@ repeat:
 		i--;
 	}
 	if (count-i) {
-		struct inode *inode = file->f_dentry->d_inode;
-		inode->i_atime = current_fs_time(inode->i_sb);
+		file->f_dentry->d_inode->i_atime = get_seconds();
 		return count-i;
 	}
 	if (signal_pending(current))

@@ -15,8 +15,7 @@
 #include <linux/kernel.h>
 #include <linux/ptrace.h>
 #include <linux/stddef.h>
-#include <linux/version.h>
-#include <linux/module.h>
+
 #include <asm/cpu.h>
 #include <asm/fpu.h>
 #include <asm/mipsregs.h>
@@ -43,15 +42,40 @@ static void r3081_wait(void)
 
 static void r39xx_wait(void)
 {
-	unsigned long cfg = read_c0_conf();
-	write_c0_conf(cfg | TX39_CONF_HALT);
+	local_irq_disable();
+	if (!need_resched())
+		write_c0_conf(read_c0_conf() | TX39_CONF_HALT);
+	local_irq_enable();
 }
 
+/*
+ * There is a race when WAIT instruction executed with interrupt
+ * enabled.
+ * But it is implementation-dependent wheter the pipelie restarts when
+ * a non-enabled interrupt is requested.
+ */
 static void r4k_wait(void)
 {
-	__asm__(".set\tmips3\n\t"
-		"wait\n\t"
-		".set\tmips0");
+	__asm__("	.set	mips3			\n"
+		"	wait				\n"
+		"	.set	mips0			\n");
+}
+
+/*
+ * This variant is preferable as it allows testing need_resched and going to
+ * sleep depending on the outcome atomically.  Unfortunately the "It is
+ * implementation-dependent whether the pipeline restarts when a non-enabled
+ * interrupt is requested" restriction in the MIPS32/MIPS64 architecture makes
+ * using this version a gamble.
+ */
+static void r4k_wait_irqoff(void)
+{
+	local_irq_disable();
+	if (!need_resched())
+		__asm__("	.set	mips3		\n"
+			"	wait			\n"
+			"	.set	mips0		\n");
+	local_irq_enable();
 }
 
 /* The Au1xxx wait is available only if using 32khz counter or
@@ -61,23 +85,23 @@ int allow_au1k_wait;
 static void au1k_wait(void)
 {
 	/* using the wait instruction makes CP0 counter unusable */
-	__asm__(".set mips3\n\t"
-		"cache 0x14, 0(%0)\n\t"
-		"cache 0x14, 32(%0)\n\t"
-		"sync\n\t"
-		"nop\n\t"
-		"wait\n\t"
-		"nop\n\t"
-		"nop\n\t"
-		"nop\n\t"
-		"nop\n\t"
-		".set mips0\n\t"
+	__asm__("	.set	mips3			\n"
+		"	cache	0x14, 0(%0)		\n"
+		"	cache	0x14, 32(%0)		\n"
+		"	sync				\n"
+		"	nop				\n"
+		"	wait				\n"
+		"	nop				\n"
+		"	nop				\n"
+		"	nop				\n"
+		"	nop				\n"
+		"	.set	mips0			\n"
 		: : "r" (au1k_wait));
 }
 
 static int __initdata nowait = 0;
 
-int __init wait_disable(char *s)
+static int __init wait_disable(char *s)
 {
 	nowait = 1;
 
@@ -115,8 +139,6 @@ static inline void check_wait(void)
 	case CPU_R5000:
 	case CPU_NEVADA:
 	case CPU_RM7000:
-	case CPU_RM9000:
-	case CPU_TX49XX:
 	case CPU_4KC:
 	case CPU_4KEC:
 	case CPU_4KSC:
@@ -126,6 +148,7 @@ static inline void check_wait(void)
 	case CPU_25KF:
 	case CPU_34K:
 	case CPU_74K:
+ 	case CPU_PR4450:
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;
@@ -136,8 +159,8 @@ static inline void check_wait(void)
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;
- 	case CPU_PR4450:
-		cpu_wait = r4k_wait;
+	case CPU_TX49XX:
+		cpu_wait = r4k_wait_irqoff;
 		printk(" available.\n");
 		break;
 	case CPU_AU1000:
@@ -150,6 +173,14 @@ static inline void check_wait(void)
 			printk(" available.\n");
 		} else
 			printk(" unavailable.\n");
+		break;
+	case CPU_RM9000:
+		if ((c->processor_id & 0x00ff) >= 0x40) {
+			cpu_wait = r4k_wait;
+			printk(" available.\n");
+		} else {
+			printk(" unavailable.\n");
+		}
 		break;
 	default:
 		printk(" unavailable.\n");
@@ -713,6 +744,8 @@ static inline void cpu_probe_philips(struct cpuinfo_mips *c)
 }
 
 #ifdef CONFIG_MIPS_BRCM97XXX
+#include <linux/version.h>
+
 static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
 {
 	unsigned long config1;

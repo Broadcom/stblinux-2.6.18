@@ -77,15 +77,6 @@ static void op_mips_stop(void)
 	on_each_cpu(model->cpu_stop, NULL, 0, 1);
 }
 
-/*static struct oprofile_operations oprof_mips_ops = {
-	.create_files	= op_mips_create_files,
-	.setup		= op_mips_setup,
-	.start		= op_mips_start,
-	.stop		= op_mips_stop,
-	.backtrace	= op_mips_backtrace,
-	.cpu_type	= NULL
-};
-*/
 int __init oprofile_arch_init(struct oprofile_operations *ops)
 {
 	struct op_mips_model *lmodel = NULL;

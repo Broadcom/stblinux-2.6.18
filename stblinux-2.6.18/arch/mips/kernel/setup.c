@@ -103,6 +103,7 @@ extern unsigned long g_board_RAM_size;
 void __init add_memory_region(phys_t start, phys_t size, long type)
 {
 	int x = boot_mem_map.nr_map;
+	struct boot_mem_map_entry *prev = boot_mem_map.map + x - 1;
 
 /* Disable merging for BRCM boards */
 #ifndef CONFIG_MIPS_BRCM
@@ -981,7 +982,7 @@ void __init setup_arch(char **cmdline_p)
 #endif
 }
 
-int __init fpu_disable(char *s)
+static int __init fpu_disable(char *s)
 {
 	int i;
 
@@ -993,7 +994,7 @@ int __init fpu_disable(char *s)
 
 __setup("nofpu", fpu_disable);
 
-int __init dsp_disable(char *s)
+static int __init dsp_disable(char *s)
 {
 	cpu_data[0].ases &= ~MIPS_ASE_DSP;
 

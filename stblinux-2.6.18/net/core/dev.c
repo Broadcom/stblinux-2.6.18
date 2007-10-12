@@ -1483,14 +1483,16 @@ gso:
 	if (q->enqueue) {
 		/* Grab device queue */
 		spin_lock(&dev->queue_lock);
+		q = dev->qdisc;
+		if (q->enqueue) {
+			rc = q->enqueue(skb, q);
+			qdisc_run(dev);
+			spin_unlock(&dev->queue_lock);
 
-		rc = q->enqueue(skb, q);
-
-		qdisc_run(dev);
-
+			rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
+			goto out;
+		}
 		spin_unlock(&dev->queue_lock);
-		rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
-		goto out;
 	}
 
 	/* The device has no queue. Common case for software devices:
@@ -1589,13 +1591,6 @@ int netif_rx(struct sk_buff *skb)
 	struct softnet_data *queue;
 	unsigned long flags;
 
-#ifdef  CONFIG_NETIF_DMA
-    if (netif_rx_hook) {
-        if (netif_rx_hook(skb)) {
-            return NET_RX_DROP;
-        }
-    }
-#endif    
     
 	/* if netpoll wants it, pretend we never saw it */
 	if (netpoll_rx(skb))
@@ -1788,6 +1783,14 @@ int netif_receive_skb(struct sk_buff *skb)
 	struct net_device *orig_dev;
 	int ret = NET_RX_DROP;
 	unsigned short type;
+
+#ifdef  CONFIG_NETIF_DMA
+    if (netif_rx_hook) {
+        if (netif_rx_hook(skb)) {
+            return NET_RX_DROP;
+        }
+    }
+#endif    
 
 	/* if we've gotten here through NAPI, check netpoll */
 	if (skb->dev->poll && netpoll_rx(skb))

@@ -41,6 +41,12 @@
 #include <linux/rtnetlink.h>	
 #endif	
 
+#undef DEV_RD
+#undef DEV_WR
+#define DEV_RD(x) (*((volatile uint32_t *)(KSEG1ADDR((x) + BCHP_PHYSICAL_OFFSET))))
+#define DEV_WR(x,y) do \
+	{ *((volatile uint32_t *)(KSEG1ADDR((x) + \
+		                  BCHP_PHYSICAL_OFFSET))) = (y); } while(0)
 
 /*---------------------------------------------------------------------*/
 /* specify number of BDs and buffers to use                            */

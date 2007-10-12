@@ -23,6 +23,7 @@
 #include "op_libiberty.h"
 
 #include <limits.h>
+#include <linux/limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 

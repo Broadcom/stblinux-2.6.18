@@ -664,14 +664,22 @@ static void cleanup(struct filesystem_entry *dir)
 #define JFFS2_MAX_SYMLINK_LEN 254
 #endif
 
+#define NORFLASH		0
+#define NANDFlASH		1
+
 static uint32_t ino = 0;
 static uint8_t *file_buffer = NULL;		/* file buffer contains the actual erase block*/
 static int out_ofs = 0;
 static int erase_block_size = 65536;
 static int pad_fs_size = 0;
-static int add_ebhs = 1;
+static int add_ebhs = 0;
 static struct jffs2_raw_ebh ebh;
 static int ebh_size = sizeof(ebh);
+static int add_cleanmarkers = 1;
+static struct jffs2_unknown_node cleanmarker;
+static int cleanmarker_size = sizeof(cleanmarker);
+static int flashtype = NORFLASH;
+
 static unsigned char ffbuf[16] =
 	{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	0xff, 0xff, 0xff, 0xff, 0xff
@@ -732,20 +740,32 @@ static inline void padword(void)
 
 static inline void pad_block_if_less_than(int req)
 {
-	if (add_ebhs) {
+	if (add_ebhs) { /* NAND */
 		if ((out_ofs % erase_block_size) == 0) {
 			full_write(out_fd, &ebh, sizeof(ebh));
 			pad(ebh_size - sizeof(ebh));
+			padword();
+		}
+	} else if (add_cleanmarkers) { /* NOR */
+		if ((out_ofs % erase_block_size) == 0) {
+			full_write(out_fd, &cleanmarker, sizeof(cleanmarker));
+			pad(cleanmarker_size - sizeof(cleanmarker));
 			padword();
 		}
 	}
 	if ((out_ofs % erase_block_size) + req > erase_block_size) {
 		padblock();
 	}
-	if (add_ebhs) {
+	if (add_ebhs) { /* NAND */
 		if ((out_ofs % erase_block_size) == 0) {
 			full_write(out_fd, &ebh, sizeof(ebh));
 			pad(ebh_size - sizeof(ebh));
+			padword();
+		}
+	} else if (add_cleanmarkers) { /* NOR */
+		if ((out_ofs % erase_block_size) == 0) {
+			full_write(out_fd, &cleanmarker, sizeof(cleanmarker));
+			pad(cleanmarker_size - sizeof(cleanmarker));
 			padword();
 		}
 	}
@@ -1125,17 +1145,24 @@ static void recursive_populate_directory(struct filesystem_entry *dir)
 
 static void create_target_filesystem(struct filesystem_entry *root)
 {
-	ebh.magic    = cpu_to_je16(JFFS2_MAGIC_BITMASK);
-	ebh.nodetype = cpu_to_je16(JFFS2_NODETYPE_ERASEBLOCK_HEADER);
-	ebh.totlen   = cpu_to_je32(sizeof(ebh));
-	ebh.hdr_crc  = cpu_to_je32(crc32(0, &ebh, sizeof(struct jffs2_unknown_node)-4));
-	ebh.reserved = 0;
-	ebh.compat_fset = JFFS2_EBH_COMPAT_FSET;
-	ebh.incompat_fset = JFFS2_EBH_INCOMPAT_FSET;
-	ebh.rocompat_fset = JFFS2_EBH_ROCOMPAT_FSET;
-	ebh.erase_count = cpu_to_je32(0);
-	ebh.node_crc = cpu_to_je32(crc32(0, (unsigned char *)&ebh + sizeof(struct jffs2_unknown_node) + 4,
-							sizeof(struct jffs2_raw_ebh) - sizeof(struct jffs2_unknown_node) - 4));
+	if (add_ebhs) { /* NAND */
+		ebh.magic    = cpu_to_je16(JFFS2_MAGIC_BITMASK);
+		ebh.nodetype = cpu_to_je16(JFFS2_NODETYPE_ERASEBLOCK_HEADER);
+		ebh.totlen   = cpu_to_je32(sizeof(ebh));
+		ebh.hdr_crc  = cpu_to_je32(crc32(0, &ebh, sizeof(struct jffs2_unknown_node)-4));
+		ebh.reserved = 0;
+		ebh.compat_fset = JFFS2_EBH_COMPAT_FSET;
+		ebh.incompat_fset = JFFS2_EBH_INCOMPAT_FSET;
+		ebh.rocompat_fset = JFFS2_EBH_ROCOMPAT_FSET;
+		ebh.erase_count = cpu_to_je32(0);
+		ebh.node_crc = cpu_to_je32(crc32(0, (unsigned char *)&ebh + sizeof(struct jffs2_unknown_node) + 4,
+					sizeof(struct jffs2_raw_ebh) - sizeof(struct jffs2_unknown_node) - 4));
+	} else if (add_cleanmarkers) { /* NOR */
+		cleanmarker.magic    = cpu_to_je16(JFFS2_MAGIC_BITMASK);
+		cleanmarker.nodetype = cpu_to_je16(JFFS2_NODETYPE_CLEANMARKER);
+		cleanmarker.totlen   = cpu_to_je32(cleanmarker_size);
+		cleanmarker.hdr_crc  = cpu_to_je32(crc32(0, &cleanmarker, sizeof(struct jffs2_unknown_node)-4));
+	}
 
 	if (ino == 0)
 		ino = 1;
@@ -1146,11 +1173,18 @@ static void create_target_filesystem(struct filesystem_entry *root)
 	if (pad_fs_size == -1) {
 		padblock();
 	} else {
-		if (pad_fs_size && add_ebhs){
+		if (pad_fs_size && add_ebhs) { /* NAND */
 			padblock();
 			while (out_ofs < pad_fs_size) {
 				full_write(out_fd, &ebh, sizeof(ebh));
 				pad(ebh_size - sizeof(ebh));
+				padblock();
+			}
+		} else if (pad_fs_size && add_cleanmarkers) { /* NOR */
+			padblock();
+			while (out_ofs < pad_fs_size) {
+				full_write(out_fd, &cleanmarker, sizeof(cleanmarker));
+				pad(cleanmarker_size - sizeof(cleanmarker));
 				padblock();
 			}
 		} else {
@@ -1185,6 +1219,7 @@ static struct option long_options[] = {
 	{"test-compression", 0, NULL, 't'},
 	{"compressor-priority", 1, NULL, 'y'},
 	{"incremental", 1, NULL, 'i'},
+	{"nand", 0, NULL, 'N'},
 	{NULL, 0, NULL, 0}
 };
 
@@ -1198,7 +1233,7 @@ static char *helptext =
 	"  -r, -d, --root=DIR      Build file system from directory DIR (default: cwd)\n"
 	"  -s, --pagesize=SIZE     Use page size (max data node size) SIZE (default: 4KiB)\n"
 	"  -e, --eraseblock=SIZE   Use erase block size SIZE (default: 64KiB)\n"
-	"  -c, --eraseblock-header=SIZE  Size of eraseblock header (default 28)\n"
+	"  -c, --eraseblock-header=SIZE  Size of eraseblock header (default 28 for NAND, 12 for NOR)\n"
 	"  -m, --compr-mode=MODE   Select compression mode (default: priortiry)\n"
         "  -x, --disable-compressor=COMPRESSOR_NAME\n"
         "                          Disable a compressor\n"
@@ -1208,7 +1243,7 @@ static char *helptext =
         "                          Set the priority of a compressor\n"
         "  -L, --list-compressors  Show the list of the avaiable compressors\n"
         "  -t, --test-compression  Call decompress and compare with the original (for test)\n"
-	"  -n, --no-eraseblock-headers   Don't add a eraseblock header to every eraseblock\n"
+	"  -n, --no-eraseblock-headers   Don't add a eraseblock header (cleanmarker on NOR flash) to every eraseblock\n"
 	"  -o, --output=FILE       Output to FILE (default: stdout)\n"
 	"  -l, --little-endian     Create a little-endian filesystem\n"
 	"  -b, --big-endian        Create a big-endian filesystem\n"
@@ -1220,7 +1255,8 @@ static char *helptext =
 	"  -h, --help              Display this help text\n"
 	"  -v, --verbose           Verbose operation\n"
 	"  -V, --version           Display version information\n"
-	"  -i, --incremental=FILE  Parse FILE and generate appendage output for it\n\n";
+	"  -i, --incremental=FILE  Parse FILE and generate appendage output for it\n" 
+	"  -N, --nand              Create image for NAND flash, default is NOR flash\n\n";
 
 static char *revtext = "$Revision: 1.50 $";
 
@@ -1376,13 +1412,14 @@ int main(int argc, char **argv)
 	struct stat sb;
 	FILE *devtable = NULL;
 	struct filesystem_entry *root;
-        char *compr_name = NULL;
-        int compr_prior  = -1;
+	char *compr_name = NULL;
+	int compr_prior  = -1;
+	int generic_header_size = -1, nomarkers = 0;
 
-        jffs2_compressors_init();
+	jffs2_compressors_init();
 
 	while ((opt = getopt_long(argc, argv,
-					"D:d:r:s:o:qUPfh?vVe:lbp::nc:m:x:X:Lty:i:", long_options, &c)) >= 0)
+					"D:d:r:s:o:qUPfh?vVe:lbp::nc:m:x:X:Lty:i:N", long_options, &c)) >= 0)
 	{
 		switch (opt) {
 			case 'D':
@@ -1491,16 +1528,10 @@ int main(int argc, char **argv)
 					pad_fs_size = -1;
 				break;
 			case 'n':
-				add_ebhs = 0;
+				nomarkers = 1;
 				break;
 			case 'c':
-				ebh_size = strtol(optarg, NULL, 0);
-				if (ebh_size < sizeof(ebh)) {
-					error_msg_and_die("ebh size must be >= 28");
-				}
-				if (ebh_size >= erase_block_size) {
-					error_msg_and_die("ebh size must be < eraseblock size");
-				}
+				generic_header_size = strtol(optarg, NULL, 0);
 				break;
                         case 'm':
                                 if (jffs2_set_compression_mode_name(optarg)) {
@@ -1544,8 +1575,46 @@ int main(int argc, char **argv)
 					perror_msg_and_die("cannot open (incremental) file");
 				}
 				break;
+			case 'N':
+				flashtype = NANDFlASH;
+				break;
 		}
 	}
+
+	/* Determine if we need cleanmarkers or ebhs */
+	if (nomarkers) {
+		add_cleanmarkers = add_ebhs = 0;
+	} else {
+		if (flashtype == NANDFlASH) {
+			add_ebhs = 1;
+			add_cleanmarkers = 0;
+		} else if (flashtype == NORFLASH) {
+			add_ebhs = 0;
+		  	add_cleanmarkers = 1;
+		} 
+	}
+	if (generic_header_size != -1) {
+		if (flashtype == NANDFlASH) {
+			ebh_size = generic_header_size;
+			if (ebh_size < sizeof(ebh)) {
+				error_msg_and_die("ebh size must be >= 28");
+			}
+			if (ebh_size >= erase_block_size) {
+				error_msg_and_die("ebh size must be < eraseblock size");
+			}
+		} else if (flashtype == NORFLASH) {
+			cleanmarker_size = generic_header_size;
+			if (cleanmarker_size < sizeof(cleanmarker)) {
+				error_msg_and_die("cleanmarker size must be >= 12");
+			}
+			if (cleanmarker_size >= erase_block_size) {
+				error_msg_and_die("cleanmarker size must be < eraseblock size");
+			}
+		} else {
+			error_msg_and_die("Unknown flash type");
+		}
+	}
+
 	if (out_fd == -1) {
 		if (isatty(1)) {
 			error_msg_and_die(helptext);

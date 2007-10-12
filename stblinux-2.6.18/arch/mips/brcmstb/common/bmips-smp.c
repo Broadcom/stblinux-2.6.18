@@ -285,7 +285,7 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
     temp |= (0x01 << 16);   // adjust tlb serialization (no serialization RECOMMENDED!)
 #endif
     
-	temp |= (0x01 << 31);	// Debug and profile TP1 thread
+//	temp |= (0x01 << 30);	// Debug and profile TP1 thread
 
     printk("TP%d: prom_boot_secondary: cp0 22,2 => %08lx\n", smp_processor_id(), temp);
     write_c0_cmt_control(temp);

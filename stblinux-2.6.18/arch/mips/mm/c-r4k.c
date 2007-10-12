@@ -30,6 +30,31 @@
 #include <asm/war.h>
 #include <asm/cacheflush.h> /* for run_uncached() */
 
+/*
+ * Special Variant of smp_call_function for use by cache functions:
+ *
+ *  o No return value
+ *  o collapses to normal function call on UP kernels
+ *  o collapses to normal function call on systems with a single shared
+ *    primary cache.
+ */
+static inline void r4k_on_each_cpu(void (*func) (void *info), void *info,
+                                   int retry, int wait)
+{
+	preempt_disable();
+
+#if !defined(CONFIG_MIPS_MT_SMP) && !defined(CONFIG_MIPS_MT_SMTC)
+	smp_call_function(func, info, retry, wait);
+#endif
+	func(info);
+	preempt_enable();
+}
+
+static unsigned long icache_size __read_mostly;
+static unsigned long dcache_size __read_mostly;
+static unsigned long scache_size __read_mostly;
+
+#ifdef CONFIG_MIPS_BRCM97XXX
 static unsigned long icache_size, dcache_size, scache_size;
 
 /* RYH */
@@ -37,6 +62,7 @@ static int rac_set = 0;
 extern int par_val;
 extern char cfeBootParms[]; 
 extern unsigned long rac_config0, rac_config1, rac_address_range;
+#endif	// CONFIG_MIPS_BRCM97XXX
 
 #if defined (CONFIG_SMP) && \
    (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0) || \
@@ -215,9 +241,6 @@ get_dcache_size(void)
 	return dcache_size;
 }
 
-static unsigned long icache_size __read_mostly;
-static unsigned long dcache_size __read_mostly;
-static unsigned long scache_size __read_mostly;
 
 /*
  * Dummy cache handling routines for machines without boardcaches
@@ -511,7 +534,7 @@ static void r4k_flush_cache_all(void)
 #ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_all(NULL);
 #else
-	on_each_cpu(local_r4k_flush_cache_all, NULL, 1, 1);
+	r4k_on_each_cpu(local_r4k_flush_cache_all, NULL, 1, 1);
 #endif
 }
 
@@ -539,7 +562,7 @@ static void r4k___flush_cache_all(void)
 #ifdef BRCM_CMT_CACHE_WAR
 	local_r4k___flush_cache_all(NULL);
 #else
-	on_each_cpu(local_r4k___flush_cache_all, NULL, 1, 1);
+	r4k_on_each_cpu(local_r4k___flush_cache_all, NULL, 1, 1);
 #endif
 }
 
@@ -633,7 +656,7 @@ static void r4k_flush_cache_range(struct vm_area_struct *vma,
 #ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_range(vma);
 #else
-	on_each_cpu(local_r4k_flush_cache_range, vma, 1, 1);
+	r4k_on_each_cpu(local_r4k_flush_cache_range, vma, 1, 1);
 #endif
 }
 
@@ -673,7 +696,7 @@ static void r4k_flush_cache_mm(struct mm_struct *mm)
 #ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_mm(mm);
 #else
-	on_each_cpu(local_r4k_flush_cache_mm, mm, 1, 1);
+	r4k_on_each_cpu(local_r4k_flush_cache_mm, mm, 1, 1);
 #endif
 }
 
@@ -778,7 +801,7 @@ static void r4k_flush_cache_page(struct vm_area_struct *vma,
 #ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_page(&args);
 #else
-	on_each_cpu(local_r4k_flush_cache_page, &args, 1, 1);
+	r4k_on_each_cpu(local_r4k_flush_cache_page, &args, 1, 1);
 #endif
 }
 
@@ -794,7 +817,7 @@ static void r4k_flush_data_cache_page(unsigned long addr)
 #ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_data_cache_page((void *) addr);
 #else
-	on_each_cpu(local_r4k_flush_data_cache_page, (void *) addr, 1, 1);
+	r4k_on_each_cpu(local_r4k_flush_data_cache_page, (void *) addr, 1, 1);
 #endif
 }
 
@@ -843,7 +866,7 @@ static void r4k_flush_icache_range(unsigned long start, unsigned long end)
 #ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_icache_range(&args);
 #else
-	on_each_cpu(local_r4k_flush_icache_range, &args, 1, 1);
+	r4k_on_each_cpu(local_r4k_flush_icache_range, &args, 1, 1);
 #endif
 	instruction_hazard();
 
@@ -927,7 +950,7 @@ static void r4k_flush_icache_page(struct vm_area_struct *vma,
 #ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_icache_page(&args);
 #else
-	on_each_cpu(local_r4k_flush_icache_page, &args, 1, 1);
+	r4k_on_each_cpu(local_r4k_flush_icache_page, &args, 1, 1);
 #endif
 }
 
@@ -1043,7 +1066,7 @@ static void r4k_flush_cache_sigtramp(unsigned long addr)
 #ifdef BRCM_CMT_CACHE_WAR
 	local_r4k_flush_cache_sigtramp((void *) addr);
 #else
-	on_each_cpu(local_r4k_flush_cache_sigtramp, (void *) addr, 1, 1);
+	r4k_on_each_cpu(local_r4k_flush_cache_sigtramp, (void *) addr, 1, 1);
 #endif
 }
 

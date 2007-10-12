@@ -378,7 +378,7 @@ usage:	    print_version();
 #ifdef DEBUG
   writePidFile(getpid());
 #else
-#ifdef EMBED
+#if 0 //def EMBED // PR35375: this is a misuse of vfork
   s=vfork();
 #else
   s=fork();

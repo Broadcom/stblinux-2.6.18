@@ -20,12 +20,12 @@
 #include <linux/mm.h>
 #include <linux/errno.h>
 #include <linux/ptrace.h>
-#include <linux/audit.h>
 #include <linux/smp.h>
 #include <linux/smp_lock.h>
 #include <linux/user.h>
 #include <linux/security.h>
-#include <linux/signal.h>
+#include <linux/audit.h>
+#include <linux/seccomp.h>
 
 #include <asm/byteorder.h>
 #include <asm/cpu.h>
@@ -106,6 +106,7 @@ int ptrace_setregs (struct task_struct *child, __s64 __user *data)
 int ptrace_getfpregs (struct task_struct *child, __u32 __user *data)
 {
 	int i;
+	unsigned int tmp;
 
 	if (!access_ok(VERIFY_WRITE, data, 33 * 8))
 		return -EIO;
@@ -121,10 +122,10 @@ int ptrace_getfpregs (struct task_struct *child, __u32 __user *data)
 
 	__put_user (child->thread.fpu.fcr31, data + 64);
 
+	preempt_disable();
 	if (cpu_has_fpu) {
-		unsigned int flags, tmp;
+		unsigned int flags;
 
-		preempt_disable();
 		if (cpu_has_mipsmt) {
 			unsigned int vpflags = dvpe();
 			flags = read_c0_status();
@@ -138,11 +139,11 @@ int ptrace_getfpregs (struct task_struct *child, __u32 __user *data)
 			__asm__ __volatile__("cfc1\t%0,$0" : "=r" (tmp));
 			write_c0_status(flags);
 		}
-		preempt_enable();
-		__put_user (tmp, data + 65);
 	} else {
-		__put_user ((__u32) 0, data + 65);
+		tmp = 0;
 	}
+	preempt_enable();
+	__put_user (tmp, data + 65);
 
 	return 0;
 }
@@ -245,16 +246,17 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
 			unsigned int mtflags;
 #endif /* CONFIG_MIPS_MT_SMTC */
 
-			if (!cpu_has_fpu)
+			preempt_disable();
+			if (!cpu_has_fpu) {
+				preempt_enable();
 				break;
+			}
 
 #ifdef CONFIG_MIPS_MT_SMTC
 			/* Read-modify-write of Status must be atomic */
 			local_irq_save(irqflags);
 			mtflags = dmt();
 #endif /* CONFIG_MIPS_MT_SMTC */
-
-			preempt_disable();
 			if (cpu_has_mipsmt) {
 				unsigned int vpflags = dvpe();
 				flags = read_c0_status();
@@ -471,12 +473,16 @@ static inline int audit_arch(void)
  */
 asmlinkage void do_syscall_trace(struct pt_regs *regs, int entryexit)
 {
+	/* do the secure computing check first */
+	secure_computing(regs->orig_eax);
+
 	if (unlikely(current->audit_context) && entryexit)
 		audit_syscall_exit(AUDITSC_RESULT(regs->regs[2]),
 		                   regs->regs[2]);
 
 	if (!(current->ptrace & PT_PTRACED))
 		goto out;
+
 	if (!test_thread_flag(TIF_SYSCALL_TRACE))
 		goto out;
 
@@ -494,9 +500,14 @@ asmlinkage void do_syscall_trace(struct pt_regs *regs, int entryexit)
 		send_sig(current->exit_code, current, 1);
 		current->exit_code = 0;
 	}
- out:
+
+out:
+	/* There is no ->orig_eax and that's quite intensional for now making
+	   this work will require some work in various other place before it's
+	   more than a placebo.  */
+
 	if (unlikely(current->audit_context) && !entryexit)
-		audit_syscall_entry(audit_arch(), regs->regs[2],
-				    regs->regs[4], regs->regs[5],
-				    regs->regs[6], regs->regs[7]);
+		audit_syscall_entry(audit_arch(), regs->orig_eax,
+		                    regs->regs[4], regs->regs[5],
+		                    regs->regs[6], regs->regs[7]);
 }

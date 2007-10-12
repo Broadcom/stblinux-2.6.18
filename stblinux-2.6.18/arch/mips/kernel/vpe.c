@@ -29,6 +29,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/device.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -48,6 +49,7 @@
 #include <asm/cacheflush.h>
 #include <asm/atomic.h>
 #include <asm/cpu.h>
+#include <asm/mips_mt.h>
 #include <asm/processor.h>
 #include <asm/system.h>
 #include <asm/vpe.h>
@@ -64,6 +66,7 @@ typedef void *vpe_handle;
 
 static char module_name[] = "vpe";
 static int major;
+static const int minor = 1;	/* fixed for now  */
 
 #ifdef CONFIG_MIPS_APSP_KSPD
  static struct kspd_notifications kspd_events;
@@ -139,13 +142,16 @@ struct tc {
 	struct list_head list;
 };
 
-struct vpecontrol_ {
+struct {
 	/* Virtual processing elements */
 	struct list_head vpe_list;
 
 	/* Thread contexts */
 	struct list_head tc_list;
-} vpecontrol;
+} vpecontrol = {
+	.vpe_list = LIST_HEAD_INIT(vpecontrol.vpe_list),
+	.tc_list = LIST_HEAD_INIT(vpecontrol.tc_list)
+};
 
 static void release_progmem(void *ptr);
 /* static __attribute_used__ void dump_vpe(struct vpe * v); */
@@ -768,9 +774,15 @@ int vpe_run(struct vpe * v)
 	 */
  	write_tc_c0_tcbind((read_tc_c0_tcbind() & ~TCBIND_CURVPE) | v->minor);
 
+	write_vpe_c0_vpeconf0(read_vpe_c0_vpeconf0() & ~(VPECONF0_VPA));
+
+	back_to_back_c0_hazard();
+
         /* Set up the XTC bit in vpeconf0 to point at our tc */
         write_vpe_c0_vpeconf0( (read_vpe_c0_vpeconf0() & ~(VPECONF0_XTC))
                                | (t->index << VPECONF0_XTC_SHIFT));
+
+	back_to_back_c0_hazard();
 
         /* enable this VPE */
         write_vpe_c0_vpeconf0(read_vpe_c0_vpeconf0() | VPECONF0_VPA);
@@ -1067,6 +1079,7 @@ static int getcwd(char *buff, int size)
 static int vpe_open(struct inode *inode, struct file *filp)
 {
 	int minor, ret;
+	enum vpe_state state;
 	struct vpe *v;
 	struct vpe_notifications *not;
 
@@ -1081,7 +1094,8 @@ static int vpe_open(struct inode *inode, struct file *filp)
 		return -ENODEV;
 	}
 
-	if (v->state != VPE_STATE_UNUSED) {
+	state = xchg(&v->state, VPE_STATE_INUSE);
+	if (state != VPE_STATE_UNUSED) {
 		dvpe();
 
 		printk(KERN_DEBUG "VPE loader: tc in use dumping regs\n");
@@ -1095,9 +1109,6 @@ static int vpe_open(struct inode *inode, struct file *filp)
 		release_progmem(v->load_addr);
 		cleanup_tc(get_tc(minor));
 	}
-
-	// allocate it so when we get write ops we know it's expected.
-	v->state = VPE_STATE_INUSE;
 
 	/* this of-course trashes what was there before... */
 	v->pbuffer = vmalloc(P_SIZE);
@@ -1356,12 +1367,15 @@ static void kspd_sp_exit( int sp_id)
 }
 #endif
 
+static struct device *vpe_dev;
+
 static int __init vpe_module_init(void)
 {
 	struct vpe *v = NULL;
+	struct device *dev;
 	struct tc *t;
 	unsigned long val;
-	int i;
+	int i, err;
 
 	if (!cpu_has_mipsmt) {
 		printk("VPE loader: not a MIPS MT capable processor\n");
@@ -1374,6 +1388,14 @@ static int __init vpe_module_init(void)
 		return major;
 	}
 
+	dev = device_create(mt_class, NULL, MKDEV(major, minor),
+	                    "tc%d", minor);
+	if (IS_ERR(dev)) {
+		err = PTR_ERR(dev);
+		goto out_chrdev;
+	}
+	vpe_dev = dev;
+
 	dmt();
 	dvpe();
 
@@ -1382,8 +1404,6 @@ static int __init vpe_module_init(void)
 
 	/* dump_mtregs(); */
 
-	INIT_LIST_HEAD(&vpecontrol.vpe_list);
-	INIT_LIST_HEAD(&vpecontrol.tc_list);
 
 	val = read_c0_mvpconf0();
 	for (i = 0; i < ((val & MVPCONF0_PTC) + 1); i++) {
@@ -1471,6 +1491,11 @@ static int __init vpe_module_init(void)
 	kspd_events.kspd_sp_exit = kspd_sp_exit;
 #endif
 	return 0;
+
+out_chrdev:
+	unregister_chrdev(major, module_name);
+
+	return err;
 }
 
 static void __exit vpe_module_exit(void)
@@ -1483,6 +1508,7 @@ static void __exit vpe_module_exit(void)
 		}
 	}
 
+	device_destroy(mt_class, MKDEV(major, minor));
 	unregister_chrdev(major, module_name);
 }
 

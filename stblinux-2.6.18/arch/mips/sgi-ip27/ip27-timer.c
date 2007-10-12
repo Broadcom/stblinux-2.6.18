@@ -216,14 +216,14 @@ static struct irq_chip rt_irq_type = {
 	.end		= end_rt_irq,
 };
 
+typedef irqreturn_t (*irq_handler_t)(int, void *, struct pt_regs *);
+
 static struct irqaction rt_irqaction = {
-	.handler	= ip27_rt_timer_interrupt,
+	.handler	= (irq_handler_t) ip27_rt_timer_interrupt,
 	.flags		= IRQF_DISABLED,
 	.mask		= CPU_MASK_NONE,
 	.name		= "timer"
 };
-
-extern int allocate_irqno(void);
 
 void __init plat_timer_setup(struct irqaction *irq)
 {

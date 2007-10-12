@@ -260,21 +260,21 @@ initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data_nodev.cpio
 # Added parameters for NAND.  pagesize is for FS, and NOT 512, which is the cache size.
 # Now building for both 128K and 16K erase block sizes
 $(JFFS2IMG) $(JFFS2_16K_IMG) $(JFFS2_512K_IMG): initramfs_dir
-	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2  -o $(JFFS2IMG) --squash --verbose \
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2  -o $(JFFS2IMG) -N --squash --verbose \
 		--big-endian --eraseblock=128KiB   \
 		-d $(INITRAMFS_DIR)
 ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2IMG} ${JFFS2IMG}.nosummary
 	$(ROOTDIR)/user/mtd-utils/build/sumtool -b -i ${JFFS2IMG}.nosummary -o $(JFFS2IMG) -e 128KiB
 endif
-	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2  -o $(JFFS2_16K_IMG) --squash --verbose \
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2  -o $(JFFS2_16K_IMG) -N --squash --verbose \
 		--big-endian --eraseblock=16KiB  --pagesize=512 \
 		-d $(INITRAMFS_DIR)
 ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2_16K_IMG} ${JFFS2_16K_IMG}.nosummary
 	$(ROOTDIR)/user/mtd-utils/build/sumtool -b -i ${JFFS2_16K_IMG}.nosummary -o $(JFFS2_16K_IMG) -e 16KiB
 endif
-	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o ${JFFS2_512K_IMG} --squash --verbose \
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o ${JFFS2_512K_IMG} -N --squash --verbose \
 		--big-endian --eraseblock=512KiB  --pagesize=512 \
 		-d $(INITRAMFS_DIR)
 ifdef CONFIG_JFFS2_SUMMARY

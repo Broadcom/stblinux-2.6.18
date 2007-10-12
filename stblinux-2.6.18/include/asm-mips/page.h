@@ -79,15 +79,17 @@ extern void copy_user_highpage(struct page *to, struct page *from,
   #ifdef CONFIG_CPU_MIPS32
     typedef struct { unsigned long pte_low, pte_high; } pte_t;
     #define pte_val(x)    ((x).pte_low | ((unsigned long long)(x).pte_high << 32))
+    #define __pte(x)      ({ pte_t __pte = {(x), ((unsigned long long)(x)) >> 32}; __pte; })
   #else
      typedef struct { unsigned long long pte; } pte_t;
      #define pte_val(x)	((x).pte)
+     #define __pte(x)	((pte_t) { (x) } )
   #endif
 #else
 typedef struct { unsigned long pte; } pte_t;
 #define pte_val(x)	((x).pte)
-#endif
 #define __pte(x)	((pte_t) { (x) } )
+#endif
 
 /*
  * For 3-level pagetables we defines these ourselves, for 2-level the
@@ -218,7 +220,6 @@ static __inline__ void* __va(unsigned long x)
 })
 
 #endif
-
 
 #define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | VM_EXEC | \
 				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)

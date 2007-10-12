@@ -17,7 +17,7 @@ endif
 UCLIBC_INC = -I$(ROOTDIR)/uClibc/include
 LINUX_INC=-I$(ROOTDIR)/$(LINUXDIR)/include
 GCC_INC=-I$(TOOL_DIR_PREFIX)/$(TARGET)/include
-GXX_INC=-I$(TOOL_DIR_PREFIX)/include/c++/3.4.2 -I$(TOOL_DIR_PREFIX)/$(TARGET)/include
+GXX_INC=-I$(TOOL_DIR_PREFIX)/$(TARGET)/include/c++/4.2.0 -I$(TOOL_DIR_PREFIX)/$(TARGET)/include
 # THT: For libiberty.h
 BFD_INCLUDE=-I$(ROOTDIR)/lib/binutils/bfd -I$(ROOTDIR)/lib/binutils/include
 # THT: Order is important, as we want to use the uClibc headers first,
