@@ -52,14 +52,14 @@ void
 pcibios_align_resource(void *data, struct resource *res,
 		       resource_size_t size, resource_size_t align)
 {
-	struct pci_dev *dev = data;
-	struct pci_controller *hose = dev->sysdata;
-	resource_size_t start = res->start;
-
 #ifdef CONFIG_MIPS_BRCM97XXX
 /* This is very PC-centric */
 	return;
 #else
+	struct pci_dev *dev = data;
+	struct pci_controller *hose = dev->sysdata;
+	resource_size_t start = res->start;
+
 	if (res->flags & IORESOURCE_IO) {
 		/* Make sure we start at our min on all hoses */
 		if (start < PCIBIOS_MIN_IO + hose->io_resource->start)

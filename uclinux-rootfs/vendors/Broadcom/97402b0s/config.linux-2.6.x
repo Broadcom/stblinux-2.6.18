@@ -1,1 +1,0 @@
-../../../linux-2.6.x/arch/mips/configs/bcm97402b0s_initrd_defconfig

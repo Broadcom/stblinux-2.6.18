@@ -70,6 +70,7 @@
 
 #include <asm/mipsregs.h>
 #include <asm/brcmstb/common/brcmstb.h>
+#include <asm/brcmstb/common/brcm-pm.h>
 
 #if 1
 /* 5/24/06: Regardless of flash size, the offset of the MAC-addr is always the same */
@@ -422,6 +423,10 @@ static bool haveIPHdrOptimization(void)
 #elif defined( CONFIG_MIPS_BCM7440 )
     #define FIXED_REV   0x0
     volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+#elif defined( CONFIG_MIPS_BCM7325 )
+    #define FIXED_REV   0x0
+    volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+
 #else
     #error "Unsupported platform"
 #endif
@@ -516,7 +521,7 @@ static int bcmemac_net_open(struct net_device * dev)
         pDevCtrl->dmaRegs->enet_iudma_diag_ctl = 0x100; /* enable to read diags. */
         diag_rdbk = pDevCtrl->dmaRegs->enet_iudma_diag_rdbk;
         pDevCtrl->txDma->descPtr = (uint32)CPHYSADDR(pDevCtrl->txFirstBdPtr);
-        pDevCtrl->txNextBdPtr = pDevCtrl->txFirstBdPtr + ((diag_rdbk>>(16+1))&0x3f);
+        pDevCtrl->txNextBdPtr = pDevCtrl->txFirstBdPtr + ((diag_rdbk>>(16+1))&DESC_MASK);
     }
 #endif
 	
@@ -535,6 +540,7 @@ static int bcmemac_net_open(struct net_device * dev)
     if (0 == atomic_read(&pDevCtrl->devInUsed)) {
         atomic_inc(&pDevCtrl->devInUsed);
         enable_irq(pDevCtrl->rxIrq);
+        pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= 0x2;
     }
 
 #ifdef CONFIG_SMP
@@ -605,6 +611,7 @@ static int bcmemac_net_close(struct net_device * dev)
 
     if (0 == atomic_read(&pDevCtrl->devInUsed)) {
         atomic_set(&pDevCtrl->devInUsed, -1); /* Mark interrupt disable */
+	pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~0x2;
         disable_irq(pDevCtrl->rxIrq);
     }
 
@@ -1454,6 +1461,7 @@ static int bcmemac_enet_poll(struct net_device * dev, int * budget)
     }
     else {
         enable_irq(pDevCtrl->rxIrq);
+        pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= 0x2;
     }
 
     return 0;
@@ -1468,6 +1476,7 @@ static irqreturn_t bcmemac_net_isr(int irq, void * dev_id, struct pt_regs * regs
     BcmEnet_devctrl *pDevCtrl = dev_id;
 
     pDevCtrl->rxDma->intStat = DMA_DONE;  // clr interrupt
+    pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~0x2;
     disable_irq_nosync(pDevCtrl->rxIrq);
     netif_rx_schedule(pDevCtrl->dev);
 
@@ -2391,8 +2400,8 @@ static int bcmemac_init_dev(BcmEnet_devctrl *pDevCtrl)
         pDevCtrl->dmaRegs->enet_iudma_diag_ctl = 0x100; /* enable to read diags. */
         diag_rdbk = pDevCtrl->dmaRegs->enet_iudma_diag_rdbk;
 
-        pDevCtrl->rxBdAssignPtr = pDevCtrl->rxBdReadPtr = pDevCtrl->rxFirstBdPtr + ((diag_rdbk>>1)&0x3f);
-        pDevCtrl->txNextBdPtr = pDevCtrl->txFirstBdPtr + ((diag_rdbk>>(16+1))&0x3f);
+        pDevCtrl->rxBdAssignPtr = pDevCtrl->rxBdReadPtr = pDevCtrl->rxFirstBdPtr + ((diag_rdbk>>1)&DESC_MASK);
+        pDevCtrl->txNextBdPtr = pDevCtrl->txFirstBdPtr + ((diag_rdbk>>(16+1))&DESC_MASK);
     }
 #endif	
 
@@ -2967,7 +2976,7 @@ static void bcmemac_dev_setup(struct net_device *dev)
     defined(CONFIG_MIPS_BCM7401)    || defined( CONFIG_MIPS_BCM7402 ) || \
     defined( CONFIG_MIPS_BCM7402S ) || defined( CONFIG_MIPS_BCM7440 ) || \
     defined(CONFIG_MIPS_BCM7403)    || defined( CONFIG_MIPS_BCM7452 ) || \
-    defined(CONFIG_MIPS_BCM7405)
+    defined(CONFIG_MIPS_BCM7405)    || defined( CONFIG_MIPS_BCM7325 )
 
     /* TBD : need to get the symbol for these. */
     pDevCtrl->chipId  = (*((volatile unsigned long*)0xb0000200) & 0xFFFF0000) >> 16;
@@ -2988,6 +2997,7 @@ static void bcmemac_dev_setup(struct net_device *dev)
     case 0x7438:
     case 0x7403:
     case 0x7405:
+    case 0x7325:
         break;
     default:
         printk(KERN_DEBUG CARDNAME" not found\n");
@@ -3038,6 +3048,7 @@ static void bcmemac_dev_setup(struct net_device *dev)
     /* register the interrupt service handler */
     /* At this point dev is not initialized yet, so use dummy name */
     request_irq(pDevCtrl->rxIrq, bcmemac_net_isr, SA_INTERRUPT|SA_SHIRQ, dev->name, pDevCtrl);
+    pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= 0x2;
 
     spin_lock_init(&pDevCtrl->lock);
     atomic_set(&pDevCtrl->devInUsed, 0);
@@ -3244,7 +3255,6 @@ static void bcmemac_init_cleanup(struct net_device *dev)
 {
     TRACE(("%s: bcmemac_init_cleanup\n", dev->name));
 
-    unregister_netdev(dev);
 #ifdef USE_PROC
     remove_proc_entry("driver/eth_rtinfo", NULL);
 #endif
@@ -3265,6 +3275,7 @@ static int bcmemac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
         /* free the irq */
         if (pDevCtrl->rxIrq)
         {
+            pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~0x2;
             disable_irq(pDevCtrl->rxIrq);
             free_irq(pDevCtrl->rxIrq, pDevCtrl);
         }
@@ -3320,24 +3331,6 @@ static int bcmemac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
     }
    
     return 0;
-}
-
-static void __exit bcmemac_module_cleanup(void)
-{
-    BcmEnet_devctrl *pDevCtrl;
-
-    if (eth_root_dev) {
-        pDevCtrl = (BcmEnet_devctrl *)netdev_priv(eth_root_dev);
-        if (pDevCtrl) {
-#ifdef VPORTS
-            vnet_module_cleanup();
-#endif
-            bcmemac_uninit_dev(pDevCtrl);
-        }
-        eth_root_dev = NULL;
-    }
-    TRACE(("bcmemacenet: bcmemac_module_cleanup\n"));
-
 }
 
 static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
@@ -3415,45 +3408,39 @@ static int bcmemac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
     return val;       
 }
 
-int __init bcmemac_module_init(void)
+static int __init bcmemac_module_init(void)
 {
     int status;
 
+    brcm_pm_enet_add();
     TRACE(("bcmemacenet: bcmemac_module_init\n"));
     status = bcmemac_net_probe();
 
     return status;
 }
 
-
-#if defined(MODULE)
-/*
- * Linux module entry.
- */
-int init_module(void)
+static void __exit bcmemac_module_cleanup(void)
 {
-    return( bcmemac_module_init() );
-}
+    BcmEnet_devctrl *pDevCtrl;
 
-/*
- * Linux module exit.
- */
-void cleanup_module(void)
-{
-    if (MOD_IN_USE)
-        printk(KERN_DEBUG CARDNAME" module is in use.  Cleanup is delayed.\n");
-    else
-        bcmemac_module_cleanup();
-}
+    if (eth_root_dev) {
+        pDevCtrl = (BcmEnet_devctrl *)netdev_priv(eth_root_dev);
+        if (pDevCtrl) {
+#ifdef VPORTS
+            vnet_module_cleanup();
 #endif
+            bcmemac_uninit_dev(pDevCtrl);
+        }
+        eth_root_dev = NULL;
+    }
+    brcm_pm_enet_remove();
+    TRACE(("bcmemacenet: bcmemac_module_cleanup\n"));
+}
+
+module_init(bcmemac_module_init);
+module_exit(bcmemac_module_cleanup);
 
 EXPORT_SYMBOL(bcmemac_get_free_txdesc);
 EXPORT_SYMBOL(bcmemac_get_device);
 EXPORT_SYMBOL(bcmemac_xmit_multibuf);
 EXPORT_SYMBOL(bcmemac_xmit_check);
-
-#if !defined(MODULE)
-module_init(bcmemac_module_init);
-module_exit(bcmemac_module_cleanup);
-#endif
-

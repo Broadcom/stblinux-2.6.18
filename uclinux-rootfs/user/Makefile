@@ -33,11 +33,15 @@ dir_y =
 dir_n =
 dir_  =
 
+ifeq ($(strip $(CONFIG_HOTPLUG)),y)
+dir_$(CONFIG_USER_HOTPLUG_SCRIPTS)	    += hotplug
+endif
+
 dir_$(CONFIG_USER_IPERF)		    += iperf-2.0.2
 dir_$(CONFIG_JFFS_FS)                       += mtd-utils
 dir_$(CONFIG_JFFS2_FS)                      += mtd-utils
 
-dir_$(CONFIG_USER_AFFINITY)		            += affinity
+dir_$(CONFIG_USER_AFFINITY)		    += affinity
 dir_$(CONFIG_USER_AGETTY_AGETTY)            += agetty
 dir_$(CONFIG_USER_AT_AT)                    += at
 dir_$(CONFIG_USER_AT_ATD)                   += at
@@ -48,12 +52,13 @@ dir_$(CONFIG_USER_BOOTTOOLS_FLASHLOADER)    += boottools
 dir_$(CONFIG_USER_BOOTTOOLS_HIMEMLOADER)    += boottools
 dir_$(CONFIG_USER_BPALOGIN_BPALOGIN)        += bpalogin
 dir_$(CONFIG_USER_BR2684CTL_BR2684CTL)      += br2684ctl
+dir_$(CONFIG_BRCM_PM)                       += brcm-pm
 dir_$(CONFIG_USER_BRCFG_BRCFG)              += brcfg
 dir_$(CONFIG_USER_BUSYBOX_BUSYBOX)          += busybox
 dir_$(CONFIG_USER_CAL_CAL)                  += cal
 dir_$(CONFIG_USER_CAL_DATE)                 += cal
 dir_$(CONFIG_USER_CHAT_CHAT)                += pppd/chat
-dir_$(CONFIG_USER_CHAT_AFFINITY)	        += chat_affinity
+dir_$(CONFIG_USER_CHAT_AFFINITY)	    += chat_affinity
 dir_$(CONFIG_USER_CKSUM_CKSUM)              += cksum
 dir_$(CONFIG_USER_CLOCK_CLOCK)              += clock
 dir_$(CONFIG_USER_CPU_CPU)                  += cpu
@@ -153,8 +158,8 @@ dir_$(CONFIG_USER_MOUNT_UMOUNT)             += mount
 dir_$(CONFIG_USER_MP3PLAY_MP3PLAY)          += mp3play
 dir_$(CONFIG_USER_MSNTP_MSNTP)              += msntp
 dir_$(CONFIG_USER_MUSICBOX_MUSICBOX)        += musicbox
-dir_$(CONFIG_LIB_NCURSES)		    += ncurses
 dir_$(CONFIG_USER_NETFLASH_NETFLASH)        += netflash
+dir_$(CONFIG_LIB_NCURSES)		    += ncurses
 dir_$(CONFIG_USER_NET_TOOLS_ARP)            += net-tools
 dir_$(CONFIG_USER_NET_TOOLS_HOSTNAME)       += net-tools
 dir_$(CONFIG_USER_NET_TOOLS_IFCONFIG)       += net-tools

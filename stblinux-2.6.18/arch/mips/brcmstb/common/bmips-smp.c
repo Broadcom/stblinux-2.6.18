@@ -163,16 +163,15 @@ static struct irqaction dummy_irq = {
 // FIX this later so it can run from 3rd/4th, etc. CPU...
 void prom_smp_finish(void)
 {
-    printk("TP%d: prom_smp_finish enabling sw_irq\n", smp_processor_id());
+	printk("TP%d: prom_smp_finish enabling sw_irq\n", smp_processor_id());
 
 	setup_irq(BCM_LINUX_IPC_0_IRQ, &brcm_ipc_action0);
 	setup_irq(BCM_LINUX_IPC_1_IRQ, &brcm_ipc_action1);
-	set_c0_status(IE_SW0 | IE_SW1 | ST0_IE);
+	set_c0_status(IE_SW0 | IE_SW1 | IE_IRQ1 | ST0_IE);
 
-    printk("TP%d: prom_smp_finish enabling local timer_interrupt\n", smp_processor_id());
-    {    
+	printk("TP%d: prom_smp_finish enabling local timer_interrupt\n",
+		smp_processor_id());
         brcm_timerx_setup(&dummy_irq);
-    }
 }
 
 void prom_cpus_done(void)
@@ -222,9 +221,9 @@ void core_send_ipi(int cpu, unsigned int action)
 		return;
 	}
 	// trigger interrupt on the other TP...
-    temp = read_c0_cause();
-    temp |= value;
-    write_c0_cause(temp);
+	temp = read_c0_cause();
+	temp |= value;
+	write_c0_cause(temp);
 
 	local_irq_restore(flags);
 }

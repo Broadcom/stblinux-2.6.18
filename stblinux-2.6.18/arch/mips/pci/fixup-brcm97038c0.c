@@ -45,6 +45,12 @@
 //#define DEBUG 0
 #undef DEBUG
 
+#ifdef DEBUG
+#define PRINTK printk
+#else
+#define PRINTK(...) do { } while(0)
+#endif
+
 //#define USE_SECONDARY_SATA  // TUrn on 2nd channel, and turn on DMA for 2nd channel
 //#define USE_7038B0_WAR		// Will no longer needed with B1 rev.
 //#define USE_TURN_OFF_SATA2_WAR  // when not defined, turn on 2nd channel only, no DMA
@@ -120,8 +126,10 @@ int pcibios_plat_dev_init(struct pci_dev *dev)
 static u32 memAddr = PCI_EXPANSION_PHYS_MEM_WIN0_BASE;
 static u32 ioAddr = PCI_EXPANSION_PHYS_IO_WIN0_BASE;
 
+#if 0
 // Remembers which devices have already been assigned.
 static  int slots[32];
+#endif
 
 /* Do IO/memory allocation for expansion slot here */
 static void brcm_pcibios_fixup_plugnplay(struct pci_dev *dev) 
@@ -251,7 +259,6 @@ Prefetchable */
 
 static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 {
-	u32 dev_vendor_id;
 	u32 regData;
 	u32 size;
 	int use_7038B0_pll_war = 0;
@@ -290,7 +297,7 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 		use_secondary_sata = 1;
 	}
 #endif
-	printk("Setting up SATA controller, VD Rev=%08x, pll_war=%d, sata2_war=%d, sata2_on=%d\n",
+	PRINTK("Setting up SATA controller, VD Rev=%08lx, pll_war=%d, sata2_war=%d, sata2_on=%d\n",
 		vd_top_vd_rev_id,
 		use_7038B0_pll_war, use_turn_off_sata2_war, use_secondary_sata);
 			
@@ -308,7 +315,7 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 	dev->resource[1].end = regData + 0x3f;
 	//dev->resource[1].flags = IORESOURCE_IO;
 	if (insert_resource(&ioport_resource, &dev->resource[1])) {
-		printk("fixup: Cannot allocate resource 1\n");
+		PRINTK("fixup: Cannot allocate resource 1\n");
 	}
 	pci_write_config_dword(dev, PCI_BASE_ADDRESS_1, regData);
 	
@@ -317,7 +324,7 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 	dev->resource[2].end = regData + 0x3f;
 	//dev->resource[2].flags = IORESOURCE_IO;
 	if (insert_resource(&ioport_resource, &dev->resource[2])) {
-		printk("fixup: Cannot allocate resource 2\n");
+		PRINTK("fixup: Cannot allocate resource 2\n");
 	}
 	pci_write_config_dword(dev, PCI_BASE_ADDRESS_2, regData);
 	
@@ -367,25 +374,25 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 	/* Primary */
 	pci_read_config_dword(dev, PCI_BASE_ADDRESS_4, &regData);
 	regData &= 0xfffffc; // Mask off  Reserved & Res Type bits.
-	printk("SATA: Primary Bus Master Status Register offset = %08lx + %08x = %08lx\n", 
+	PRINTK("SATA: Primary Bus Master Status Register offset = %08x + %08x = %08x\n", 
 			SATA_IO_BASE, regData, SATA_IO_BASE+regData);
 
 	regData += 2; // Offset 302H for primary
-		printk("SATA: before init Primary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
+		PRINTK("SATA: before init Primary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
 		*((volatile unsigned char *)(SATA_IO_BASE+regData)) |= 0x20; // Both Prim and Sec DMA Capable
-		printk("SATA: after init Primary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
+		PRINTK("SATA: after init Primary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
 
 	if (use_secondary_sata) {
 		/* Secondary */
 		pci_read_config_dword(dev, PCI_BASE_ADDRESS_4, &regData);
 		regData &= 0xfffffc; // Mask off  Reserved & Res Type bits.
-		printk("SATA: Secondary Bus Master Status Register offset = %08lx + %08x = %08x\n", 
+		PRINTK("SATA: Secondary Bus Master Status Register offset = %08x + %08x = %08x\n", 
 				SATA_IO_BASE, regData, SATA_IO_BASE+regData);
 
 		regData += 0xa; // Offset 30AH for secondary
-			printk("SATA: before init Secondary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
+			PRINTK("SATA: before init Secondary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));
 			*((volatile unsigned char *)(SATA_IO_BASE+regData)) |= 0x60; // Both Prim and Sec DMA Capable
-			printk("SATA: after init Secondary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));			
+			PRINTK("SATA: after init Secondary Bus Master Status reg = 0x%08x.\n", *((volatile unsigned char *)(SATA_IO_BASE+regData)));			
 	}
 
 #if 0
@@ -429,9 +436,9 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 	/********************************************************
 	 * Config the BCM3250 chip
 	 ********************************************************/
+#if 0
 static void brcm_pcibios_fixup_3250(struct pci_dev *dev)
 {
-	u32 dev_vendor_id;
 	u32 regData;
 	u32 size;
 
@@ -458,6 +465,7 @@ static void brcm_pcibios_fixup_3250(struct pci_dev *dev)
 	regData |= PCI_COMMAND_MEMORY;
 	pci_write_config_dword(dev, PCI_COMMAND, regData);
 }
+#endif
 
 		
 

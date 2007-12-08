@@ -7,6 +7,17 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin:.
 echo "Mount /proc fs"
 mount -t proc none /proc
 
+# USB/SATA/ENET are loadable modules when power management is enabled
+if [ -e /proc/driver/brcm-pm ]; then
+	modprobe ehci-hcd &
+	modprobe sata_svw &
+	modprobe bcmemacnet &
+	modprobe ohci-hcd &
+fi
+
+echo "Mount /sys fs"
+mount -t sysfs none /sys
+
 # Mount /dev/pts
 echo "Mount /dev/pts"
 mount -t devpts none /dev/pts
@@ -43,7 +54,7 @@ syslogd &
 echo "Configure Network interface"
 # For bcm97110-docsis only
 ###insmod /lib/modules/`uname -r`/kernel/drivers/net/et.o
-sleep 6
+# sleep 6
 
 
 # If we boot from NFS, then we don't need the Network, use whatever
@@ -107,4 +118,5 @@ if [ -f /root/rc.user ]; then
 	echo "start user services"
 	/bin/sh /root/rc.user
 fi
+
 

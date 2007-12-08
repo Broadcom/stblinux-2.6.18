@@ -65,6 +65,18 @@
 #include <asm/brcmstb/brcm93563/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm93563/bchp_usb_ohci.h>
 
+#elif defined(CONFIG_MIPS_BCM3563C0)
+#include <asm/brcmstb/brcm93563c0/bcmuart.h>
+#include <asm/brcmstb/brcm93563c0/bcmtimer.h>
+#include <asm/brcmstb/brcm93563c0/bcmebi.h>
+#include <asm/brcmstb/brcm93563c0/int1.h>
+#include <asm/brcmstb/brcm93563c0/board.h>
+#include <asm/brcmstb/brcm93563c0/bchp_irq0.h>
+#include <asm/brcmstb/brcm93563c0/bcmintrnum.h>
+#include <asm/brcmstb/brcm93563c0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm93563c0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm93563c0/bchp_usb_ohci.h>
+
 #elif defined(CONFIG_MIPS_BCM7038A0)
 #include <asm/brcmstb/brcm97038/bcmuart.h>
 #include <asm/brcmstb/brcm97038/bcmtimer.h>
@@ -153,6 +165,7 @@
 #include <asm/brcmstb/brcm97400b0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97400b0/bchp_usb_ohci1.h>
 #include <asm/brcmstb/brcm97400b0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97400b0/bchp_clk.h>
 
 #elif defined(CONFIG_MIPS_BCM7405A0)
 #include <asm/brcmstb/brcm97405a0/bcmuart.h>
@@ -172,6 +185,7 @@
 #include <asm/brcmstb/brcm97405a0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97405a0/bchp_usb_ohci1.h>
 #include <asm/brcmstb/brcm97405a0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97405a0/bchp_clk.h>
 
 #elif defined(CONFIG_MIPS_BCM7440A0)
 #include <asm/brcmstb/brcm97440a0/bcmuart.h>
@@ -186,6 +200,32 @@
 #include <asm/brcmstb/brcm97440a0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97440a0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97440a0/bchp_usb_ohci.h>
+
+#elif defined(CONFIG_MIPS_BCM7325A0)
+#include <asm/brcmstb/brcm97325a0/bcmuart.h>
+#include <asm/brcmstb/brcm97325a0/bcmtimer.h>
+#include <asm/brcmstb/brcm97325a0/bcmebi.h>
+#include <asm/brcmstb/brcm97325a0/int1.h>
+#include <asm/brcmstb/brcm97325a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97325a0/board.h>
+#include <asm/brcmstb/brcm97325a0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97325a0/bchp_irq1.h>
+#include <asm/brcmstb/brcm97325a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97325a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97325a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97325a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97325a0/bchp_usb_ohci.h>
+
+/* jipeng - 7325A0 have extra HW that mismatch with existing platforms, so redefine them here */
+#ifdef	BCM_LINUX_CPU_ENET_IRQ
+#undef	BCM_LINUX_CPU_ENET_IRQ
+#define   BCM_LINUX_CPU_ENET_IRQ        (1+BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_ENET_EMAC1_CPU_INTR_SHIFT)
+#endif
+
+#ifdef  BCM_LINUX_USB_EHCI_CPU_INTR
+#undef	BCM_LINUX_USB_EHCI_CPU_INTR
+#define BCM_LINUX_USB_EHCI_CPU_INTR 	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_EHCI_0_CPU_INTR_SHIFT)
+#endif
 
 /* FIXME when we have a 7402S with a real 7402 chip */
 #elif defined(CONFIG_MIPS_BCM7401A0) || defined( CONFIG_MIPS_BCM7402S)
@@ -319,8 +359,18 @@ typedef int (*walk_cb_t)(unsigned long paddr, unsigned long size, long type, voi
 extern int brcm_walk_boot_mem_map(void* cbdata, walk_cb_t walk_cb);
 extern unsigned long get_RAM_size(void);
 extern unsigned long get_RSVD_size(void);
-#endif
 
+#define DEV_RD(x) (*((volatile unsigned long *)(x)))
+#define DEV_WR(x, y) do { *((volatile unsigned long *)(x)) = (y); } while(0)
+#define DEV_UNSET(x, y) do { DEV_WR((x), DEV_RD(x) & ~(y)); } while(0)
+#define DEV_SET(x, y) do { DEV_WR((x), DEV_RD(x) | (y)); } while(0)
+
+#define BDEV_RD(x) (DEV_RD((x) | 0xb0000000UL))
+#define BDEV_WR(x, y) do { DEV_WR((x) | 0xb0000000UL, (y)); } while(0)
+#define BDEV_UNSET(x, y) do { BDEV_WR((x), BDEV_RD(x) & ~(y)); } while(0)
+#define BDEV_SET(x, y) do { BDEV_WR((x), BDEV_RD(x) | (y)); } while(0)
+
+#endif
 
 #endif /*__BRCMSTB_H */
 

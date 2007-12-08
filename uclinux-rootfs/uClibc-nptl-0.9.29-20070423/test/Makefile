@@ -5,6 +5,9 @@
 # Licensed under the LGPL v2.1, see the file COPYING.LIB in this tarball.
 #
 
+TOOL_DIR_PREFIX=$(shell dirname $(shell which $(CC)))/..
+export TOOL_DIR_PREFIX
+
 top_builddir=../
 include Rules.mak
 

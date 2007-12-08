@@ -1236,7 +1236,7 @@ static int jffs2_nand_set_oobinfo(struct jffs2_sb_info *c)
 			" Autoplacement selected and no empty space in oob\n");
 		return -ENOSPC;
 	}
-#if CONFIG_MTD_BRCMNAND
+#ifdef CONFIG_MTD_BRCMNAND
 	/* BrcmNAND uses AUTO_PLACE */
 	c->fsdata_pos = 0;
 	c->fsdata_len = 8;

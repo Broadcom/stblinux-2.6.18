@@ -187,7 +187,8 @@
 EXPORT(stext)					# used for profiling
 EXPORT(_stext)
 
-#if defined(CONFIG_QEMU) || defined(CONFIG_MIPS_SIM)
+#if defined(CONFIG_QEMU) || defined(CONFIG_MIPS_SIM) || \
+	defined(CONFIG_MIPS_BRCM_IKOS)
 	/*
 	 * Give us a fighting chance of running if execution beings at the
 	 * kernel load address.  This is needed because this platform does

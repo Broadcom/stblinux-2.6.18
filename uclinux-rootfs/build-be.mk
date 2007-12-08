@@ -32,11 +32,11 @@ endif
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.18-2.0 we only support a few platforms
-CHIPS=7400b0 7400b0-smp 7401c0 7118a0 7403a0 97401c0-sw1 7405a0 7405a0-smp  # 7038c0 97398 7400a0 7400a0-smp 7318 # 7400b0-smp-nand
+CHIPS=7400b0 7400b0-smp 7401c0 7118a0 7403a0 97401c0-sw1 7405a0 7405a0-smp 7038c0 # 97398 7400a0 7400a0-smp 7318 # 7400b0-smp-nand
 PLATFORMS=$(addsuffix _be,$(CHIPS))
 # THT Must define the NAND platforms separately, since we want -be to precede -nand, as -nand does not really define a new platform
 NAND_PLATFORMS = 7400b0_be-nand 7401c0_be-nand 7118a0_be-nand # 7400b0-smp-be-nand
-XFS_PLATFORMS = # 7038c0_be-xfs 97398_be-xfs
+XFS_PLATFORMS = 7038c0_be-xfs # 97398_be-xfs
 ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS) $(NAND_PLATFORMS)
 
 BB_PLATFORMS:=$(addprefix vmlinuz-,$(PLATFORMS)) $(addprefix vmlinuz-,$(NAND_PLATFORMS))
@@ -133,6 +133,9 @@ rootfs:
 				;;\
 			*) \
 				cp -f images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img || exit 1; \
+				if [ "$$i" == "7401c0_be" ]; then \
+					cp images/$$i/jffs2-64k.img $(TFTPDIR)/jffs2-64k-$$i.img || exit 1; \
+				fi; \
 				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img || exit 1; \
 				cp -f images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img || exit 1; \
 				;;\
@@ -181,6 +184,9 @@ $(ROOTFS_PLATFORMS):
 			;;\
 		*) \
 			cp images/$(subst rootfs-,,$@)/jffs2.img $(TFTPDIR)/jffs2-$(subst rootfs-,,$@).img; \
+			if [ "$(subst rootfs-,,$@)" == "7401c0_be" ]; then \
+				cp images/$(subst rootfs-,,$@)/jffs2-64k.img $(TFTPDIR)/jffs2-64k-$(subst rootfs-,,$@).img; \
+			fi; \
 			cp images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
 			cp images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img; \
 			;;\

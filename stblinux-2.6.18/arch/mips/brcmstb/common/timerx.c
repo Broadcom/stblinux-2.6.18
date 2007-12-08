@@ -34,7 +34,7 @@ when	who what
 #include <linux/timex.h>
 
 #include <asm/mipsregs.h>
-#include <asm/brcmstb/brcm97400a0/bcmintrnum.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 // SMP Version
 #ifdef CONFIG_SMP

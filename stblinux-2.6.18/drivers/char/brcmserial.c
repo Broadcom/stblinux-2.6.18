@@ -599,22 +599,6 @@ static _INLINE_ void receive_chars(struct async_struct *info,
                 if (tty->index == 0 && ch == 0x17) /* CTRL-W  */
                 {
 			//dump_softirq();
-#ifdef CONFIG_MIPS_BCM7038B0
-			dump_INTC_regs();
-
-#elif defined(CONFIG_MIPS_BCM7318)
-		    printk("INTC->mask=%08x, status=%08x, polarity=%08x, enet_top_mask=%08x, enet_top_status=%08x\n", 
-		    	*(volatile unsigned long*) 0xfffe060c,
-		    	*(volatile unsigned long*) 0xfffe0610,
-		    	*(volatile unsigned long*) 0xfffe0608,
-		    	*(volatile unsigned long*) 0xfffd641c,
-		    	*(volatile unsigned long*) 0xfffd6418);	
-		    printk("RX mask=%08x, RX status=%08x, TX mask=%08x,  TX status %08x\n", 
-		    	*(volatile unsigned long*) 0xfffd6508,
-		    	*(volatile unsigned long*) 0xfffd6504,
-		    	*(volatile unsigned long*) 0xfffd6588,
-		    	*(volatile unsigned long*) 0xfffd6584);	
-#endif
 		     	show_regs(regs);
 				// THT 4/05/06: Display stack to debug PR20442
 				show_stack(current, NULL);

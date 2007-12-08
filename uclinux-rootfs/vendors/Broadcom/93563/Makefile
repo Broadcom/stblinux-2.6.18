@@ -47,7 +47,7 @@ ROMFSDIR ?= $(ROOTDIR)/romfs
 
 DIRS =
 
-ROMFS_DIRS = bin dev etc etc/dhcpc lib lib/modules home mnt mnt/hd mnt/nfs proc root usr var
+ROMFS_DIRS = bin dev etc etc/dhcpc lib lib/modules home mnt mnt/hd mnt/nfs proc root usr var sys
 
 ifdef CONFIG_BLK_DEV_INITRD
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock dev/pts

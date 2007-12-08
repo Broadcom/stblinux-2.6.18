@@ -53,6 +53,11 @@
 #include <asm/brcmstb/brcm93563/bchp_hif_cpu_intr1.h>
 #include <asm/brcmstb/brcm93563/bcmintrnum.h>
 
+#elif defined( CONFIG_MIPS_BCM3563C0 )
+#include <asm/brcmstb/brcm93563c0/boardmap.h>
+#include <asm/brcmstb/brcm93563c0/bchp_hif_cpu_intr1.h>
+#include <asm/brcmstb/brcm93563c0/bcmintrnum.h>
+
 #else
 #error "Invalid platform"
 #endif
@@ -94,7 +99,7 @@ static char irq_tab_brcm97038[] __initdata = {
 
   [PCI_DEVICE_ID_1394]    = BCM_LINUX_1394_IRQ,     	/* 1394 */
 // jipeng - FIXME
-#ifndef	CONFIG_MIPS_BCM3563
+#if !defined(CONFIG_MIPS_BCM3563) && !defined(CONFIG_MIPS_BCM3563C0)
   [PCI_DEVICE_ID_EXT] 	  = BCM_LINUX_EXT_PCI_IRQ, 		/* On-board PCI slot */
 #endif
 };

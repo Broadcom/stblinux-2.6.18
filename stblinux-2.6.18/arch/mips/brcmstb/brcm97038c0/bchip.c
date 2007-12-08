@@ -13,6 +13,9 @@
  *
  */
 
+#include <linux/kernel.h>
+#include <asm/brcmstb/common/brcmstb.h>
+
 int rac_setting(int);
 extern void bcm_inv_rac_all(void);
 
@@ -68,7 +71,10 @@ int rac_setting(int value)
 
 	*((volatile unsigned long *)0xb0000404) = rac_value;
 
-	sprintf(msg, "after init RAC 0x%08x    0x%08x\n", *((volatile unsigned long *)0xb0000404), 
-			*((volatile unsigned long *)0xb0000408) );
+	sprintf(msg, "after init RAC 0x%08lx    0x%08lx\n",
+		*((volatile unsigned long *)0xb0000404), 
+		*((volatile unsigned long *)0xb0000408) );
 	uart_puts(msg);
+
+	return(0);
 }

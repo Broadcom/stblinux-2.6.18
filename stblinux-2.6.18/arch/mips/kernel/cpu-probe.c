@@ -15,6 +15,7 @@
 #include <linux/kernel.h>
 #include <linux/ptrace.h>
 #include <linux/stddef.h>
+#include <linux/module.h>
 
 #include <asm/cpu.h>
 #include <asm/fpu.h>
@@ -639,6 +640,10 @@ static inline void cpu_probe_mips(struct cpuinfo_mips *c)
 	case PRID_IMP_5KC:
 		c->cputype = CPU_5KC;
 #if defined(CONFIG_MIPS_BCM7320) || defined(CONFIG_MIPS_BCM7319) || defined(CONFIG_MIPS_BCM7328)
+		/* clear IM bits and IP bits here */
+		clear_c0_status(ST0_IM);
+	        clear_c0_cause(CAUSEF_IP);
+
 		c->options &= ~MIPS_CPU_DIVEC;
 		c->tlbsize = 32;
 #endif
@@ -749,6 +754,10 @@ static inline void cpu_probe_philips(struct cpuinfo_mips *c)
 static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
 {
 	unsigned long config1;
+	
+	/* clear IM bits and IP bits here */
+	clear_c0_status(ST0_IM);
+        clear_c0_cause(CAUSEF_IP);
 
         /* Set generic BRCM processor options */
         c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX |

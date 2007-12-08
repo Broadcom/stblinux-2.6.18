@@ -40,7 +40,8 @@
 #elif defined(CONFIG_MIPS_BCM7038) || defined(CONFIG_MIPS_BCM7401) 	\
 	|| defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7402) \
 	|| defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7440) \
-        || defined(CONFIG_MIPS_BCM7403) || defined(CONFIG_MIPS_BCM7405)
+        || defined(CONFIG_MIPS_BCM7403) || defined(CONFIG_MIPS_BCM7405) \
+        || defined(CONFIG_MIPS_BCM7325)
 #define _ASMLANGUAGE
 
 	#if defined (CONFIG_MIPS_BCM7038A0)
@@ -76,6 +77,9 @@
 
 	#elif defined(CONFIG_MIPS_BCM7403A0)
 	#include <asm/brcmstb/brcm97403a0/bcmtimer.h>
+	
+	#elif defined(CONFIG_MIPS_BCM7325A0)
+        #include <asm/brcmstb/brcm97325a0/bcmtimer.h>
 
 	#else
 	#error "Unsupported 7038/7400/7401/7403/7405 revision"

@@ -78,6 +78,7 @@
 #include <linux/smp.h>
 #include <linux/smp_lock.h>
 
+#include <asm/atomic.h>
 #include <asm/asm.h>
 #include <asm/branch.h>
 #include <asm/byteorder.h>
@@ -89,7 +90,7 @@
 #define __STR(x)  #x
 
 #ifdef CONFIG_PROC_FS
-unsigned long unaligned_instructions;
+atomic_t unaligned_instructions;
 #endif
 
 static inline int emulate_load_store_insn(struct pt_regs *regs,
@@ -461,7 +462,7 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 	}
 
 #ifdef CONFIG_PROC_FS
-	unaligned_instructions++;
+	atomic_inc(&unaligned_instructions);
 #endif
 
 	return 0;

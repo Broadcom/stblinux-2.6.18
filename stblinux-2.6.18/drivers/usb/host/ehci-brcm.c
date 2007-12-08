@@ -26,6 +26,8 @@
  */
 
 #include <linux/platform_device.h>
+#include <asm/brcmstb/common/brcmstb.h>
+#include <asm/brcmstb/common/brcm-pm.h>
 
 extern int usb_disabled(void);
 
@@ -297,11 +299,12 @@ static struct device_driver ehci_hcd_brcm_driver[] = {
 
 #define DRIVER_INFO DRIVER_VERSION " " DRIVER_DESC
 
+static struct platform_device *plat_dev[NUM_EHCI_HOSTS];
+
 static int __init ehci_hcd_brcm_init_each (int ehci_id)
 {
 	int err=0;
 	struct resource devRes[2];
-	struct platform_device* pdev;
 	
 	printk (DRIVER_INFO " (EHCI-brcm-%d)\n", ehci_id);
 
@@ -315,36 +318,41 @@ static int __init ehci_hcd_brcm_init_each (int ehci_id)
 	devRes[1].end = ehci_id == 0 ? EHC_INT_VECTOR : EHC2_INT_VECTOR;
 	devRes[1].flags = IORESOURCE_IRQ;
 
+#ifdef CONFIG_MIPS_BCM7400
+	/* IRQ lines for EHCI-1 and OHCI-0 are swapped on 7400 prior to D0 */
+	if((BDEV_RD(BCHP_SUN_TOP_CTRL_PROD_REVISION) & 0xffff) < 0x0030) {
+		devRes[1].start = ehci_id == 0 ? EHC_INT_VECTOR : HC_INT_VECTOR;
+		devRes[1].end = ehci_id == 0 ? EHC_INT_VECTOR : HC_INT_VECTOR;
+	}
+#endif
+
 	// Before we register the driver, add a simple device matching our driver
-	pdev = platform_device_register_simple(
+	plat_dev[ehci_id] = platform_device_register_simple(
 		(char *) ehci_hcd_brcm_driver[ehci_id].name,
 		ehci_id, /* ID */
 		devRes,
 		2);
-	if (IS_ERR(pdev)) {
+	if (IS_ERR(plat_dev[ehci_id])) {
 		printk("ehci_hcd_brcm_init: device register failed, err=%d\n", err);
-		return PTR_ERR(pdev);
+		return PTR_ERR(plat_dev[ehci_id]);
 	}
 
 	// Set up dma_mask for our platform device
 	// Overwrite whatever value it was set to.
-	if (1 /*!pdev->dev.dma_mask*/) {
+	if (1) {
 		extern phys_t upper_memory;
 
-		//dma_set_mask(&pdev->dev, (u64) ((unsigned long) upper_memory - 1UL)); // default is 32MB 0x01ffffff;
-		//dma_set_mask(&pdev->dev, 0x01ffffff);
-		//pdev->dev.dma_mask = (u64*) 0x01ffffff;  
-		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask; 
-		pdev->dev.coherent_dma_mask = (u64)  ( upper_memory - 1UL);
-
+		plat_dev[ehci_id]->dev.dma_mask = &plat_dev[ehci_id]->dev.coherent_dma_mask; 
+		plat_dev[ehci_id]->dev.coherent_dma_mask = (u64)  ( upper_memory - 1UL);
 	}
-		
+
 	err = driver_register(&ehci_hcd_brcm_driver[ehci_id]);
 	if (err) {
 		printk("ehci_hcd_brcm_init: driver_register failed, err=%d\n", err);
 		return err;
 	}
-	
+
+	return(0);
 }
 
 static void __exit ehci_hcd_brcm_cleanup_each (int ehci_id)
@@ -358,6 +366,7 @@ static int __init ehci_hcd_brcm_init (void)
 	int err = -1;
 
 	printk("ehci_hcd_brcm_init: Initializing %d EHCI controller(s)\n", NUM_EHCI_HOSTS);
+	brcm_pm_usb_add();
 	for (i=0; i < NUM_EHCI_HOSTS; i++) {
 		err = ehci_hcd_brcm_init_each(i);
 		if (err) {
@@ -375,7 +384,9 @@ static void __exit ehci_hcd_brcm_cleanup (void)
 	printk("ehci_hcd_brcm_cleanup: Taking down %d EHCI controller(s)\n", NUM_EHCI_HOSTS);
 	for (i=0; i < NUM_EHCI_HOSTS; i++) {
 		ehci_hcd_brcm_cleanup_each(i);
+		platform_device_unregister(plat_dev[i]);
 	}
+	brcm_pm_usb_remove();
 }
 
 module_init (ehci_hcd_brcm_init);

@@ -166,6 +166,7 @@ static void fixup_use_write_buffers(struct mtd_info *mtd, void *param)
 	}
 }
 
+#if defined(CONFIG_MIPS_BCM7400A0)
 static void fixup_S29GLxxxN_use_write_words(struct mtd_info *mtd, void *param)
 {
 	struct map_info *map = mtd->priv;
@@ -216,6 +217,7 @@ static void fixup_S29GLxxxN_use_write_words(struct mtd_info *mtd, void *param)
 #endif
 
 }
+#endif
 
 /* Atmel chips don't use the same PRI format as AMD chips */
 static void fixup_convert_atmel_pri(struct mtd_info *mtd, void *param)
@@ -281,7 +283,7 @@ static struct cfi_fixup cfi_fixup_table[] = {
 	{ CFI_MFR_AMD, 0x005F, fixup_use_secsi, NULL, },
 #if !FORCE_WORD_WRITE
 	{ CFI_MFR_ANY, CFI_ID_ANY, fixup_use_write_buffers, NULL, },
-#if  defined(CONFIG_MIPS_BCM7400A0)
+#if defined(CONFIG_MIPS_BCM7400A0)
 	/*
          * THT: PR22727: Disable write buffers for S29GLxxxN.
 	 * Placing this after the previous entry will override it.

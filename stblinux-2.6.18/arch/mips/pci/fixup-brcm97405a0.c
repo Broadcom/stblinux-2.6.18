@@ -325,7 +325,7 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 	/* Primary */
 	pci_read_config_dword(dev, PCI_BASE_ADDRESS_4, &regData);
 	regData &= 0xfffffc; // Mask off  Reserved & Res Type bits.
-	printk("SATA: Primary Bus Master Status Register offset = %08lx + %08x = %08lx\n", 
+	printk("SATA: Primary Bus Master Status Register offset = %08x + %08x = %08x\n", 
 			SATA_IO_BASE, regData, SATA_IO_BASE+regData);
 
 	regData += 2; // Offset 302H for primary

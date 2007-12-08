@@ -75,6 +75,10 @@
 #include <asm/brcmstb/common/brcmstb.h>
 #define WINDOW_ADDR 0x1e000000
 
+#elif defined(CONFIG_MIPS_BCM7325)
+#include <asm/brcmstb/common/brcmstb.h>
+#define WINDOW_ADDR 0x1e000000
+
 #elif defined(CONFIG_MIPS_BCM7312)
 #include <asm/brcmstb/brcm97312/bcm97312.h>
 #define WINDOW_ADDR PHYS_CS0_DEV_BASE			/*0x1f000000*/

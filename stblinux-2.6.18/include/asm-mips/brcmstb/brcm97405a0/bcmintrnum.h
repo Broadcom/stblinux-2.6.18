@@ -62,8 +62,8 @@ extern "C" {
  *   --------   ------
  *       0      Software (Used for IPC)
  *       1      Software *Ignored*
- *       2      Hardware BRCMSTB chip Internal
- *       3      Hardware External *Unused*
+ *       2      Hardware BRCMSTB chip Internal (TP0 L1 output)
+ *       3      Hardware BRCMSTB chip Internal (TP1 L1 output)
  *       4      Hardware External *Unused*
  *       5      Hardware External *Unused*
  *       6      Hardware External *Unused*
@@ -76,12 +76,9 @@ extern "C" {
  *   ----------   --------   ------
  *
  *        0         2         Chip Interrupt Controller/Dedicated Handler
- *      1- 32       2         The 32 Interrupt Controller Bits
- *       33         2         UARTA
- *       34         2         UARTB
- *       68         7      R4k timer (used for master system time)
+ *     1 - 96       2/3       The 96 L1 Interrupt Controller Bits
+ *       97         7         R4k timer (used for master system time)
  *
-
  *
  * Again, I cannot stress this enough, keep this table up to date!!!
  */
@@ -89,38 +86,49 @@ extern "C" {
 
 /* JPF Serial Code depends on a unique IRQ for each serial port */
 
-// THT 2/01/06  No longer used #define BCM_LINUX_USB_HOST_IRQ 	(1+BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_USB_CPU_INTR_SHIFT)
-
 /* JPF Each line in the INTC has an IRQ */
 
-#define	BCM_LINUX_CPU_ENET_IRQ		(1+BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_ENET_CPU_INTR_SHIFT)
+#define	BCM_LINUX_CPU_ENET_IRQ \
+	(1+BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_ENET_CPU_INTR_SHIFT)
 
-#define POD_IRQ_NUM  (1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_EXT_IRQ_3_CPU_INTR_SHIFT )
+#define BCM_LINUX_UARTA_IRQ \
+	(1+BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_UART0_CPU_INTR_SHIFT)
 
-#define BCM_LINUX_SATA_IRQ	  (1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_PCI_SATA_CPU_INTR_SHIFT)     /* last one for intc level. */
+#define POD_IRQ_NUM \
+	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_EXT_IRQ_3_CPU_INTR_SHIFT )
 
-#define BCM_LINUX_1394_IRQ		(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_PCI_INTA_1_CPU_INTR_SHIFT)
-#define BCM_LINUX_EXT_PCI_IRQ	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_PCI_INTA_0_CPU_INTR_SHIFT)
-#define BCM_LINUX_MINI_PCI_IRQ	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_PCI_INTA_2_CPU_INTR_SHIFT)
+/* last one for intc level. */
+#define BCM_LINUX_SATA_IRQ \
+	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_PCI_SATA_CPU_INTR_SHIFT)
+
+#define BCM_LINUX_1394_IRQ \
+	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_PCI_INTA_1_CPU_INTR_SHIFT)
+#define BCM_LINUX_EXT_PCI_IRQ \
+	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_PCI_INTA_0_CPU_INTR_SHIFT)
+#define BCM_LINUX_MINI_PCI_IRQ \
+	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_PCI_INTA_2_CPU_INTR_SHIFT)
 
 
 #define BCM_LINUX_EXPANSION_SLOT (BCM_LINUX_EXT_PCI_IRQ)
 
-// IRQ lines for EHCI-1 and OHCI-0 are swapped on the 7400A0 chip.
-#define BCM_LINUX_USB_EHCI_CPU_INTR (1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_EHCI_CPU_INTR_SHIFT)
-#define BCM_LINUX_USB_EHCI_1_CPU_INTR (1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_OHCI_0_CPU_INTR_SHIFT)
-#define BCM_LINUX_USB_OHCI_0_CPU_INTR (1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_EHCI_1_CPU_INTR_SHIFT)
-#define BCM_LINUX_USB_OHCI_1_CPU_INTR (1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_OHCI_1_CPU_INTR_SHIFT)
+// NOTE: IRQ lines for EHCI-1 and OHCI-0 are swapped on the 7400 chip.
+#define BCM_LINUX_USB_EHCI_CPU_INTR \
+	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_EHCI_CPU_INTR_SHIFT)
+#define BCM_LINUX_USB_EHCI_1_CPU_INTR \
+	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_OHCI_0_CPU_INTR_SHIFT)
+#define BCM_LINUX_USB_OHCI_0_CPU_INTR \
+	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_EHCI_1_CPU_INTR_SHIFT)
+#define BCM_LINUX_USB_OHCI_1_CPU_INTR \
+	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_OHCI_1_CPU_INTR_SHIFT)
 
+#define BCM_LINUX_UARTB_IRQ \
+	(1+32+32+BCHP_HIF_CPU_INTR1_INTR_W2_STATUS_UPG_UART1_CPU_INTR_SHIFT)
 
+#define BCM_LINUX_UARTC_IRQ \
+	(1+32+32+BCHP_HIF_CPU_INTR1_INTR_W2_STATUS_UPG_UART2_CPU_INTR_SHIFT)
 
- 
-/* Some of the codes relies on these 3 interrupts to be consecutive */
-#define BCM_LINUX_UARTA_IRQ		(1+32+32)
-#define BCM_LINUX_UARTB_IRQ		(BCM_LINUX_UARTA_IRQ+1)
-#define BCM_LINUX_UARTC_IRQ		(BCM_LINUX_UARTA_IRQ+2)
-
-#define BCM_LINUX_SYSTIMER_IRQ		(BCM_LINUX_UARTC_IRQ+1)
+/* these IRQs are virtual (they do not exist in the L1 controller) */
+#define BCM_LINUX_SYSTIMER_IRQ		(1+32+32+32)
 #define BCM_LINUX_SYSTIMER_1_IRQ 	(BCM_LINUX_SYSTIMER_IRQ+1)
 
 #define POD_DET_IRQ_NUM  		(BCM_LINUX_SYSTIMER_1_IRQ+1)

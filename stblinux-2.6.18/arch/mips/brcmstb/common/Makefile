@@ -34,5 +34,5 @@ obj-y	 += prom.o setup.o cfe_call.o cfe_entry.o \
 obj-$(CONFIG_KGDB)	+= dbg_io.o
 obj-$(CONFIG_SMP)	+= bmips-smp.o timerx.o
 obj-$(CONFIG_DISCONTIGMEM) += discontig.o
-
-
+obj-$(CONFIG_BRCM_PM)	+= brcm-pm.o
+obj-$(CONFIG_CPU_FREQ_BRCM) += cpufreq.o

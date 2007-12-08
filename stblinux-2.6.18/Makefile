@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 18
-EXTRAVERSION =-3.1
+EXTRAVERSION =-4.0
 NAME=Avast! A bilge rat!
 
 # *DOCUMENTATION*
@@ -952,7 +952,7 @@ _modinst_:
 ifeq "$(strip $(INSTALL_MOD_PATH))" ""
 depmod_opts	:=
 else
-depmod_opts	:= -b $(INSTALL_MOD_PATH) -r
+depmod_opts	:= -b $(INSTALL_MOD_PATH)
 endif
 PHONY += _modinst_post
 _modinst_post: _modinst_

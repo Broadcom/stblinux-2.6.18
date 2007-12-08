@@ -30,6 +30,7 @@
 #include <linux/mm.h>
 #include <linux/module.h> // SYM EXPORT */
 #include <asm/bootinfo.h>
+#include "asm/brcmstb/common/brcmstb.h"
 
 /* RYH */
 unsigned int par_val = 0x00;	/* for RAC Mode setting, 0x00-Disabled, 0xD4-I&D Enabled, 0x94-I Only */
@@ -37,6 +38,7 @@ unsigned int par_val2 = 0x00;	/* for RAC Cacheable Space setting */
 
 /* Enable SATA2 3Gbps, only works on 65nm chips (7400b0, 7405) no-op otherwise */
 int gSata2_3Gbps = 0;
+EXPORT_SYMBOL(gSata2_3Gbps);
 
 /* Customized flash size in MB */
 unsigned int gFlashSize = 0;	/* Default size on 97438 is 64 */
@@ -57,6 +59,9 @@ EXPORT_SYMBOL(gNandCS);
 int gNumNand = 0;
 EXPORT_SYMBOL(gNumNand);
 
+/* SATA interpolation */
+int gSataInterpolation = 0;
+EXPORT_SYMBOL(gSataInterpolation);
 
 /* 7401Cx revision to decide whether C0 workaround is needed or not */
 int bcm7401Cx_rev = 0xFF;
@@ -92,8 +97,7 @@ EXPORT_SYMBOL(gHwAddrs);
 unsigned long get_RAM_size(void);
 unsigned long g_board_RAM_size = 0;	//Updated by get_RAM_size();;
 
-
-#if defined( CONFIG_MIPS_BCM7400 )
+#if defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7325 )
 #define CONSOLE_KARGS " console=uart,mmio,0x10400b00,115200n8"
 
 #elif defined( CONFIG_MIPS_BCM7440 )
@@ -195,7 +199,7 @@ isRootSpecified(char* cmdArg)
 	return 0;
 }
 
-
+#define  BCM_UPG_IRQ0_IRQEN   BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_IRQ0_IRQEN)
 
 void __init prom_init(void)
 {
@@ -215,6 +219,9 @@ void __init prom_init(void)
 	uart_init(27000000);
 #endif
 	uart_puts("HI WORLD!!!\n");
+
+	/* jipeng - mask out UPG L2 interrupt here */
+	*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) = 0x0;
 
 #ifdef CONFIG_MIPS_BCM7315_BBX
 	*(volatile unsigned long *)(0xfffe7008) = 0x1b800000;
@@ -349,9 +356,13 @@ void __init prom_init(void)
 #ifdef CONFIG_MIPS_BCM7440
 		mips_machtype  = MACH_BRCM_7440;
 #endif
+#ifdef CONFIG_MIPS_BCM7325
+                mips_machtype  = MACH_BRCM_7325;
+#endif
 
-#if  	defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7401C0 )	\
-     ||	defined( CONFIG_MIPS_BCM7402C0 ) || defined( CONFIG_MIPS_BCM3563 )
+#if defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7401C0 )	\
+ || defined( CONFIG_MIPS_BCM7402C0 ) || defined( CONFIG_MIPS_BCM3563 ) \
+ || defined (CONFIG_MIPS_BCM3563C0)
 // jipeng - need set bus to async mode before enabling the following	
 	if(!(read_c0_diag4() & 0x400000))
 	{
@@ -480,6 +491,25 @@ void __init prom_init(void)
 				break;
 		}
 	}
+
+	/* bcmssc=1, turn on Interpolation for SSC drives, default 0 */
+	{
+		char c = ' ', *from = cfeBootParms;
+		int len = 0;
+
+		for (;;) {
+			if (c == ' ' && !memcmp(from, "bcmssc=", 7)) {
+				gSataInterpolation= memparse(from + 7, &from);
+				break;
+			}
+			c = *(from++);
+			if (!c)
+				break;
+			if (CL_SIZE <= ++len)
+				break;
+		}
+	}
+
 
 	/* flashsize=nnM */
 	{

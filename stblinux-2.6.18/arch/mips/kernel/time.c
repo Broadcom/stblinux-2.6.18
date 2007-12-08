@@ -23,6 +23,8 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/cpufreq.h>
+#include <linux/delay.h>
 
 #include <asm/bootinfo.h>
 #include <asm/cache.h>
@@ -719,6 +721,69 @@ void __init time_init(void)
 	 */
 	plat_timer_setup(&timer_irqaction);
 }
+
+#ifdef CONFIG_CPU_FREQ
+
+static unsigned int  ref_freq = 0;
+static unsigned long loops_per_jiffy_ref = 0, mips_hpt_frequency_ref = 0;
+
+static int
+time_cpufreq_notifier(struct notifier_block *nb, unsigned long val,
+		       void *data)
+{
+	struct cpufreq_freqs *freq = data;
+
+	if (!ref_freq) {
+		ref_freq = freq->old;
+		loops_per_jiffy_ref = loops_per_jiffy;
+		mips_hpt_frequency_ref = mips_hpt_frequency;
+	}
+
+	if ((val == CPUFREQ_PRECHANGE  && freq->old < freq->new) ||
+	    (val == CPUFREQ_POSTCHANGE && freq->old > freq->new) ||
+	    (val == CPUFREQ_RESUMECHANGE)) {
+		if (!(freq->flags & CPUFREQ_CONST_LOOPS))
+		{
+			mips_hpt_frequency = cpufreq_scale(
+				mips_hpt_frequency_ref, ref_freq, freq->new);
+			loops_per_jiffy = cpufreq_scale(
+				loops_per_jiffy_ref, ref_freq, freq->new);
+			cpu_data[freq->cpu].udelay_val = loops_per_jiffy;
+
+			/*
+			 * recalculate operating params based on new hpt
+			 * frequency
+			 */
+			cycles_per_jiffy = (mips_hpt_frequency + HZ / 2) / HZ;
+
+			/*
+			 * sll32_usecs_per_cycle =
+			 *	10^6 * 2^32 / mips_counter_freq
+			 */
+			do_div64_32(sll32_usecs_per_cycle,
+				    1000000, mips_hpt_frequency / 2,
+				    mips_hpt_frequency);
+		}
+	}
+	
+	return(0);
+}
+
+static struct notifier_block time_cpufreq_notifier_block = {
+	.notifier_call	= time_cpufreq_notifier
+};
+
+
+static int __init cpufreq_time(void)
+{
+	int ret;
+	ret = cpufreq_register_notifier(&time_cpufreq_notifier_block,
+					CPUFREQ_TRANSITION_NOTIFIER);
+	return ret;
+}
+core_initcall(cpufreq_time);
+
+#endif /* CONFIG_CPU_FREQ */
 
 #define FEBRUARY		2
 #define STARTOFTIME		1970

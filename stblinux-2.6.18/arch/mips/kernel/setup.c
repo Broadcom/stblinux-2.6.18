@@ -103,7 +103,6 @@ extern unsigned long g_board_RAM_size;
 void __init add_memory_region(phys_t start, phys_t size, long type)
 {
 	int x = boot_mem_map.nr_map;
-	struct boot_mem_map_entry *prev = boot_mem_map.map + x - 1;
 
 /* Disable merging for BRCM boards */
 #ifndef CONFIG_MIPS_BRCM

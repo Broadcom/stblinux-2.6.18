@@ -290,12 +290,14 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 
 int __init init_bcm9XXXX_map(void)
 {
+#ifdef CONFIG_MTD_ECM_PARTITION
 	unsigned int ecm_size = DEFAULT_ECM_SIZE;
 	unsigned int ocap_size = DEFAULT_OCAP_SIZE;
 	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
+#endif
 	int i, numparts;
 	
-	printk(KERN_NOTICE "BCM97XXX flash device: 0x%08x @ 0x%08x\n", WINDOW_SIZE, WINDOW_ADDR);
+	printk(KERN_NOTICE "BCM97XXX flash device: 0x%08lx @ 0x%08lx\n", WINDOW_SIZE, WINDOW_ADDR);
 	bcm9XXXX_map.size = WINDOW_SIZE;
 	numparts = ARRAY_SIZE(bcm9XXXX_parts);
 	

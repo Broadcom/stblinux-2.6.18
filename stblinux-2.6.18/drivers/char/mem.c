@@ -82,14 +82,14 @@ static inline int uncached_access(struct file *file, unsigned long addr)
 	 */
 	if (file->f_flags & O_SYNC)
 		return 1;
-	return addr >= __pa(high_memory);
+	return addr >= __pa((unsigned long)high_memory);
 #endif
 }
 
 #ifndef ARCH_HAS_VALID_PHYS_ADDR_RANGE
 static inline int valid_phys_addr_range(unsigned long addr, size_t count)
 {
-	if (addr + count > __pa(high_memory))
+	if (addr + count > __pa((unsigned long)high_memory))
 		return 0;
 
 	return 1;

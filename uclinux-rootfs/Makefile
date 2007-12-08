@@ -24,7 +24,8 @@ ifeq (.config,$(wildcard .config))
 include .config
 
 # THT Add prepare target for Linux 2.6.x
-all: prepare subdirs modules modules_install romfs linux image
+#all: prepare subdirs modules modules_install romfs linux image
+all: prepare subdirs modules linux modules_install romfs zImage
 else
 all: config_error
 endif
@@ -195,11 +196,10 @@ modules:
 modules_install:
 	. $(LINUXDIR)/.config; if [ "$$CONFIG_MODULES" = "y" ]; then \
 		[ -d $(ROMFSDIR)/lib/modules ] || mkdir -p $(ROMFSDIR)/lib/modules; \
-		$(MAKEARCH) -C $(LINUXDIR) INSTALL_MOD_PATH=$(ROMFSDIR) DEPMOD=true modules_install; \
+		$(MAKEARCH) -C $(LINUXDIR) INSTALL_MOD_PATH=$(ROMFSDIR) DEPMOD=$(ROOTDIR)/tools/$(CROSS)depmod modules_install || exit 1; \
 		rm -f $(ROMFSDIR)/lib/modules/*/build; \
-		find $(ROMFSDIR)/lib/modules -type f | grep -v modules.dep | xargs -r $(STRIP) -g; \
+		find $(ROMFSDIR)/lib/modules -type f | grep -v "modules\." | xargs -r $(STRIP) -g; \
 	fi
-	depmod.pl -k $(LINUXDIR)/vmlinux -b $(ROMFSDIR)/lib/modules/$(shell head -1 $(LINUXDIR)/include/linux/utsrelease.h | cut -d"\"" -f2)
 
 linux_xconfig:
 	$(MAKEARCH) -C $(LINUXDIR) xconfig
@@ -271,7 +271,7 @@ linux linux%_only:
 		exit 1 ; \
 	fi
 	. $(LINUXDIR)/.config; if [ "$$CONFIG_BLK_DEV_INITRD" = "y" ]; then \
-		$(MAKE) -C $(VENDDIR) initrd; \
+		$(MAKE) -C $(VENDDIR) romfs initrd; \
 	else \
 		exit 1 ; \
 	fi

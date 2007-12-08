@@ -201,7 +201,7 @@ static MII_CONFIG mii_autoconfigure(struct net_device *dev)
     mii_write(dev, pDevCtrl->EnetInfo.ucPhyAddress, MII_BMCR, val);
 
     /* wait for it to finish */
-    for (i = 0; i < 6000; i++) {
+    for (i = 0; i < 1000; i++) {
         mdelay(1);
         val = mii_read(dev, pDevCtrl->EnetInfo.ucPhyAddress, MII_BMSR);
 #if defined(CONFIG_BCM5325_SWITCH) && (CONFIG_BCM5325_SWITCH == 1)

@@ -3,11 +3,20 @@
 # Set the path
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:.
 
-
 # Mount /proc
 echo "Mount /proc fs"
 mount -t proc none /proc
 
+# USB/SATA/ENET are loadable modules when power management is enabled
+if [ -e /proc/driver/brcm-pm ]; then
+	modprobe ehci-hcd &
+	modprobe sata_svw &
+	modprobe bcmemacnet &
+	modprobe ohci-hcd &
+fi
+
+echo "Mount /sys fs"
+mount -t sysfs none /sys
 # Mount RW tmpfs, rely on /proc being mounted
 echo "Restore RW directories"
 /bin/bash /etc/mountvar.sh
@@ -19,8 +28,16 @@ mount -t devpts none /dev/pts
 # Setup up /etc/mtab link
 ln -sf /proc/mounts /etc/mtab
 
-# Turn it on only when having a HD
-###mount -a
+# This parameter gets changed to "mount" in the HD version
+mount_all="###mount"
+
+if [ "$mount_all" = "mount" ]; then
+	mount -a
+	swapon -a
+else
+# Turn off VM overcommit if there is no swap partition (PR31081)
+	echo 2 > /proc/sys/vm/overcommit_memory
+fi
 
 # Now allow user interrupt
 # stty brkint
@@ -40,12 +57,12 @@ syslogd &
 echo "Configure Network interface"
 # For bcm97110-docsis only
 ###insmod /lib/modules/`uname -r`/kernel/drivers/net/et.o
-sleep 6
+# sleep 6
 
 
 # If we boot from NFS, then we don't need the Network, use whatever
 # was set up by NFS, 
-# otherwise look at the kernel parameter network=<device>,<ip>
+# otherwise look at the kernel parameter netconf=<device>,<ip>
 #
 if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
 	if [ -z "$netconf" ]; then
@@ -58,11 +75,8 @@ if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
     if [ -f /etc/config/dhcpc/dhcpcd-eth0.pid ]; then
         rm -f /etc/config/dhcpc/dhcpcd-eth0.pid
     fi
-		#jipeng - PR22427 dhcpcd failed with cramfs
-		echo "dhcpcd -Hd -L /var/run eth0"
-    	dhcpcd -Hd -L /var/run eth0 &
-		#echo "dhcpcd -Hd eth0"
-    	#dhcpcd -Hd eth0 &
+	echo "dhcpcd -Hd -L /var/run eth0"
+    dhcpcd -Hd -L /var/run eth0 &
 	else
 		netdev=`echo "$netconf" | cut -f1 -d','`
 		ip=`echo "$netconf" | cut -f2 -d','`
@@ -77,14 +91,11 @@ if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
 				rm -f /var/run/dhcpcd-${netdev}.pid
 			fi
             # PR21492 - new dhcpcd use different dir to store *.pid
-            if [ -f /etc/config/dhcpc/dhcpcd-eth0.pid ]; then
-                rm -f /etc/config/dhcpc/dhcpcd-eth0.pid
+            if [ -f /etc/config/dhcpc/dhcpcd-${netdev}.pid ]; then
+                rm -f /etc/config/dhcpc/dhcpcd-${netdev}.pid
             fi
-			#jipeng - PR22427 dhcpcd failed with cramfs
-			echo "dhcpcd -Hd -L /var/run eth0"
-    		dhcpcd -Hd -L /var/run eth0 &
-            #echo "dhcpcd -Hd $netdev"
-    		#dhcpcd -Hd "$netdev" &
+			echo "dhcpcd -Hd -L /var/run $netdev"
+    		dhcpcd -Hd -L /var/run "$netdev" &
 			;;
 	
 		*)	# If the user specifies the wrong syntax, there is nothing we can do
@@ -99,15 +110,16 @@ if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
 fi
 
 
-
 # Start up services
 echo "start services"
 portmap &
-# PR17638: Add daemonize option to utelnetd.
+# PR17638: Use daemon option for utelnetd
 utelnetd -d
 
-#Start user services if it exists
+#Start user service if it exists
 if [ -f /root/rc.user ]; then
 	echo "start user services"
 	/bin/sh /root/rc.user
 fi
+
+

@@ -95,6 +95,10 @@ MODULE_DESCRIPTION("Library module for ATA devices");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(DRV_VERSION);
 
+#ifdef	SATA_SVW_BRCM_WA
+int dma_write_wa_needed = 0;
+EXPORT_SYMBOL(dma_write_wa_needed);
+#endif
 
 /**
  *	ata_tf_to_fis - Convert ATA taskfile to SATA FIS structure

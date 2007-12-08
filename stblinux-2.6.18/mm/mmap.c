@@ -158,7 +158,7 @@ int __vm_enough_memory(long pages, int cap_sys_admin)
 
 	/* Don't let a single process grow too big:
 	   leave 3% of the size of this process for other processes */
-	allowed -= current->mm->total_vm / 32;
+	allowed -= (current->mm->total_vm - current->mm->reserved_vm) / 32;
 
 	/*
 	 * cast `allowed' as a signed long because vm_committed_space
@@ -2078,7 +2078,7 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
  */
 int may_expand_vm(struct mm_struct *mm, unsigned long npages)
 {
-	unsigned long cur = mm->total_vm;	/* pages */
+	unsigned long cur = (mm->total_vm - mm->reserved_vm);	/* pages */
 	unsigned long lim;
 
 	lim = current->signal->rlim[RLIMIT_AS].rlim_cur >> PAGE_SHIFT;

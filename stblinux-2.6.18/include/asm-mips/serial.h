@@ -9,6 +9,7 @@
 #ifndef _ASM_SERIAL_H
 #define _ASM_SERIAL_H
 
+#include <asm/brcmstb/common/serial.h>
 
 /*
  * This assumes you have a 1.8432 MHz clock for your UART.
@@ -17,7 +18,9 @@
  * clock, since the 16550A is capable of handling a top speed of 1.5
  * megabits/second; but this requires the faster clock.
  */
+#ifndef BASE_BAUD
 #define BASE_BAUD (1843200 / 16)
+#endif
 
 /* Standard COM flags (except for COM4, because of the 8514 problem) */
 #ifdef CONFIG_SERIAL_DETECT_IRQ
@@ -81,19 +84,6 @@
  * 16550A style UARTs
  */
 
-#ifdef CONFIG_MIPS_BRCM_IKOS
-#define _BRCM_16550_INIT(int, base)			\
-	{ baud_base:  ( BRCM_BASE_BAUD_16550 ),		\
-	  irq: int,								\
-	  flags: STD_COM_FLAGS|UPF_SPD_WARP,	/* THT Added Warp for 375000 baud */\
-	  iomem_base: (u8 *) base,				\
-	  iomem_reg_shift: 2,					\
-	  io_type: SERIAL_IO_MEM /* 4 byte aligned */ \
-	}
-
-#else
-
-
 #define _BRCM_16550_INIT(int, base)			\
 	{ baud_base:  ( BRCM_BASE_BAUD_16550 ),		\
 	  irq: int,								\
@@ -102,10 +92,10 @@
 	  iomem_reg_shift: 2,					\
 	  io_type: SERIAL_IO_MEM /* 4 byte aligned */ \
 	}
-#endif // If On Ikos, turn on WARP
 
 /* 3 or more 16550 UART on 7400 and 7118 and 7405*/
-#if defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7405)
+#if defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7405) \
+ || defined(CONFIG_MIPS_BCM7325)
 
 /* 3 16550A compatible UARTs */
 #define BRCM_UART_PORT_DEFNS				\

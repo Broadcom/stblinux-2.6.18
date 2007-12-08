@@ -32,13 +32,14 @@ endif
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.18-2.0 we only support a few platforms
-PLATFORMS=7401c0 97455c0 7400b0 7400b0-smp 97456b0 97456b0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400b0-nand 97456b0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7405a0 7405a0-smp # 7400b0-smp-nand 97456b0-smp-nand
+PLATFORMS=7325a0 7401c0 97455c0 7400b0 7400b0-smp 97456b0 97456b0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400b0-nand 97456b0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7405a0 7405a0-smp 7038c0 3563c0  # 7400b0-smp-nand 97456b0-smp-nand
     # Obsoleted
-    # 7400a0 7400a0-smp 7440a0 7038c0 97398 7402 7402c0 7403a0 3560b0 3563 97456
+    # 7400a0 7400a0-smp 7440a0 97398 7402 7402c0 7403a0 3560b0 3563 97456
     # 7318 7400a0-nand  7401b0-nand
     # 7402s 7038b0 3560 7312 # 7401a0 7401b0 97455 97455b0 7402b0s
 #THT Removed 7038 support for 2618-2.0
-XFS_PLATFORMS = # 7038c0-xfs 97398-xfs
+#KPC Resurrected 7038c0 support for PR36194
+XFS_PLATFORMS = 7038c0-xfs # 97398-xfs
 ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS)
 ROOTLESS_PLATFORMS = 7402b0s
 ROOTED_PLATFORMS := $(filter-out $(ROOTLESS_PLATFORMS),$(ALL_PLATFORMS))
@@ -138,6 +139,9 @@ rootfs:
 				;;\
 			*) \
 				cp images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img; \
+				if [ "$$i" == "7401c0" ]; then \
+					cp images/$$i/jffs2-64k.img $(TFTPDIR)/jffs2-64k-$$i.img; \
+				fi; \
 				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
 				cp images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
 				;;\
@@ -186,6 +190,9 @@ $(ROOTFS_PLATFORMS):
 			;;\
 		*) \
 			cp -f images/$(subst rootfs-,,$@)/jffs2.img $(TFTPDIR)/jffs2-$(subst rootfs-,,$@).img; \
+			if [ "$(subst rootfs-,,$@)" == "7401c0" ]; then \
+				cp images/$(subst rootfs-,,$@)/jffs2-64k.img $(TFTPDIR)/jffs2-64k-$(subst rootfs-,,$@).img; \
+			fi; \
 			cp -f images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img ; \
 			;;\

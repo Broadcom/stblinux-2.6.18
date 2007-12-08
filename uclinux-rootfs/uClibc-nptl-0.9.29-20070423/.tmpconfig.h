@@ -1,6 +1,6 @@
 /*
  * Automatically generated C config: don't edit
- * Fri Oct 12 03:07:56 2007
+ * Fri Dec  7 20:27:00 2007
  */
 #if !defined __FEATURES_H && !defined __need_uClibc_config_h
 #error Never include <bits/uClibc_config.h> directly; use <features.h> instead
@@ -56,9 +56,9 @@
  * Using ELF file format
  */
 #define __ARCH_ANY_ENDIAN__ 1
-#define __ARCH_BIG_ENDIAN__ 1
-#define __ARCH_WANTS_BIG_ENDIAN__ 1
-#undef __ARCH_WANTS_LITTLE_ENDIAN__
+#define __ARCH_LITTLE_ENDIAN__ 1
+#undef __ARCH_WANTS_BIG_ENDIAN__
+#define __ARCH_WANTS_LITTLE_ENDIAN__ 1
 #define __ARCH_HAS_MMU__ 1
 #define __ARCH_USE_MMU__ 1
 #define __UCLIBC_HAS_FLOATS__ 1

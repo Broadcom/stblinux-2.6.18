@@ -655,6 +655,18 @@ UTS_MACHINE:= 3563
 endif
 
 #
+#
+# BCM93563C0
+#
+core-$(CONFIG_MIPS_BCM3563C0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM3563C0) += arch/mips/brcmstb/brcm93563c0/
+cflags-$(CONFIG_MIPS_BCM3563C0)   += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM3563C0) := 0x80001000
+ifdef CONFIG_MIPS_BCM3563C0
+UTS_MACHINE:= 3563c0
+endif
+
+#
 # Broadcom BCM93730
 #
 core-$(CONFIG_BCM93730) += arch/mips/brcm-boards/common arch/mips/brcm-boards/bcm93730
@@ -1004,6 +1016,18 @@ cflags-$(CONFIG_MIPS_BCM7402B0S)	+= -Iinclude/asm-mips/mach-brcmstb
 load-$(CONFIG_MIPS_BCM7402B0S) 		:= 0x80001000
 ifdef CONFIG_MIPS_BCM7402B0S
 UTS_MACHINE:=7402b0s
+endif
+
+#
+#
+# BCM97325A0
+#
+core-$(CONFIG_MIPS_BCM7325A0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7325A0) += arch/mips/brcmstb/brcm97325a0/
+cflags-$(CONFIG_MIPS_BCM7325A0) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7325A0) := 0x80001000
+ifdef CONFIG_MIPS_BCM7325A0
+UTS_MACHINE:=7325a0
 endif
 
 #

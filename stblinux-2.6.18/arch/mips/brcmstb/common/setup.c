@@ -99,7 +99,7 @@ static void brcm_machine_restart(char *command)
 #define CHIP_MASTER_RESET 			(1<<31)
 
 // jipeng - fixup for 3563
-#if defined( CONFIG_MIPS_BCM3563 )
+#if defined( CONFIG_MIPS_BCM3563 ) || defined(CONFIG_MIPS_BCM3563C0)
 #define SUN_TOP_CTRL_SW_RESET		0xb0404014
 #endif
 

@@ -53,7 +53,8 @@
 /*---------------------------------------------------------------------*/
 #if defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7402C0 )  \
     || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400B0 ) \
-    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405A0 )
+    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405A0 ) \
+    || defined( CONFIG_MIPS_BCM7325A0 )
 
 #define TOTAL_DESC				256		/* total number of Buffer Descriptors */
 #define RX_RATIO				1/2		/* ratio of RX descriptors number in total */
@@ -64,6 +65,7 @@
 #define EXTRA_TX_DESC			24		/* fine adjustment in TX descriptor number */
 #endif
 
+#define DESC_MASK		(TOTAL_DESC - 1)
 #define NR_RX_BDS               ((TOTAL_DESC*RX_RATIO) - EXTRA_TX_DESC)
 #define NR_TX_BDS               (TOTAL_DESC - NR_RX_BDS)
 
@@ -85,11 +87,12 @@
 	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
 	|| defined( CONFIG_MIPS_BCM7402S ) || defined( CONFIG_MIPS_BCM7440 ) \
         || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 ) \
-	|| defined( CONFIG_MIPS_BCM7405 )
+	|| defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325A0 )
 
 #if defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7402C0 ) \
     || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400B0 ) \
-    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405A0 )
+    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405A0 ) \
+    || defined( CONFIG_MIPS_BCM7325A0 )
  
 #define EMAC_RX_DESC_BASE   	0xb0082800	/* MAC DMA Rx Descriptor word */
 #else

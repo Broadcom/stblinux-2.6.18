@@ -639,7 +639,8 @@ static unsigned long zap_pte_range(struct mmu_gather *tlb,
 		if (pte_present(ptent)) {
 			struct page *page;
 
-			page = vm_normal_page(vma, addr, ptent);
+			page = (vma->vm_flags & VM_BRCMRSVD) ? NULL :
+				vm_normal_page(vma, addr, ptent);
 			if (unlikely(details) && page) {
 				/*
 				 * unmap_shared_mapping_pages() wants to
@@ -1378,7 +1379,7 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 	 * from mmap()ing the pages, so only do this for pages beyond
 	 * real memory
 	 */
-	vma->vm_flags |= VM_RESERVED | VM_PFNMAP;
+	vma->vm_flags |= VM_RESERVED | VM_BRCMRSVD;
 
 	if (pfn >= (((unsigned long) __pa((unsigned long) high_memory)) >> PAGE_SHIFT))
 		vma->vm_flags |= VM_IO;

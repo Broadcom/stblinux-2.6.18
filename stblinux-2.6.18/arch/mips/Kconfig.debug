@@ -117,4 +117,11 @@ config VMALLOC_ACCOUNTING
 	  This option records vmalloc and vfree activity and reports it via
 	  /proc/vmalloc.
 
+config MIPS_BRCM_IKOS
+	bool "IKOS simulation"
+	depends on DEBUG_KERNEL
+	default n
+	help
+	  Configure kernel for IKOS simulation.
+
 endmenu

@@ -26,6 +26,8 @@
  */
 
 #include <linux/platform_device.h>
+#include <asm/brcmstb/common/brcmstb.h>
+#include <asm/brcmstb/common/brcm-pm.h>
 #include "brcmusb.h"
 
 extern int usb_disabled(void);
@@ -275,11 +277,12 @@ static struct device_driver ohci_hcd_brcm_driver[] = {
 #endif
 };
 
+static struct platform_device *plat_dev[NUM_OHCI_HOSTS];
+
 static int __init brcm_ohci_hcd_init (int ohci_id)
 {
 	int err = -1;
 	struct resource devRes[2];
-	struct platform_device* pdev;
 	
 	printk (DRIVER_INFO " (OHCI-brcm-%.1d)\n", ohci_id);
 
@@ -293,29 +296,35 @@ static int __init brcm_ohci_hcd_init (int ohci_id)
 	devRes[1].end = ohci_id == 0 ? HC_INT_VECTOR : HC2_INT_VECTOR ;
 	devRes[1].flags = IORESOURCE_IRQ;
 
+#ifdef CONFIG_MIPS_BCM7400
+	/* IRQ lines for EHCI-1 and OHCI-0 are swapped on 7400 prior to D0 */
+	if((BDEV_RD(BCHP_SUN_TOP_CTRL_PROD_REVISION) & 0xffff) < 0x0030) {
+		devRes[1].start = ohci_id == 0 ? EHC2_INT_VECTOR : HC2_INT_VECTOR;
+		devRes[1].end = ohci_id == 0 ? EHC2_INT_VECTOR : HC2_INT_VECTOR ;
+	}
+#endif
+
 	// Before we register the driver, add a simple device matching our driver
-	pdev = platform_device_register_simple(
+	plat_dev[ohci_id] = platform_device_register_simple(
 		(char *) ohci_hcd_brcm_driver[ohci_id].name,
 		ohci_id, /* ID */
 		devRes,
 		2);
-	if (IS_ERR(pdev)) {
+	if (IS_ERR(plat_dev[ohci_id])) {
 		printk("ohci_hcd_brcm_init: device register failed, err=%d\n", err);
-		return PTR_ERR(pdev);
+		return PTR_ERR(plat_dev[ohci_id]);
 	}
 
 #if 1
 	// Set up dma_mask for our platform device
 	// Overwrite whatever value it was set to.  It was meant only to
 	// allow 64bits DMA transfer, but without it, USB does not work */
-	if (1 /*!pdev->dev.dma_mask*/) {
+	if (1) {
 		extern phys_t upper_memory;
 
-		//dma_set_mask(&pdev->dev, (u64) ((unsigned long) upper_memory - 1UL)); // default is 32MB 0x01ffffff;
-		//dma_set_mask(&pdev->dev, 0x01ffffff);
-		//pdev->dev.dma_mask = (u64*) 0x01ffffff;  
-		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask; 
-		pdev->dev.coherent_dma_mask = (u64)  ( upper_memory - 1UL);
+		plat_dev[ohci_id]->dev.dma_mask =
+			&plat_dev[ohci_id]->dev.coherent_dma_mask; 
+		plat_dev[ohci_id]->dev.coherent_dma_mask = (u64)  ( upper_memory - 1UL);
 	}
 #endif
 		
@@ -325,6 +334,7 @@ static int __init brcm_ohci_hcd_init (int ohci_id)
 		return err;
 	}
 	
+	return(0);
 }
 
 static int __init ohci_hcd_brcm_init (void)
@@ -333,6 +343,7 @@ static int __init ohci_hcd_brcm_init (void)
 	int err = -1;
 
 	printk("ohci_hcd_brcm_init: Initializing %d OHCI controller(s)\n", NUM_OHCI_HOSTS);
+	brcm_pm_usb_add();
 	for (i=0; i < NUM_OHCI_HOSTS; i++) {
 		err = brcm_ohci_hcd_init(i);
 		if (err) {
@@ -350,7 +361,9 @@ static void __exit ohci_hcd_brcm_cleanup (void)
 	printk("ohci_hcd_brcm_cleanup: Taking down %d OHCI controller(s)\n", NUM_OHCI_HOSTS);
 	for (i=0; i<NUM_OHCI_HOSTS; i++) {
 		driver_unregister(&ohci_hcd_brcm_driver[i]);
+		platform_device_unregister(plat_dev[i]);
 	}
+	brcm_pm_usb_remove();
 }
 
 module_init (ohci_hcd_brcm_init);

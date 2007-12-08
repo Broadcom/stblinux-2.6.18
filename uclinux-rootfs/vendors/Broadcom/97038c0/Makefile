@@ -16,44 +16,40 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 #
-#	Makefile -- Build instructions for Broadcom/97038C0
+#	Makefile -- Build instructions for Broadcom/97038c0
 #
 
 include $(LINUX_CONFIG)
 include $(CONFIG_CONFIG)
 include $(ARCH_CONFIG)
 
-ifdef CONFIG_USER_XFS_XFSPROGS
-PLATSUF="-xfs"
-PLATFORM = 7038c0$(PLATSUF)
-else
-PLATSUF=
-PLATFORM = 7038c0
-endif
+PLATFORM := 7038c0
 VERSION := $(shell cat $(ROOTDIR)/version)
 LINUX_VERSION := $(shell cat $(ROOTDIR)/$(LINUXDIR)/include/linux/version.h | grep UTS_RELEASE|cut -d" " -f3)
 LINUXFILE = vmlinux
 COMPRESSED_LINUXFILE = vmlinuz
 ROMFSFILE = romfs.img
 CRAMFSFILE= cramfs.img
+SQUASHFSFILE=squashfs.img
 JFFSFILE  = jffs.img
 JFFS2FILE = jffs2.img
-LINUXIMG  := $(IMAGEDIR)/$(PLATFORM)/$(COMPRESSED_LINUXFILE)
-ROMFSIMG  := $(IMAGEDIR)/$(PLATFORM)/$(ROMFSFILE)
-INITRDIMG := $(INITRDDIR)/$(PLATFORM)/ramdisk.gz
-JFFSIMG   := $(IMAGEDIR)/$(PLATFORM)/$(JFFSFILE)
-JFFS2IMG  := $(IMAGEDIR)/$(PLATFORM)/$(JFFS2FILE)
-CRAMFSIMG := $(IMAGEDIR)/$(PLATFORM)/$(CRAMFSFILE)
-INITRAMFS_DIR := $(IMAGEDIR)/$(PLATFORM)/initramfs
-#UMDRV     = umdrv/bcmdriver.o
+LINUXIMG  = $(IMAGEDIR)/$(PLATFORM)/$(COMPRESSED_LINUXFILE)
+ROMFSIMG  = $(IMAGEDIR)/$(PLATFORM)/$(ROMFSFILE)
+INITRDIMG = $(INITRDDIR)/$(PLATFORM)/ramdisk.gz
+JFFSIMG   = $(IMAGEDIR)/$(PLATFORM)/$(JFFSFILE)
+JFFS2IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2FILE)
+CRAMFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(CRAMFSFILE)
+SQUASHFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(SQUASHFSFILE)
+INITRAMFS_DIR = $(IMAGEDIR)/$(PLATFORM)/initramfs
+UMDRV     = umdrv/bcmdriver.o
 # For now until we make umdrv part of the kernel module build process
-#UMDRVDIR  = $(ROMFSDIR)/lib/modules/$(LINUX_VERSION)/drivers/umdrv
+UMDRVDIR  := $(ROMFSDIR)/lib/modules/$(LINUX_VERSION)/drivers/umdrv
 KINITDIR  = ../common/kinit
 ROMFSDIR ?= $(ROOTDIR)/romfs
 
 DIRS =
 
-ROMFS_DIRS = bin dev etc etc/dhcpc lib lib/modules home mnt mnt/hd mnt/nfs proc root usr var
+ROMFS_DIRS = bin dev etc etc/dhcpc lib lib/modules home mnt mnt/hd mnt/nfs proc root usr var sys
 
 ifdef CONFIG_BLK_DEV_INITRD
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock dev/pts
@@ -76,13 +72,17 @@ ifdef CONFIG_CRAMFS
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
 FSIMG += $(CRAMFSIMG)
 endif
+ifdef CONFIG_SQUASHFS
+FSIMG += $(SQUASHFSIMG)
+endif
 ifdef CONFIG_OPROFILE
-BMIPS_DIR=mips/bcm7038
+BMIPS_DIR=mips/bcm3300
 TARGET_PREFIX=/usr/local/share/oprofile/
 BUILD_PREFIX=$(ROOTDIR)/romfs/$(TARGET_PREFIX)
 OPROFILE_DIR=$(ROOTDIR)/user/oprofile
 endif
 
+# PR26147 - Remove ttyS1 as only ttyS0 and ttyS64 are supported
 DEVICES = \
 	tty,c,5,0		console,c,5,1		ptmx,c,5,2 \
 	ram0,b,1,0		ram1,b,1,1		mem,c,1,1 \
@@ -91,7 +91,8 @@ DEVICES = \
 	\
 	tty0,c,4,0		tty1,c,4,1		tty2,c,4,2 \
 	tty3,c,4,3		tty4,c,4,4		tty5,c,4,5 \
-	ttyS0,c,4,64		ttyS1,c,4,65 \
+	ttyS0,c,4,64		\
+	ttyS64,c,4,128 \
 	\
 	hda,b,3,0		hda1,b,3,1		hda2,b,3,2 \
 	hda3,b,3,3		hda4,b,3,4		hda5,b,3,5 \
@@ -163,18 +164,15 @@ endif
 initrd: kinit
 	umask 022
 	cp -af etc/* $(ROMFSDIR)/etc
-#ifdef CONFIG_USER_XFS_XFSPROGS
-	cp -af etc/init.d/rcS-xfs $(ROMFSDIR)/etc/init.d/rcS
-	cp -af etc/fstab-xfs $(ROMFSDIR)/etc/fstab
-#endif
-	sed "s,@VERSION@,$(VERSION),g" usr/sbin/stbutil$(PLATSUF) > $(ROMFSDIR)/usr/sbin/stbutil$(PLATSUF)
+	sed "s,@VERSION@,$(VERSION),g" usr/sbin/stbutil > $(ROMFSDIR)/usr/sbin/stbutil
 	sed 's,###mount,mount,g' etc/init.d/rcS > $(ROMFSDIR)/var/tmp/rcS.hd
-	chmod +x $(ROMFSDIR)/usr/sbin/stbutil$(PLATSUF)
+	chmod +x $(ROMFSDIR)/usr/sbin/stbutil
 	cp -f usr/sbin/usb* $(ROMFSDIR)/usr/sbin/
 	chmod +x $(ROMFSDIR)/usr/sbin/usb*
 	#Enabling 2nd serial port
-	chmod u+w $(ROMFSDIR)/etc/inittab
-	sed 's,#@@@@@ttyS1,ttyS1,g' etc/inittab >$(ROMFSDIR)/etc/inittab
+	# chmod u+w $(ROMFSDIR)/etc/inittab
+	sed 's,#@@@@@ttyS1::respawn:/bin/getty -L ttyS1,ttyS64::respawn:/bin/getty -L ttyS64,g' \
+		etc/inittab >$(ROMFSDIR)/etc/inittab.ttyS64
 	cp -af var/tmp/* $(ROMFSDIR)/var/tmp
 	#[ -d $(UMDRVDIR) ] || mkdir -p $(UMDRVDIR)
 	#cp -f $(UMDRV) $(UMDRVDIR)
@@ -220,7 +218,7 @@ $(UMDRV):
 	# No longer needed to be built
 	# make -C ./umdrv
 
-images: $(JFFS2IMG) $(CRAMFSIMG)
+images: $(JFFS2IMG) $(CRAMFSIMG) $(SQUASHFSIMG)
 
 #*************************************************************************
 # Be careful, removing --no-absolute-filenames or mispelling it will trash
@@ -241,20 +239,35 @@ initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data_nodev.cpio
 $(JFFS2IMG): initramfs_dir
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o $(JFFS2IMG) -q -e 65536 -d \
 		$(INITRAMFS_DIR)
+ifdef CONFIG_JFFS2_SUMMARY
+	mv ${JFFS2IMG} ${JFFS2IMG}.nosummary
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2IMG}.nosummary -o $(JFFS2IMG) -e 64KiB
+endif
 
 $(JFFSIMG):
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs -o $(JFFSIMG) -d $(ROMFSDIR)
 
 # jipeng - PR22427 dhcpcd failed with cramfs
 # here we create var.img to contain RW /var and change rcS to call mountvar to mount it as first step
-$(CRAMFSIMG): initramfs_dir
+# Use default 64KB block size for SquashFS. 
+$(CRAMFSIMG) $(SQUASHFSIMG): common_ro_fs
+	if [ $@ == $(CRAMFSIMG) ]; then \
+		$(ROOTDIR)/user/cramfs/build/mkcramfs -v -n "Cramfs" $(INITRAMFS_DIR) $(CRAMFSIMG); \
+		chmod a+r $(CRAMFSIMG); \
+	else \
+		$(ROOTDIR)/user/squashfs-tools/build/mksquashfs $(INITRAMFS_DIR) $(SQUASHFSIMG) -b 65536 -le -all-root -noappend -info; \
+		chmod a+r $(SQUASHFSIMG); \
+	fi
+
+.PHONY: common_ro_fs
+common_ro_fs:initramfs_dir
 	dd if=/dev/zero of=$(INITRAMFS_DIR)/tmpfsvar.img bs=1024 count=500
 	cp -f $(INITRAMFS_DIR)/var/tmp/mountvar.sh $(INITRAMFS_DIR)/etc
 	chmod +x $(INITRAMFS_DIR)/etc/mountvar.sh
 	cp -f $(INITRAMFS_DIR)/var/tmp/rcS $(INITRAMFS_DIR)/etc/init.d/rcS
-	rm -f $(INITRAMFS_DIR)/var/tmp/*
+	# -rm -f $(INITRAMFS_DIR)/var/tmp/*
 	cd $(INITRAMFS_DIR)/var; tar -cvf $(INITRAMFS_DIR)/var.img . 2>&1 >/dev/null
-	$(ROOTDIR)/user/cramfs/build/mkcramfs -v -n "Cramfs" $(INITRAMFS_DIR) $(CRAMFSIMG)
+
 
 $(ROMFSIMG):
 	genromfs -v -V "ROMdisk" -f $(ROMFSIMG) -d $(ROMFSDIR)

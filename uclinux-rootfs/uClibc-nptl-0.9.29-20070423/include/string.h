@@ -95,9 +95,157 @@ extern char *strcat (char *__restrict __dest, __const char *__restrict __src)
 extern char *strncat (char *__restrict __dest, __const char *__restrict __src,
 		      size_t __n) __THROW __nonnull ((1, 2));
 
+#if defined(__mips__) && ! defined(__mips64)
+
+/*
+ * Fast MIPS32 strcmp() -- Copyright 2007 Broadcom Corporation
+ *
+ * Dual licensed under LGPL 2.1 (see COPYING.LIB) and Broadcom SLA.
+ */
+
+#define __strcmp_asm__(s0, s1) ({		    \
+	register char *str0 = s0, *str1 = s1;	    \
+	register int ret;			    \
+	register unsigned long mask0, mask1,	    \
+		          tmp0, tmp1;		    \
+	__asm__ __volatile__(			    \
+	"	.set noreorder			\n" \
+	"	or	%1,%5,%6		\n" \
+	"	andi	%1, 3			\n" \
+	"	bnez	%1, 8f			\n" \
+	"	lui	%3, 0x0101		\n" \
+	"	lw	%0, 0(%5)		\n" \
+	"	ori	%3, 0x0101		\n" \
+	"	lw	%1, 0(%6)		\n" \
+	"	lui	%4, 0x7f7f		\n" \
+	"	bne	%0, %1, 4f		\n" \
+	"	ori	%4, 0x7f7f		\n" \
+	"	subu	%1, %0, %3		\n" \
+	"3:					\n" \
+	"	nor	%2, %0, %4		\n" \
+	"	and	%2, %1			\n" \
+	"	beqzl	%2, 1f			\n" \
+	"	lw	%1, 4(%6)		\n" \
+	"	b	7f			\n" \
+	"	li	%0, 0			\n" \
+	"1:	lw	%0, 4(%5)		\n" \
+	"	subu	%2, %1, %3		\n" \
+	"	beql	%0, %1, 1f		\n" \
+	"	nor	%0, %1, %4		\n" \
+	"	addiu	%5, 4			\n" \
+	"	b	4f			\n" \
+	"	addiu	%6, 4			\n" \
+	"1:	and	%0, %2			\n" \
+	"	beqzl	%0, 1f			\n" \
+	"	lw	%1, 8(%6)		\n" \
+	"	b	7f			\n" \
+	"	li	%0, 0			\n" \
+	"1:	lw	%0, 8(%5)		\n" \
+	"	subu	%2, %1, %3		\n" \
+	"	beql	%0, %1, 1f		\n" \
+	"	nor	%0, %1, %4		\n" \
+	"	addiu	%5, 8			\n" \
+	"	b	4f			\n" \
+	"	addiu	%6, 8			\n" \
+	"1:	and	%0, %2			\n" \
+	"	beqzl	%0, 1f			\n" \
+	"	lw	%1, 12(%6)		\n" \
+	"	b	7f			\n" \
+	"	li	%0, 0			\n" \
+	"1:	lw	%0, 12(%5)		\n" \
+	"	subu	%2, %1, %3		\n" \
+	"	beql	%0, %1, 1f		\n" \
+	"	nor	%0, %1, %4		\n" \
+	"	addiu	%5, 12			\n" \
+	"	b	4f			\n" \
+	"	addiu	%6, 12			\n" \
+	"1:	and	%0, %2			\n" \
+	"	beqzl	%0, 1f			\n" \
+	"	lw	%1, 16(%6)		\n" \
+	"	b	7f			\n" \
+	"	li	%0, 0			\n" \
+	"1:	addiu	%6, 16			\n" \
+	"	lw	%0, 16(%5)		\n" \
+	"	addiu	%5, 16			\n" \
+	"	bnel	%0, %1, 5f		\n" \
+	"	andi	%0, 0xff		\n" \
+	"	b	3b			\n" \
+	"	subu	%1, %0, %3		\n" \
+	"4:					\n" \
+	"	lbu	%0, 0(%5)		\n" \
+	"5:					\n" \
+	"	lbu	%1, 0(%6)		\n" \
+	"6:					\n" \
+	"	bnezl	%0, 1f			\n" \
+	"	lbu	%2, 1(%5)		\n" \
+	"	b	7f			\n" \
+	"	subu	%0, %0, %1		\n" \
+	"1:	beql	%0, %1, 2f		\n" \
+	"	lbu	%3, 1(%6)		\n" \
+	"	b	7f			\n" \
+	"	subu	%0, %0, %1		\n" \
+	"2:	bnezl	%2, 1f			\n" \
+	"	lbu	%0, 2(%5)		\n" \
+	"	b	7f			\n" \
+	"	subu	%0, %2, %3		\n" \
+	"1:	beql	%2, %3, 2f		\n" \
+	"	lbu	%1, 2(%6)		\n" \
+	"	b	7f			\n" \
+	"	subu	%0, %2, %3		\n" \
+	"2:	bnezl	%0, 1f			\n" \
+	"	lbu	%2, 3(%5)		\n" \
+	"	b	7f			\n" \
+	"	subu	%0, %0, %1		\n" \
+	"1:	beql	%0, %1, 2f		\n" \
+	"	lbu	%3, 3(%6)		\n" \
+	"	b	7f			\n" \
+	"	subu	%0, %0, %1		\n" \
+	"2:	bnez	%2, 1f			\n" \
+	"	nop				\n" \
+	"	b	7f			\n" \
+	"	subu	%0, %2, %3		\n" \
+	"1:	beql	%2, %3, 2f		\n" \
+	"	lbu	%1, 4(%6)		\n" \
+	"	b	7f			\n" \
+	"	subu	%0, %2, %3		\n" \
+	"2:	addiu	%6, 4			\n" \
+	"	lbu	%0, 4(%5)		\n" \
+	"	b	6b			\n" \
+	"	addiu	%5, 4			\n" \
+	"8:					\n" \
+	"	lbu	%0, 0(%5)		\n" \
+	"	beqz	%0, 9f			\n" \
+	"	lbu	%1, 0(%6)		\n" \
+	"	bne	%0, %1, 9f		\n" \
+	"	addiu	%5, 1			\n" \
+	"	b	8b			\n" \
+	"	addiu	%6, 1			\n" \
+	"9:	subu	%0, %0, %1		\n" \
+	"7:					\n" \
+	"	.set reorder			\n" \
+		: "=&r" (ret),			    \
+		  "=&r" (tmp0), "=&r" (tmp1),	    \
+		  "=&r" (mask0), "=&r" (mask1),	    \
+		  "+r" (str0), "+r" (str1));	    \
+	ret; })
+
+#endif
+
+#if defined(__strcmp_asm__) && \
+	! defined(_NO_INLINE_STRCMP_) && \
+	! defined(_LIBC) && \
+	((__OPTIMIZE_LEVEL__ >= 3) || defined(_FORCE_INLINE_STRCMP_))
+
+#define strcmp(s0, s1) __strcmp_asm__(s0, s1)
+
+#else
+
 /* Compare S1 and S2.  */
 extern int strcmp (__const char *__s1, __const char *__s2)
      __THROW __attribute_pure__ __nonnull ((1, 2));
+
+#endif
+
 /* Compare N characters of S1 and S2.  */
 extern int strncmp (__const char *__s1, __const char *__s2, size_t __n)
      __THROW __attribute_pure__ __nonnull ((1, 2));

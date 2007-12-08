@@ -1770,13 +1770,6 @@ serial8250_set_termios(struct uart_port *port, struct termios *termios,
 	quot = serial8250_get_divisor(port, baud);
 
 	/*
-	* THT: Workaround for Ikos, forcing a value of quot = 14
-	*/
-#ifdef CONFIG_MIPS_BRCM_IKOS
-   baud = 375000;
-   quot = 14;
-#endif
-	/*
 	 * Work around a bug in the Oxford Semiconductor 952 rev B
 	 * chip which causes it to seriously miscalculate baud rates
 	 * when DLL is 0.

@@ -24,6 +24,17 @@
  */
 static void mips_sc_wback_inv(unsigned long addr, unsigned long size)
 {
+#if defined(CONFIG_MIPS_BCM7325)
+	/* flush previous and next cache lines as well, due to prefetching */
+	if(addr >= (KSEG0 + 128)) {
+		addr -= 128;
+		size += 128;
+	}
+	if((addr + size) < (KSEG0 + get_RAM_size() - 128)) {
+		size += 128;
+	}
+	BUG_ON((addr < 0x80000000) || ((addr + size) > 0x90000000));
+#endif
 	blast_scache_range(addr, addr + size);
 }
 

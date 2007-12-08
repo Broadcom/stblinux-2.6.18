@@ -103,7 +103,7 @@ InTp1:
 	nop
 #endif // SMP
 
-#ifndef CONFIG_MIPS_BCM7402S
+#if ! defined(CONFIG_MIPS_BCM7402S) && ! defined(CONFIG_MIPS_BRCM_IKOS)
 1:	jal	cfe_start
 	nop
 #endif

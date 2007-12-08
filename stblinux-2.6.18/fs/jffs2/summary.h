@@ -167,6 +167,11 @@ struct jffs2_sum_marker
 
 #ifdef CONFIG_JFFS2_SUMMARY	/* SUMMARY SUPPORT ENABLED */
 
+#if !defined(CONFIG_JFFS2_FS_XATTR)
+struct jffs2_raw_xattr;
+struct jffs2_raw_xref;
+#endif
+
 #define jffs2_sum_active() (1)
 int jffs2_sum_init(struct jffs2_sb_info *c);
 void jffs2_sum_exit(struct jffs2_sb_info *c);

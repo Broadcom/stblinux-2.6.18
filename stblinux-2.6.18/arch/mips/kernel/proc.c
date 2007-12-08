@@ -10,6 +10,7 @@
 #include <linux/sched.h>
 #include <linux/seq_file.h>
 #include <asm/bootinfo.h>
+#include <asm/atomic.h>
 #include <asm/cpu.h>
 #include <asm/cpu-features.h>
 #include <asm/mipsregs.h>
@@ -19,7 +20,8 @@
 
 
 #ifdef  CONFIG_PROC_FS
-extern unsigned long unaligned_instructions;
+extern atomic_t unaligned_instructions;
+extern atomic_t brdhwr_ctr, rdhwr_ctr;
 #endif
 
 unsigned int vced_count, vcei_count;
@@ -190,10 +192,15 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 #endif
 	}
 
-	seq_printf(m, "unaligned access\t: %ld\n", unaligned_instructions);
+	if(n == 0) {
+		seq_printf(m, "unaligned access\t: %d\n",
+			atomic_read(&unaligned_instructions));
+		seq_printf(m, "rdhwr/brdhwr traps\t: %d / %d\n",
+			atomic_read(&rdhwr_ctr), atomic_read(&brdhwr_ctr));
 #ifdef CONFIG_CACHE_STATS
-	cache_printstats(m);
+		cache_printstats(m);
 #endif
+	}
 
 	return 0;
 }

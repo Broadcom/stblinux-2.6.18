@@ -56,7 +56,9 @@ int get_cfe_boot_parms( char bootParms[], int* numAddrs, unsigned char* ethHwAdd
 	 * as it is * consistant both within CFE and here.
 	 */
 	const char* cfe_env = "BOOT_FLAGS";
+#ifdef CONFIG_MTD_BRCMNAND
 	const char* eth0HwAddr_env = "ETH0_HWADDR";
+#endif
 	cfe_xiocb_t cfeparam;
 	int res;
 	extern unsigned int firmhandl;

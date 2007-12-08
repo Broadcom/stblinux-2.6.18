@@ -26,23 +26,20 @@
  * 06-03-2005   THT    Ported to 2.6.12
  * 03-10-2006   TDT    Modified for SMP
  * 09-21-2006   TDT    Ported to 2.6.18
+ * 11-07-2007   KPC    Cleaned up UART IRQs, add SMP affinity
  */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/cpumask.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/mipsregs.h>
 #include <asm/addrspace.h>
-#include <asm/brcmstb/brcm97405a0/bcmuart.h>
-#include <asm/brcmstb/brcm97405a0/bcmtimer.h>
-#include <asm/brcmstb/brcm97405a0/bcmebi.h>
-#include <asm/brcmstb/brcm97405a0/int1.h>
-#include <asm/brcmstb/brcm97405a0/board.h>
-#include <asm/brcmstb/brcm97405a0/bchp_irq0.h>
-#include <asm/brcmstb/brcm97405a0/bcmintrnum.h>
+#include <asm/brcmstb/common/brcmstb.h>
 #include <asm/smp.h>
 
 #ifdef CONFIG_REMOTE_DEBUG
@@ -50,124 +47,44 @@
 extern void breakpoint(void);
 #endif
 
-#define USE_UARTA_AS_DEFAULT
-
-/* define front end and backend int bit groups */
-#define  BCM_UPG_IRQ0_IRQEN   BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_IRQ0_IRQEN)
-#define  BCM_UPG_IRQ0_IRQSTAT   BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_IRQ0_IRQSTAT)
-
-extern asmlinkage unsigned int do_IRQ(unsigned int irq, struct pt_regs *regs);
+#ifdef CONFIG_SMP
+static int next_cpu[NR_IRQS] = { [0 ... NR_IRQS-1] = 0 };
+#define NEXT_CPU(irq) next_cpu[irq]
+#else
+#define NEXT_CPU(irq) 0
+#endif
 
 /*
- * Following is the complete map of interrupts in the system. Please
- * keep this up to date and make sure you comment your changes in the
- * comment block above with the date, your initials and what you did.
- *
- * There are two different interrupts in the system. The first type
- * is an actual hardware interrupt. We have a total of eight MIPS
- * interrupts. Two of them are software interrupts and are ignored.
- * The remaining six interrupts are actually monitored and handled
- * by low-level interrupt code in 'int-handle_irq.S' that call dispatch
- * functions in this file to call the IRQ descriptors in the Linux
- * kernel.
- * 
- * The second type is the Linux kernel system interrupt which is
- * a table of IRQ descriptors (see 'include/linux/irq.h' and
- * 'include/linux/interrupt.h') that relate the hardware interrupt
- * handle_irq types to the software IRQ descriptors. This is where all
- * of the status information and function pointers are defined so
- * that registration, releasing, disabling and enabling of interrupts
- * can be performed. Multiple system interrupts can be tied to a
- * single hardware interrupt. Examining this file along with the
- * other three aforementioned files should solidify the concepts.
- *
- * The first table simply shows the MIPS IRQ mapping:
- *
- *   MIPS IRQ   Source
- *   --------   ------
- *       0      Software Used for SMP IPC
- *       1      Software Used for SMP IPC
- *       2      Hardware BRCMSTB chip Internal
- *       3      Hardware External *Unused*
- *       4      Hardware External *Unused*
- *       5      Hardware External *Unused*
- *       6      Hardware External *Unused*
- *       7      R4k timer 
- *
- * The second table shows the table of Linux system interrupt
- * descriptors and the mapping to the hardware IRQ sources:
- *
- *   System IRQ   MIPS IRQ   Source
- *   ----------   --------   ------
- *
- *        0          0        SMP S/W IPC interrupt
- *      1- 32        2        The 32 Interrupt Controller Bits
- *       33          2        UARTA
- *       34          2        UARTB
- *     	 37,38	     2      Smart Card A and B
- *       60          7      R4k timer (used for master system time)
- *
- * Again, I cannot stress this enough, keep this table up to date!!!
+ * For interrupt map, see include/asm-mips/brcmstb/<plat>/bcmintrnum.h
  */
 
 /*
- * INTC functions
+ * INTC (aka L1 interrupt) functions
  */
+
 static void brcm_intc_enable(unsigned int irq)
 {
 	unsigned int shift;
 	unsigned long flags;
+	volatile Int1Control *l1 = NEXT_CPU(irq) ? CPUINT1C_TP1 : CPUINT1C;
 
 	local_irq_save(flags);
 	if (irq > 0 && irq <= 32)
 	{
 		shift = irq - 1;
-		CPUINT1C->IntrW0MaskClear = (0x1UL<<shift);
-		if (irq == BCM_LINUX_CPU_ENET_IRQ)
-		{
-			//*((volatile unsigned long *)0xb008241c) |= 0x2;
-			*((volatile unsigned long *)0xb0082424) |= 0x2;
-		}
+		l1->IntrW0MaskClear = (0x1UL<<shift);
 	}
-	else if (irq > 32 && 
-			irq <= 32+32)
+	else if (irq > 32 && irq <= 32+32)
 	{
-		shift = irq - 32 -1;
-		CPUINT1C->IntrW1MaskClear = (0x1UL<<shift);
+		shift = irq - 32 - 1;
+		l1->IntrW1MaskClear = (0x1UL<<shift);
 	}
-	else if (irq > 64 && 
-			irq <= 32+32+32)
+	else if (irq > 64 && irq <= 32+32+32)
 	{
-		shift = irq - 64 -1;
-		CPUINT1C->IntrW2MaskClear = (0x1UL<<shift);
+		shift = irq - 64 - 1;
+		l1->IntrW2MaskClear = (0x1UL<<shift);
 	}
 	local_irq_restore(flags);
-
-#if 0
-	if (irq == BCM_LINUX_SCA_IRQ) {
-//printk("Enable SCA\n");
-
-	 	local_irq_save(flags);
-		UPG_INTC->irqen_l |= UPG_SCA_IRQ;
-		local_irq_restore(flags);
-	 	return;
-	}
-	if (irq == BCM_LINUX_SCB_IRQ) {
-//printk("Enable SCB\n");
-	 	local_irq_save(flags);
-		UPG_INTC->irqen_l |= UPG_SCB_IRQ;
-		local_irq_restore(flags);
-	 	return;
-	}
-	local_irq_save(flags);
-	INTC->IrqMask |= (0x1UL<<shift);
-	if (irq==BCM_LINUX_IDE0_IRQ)	/* jli- primary and secondary share IDE0 irq */
-	{
-		shift=BCM_LINUX_IDE1_IRQ - 1;
-		INTC->IrqMask |= (0x1UL<<shift);
-	}
-	local_irq_restore(flags);
-#endif
 }
 
 static void brcm_intc_disable(unsigned int irq)
@@ -179,35 +96,20 @@ static void brcm_intc_disable(unsigned int irq)
 	if (irq > 0 && irq <= 32)
 	{
 		shift = irq - 1;
-
-		/* 
-		 * PR17654: UPG IRQ is shared with UART, so do not disable it, UPG_shift == 18
-		 */
-
-		if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) {
-			local_irq_restore(flags);
-			return;
-		}
-
-		/* Turn off ENET level 2 interrupt */
 		CPUINT1C->IntrW0MaskSet = (0x1UL<<shift);
-		if (irq == BCM_LINUX_CPU_ENET_IRQ)
-		{
-			//*((volatile unsigned long *)0xb008241c) &= ~0x2;
-			*((volatile unsigned long *)0xb0082424) &= ~0x2;
-		}
+		CPUINT1C_TP1->IntrW0MaskSet = (0x1UL<<shift);
 	}
-	else if (irq > 32 && 
-			irq <= 32+32)
+	else if (irq > 32 && irq <= 32+32)
 	{
 		shift = irq - 32 -1;
 		CPUINT1C->IntrW1MaskSet = (0x1UL<<shift);
+		CPUINT1C_TP1->IntrW1MaskSet = (0x1UL<<shift);
 	}
-	else if (irq > 64 && 
-			irq <= 32+32+32)
+	else if (irq > 64 && irq <= 32+32+32)
 	{
 		shift = irq - 64 -1;
 		CPUINT1C->IntrW2MaskSet = (0x1UL<<shift);
+		CPUINT1C_TP1->IntrW2MaskSet = (0x1UL<<shift);
 	}
 	local_irq_restore(flags);
 
@@ -225,6 +127,61 @@ static void brcm_intc_end(unsigned int irq)
 		brcm_intc_enable(irq);
 }
 
+#ifdef CONFIG_SMP
+static void brcm_intc_set_affinity(unsigned int irq, cpumask_t dest)
+{
+	unsigned int shift;
+	unsigned long flags;
+
+	local_irq_save(flags);
+	if (irq > 0 && irq <= 32)
+	{
+		shift = irq - 1;
+
+		if(cpu_isset(0,dest)) {
+			CPUINT1C->IntrW0MaskClear = (0x1UL<<shift);
+			CPUINT1C_TP1->IntrW0MaskSet = (0x1UL<<shift);
+			next_cpu[irq] = 0;
+		} else {
+			CPUINT1C_TP1->IntrW0MaskClear = (0x1UL<<shift);
+			CPUINT1C->IntrW0MaskSet = (0x1UL<<shift);
+			next_cpu[irq] = 1;
+		}
+	}
+	else if (irq > 32 && irq <= 64)
+	{
+		shift = irq - 32 - 1;
+		next_cpu[irq] = 0;
+
+		if(cpu_isset(0,dest)) {
+			CPUINT1C->IntrW1MaskClear = (0x1UL<<shift);
+			CPUINT1C_TP1->IntrW1MaskSet = (0x1UL<<shift);
+			next_cpu[irq] = 0;
+		} else {
+			CPUINT1C_TP1->IntrW1MaskClear = (0x1UL<<shift);
+			CPUINT1C->IntrW1MaskSet = (0x1UL<<shift);
+			next_cpu[irq] = 1;
+		}
+	}
+	else if (irq > 64 && irq <= 96)
+	{
+		shift = irq - 64 - 1;
+		next_cpu[irq] = 0;
+
+		if(cpu_isset(0,dest)) {
+			CPUINT1C->IntrW2MaskClear = (0x1UL<<shift);
+			CPUINT1C_TP1->IntrW2MaskSet = (0x1UL<<shift);
+			next_cpu[irq] = 0;
+		} else {
+			CPUINT1C_TP1->IntrW2MaskClear = (0x1UL<<shift);
+			CPUINT1C->IntrW2MaskSet = (0x1UL<<shift);
+			next_cpu[irq] = 1;
+		}
+	}
+	local_irq_restore(flags);
+}
+#endif /* CONFIG_SMP */
+
 /*
  * THT: These INTC disable the interrupt before calling the IRQ handle_irq
  */
@@ -236,118 +193,104 @@ static struct irq_chip brcm_intc_type = {
 	disable: brcm_intc_disable,
 	ack: brcm_intc_disable,
 	end: brcm_intc_end,
+#ifdef CONFIG_SMP
+	set_affinity: brcm_intc_set_affinity,
+#endif /* CONFIG_SMP */
 	NULL
 };
 
 /*
- * UART functions
- *
- * On the 7401, UARTB is the default, with UARTC being the 2nd serial port.  UARTA is not used,
- * so we have the following mapping
- *
- *  Hardware			Linux
- *  UARTA				Not used
- *  UARTB				UARTA
- * 	UARTC				UARTB
+ * Move the interrupt to the other TP, to balance load (if affinity permits)
  */
-static void brcm_uart_enable(unsigned int irq)
+static void flip_tp(int irq)
 {
-	unsigned long flags;
+#ifdef CONFIG_SMP
+	int tp = smp_processor_id();
+	volatile Int1Control *local_l1, *remote_l1;
+	unsigned long mask = 1 << ((irq - 1) & 0x1f);
 
-	local_irq_save(flags);
-#ifdef USE_UARTA_AS_DEFAULT 
-	// Use UARTA as UART0 and UARTB as UART1
-	if (irq == BCM_LINUX_UARTA_IRQ)
-	{
-		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_CLEAR_UPG_UART0_CPU_INTR_MASK;
-		//*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_uarta_irqen_MASK;
+	if(tp == 0) {
+		local_l1 = CPUINT1C;
+		remote_l1 = CPUINT1C_TP1;
+	} else {
+		local_l1 = CPUINT1C_TP1;
+		remote_l1 = CPUINT1C;
 	}
-	else if (irq == BCM_LINUX_UARTB_IRQ)
-	{
-//printk("$$$$$$$$ UART B irq enabled. %d \n", irq);
-		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_MASK;
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_ub_irqen_MASK;
+
+	if(cpu_isset(tp ^ 1, irq_desc[irq].affinity)) {
+		next_cpu[irq] = tp ^ 1;
+		if(irq >= 1 && irq <= 32) {
+			local_l1->IntrW0MaskSet = mask;
+			remote_l1->IntrW0MaskClear = mask;
+		}
+		if(irq >= 33 && irq <= 64) {
+			local_l1->IntrW1MaskSet = mask;
+			remote_l1->IntrW1MaskClear = mask;
+		}
+		if(irq >= 65 && irq <= 96) {
+			local_l1->IntrW2MaskSet = mask;
+			remote_l1->IntrW2MaskClear = mask;
+		}
 	}
-#else
-    // Use UARTB as UART0 and UARTC as UART1
-	if (irq == BCM_LINUX_UARTA_IRQ)
-	{
-		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_MASK;
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_ub_irqen_MASK;
-	}
-	else if (irq == BCM_LINUX_UARTB_IRQ)
-	{
-//printk("$$$$$$$$ UART B irq enabled. %d \n", irq);
-		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_MASK;
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_uc_irqen_MASK;
-	}
-#endif
-#if 0
-	else
-		UPG_INTC->irqen_l |= UPG_UB_IRQ;
-#endif
-	local_irq_restore(flags);
+#endif /* CONFIG_SMP */
 }
 
-static void brcm_uart_disable(unsigned int irq)
+static void brcm_intc_dispatch(struct pt_regs *regs, volatile Int1Control *l1)
 {
-	unsigned long flags;
+	unsigned int pendingIrqs0,pendingIrqs1,pendingIrqs2, shift,irq;
 
-	local_irq_save(flags);
-#ifdef USE_UARTA_AS_DEFAULT 
-	if (irq == BCM_LINUX_UARTA_IRQ)
-	{
-		CPUINT1C->IntrW0MaskSet = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_SET_UPG_UART0_CPU_INTR_MASK;
-		//*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) &= ~(BCHP_IRQ0_IRQEN_uarta_irqen_MASK);
-	}
-	else if (irq == BCM_LINUX_UARTB_IRQ)
-	{
-//printk("########## UART B irq Disabled. %d \n", irq);
-		//CPUINT1C->IntrW0MaskSet = BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_MASK;
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) &= ~(BCHP_IRQ0_IRQEN_ub_irqen_MASK);
-	}
+	pendingIrqs0 = l1->IntrW0Status & ~(l1->IntrW0MaskStatus);
+	pendingIrqs1 = l1->IntrW1Status & ~(l1->IntrW1MaskStatus);
+        pendingIrqs2 = l1->IntrW2Status & ~(l1->IntrW2MaskStatus);
 
-#else
-// Use UARTB as UART0
-	if (irq == BCM_LINUX_UARTA_IRQ)
+	for (irq=1; irq<=32; irq++)
 	{
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) &= ~(BCHP_IRQ0_IRQEN_ub_irqen_MASK);
+		shift = irq - 1;
+		if ((0x1 << shift) & pendingIrqs0) {
+			do_IRQ(irq, regs);
+			flip_tp(irq);
+		}
 	}
-	else if (irq == BCM_LINUX_UARTB_IRQ)
+	for (irq = 32+1; irq <= 32+32; irq++)
 	{
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) &= ~(BCHP_IRQ0_IRQEN_uc_irqen_MASK);
+		shift = irq - 32 - 1;
+		if ((0x1 << shift) & pendingIrqs1) {
+			do_IRQ(irq, regs);
+			flip_tp(irq);
+		}
 	}
-#endif
-	local_irq_restore(flags);
+	for (irq = 64+1; irq <= 64+32; irq++)
+	{
+		shift = irq - 64 - 1;
+		if ((0x1 << shift) & pendingIrqs2) {
+			do_IRQ(irq, regs);
+			flip_tp(irq);
+		}
+	}
 }
 
-static unsigned int brcm_uart_startup(unsigned int irq)
-{ 
-	brcm_uart_enable(irq);
-
-	return 0; /* never anything pending */
-}
-
-static void brcm_uart_end(unsigned int irq)
+/* IRQ2 = L1 interrupt for TP0 */
+static void brcm_mips_int2_dispatch(struct pt_regs *regs)
 {
-	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
-		brcm_uart_enable(irq);
+	clear_c0_status(STATUSF_IP2);
+	brcm_intc_dispatch(regs, CPUINT1C);
+	set_c0_status(STATUSF_IP2);
 }
 
-static struct irq_chip brcm_uart_type = {
-	name: "BCM UART",
-	startup: brcm_uart_startup,
-	shutdown: brcm_uart_disable,
-	enable: brcm_uart_enable,
-	disable: brcm_uart_disable,
-	ack: brcm_uart_disable,
-	end: brcm_uart_end,
-	NULL
-};
+#ifdef CONFIG_SMP
+/* IRQ3 = L1 interrupt for TP1 */
+static void brcm_mips_int3_dispatch(struct pt_regs *regs)
+{
+	clear_c0_status(STATUSF_IP3);
+	brcm_intc_dispatch(regs, CPUINT1C_TP1);
+	set_c0_status(STATUSF_IP3);
+}
+#endif
 
 /*
- * Performance functions
+ * Performance counter interrupt
  */
+
 #ifdef CONFIG_OPROFILE
 static int performance_enabled = 0;
 static void brcm_mips_performance_enable(unsigned int irq)
@@ -393,7 +336,8 @@ static struct irq_chip brcm_mips_performance_type = {
 
 void brcm_mips_performance_dispatch(struct pt_regs *regs)
 {
-	if(performance_enabled)  do_IRQ(BCM_LINUX_PERFCOUNT_IRQ, regs);
+	if(performance_enabled)
+		do_IRQ(BCM_LINUX_PERFCOUNT_IRQ, regs);
 }
 
 #endif
@@ -401,9 +345,11 @@ void brcm_mips_performance_dispatch(struct pt_regs *regs)
 #ifdef CONFIG_OPROFILE
 int test_all_counters(void);
 #endif
+
 /*
- * IRQ7 functions
+ * IRQ7 - MIPS timer interrupt
  */
+
 void brcm_mips_int7_dispatch(struct pt_regs *regs)
 {		
 #ifdef CONFIG_OPROFILE
@@ -412,14 +358,8 @@ void brcm_mips_int7_dispatch(struct pt_regs *regs)
 		brcm_mips_performance_dispatch(regs);
 	}
 #endif
-#ifdef CONFIG_SMP
-	{
-		int cpu = smp_processor_id();
-		do_IRQ(cpu ? BCM_LINUX_SYSTIMER_1_IRQ : BCM_LINUX_SYSTIMER_IRQ, regs);
-	}
-#else
-	do_IRQ(BCM_LINUX_SYSTIMER_IRQ, regs);
-#endif
+	do_IRQ(smp_processor_id() ? BCM_LINUX_SYSTIMER_1_IRQ :
+		BCM_LINUX_SYSTIMER_IRQ, regs);
 }
 
 static void brcm_mips_int7_enable(unsigned int irq)
@@ -461,164 +401,12 @@ static struct irq_chip brcm_mips_int7_type = {
 	NULL
 };
 
+#ifdef CONFIG_SMP
 
 /*
- * IRQ2 functions
+ * IRQ0, IRQ1 - software interrupts for interprocessor signaling
  */
 
-static void brcm_mips_int2_enable(unsigned int irq)
-{
-	set_c0_status(STATUSF_IP2);
-}
-
-static void brcm_mips_int2_disable(unsigned int irq)
-{
-	/* DO NOT DISABLE MIPS int2 so that we do not mess with other 
-		int2 ints(THERE ARE A LOT OF THESE!). */
-	clear_c0_status(STATUSF_IP2);
-}
-
-static void brcm_mips_int2_ack(unsigned int irq)
-{
-	/* Already done in brcm_irq_dispatch */
-}
-
-static unsigned int brcm_mips_int2_startup(unsigned int irq)
-{ 
-	brcm_mips_int2_enable(irq);
-
-	return 0; /* never anything pending */
-}
-
-static void brcm_mips_int2_end(unsigned int irq)
-{
-	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
-		brcm_mips_int2_enable(irq);
-}
-
-static struct irq_chip brcm_mips_int2_type = {
-	name: "BCM MIPS INT2",
-	startup: brcm_mips_int2_startup,
-	shutdown: brcm_mips_int2_disable,
-	enable: brcm_mips_int2_enable,
-	disable: brcm_mips_int2_disable,
-	ack: brcm_mips_int2_ack,
-	end: brcm_mips_int2_end,
-	NULL
-};
-
-static int g_brcm_intc_cnt[64];
-static int gDebugPendingIrq0, gDebugPendingIrq1, gDebugPendingIrq2;
-void brcm_mips_int2_dispatch(struct pt_regs *regs)
-{
-    unsigned int pendingIrqs,pendingIrqs1,pendingIrqs2, shift,irq;
-    
-	brcm_mips_int2_disable(0);
-
-	pendingIrqs = CPUINT1C->IntrW0Status;
-	gDebugPendingIrq0 = pendingIrqs &= ~(CPUINT1C->IntrW0MaskStatus);
-
-	pendingIrqs1 = CPUINT1C->IntrW1Status;
-	gDebugPendingIrq1 = pendingIrqs1 &= ~(CPUINT1C->IntrW1MaskStatus);
-
-        pendingIrqs2 = CPUINT1C->IntrW2Status;
-        gDebugPendingIrq2 = pendingIrqs2 &= ~(CPUINT1C->IntrW2MaskStatus);
-
-	//if (pendingIrqs == HYDRA_UART0_INTR_MASK)
-	//	do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
-	//else
-	//	printk("unsolicited interrupt!!!\n");
-
-	for (irq=1; irq<=32; irq++)
-	{
-		shift = irq-1;
-		if ((0x1 << shift) & pendingIrqs)
-		{
-#ifdef USE_UARTA_AS_DEFAULT 
-// Use UARTA as UART0 & UARTB as UART1
-			if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_UART0_CPU_INTR_SHIFT) {
-				do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
-			}
-			else if ((shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ubirq_MASK) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ub_irqen_MASK) )
-			{
-//printk("@@@@@@@UARTB IRQ %d\n", irq);				
-				do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
-			}
-#else
-    // Use UARTB as UART0 and UAETC as UART1
-			if ((shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ubirq_MASK) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ub_irqen_MASK) )
-			{
-				do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
-			}
-			else if ((shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ucirq_MASK) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_uc_irqen_MASK) )
-			{
-//printk("@@@@@@@UARTB IRQ %d\n", irq);				
-				do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
-			}
-#endif
-			else if (irq == BCM_LINUX_CPU_ENET_IRQ)
-			{
-				//if (*((volatile unsigned long *)0xb0082418) & 0x2 )
-				if (*((volatile unsigned long *)0xb0082420) & *((volatile unsigned long *)0xb0082424) & 0x2 )
-					do_IRQ(BCM_LINUX_CPU_ENET_IRQ, regs);
-				else
-					printk("unsolicited ENET interrupt!!!\n");
-			}
-
-			else
-				do_IRQ(irq, regs);
-		}
-	}
-
-	for (irq = 32+1; irq <= 32+32; irq++)
-	{
-		shift = irq - 32 -1;
-		if ((0x1 << shift) & pendingIrqs1)
-			do_IRQ(irq, regs);
-	}
-
-	for (irq = 64+1; irq <= 64+32; irq++)
-	{
-		shift = irq - 64 -1;
-		if ((0x1 << shift) & pendingIrqs2)
-			do_IRQ(irq, regs);
-	}
-
-	brcm_mips_int2_enable(0);
-}
-
-
-void dump_INTC_regs(void)
-{
-	unsigned int pendingIrqs,pendingIrqs1;
-
-
-	pendingIrqs = CPUINT1C->IntrW0Status;
-	pendingIrqs &= ~(CPUINT1C->IntrW0MaskStatus);
-	pendingIrqs1 = CPUINT1C->IntrW1Status;
-	pendingIrqs1 &= ~(CPUINT1C->IntrW1MaskStatus);
-
-	printk("last pending0=%08x, last pending1=%08x, curPending=%08x, curPending1=%08x\n", 
-		gDebugPendingIrq0, gDebugPendingIrq1, pendingIrqs, pendingIrqs1);
-
-		
-}
-EXPORT_SYMBOL(dump_INTC_regs);
-
-void brcm_mips_int3_dispatch(struct pt_regs *regs)
-{
-	printk("brcm_mips_int3_dispatch: Placeholder only, should not be here \n");
-}
-
-/*
- * IRQ0 functions
- */
 static void brcm_mips_int0_enable(unsigned int irq)
 {
 	set_c0_status(STATUSF_IP0);
@@ -663,9 +451,7 @@ void brcm_mips_int0_dispatch(struct pt_regs *regs)
 	do_IRQ(BCM_LINUX_IPC_0_IRQ,regs);
 }
 
-/*
- * IRQ1 functions
- */
+
 static void brcm_mips_int1_enable(unsigned int irq)
 {
 	set_c0_status(STATUSF_IP1);
@@ -710,76 +496,22 @@ void brcm_mips_int1_dispatch(struct pt_regs *regs)
 	do_IRQ(BCM_LINUX_IPC_1_IRQ,regs);
 }
 
-
-/*
- * IRQ6 functions
- */
-static void brcm_mips_int6_enable(unsigned int irq)
-{
-	set_c0_status(STATUSF_IP6);
-}
-
-static void brcm_mips_int6_disable(unsigned int irq)
-{
-	clear_c0_status(STATUSF_IP6);
-}
-
-static void brcm_mips_int6_ack(unsigned int irq)
-{
-	/* Already done in brcm_irq_dispatch */
-}
-
-static unsigned int brcm_mips_int6_startup(unsigned int irq)
-{ 
-	brcm_mips_int6_enable(irq);
-
-	return 0; /* never anything pending */
-}
-
-static void brcm_mips_int6_end(unsigned int irq)
-{
-	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
-		brcm_mips_int6_enable(irq);
-}
-
-static struct irq_chip brcm_mips_int6_type = {
-	name: "BCM MIPS INT6",
-	startup: brcm_mips_int6_startup,
-	shutdown: brcm_mips_int6_disable,
-	enable: brcm_mips_int6_enable,
-	disable: brcm_mips_int6_disable,
-	ack: brcm_mips_int6_ack,
-	end: brcm_mips_int6_end,
-	NULL
-};
-
-void brcm_mips_int6_dispatch(struct pt_regs *regs)
-{
-	brcm_mips_int6_disable(6);
-}
-
-struct irq_chip *dummy_chip_ref[] = {
-	/* eliminates compiler warnings */
-&brcm_mips_int0_type,
-&brcm_mips_int1_type,
-&brcm_mips_int2_type,
-&brcm_mips_int6_type
-};
+#endif /* CONFIG_SMP */
 
 /*
  * Broadcom specific IRQ setup
  */
-void __init brcm_irq_setup(void)
+
+void __init arch_init_irq(void)
 {
 	int irq;
-	extern int noirqdebug;
 
-//printk("timer irq %d end %d\n",BCM_LINUX_SYSTIMER_IRQ, BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_reserved0_SHIFT+32);
-	//INTC->IrqMask = 0UL;
-	//INTC->IrqStatus = 0UL;
 	CPUINT1C->IntrW0MaskSet = 0xffffffff;
-	CPUINT1C->IntrW1MaskSet = 0xffffffff; //~(BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_reserved0_MASK);
+	CPUINT1C->IntrW1MaskSet = 0xffffffff;
 	CPUINT1C->IntrW2MaskSet = 0xffffffff;
+	CPUINT1C_TP1->IntrW0MaskSet = 0xffffffff;
+	CPUINT1C_TP1->IntrW1MaskSet = 0xffffffff;
+	CPUINT1C_TP1->IntrW2MaskSet = 0xffffffff;
 	
 	change_c0_status(ST0_IE, 0);
  	
@@ -796,7 +528,7 @@ void __init brcm_irq_setup(void)
 	irq_desc[BCM_LINUX_SYSTIMER_1_IRQ].depth = 1;
 	irq_desc[BCM_LINUX_SYSTIMER_1_IRQ].chip = &brcm_mips_int7_type;
 
-	/* S/W IPC interrupt */
+	/* S/W IPC interrupts */
 	irq_desc[BCM_LINUX_IPC_0_IRQ].status = IRQ_DISABLED;
 	irq_desc[BCM_LINUX_IPC_0_IRQ].action = 0;
 	irq_desc[BCM_LINUX_IPC_0_IRQ].depth = 1;
@@ -809,48 +541,16 @@ void __init brcm_irq_setup(void)
 #endif
 
 	/* Install all the 7xxx IRQs */
-	for (irq = 1; irq <= 32; irq++) 
+	for (irq = 1; irq <= 96; irq++) 
 	{
 		irq_desc[irq].status = IRQ_DISABLED;
 		irq_desc[irq].action = 0;
 		irq_desc[irq].depth = 1;
 		irq_desc[irq].chip = &brcm_intc_type;
-		g_brcm_intc_cnt[irq -1] = 0;
-	}
-	for (irq = 32+1; irq <= 32+32; irq++)
-	{
-		irq_desc[irq].status = IRQ_DISABLED;
-		irq_desc[irq].action = 0;
-		irq_desc[irq].depth = 1;
-		irq_desc[irq].chip = &brcm_intc_type;
-		g_brcm_intc_cnt[irq -1] = 0;
-	}
-
-	/* Handle the Serial IRQs differently so they can have unique IRQs */
-	irq_desc[BCM_LINUX_UARTA_IRQ].status = IRQ_DISABLED;
-	irq_desc[BCM_LINUX_UARTA_IRQ].action = 0;
-	irq_desc[BCM_LINUX_UARTA_IRQ].depth = 1;
-	irq_desc[BCM_LINUX_UARTA_IRQ].chip = &brcm_uart_type;
-
-	irq_desc[BCM_LINUX_UARTB_IRQ].status = IRQ_DISABLED;
-	irq_desc[BCM_LINUX_UARTB_IRQ].action = 0;
-	irq_desc[BCM_LINUX_UARTB_IRQ].depth = 1;
-	irq_desc[BCM_LINUX_UARTB_IRQ].chip = &brcm_uart_type;
-
-
-#if 0
-       /* Set up smartcard interrupts. */
-        irq_desc[BCM_LINUX_SCA_IRQ].status = IRQ_DISABLED;
-        irq_desc[BCM_LINUX_SCA_IRQ].action = 0;
-        irq_desc[BCM_LINUX_SCA_IRQ].depth = 1;
-        irq_desc[BCM_LINUX_SCA_IRQ].chip = &brcm_intc_type;
-        
-        irq_desc[BCM_LINUX_SCB_IRQ].status = IRQ_DISABLED;
-        irq_desc[BCM_LINUX_SCB_IRQ].action = 0;
-        irq_desc[BCM_LINUX_SCB_IRQ].depth = 1;
-        irq_desc[BCM_LINUX_SCB_IRQ].chip = &brcm_intc_type;
-
+#ifdef CONFIG_SMP
+		irq_desc[irq].affinity = cpumask_of_cpu(0);
 #endif
+	}
 
 #ifdef CONFIG_OPROFILE
 	/* profile IRQ */
@@ -861,21 +561,14 @@ void __init brcm_irq_setup(void)
 	//brcm_mips_performance_enable(0);
 #endif
 	
-	noirqdebug = 1; // THT Disable spurious interrupt checking, as UARTA would cause in BE, (USB also).
-	
-	brcm_mips_int2_enable(0);
-#if 1 //#ifdef CONFIG_MIPS_BRCM_IKOS
-	//enable the UPG level UARTA int. 
-	*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_uarta_irqen_MASK;
-	//INTC->IrqMask |= 0x1UL << (BCM_LINUX_UPG_IRQ -1);
-#endif
-}
+	/* enable IRQ2 (this runs on TP0).  IRQ3 enabled during TP1 boot. */
+	set_c0_status(STATUSF_IP2);
 
-void __init arch_init_irq(void)
-{
-	brcm_irq_setup();
+	/* enable L2 interrupts for UARTA, B, C */
+	BDEV_SET(BCHP_IRQ0_IRQEN, BCHP_IRQ0_IRQEN_uarta_irqen_MASK |
+		BCHP_IRQ0_IRQEN_uartb_irqen_MASK |
+		BCHP_IRQ0_IRQEN_uartc_irqen_MASK);
 }
-
 
 asmlinkage void plat_irq_dispatch(struct pt_regs *regs)
 {
@@ -886,6 +579,8 @@ asmlinkage void plat_irq_dispatch(struct pt_regs *regs)
 	else if (pending & STATUSF_IP2)
 		brcm_mips_int2_dispatch(regs);
 #ifdef CONFIG_SMP
+	else if (pending & STATUSF_IP3)
+		brcm_mips_int3_dispatch(regs);
 	else if (pending & STATUSF_IP0)
 		brcm_mips_int0_dispatch(regs);
 	else if (pending & STATUSF_IP1)
@@ -896,3 +591,23 @@ asmlinkage void plat_irq_dispatch(struct pt_regs *regs)
 
 }
 
+void dump_INTC_regs(void)
+{
+	unsigned int pendingIrqs0,pendingIrqs1,pendingIrqs2;
+	unsigned int gDebugPendingIrq0 = 0,
+		gDebugPendingIrq1 = 0,
+		gDebugPendingIrq2 = 0;
+
+	pendingIrqs0 = CPUINT1C->IntrW0Status;
+	pendingIrqs0 &= ~(CPUINT1C->IntrW0MaskStatus);
+	pendingIrqs1 = CPUINT1C->IntrW1Status;
+	pendingIrqs1 &= ~(CPUINT1C->IntrW1MaskStatus);
+	pendingIrqs2 = CPUINT1C->IntrW2Status;
+	pendingIrqs2 &= ~(CPUINT1C->IntrW2MaskStatus);
+
+	printk("last pending0=%08x, last pending1=%08x, last pending2=%08x\n"
+		"curPending0=%08x, curPending1=%08x, curPending2=%08x\n", 
+		gDebugPendingIrq0, gDebugPendingIrq1, gDebugPendingIrq2,
+		pendingIrqs0, pendingIrqs1, pendingIrqs2);
+}
+EXPORT_SYMBOL(dump_INTC_regs);

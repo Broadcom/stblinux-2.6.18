@@ -30,6 +30,10 @@
 #include <linux/cpu.h>
 #include <linux/syscalls.h>
 
+#ifdef CONFIG_MIPS_BRCM
+#include <asm/brcmstb/common/brcmstb.h>
+#endif
+
 /*
  * The maximum number of pages to writeout in a single bdflush/kupdate
  * operation.  We do this so we don't hold I_LOCK against an inode for

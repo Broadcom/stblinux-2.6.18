@@ -69,7 +69,7 @@ extern void build_tlb_refill_handler(void);
 	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401 ) \
 	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7118 ) \
 	|| defined( CONFIG_MIPS_BCM7440 ) || defined( CONFIG_MIPS_BCM7403 ) \
-	|| defined( CONFIG_MIPS_BCM7405 )
+	|| defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325 )
 
 #ifdef CONFIG_MIPS_BCM7038A0
 #include <asm/brcmstb/brcm97038/bchp_pci_cfg.h>
@@ -94,6 +94,10 @@ extern void build_tlb_refill_handler(void);
 #elif defined(CONFIG_MIPS_BCM3563)
 #include <asm/brcmstb/brcm93563/bchp_pci_cfg.h>
 #include <asm/brcmstb/brcm93563/boardmap.h>
+
+#elif defined(CONFIG_MIPS_BCM3563C0)
+#include <asm/brcmstb/brcm93563c0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm93563c0/boardmap.h>
 
 #elif defined(CONFIG_MIPS_BCM7400A0)
 #include <asm/brcmstb/brcm97400a0/bchp_pci_cfg.h>
@@ -138,7 +142,9 @@ extern void build_tlb_refill_handler(void);
 #include <asm/brcmstb/brcm97403a0/bchp_pci_cfg.h>
 #include <asm/brcmstb/brcm97403a0/boardmap.h>
 
-
+#elif defined(CONFIG_MIPS_BCM7325A0)
+#include <asm/brcmstb/brcm97325a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97325a0/boardmap.h>
 
 #else
 #error "Unsupported Chip revision"
@@ -286,7 +292,7 @@ void local_init_tlb(void)
 	local_irq_restore(flags);
 }
 #elif defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7440 ) || \
-      defined( CONFIG_MIPS_BCM7405 )
+      defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325 )
 /* Use 64MB page size mapping */
 	write_c0_pagemask(PM_64M);  /* The next best thing we can have since 256MB does not work */
 
@@ -1028,11 +1034,11 @@ void __init tlb_init(void)
 
 	// do a pci config read.
 	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_7041;
-	printk("$$$$$$$$$$7041 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
+	//printk("$$$$$$$$$$7041 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
 	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_3250;
-	printk("$$$$$$$$$$3250 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
+	//printk("$$$$$$$$$$3250 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
 	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
-	printk("$$$$$$$$$$external dev id %08x\n", *((volatile unsigned long *)0xf0600008));
+	//printk("$$$$$$$$$$external dev id %08x\n", *((volatile unsigned long *)0xf0600008));
 
 #ifdef CONFIG_SATA_SVW
 
@@ -1108,10 +1114,12 @@ void __init tlb_init(void)
 
 		// do a pci config read.
 	*((volatile unsigned long *)0xb0500204) = PCI_DEV_NUM_SATA;
-	printk("$$$$$$$$$$SATA dev id %08x\n", *((volatile unsigned long *)0xb0500208));
+	//printk("$$$$$$$$$$SATA dev id %08x\n", *((volatile unsigned long *)0xb0500208));
 #endif /* CONFIG_SATA_SVW */
 
+#ifdef	CONFIG_MIPS_BCM7118A0
 done1:
+#endif
 
 #elif defined (CONFIG_MIPS_BCM7329)
 #define PCI_CFG_MEMORY_BASE_W 0xbafe9010
@@ -1187,6 +1195,10 @@ printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
 	*((volatile unsigned long *)PCI_CFG_CPU_2_PCI_MEM_WIN) = CPU2PCI_PCI_PHYS_MEM_WIN0_BASE;
 	*((volatile unsigned long *)PCI_CFG_CPU_2_PCI_IO_WIN) = 0x00000000;
 	//*((volatile unsigned long *)PCI_REG_PCI_CTRL) |= 0x04;
+
+#elif defined( CONFIG_MIPS_BCM7325A0)
+
+        local_init_tlb();
 
 #elif defined( CONFIG_MIPS_BCM7400B0) || defined( CONFIG_MIPS_BCM7405A0 )
 

@@ -65,11 +65,11 @@
 
 #ifdef CONFIG_MIPS_BRCM97XXX
 #include <asm/brcmstb/common/brcmstb.h>
+#include <asm/brcmstb/common/brcm-pm.h>
 #endif
 
 #ifdef	SATA_SVW_BRCM_WA
-int dma_write_wa_needed = 0;
-EXPORT_SYMBOL(dma_write_wa_needed);
+extern int dma_write_wa_needed;
 #endif
 
 #ifdef CONFIG_SATA_SVW_NCQ
@@ -297,9 +297,22 @@ static void EnablePHY(void __iomem *mmio_base, int port)
 static void bcm_sg_workaround(void __iomem *mmio_base, int port)
 {
 	int tmp16;
+	extern int gSataInterpolation;
  
 	DisablePHY(mmio_base, port);
  
+	/* 
+	 * Do Interpolation when 
+	  * spread spectrucm clocking (SSC) is NOT enabled. But, the code must
+	  * be used for a system with SSC-enabled drive.
+	  * gSataInterpolation is not zero when the argument bcmssc=1 is specified
+	  */
+
+ 	if (gSataInterpolation) {
+		tmp16 = mdio_read_reg(mmio_base, port, 9);
+    		mdio_write_reg(mmio_base, port, 9, tmp16 | 1); //Bump up interpolation
+ 	}
+
 	//Do analog reset
 	tmp16 = mdio_read_reg(mmio_base, port,4);
 	tmp16 |= 8;
@@ -515,6 +528,9 @@ static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_
 
 #if defined( CONFIG_MIPS_BCM7403 )
 #define FIXED_REV       0x74030010
+static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
+#elif defined(CONFIG_MIPS_BCM7038)
+#define FIXED_REV       0x70380024
 static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
 #else
 #define FIXED_REV       0	/* assume fixed */
@@ -966,8 +982,8 @@ static int k2_sata_do_softreset(struct ata_link *link, unsigned int *class, int 
 	if (*class == ATA_DEV_UNKNOWN)
 		*class = ATA_DEV_NONE;
 
-	pp->do_port_srst = 1;
 out:
+	pp->do_port_srst = 1;
 	return 0;
 }
 
@@ -1055,6 +1071,11 @@ static int k2_sata_pmp_softreset(struct ata_link *link, unsigned int *class)
 
 static void k2_sata_error_handler(struct ata_port *ap)
 {
+	struct k2_port_priv *pp = ap->private_data;
+
+	if (pp->do_port_srst && !ap->nr_pmp_links) 
+		ata_bmdma_error_handler(ap);
+	else
 	sata_pmp_do_eh(ap, ata_std_prereset, k2_sata_softreset,
 			sata_pmp_std_hardreset, ata_std_postreset,
 			sata_pmp_std_prereset, k2_sata_pmp_softreset,
@@ -1862,12 +1883,18 @@ static struct pci_driver k2_sata_pci_driver = {
 
 static int __init k2_sata_init(void)
 {
+#ifdef CONFIG_MIPS_BRCM97XXX
+	brcm_pm_sata_add();
+#endif
 	return pci_register_driver(&k2_sata_pci_driver);
 }
 
 static void __exit k2_sata_exit(void)
 {
 	pci_unregister_driver(&k2_sata_pci_driver);
+#ifdef CONFIG_MIPS_BRCM97XXX
+	brcm_pm_sata_remove();
+#endif
 }
 
 MODULE_AUTHOR("Benjamin Herrenschmidt");

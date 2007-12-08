@@ -40,11 +40,13 @@ CRAMFSFILE= cramfs.img
 SQUASHFSFILE=squashfs.img
 JFFSFILE  = jffs.img
 JFFS2FILE = jffs2.img
+JFFS264KFILE = jffs2-64k.img
 LINUXIMG  = $(IMAGEDIR)/$(PLATFORM)/$(COMPRESSED_LINUXFILE)
 ROMFSIMG  = $(IMAGEDIR)/$(PLATFORM)/$(ROMFSFILE)
 INITRDIMG = $(INITRDDIR)/$(PLATFORM)/ramdisk.gz
 JFFSIMG   = $(IMAGEDIR)/$(PLATFORM)/$(JFFSFILE)
 JFFS2IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2FILE)
+JFFS264KIMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS264KFILE)
 CRAMFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(CRAMFSFILE)
 SQUASHFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(SQUASHFSFILE)
 INITRAMFS_DIR = $(IMAGEDIR)/$(PLATFORM)/initramfs
@@ -56,7 +58,7 @@ ROMFSDIR ?= $(ROOTDIR)/romfs
 
 DIRS =
 
-ROMFS_DIRS = bin dev etc etc/dhcpc lib lib/modules home mnt mnt/hd mnt/nfs proc root usr var
+ROMFS_DIRS = bin dev etc etc/dhcpc lib lib/modules home mnt mnt/hd mnt/nfs proc root usr var sys
 
 ifdef CONFIG_BLK_DEV_INITRD
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock dev/pts
@@ -250,12 +252,17 @@ initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data_nodev.cpio
 
 
 # THT The MirrorBit flash chip has a 64K erase block size.
+# PR37469 Generate both 64k and 128k images. 128k being the default
 $(JFFS2IMG): initramfs_dir
-	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -b -o $(JFFS2IMG) -q -e 65536 -d \
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -b -o $(JFFS2IMG) -q -e 131072 -d \
+		$(INITRAMFS_DIR)
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -b -o ${JFFS2IMG}-64k -q -e 65536 -d \
 		$(INITRAMFS_DIR)
 ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2IMG} ${JFFS2IMG}.nosummary
-	$(ROOTDIR)/user/mtd-utils/build/sumtool -b -i ${JFFS2IMG}.nosummary -o $(JFFS2IMG) -e 64KiB
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -b -i ${JFFS2IMG}.nosummary -o $(JFFS2IMG) -e 128KiB
+	mv ${JFFS2IMG}-64k ${JFFS2IMG}-64k.nosummary
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -b -i ${JFFS2IMG}-64k.nosummary -o ${JFFS264KIMG} -e 64KiB
 endif
 
 $(JFFSIMG):

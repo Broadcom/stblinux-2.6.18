@@ -1,0 +1,1 @@
+../../../../stblinux-2.6.18/arch/mips/configs/bcm93563c0_initrd_defconfig

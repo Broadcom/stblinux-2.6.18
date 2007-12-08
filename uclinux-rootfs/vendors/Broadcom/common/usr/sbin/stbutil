@@ -388,6 +388,16 @@ esac
      NOR*)
      	# Do not use the -j flag with summary on NOR flash
      	ERASE_FLAG=
+	if [ `uname -m` == "7401c0" -o `uname -m` == "7401c0_be" ];
+	then
+		if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 ]; 
+		then
+			if [ ${ERASE_SIZE} -eq 64 ]; 
+			then
+				IMAGE="jffs2-${ERASE_SIZE}k-`uname -m`${DOCSIS}${ENDIAN}.img"
+			fi
+		fi
+	fi
      	;;
      esac
 

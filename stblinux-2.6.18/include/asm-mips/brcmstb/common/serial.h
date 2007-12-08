@@ -47,6 +47,11 @@
 #define BRCM_SERIAL2_BASE	UARTC_ADR_BASE
 //#define BRCM_SERIAL3_BASE	UARTA_ADR_BASE
 
+#elif defined(CONFIG_MIPS_BCM7325)
+        #define BRCM_SERIAL1_BASE       UARTA_ADR_BASE
+        #define BRCM_SERIAL2_BASE       UARTB_ADR_BASE
+        #define BRCM_SERIAL3_BASE       UARTC_ADR_BASE
+
 #elif defined(CONFIG_MIPS_BCM7401A0)  || defined(CONFIG_MIPS_BCM7401B0) \
 	|| defined(CONFIG_MIPS_BCM7401C0) || defined(CONFIG_MIPS_BCM7402) \
         || defined(CONFIG_MIPS_BCM7402S)  || defined(CONFIG_MIPS_BCM7403A0)
@@ -71,8 +76,9 @@
 #define BRCM_SERIAL3_IRQ	BCM_LINUX_UARTC_IRQ
 #define BRCM_SERIAL4_IRQ	BCM_LINUX_UARTD_IRQ
 
-#elif defined( CONFIG_MIPS_BCM7400) || defined( CONFIG_MIPS_BCM7118 ) \
-	|| defined( CONFIG_MIPS_BCM7405 )
+#elif defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7118 ) \
+   || defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325 )
+ 
 #define BRCM_SERIAL3_IRQ	BCM_LINUX_UARTC_IRQ
 
 #endif
@@ -119,22 +125,22 @@
 
   // For Ikos, it is 14 however.
   #define XTALFREQ1			81000000
+
     #ifdef CONFIG_MIPS_BRCM_IKOS
-    #define SERIAL_DIVISOR_LSB	14			// For Ikos simulation, 44 for real chip
-    #define SERIAL_DIVISOR_MSB	0
-    #define SERIAL_DIVISOR		(SERIAL_DIVISOR_LSB | (SERIAL_DIVISOR_MSB << 8))		
-    #define BRCM_BASE_BAUD_16550		(375000 * SERIAL_DIVISOR)
-  
+    #define SERIAL_DIVISOR_LSB	14
     #else
-    #define SERIAL_DIVISOR_LSB	44			// For Ikos simulation, 44 for real chip
-    #define SERIAL_DIVISOR_MSB	0
-    #define SERIAL_DIVISOR		(SERIAL_DIVISOR_LSB | (SERIAL_DIVISOR_MSB << 8))		
-    #define BRCM_BASE_BAUD_16550		(115200 * SERIAL_DIVISOR)
+    #define SERIAL_DIVISOR_LSB	44
     #endif // Ikos
+
+  #define SERIAL_DIVISOR_MSB	0
+  #define SERIAL_DIVISOR		(SERIAL_DIVISOR_LSB | (SERIAL_DIVISOR_MSB << 8))		
+  #define BRCM_BASE_BAUD_16550		(115200 * SERIAL_DIVISOR)
+
   #endif //7401B0
 
 #elif defined(CONFIG_MIPS_BCM7400) || defined( CONFIG_MIPS_BCM7118 ) \
-	|| defined(CONFIG_MIPS_BCM7440) || defined(CONFIG_MIPS_BCM7405)
+   || defined(CONFIG_MIPS_BCM7440) || defined(CONFIG_MIPS_BCM7405)  \
+   || defined(CONFIG_MIPS_BCM7325)
 
 // baud rate = (serial_clock_freq) / (16 * divisor).  
 // The serial clock freq is 81MHz by default.
@@ -142,17 +148,16 @@
 
 // For Ikos, it is 14 however.
 #define XTALFREQ1			81000000
+
 #ifdef CONFIG_MIPS_BRCM_IKOS
-#define SERIAL_DIVISOR_LSB	14			// For Ikos simulation, 44 for real chip
-#define SERIAL_DIVISOR_MSB	0
-#define SERIAL_DIVISOR		(SERIAL_DIVISOR_LSB | (SERIAL_DIVISOR_MSB << 8))		
-#define BRCM_BASE_BAUD_16550		(375000 * SERIAL_DIVISOR)
+#define SERIAL_DIVISOR_LSB	14
 #else
-#define SERIAL_DIVISOR_LSB	44			// For Ikos simulation, 44 for real chip
+#define SERIAL_DIVISOR_LSB	44
+#endif
+
 #define SERIAL_DIVISOR_MSB	0
 #define SERIAL_DIVISOR		(SERIAL_DIVISOR_LSB | (SERIAL_DIVISOR_MSB << 8))		
 #define BRCM_BASE_BAUD_16550		(115200 * SERIAL_DIVISOR)
-#endif
 
 #ifdef BASE_BAUD
 #undef BASE_BAUD

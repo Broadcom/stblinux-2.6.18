@@ -496,7 +496,6 @@ static struct irq_chip brcm_mips_int2_type = {
 };
 
 static int g_brcm_intc_cnt[64];
-static int g_intcnt = 0;
 static int gDebugPendingIrq0, gDebugPendingIrq1;
 void brcm_mips_int2_dispatch(struct pt_regs *regs)
 {

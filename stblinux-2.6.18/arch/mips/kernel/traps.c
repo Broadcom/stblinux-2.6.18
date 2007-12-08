@@ -22,6 +22,7 @@
 #include <linux/bootmem.h>
 #include <linux/interrupt.h>
 
+#include <asm/atomic.h>
 #include <asm/bootinfo.h>
 #include <asm/branch.h>
 #include <asm/break.h>
@@ -73,6 +74,7 @@ void (*board_nmi_handler_setup)(void);
 void (*board_ejtag_handler_setup)(void);
 void (*board_bind_eic_interrupt)(int irq, int regset);
 
+atomic_t rdhwr_ctr = ATOMIC_INIT(0), brdhwr_ctr = ATOMIC_INIT(0);
 
 static void show_raw_backtrace(unsigned long reg29)
 {
@@ -620,12 +622,19 @@ static inline int simulate_rdhwr(struct pt_regs *regs)
 
 #if defined(CONFIG_MIPS_BRCM97XXX) && defined(_brcm_rdhwr)
 	/* PR34054: use alternate RDHWR instruction encoding */
-	if ((opcode & OPCODE) == BRDHWR && (opcode & FUNC) == RDHWR) {
+	if (((opcode & OPCODE) == BRDHWR && (opcode & FUNC) == RDHWR)
+	    || ((opcode & OPCODE) == SPEC3 && (opcode & FUNC) == RDHWR)) {
 #else
 	if ((opcode & OPCODE) == SPEC3 && (opcode & FUNC) == RDHWR) {
 #endif
 		int rd = (opcode & RD) >> 11;
 		int rt = (opcode & RT) >> 16;
+
+		if((opcode & OPCODE) == BRDHWR)
+			atomic_inc(&brdhwr_ctr);
+		else
+			atomic_inc(&rdhwr_ctr);
+
 		switch (rd) {
 			case 29:
 				regs->regs[rt] = ti->tp_value;

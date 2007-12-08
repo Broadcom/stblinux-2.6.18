@@ -8,6 +8,7 @@ config ATA
 	tristate "ATA device support"
 	depends on !(M32R || M68K) || BROKEN
 	depends on !SUN4 || BROKEN
+	depends on !MIPS_BRCM_IKOS
 	select SCSI
 	---help---
 	  If you want to use a ATA hard disk, ATA tape drive, ATA CD-ROM or
@@ -37,6 +38,7 @@ config SATA_AHCI
 config SATA_SVW
 	tristate "ServerWorks Frodo / Apple K2 SATA support"
 	depends on PCI
+	depends on BRCM_PM_FORCE_MODULE
 	help
 	  This option enables support for Broadcom/Serverworks/Apple K2
 	  SATA support.
