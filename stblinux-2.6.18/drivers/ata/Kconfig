@@ -38,7 +38,6 @@ config SATA_AHCI
 config SATA_SVW
 	tristate "ServerWorks Frodo / Apple K2 SATA support"
 	depends on PCI
-	depends on BRCM_PM_FORCE_MODULE
 	help
 	  This option enables support for Broadcom/Serverworks/Apple K2
 	  SATA support.
@@ -49,7 +48,7 @@ config SATA_SVW_NCQ
 	boolean "Support for Native Command Queueing (EXPERIMENTAL)"
 	default n
 	depends on SATA_SVW && EXPERIMENTAL && \
-		   (MIPS_BCM7405 || MIPS_BCM7400B0)
+		   (MIPS_BCM7405 || MIPS_BCM7400D0 || MIPS_BCM7335)
 	help
 	  This option builds the QDMA/NCQ version of the Serverworks driver.
 	  NCQ can improve overall throughput when there are a large number

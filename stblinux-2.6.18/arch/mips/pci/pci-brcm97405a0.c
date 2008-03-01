@@ -97,7 +97,3 @@ static int __init brcm97405a0_pci_init(void)
 }
 
 arch_initcall(brcm97405a0_pci_init);
-
-
-
-

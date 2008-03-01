@@ -69,6 +69,7 @@
 #include <linux/skbuff.h>
 
 #include <asm/mipsregs.h>
+#include <asm/cacheflush.h>
 #include <asm/brcmstb/common/brcmstb.h>
 #include <asm/brcmstb/common/brcm-pm.h>
 
@@ -83,7 +84,8 @@
   
   #elif defined(CONFIG_MIPS_BCM7038) || defined(CONFIG_MIPS_BCM7400) || \
         defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7403) || \
-        defined(CONFIG_MIPS_BCM7452) || defined(CONFIG_MIPS_BCM7405)
+        defined(CONFIG_MIPS_BCM7452) || defined(CONFIG_MIPS_BCM7405) || \
+	defined(CONFIG_MIPS_BCM7335)
   /* 32MB Flash */
   #define FLASH_MACADDR_OFFSET 0x01FFF824
 
@@ -151,7 +153,6 @@
 #define GPIO45_OFFSET   (0x00002000)
 #endif
 
-extern void bcm_inv_rac_all(void);
 extern unsigned long getPhysFlashBase(void);
 #ifdef VPORTS
 extern int vnet_probe(void);
@@ -178,6 +179,26 @@ static int bcmIsEnetUp(struct net_device *dev);
 #else
 #define skb_dataref(x)   skb_datarefp(x)
 #endif
+
+#if defined(CONFIG_BRCM_PM)
+
+#define BCMEMAC_AWAKE		0
+#define BCMEMAC_SLEEPING	1
+
+#define BCMEMAC_POWER_ON(dev) do \
+	{ \
+		BcmEnet_devctrl *pDevCtrl = netdev_priv(dev); \
+		if(pDevCtrl->sleep_flag == BCMEMAC_SLEEPING) \
+			bcmemac_power_on(dev); \
+	} while(0)
+
+static int bcmemac_power_on(void *arg);
+
+#else /* CONFIG_BRCM_PM */
+
+#define BCMEMAC_POWER_ON(dev) do { } while(0)
+
+#endif /* CONFIG_BRCM_PM */
 
 
 /*
@@ -417,22 +438,18 @@ static bool haveIPHdrOptimization(void)
 #elif defined(CONFIG_MIPS_BCM7403 ) || defined(CONFIG_MIPS_BCM7452)
     #define FIXED_REV       0x74010010
     volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-#elif defined( CONFIG_MIPS_BCM7405 )
-    #define FIXED_REV 0
-    volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-#elif defined( CONFIG_MIPS_BCM7440 )
-    #define FIXED_REV   0x0
-    volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-#elif defined( CONFIG_MIPS_BCM7325 )
-    #define FIXED_REV   0x0
-    volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-
 #else
-    #error "Unsupported platform"
+    /* 7405, 7325, 7335, newer platforms are all fixed */
+    #define FIXED_REV   0x0
+    volatile unsigned long* pSundryRev = NULL;
 #endif
 
-    bhaveIPHeaderOpt = (*pSundryRev >= FIXED_REV);
-    printk("SUNDRY revision = %08lx, have IP Hdr Opt=%d\n", *pSundryRev, bhaveIPHeaderOpt? 1 : 0);
+    if(FIXED_REV) {
+	    bhaveIPHeaderOpt = *pSundryRev >= FIXED_REV;
+	    printk("SUNDRY revision = %08lx, have IP Hdr Opt=%d\n", *pSundryRev, bhaveIPHeaderOpt? 1 : 0);
+    } else {
+	    bhaveIPHeaderOpt = 1;
+    }
 
     return bhaveIPHeaderOpt;
 }
@@ -489,6 +506,8 @@ static int bcmemac_net_open(struct net_device * dev)
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
     ASSERT(pDevCtrl != NULL);
 
+    BCMEMAC_POWER_ON(dev);
+
     TRACE(("%s: bcmemac_net_open, EMACConf=%x, &RxDMA=%x, rxDma.cfg=%x\n", 
                 dev->name, pDevCtrl->emac->config, &pDevCtrl->rxDma, pDevCtrl->rxDma->cfg));
 
@@ -542,6 +561,7 @@ static int bcmemac_net_open(struct net_device * dev)
         enable_irq(pDevCtrl->rxIrq);
         pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= 0x2;
     }
+	
 
 #ifdef CONFIG_SMP
     if (smp_processor_id() == 0) {
@@ -569,6 +589,9 @@ static void bcmemac_poll (struct net_device *dev)
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
 	/* disable_irq is not very nice, but with the funny lockless design
 	   we have no other choice. */
+
+    BCMEMAC_POWER_ON(dev);
+
     /* Run TX Queue */
     bcmemac_net_xmit(NULL, pDevCtrl->dev);
     /* Run RX Queue */
@@ -611,7 +634,7 @@ static int bcmemac_net_close(struct net_device * dev)
 
     if (0 == atomic_read(&pDevCtrl->devInUsed)) {
         atomic_set(&pDevCtrl->devInUsed, -1); /* Mark interrupt disable */
-	pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~0x2;
+		pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~0x2;
         disable_irq(pDevCtrl->rxIrq);
     }
 
@@ -668,6 +691,8 @@ static void bcm_set_multicast_list(struct net_device * dev)
     if (is_vport(dev))
         pDevCtrl = netdev_priv(vnet_dev[0]);
 #endif
+
+    BCMEMAC_POWER_ON(dev);
 
     TRACE(("%s: bcm_set_multicast_list: %08X\n", dev->name, dev->flags));
 
@@ -1055,6 +1080,8 @@ static int bcmemac_net_xmit(struct sk_buff * skb, struct net_device * dev)
 
     ASSERT(pDevCtrl != NULL);
 
+    BCMEMAC_POWER_ON(dev);
+
 #ifdef VPORTS
     if (is_vport(dev))
         pDevCtrl = netdev_priv(vnet_dev[0]);
@@ -1440,6 +1467,9 @@ static int bcmemac_enet_poll(struct net_device * dev, int * budget)
     uint32 work_to_do = min(dev->quota, *budget);
     uint32 work_done;
     uint32 ret_done;
+
+    BCMEMAC_POWER_ON(dev);
+
     work_done = bcmemac_rx(pDevCtrl, work_to_do);
     ret_done = work_done & ENET_POLL_DONE;
     work_done &= ~ENET_POLL_DONE;
@@ -1713,6 +1743,8 @@ static int bcm_set_mac_addr(struct net_device *dev, void *p)
 {
     struct sockaddr *addr=p;
 
+    BCMEMAC_POWER_ON(dev);
+
     if(netif_running(dev))
         return -EBUSY;
 
@@ -1915,7 +1947,8 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
          * Set the user count to two so when the upper layer frees the
          * socket buffer, only the user count is decremented.
          */
-        atomic_inc(&skb->users);
+		if(atomic_read(&skb->users) == 1)
+        	atomic_inc(&skb->users);
 
         /* kept count of any BD's we refill */
         bdsfilled++;
@@ -2948,6 +2981,49 @@ static void bcmemac_getMacAddr(struct net_device* dev)
     printk("%2.2X\n", dev->dev_addr[i]);
 }
 
+#if defined(CONFIG_BRCM_PM)
+
+/*
+ * Power management
+ */
+
+static int bcmemac_power_on(void *arg)
+{
+	struct net_device *dev = arg;
+	BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
+
+	if(pDevCtrl->sleep_flag == BCMEMAC_AWAKE)
+		return(-1);
+	
+	brcm_pm_enet_add();
+	enable_irq(pDevCtrl->rxIrq);
+	pDevCtrl->sleep_flag = BCMEMAC_AWAKE;
+	return(0);
+}
+
+static int bcmemac_power_off(void *arg)
+{
+	BcmEnet_devctrl *pDevCtrl = netdev_priv((struct net_device *)arg);
+	int active;
+
+	if(pDevCtrl->sleep_flag == BCMEMAC_SLEEPING)
+		return(-1);
+	
+	active = atomic_read(&pDevCtrl->devInUsed);
+	if(active > 0) {
+		printk(KERN_INFO CARDNAME
+			": can't sleep with %d interface(s) active\n",
+			active);
+		return(-1);
+	} else {
+		pDevCtrl->sleep_flag = BCMEMAC_SLEEPING;
+		disable_irq(pDevCtrl->rxIrq);
+		brcm_pm_enet_remove();
+	}
+	return(0);
+}
+
+#endif /* CONFIG_BRCM_PM */
 
 static void bcmemac_dev_setup(struct net_device *dev)
 {
@@ -2972,11 +3048,12 @@ static void bcmemac_dev_setup(struct net_device *dev)
     pDevCtrl->linkstatus_phyport = -1;
 
     /* figure out which chip we're running on */
-#if defined( CONFIG_MIPS_BCM7038 )  || defined(CONFIG_MIPS_BCM7400) || \
-    defined(CONFIG_MIPS_BCM7401)    || defined( CONFIG_MIPS_BCM7402 ) || \
-    defined( CONFIG_MIPS_BCM7402S ) || defined( CONFIG_MIPS_BCM7440 ) || \
-    defined(CONFIG_MIPS_BCM7403)    || defined( CONFIG_MIPS_BCM7452 ) || \
-    defined(CONFIG_MIPS_BCM7405)    || defined( CONFIG_MIPS_BCM7325 )
+#if defined(CONFIG_MIPS_BCM7038)    || defined(CONFIG_MIPS_BCM7400) || \
+    defined(CONFIG_MIPS_BCM7401)    || defined(CONFIG_MIPS_BCM7402) || \
+    defined(CONFIG_MIPS_BCM7402S)   || defined(CONFIG_MIPS_BCM7440) || \
+    defined(CONFIG_MIPS_BCM7403)    || defined(CONFIG_MIPS_BCM7452) || \
+    defined(CONFIG_MIPS_BCM7405)    || defined(CONFIG_MIPS_BCM7325) || \
+    defined(CONFIG_MIPS_BCM7335)
 
     /* TBD : need to get the symbol for these. */
     pDevCtrl->chipId  = (*((volatile unsigned long*)0xb0000200) & 0xFFFF0000) >> 16;
@@ -2998,6 +3075,7 @@ static void bcmemac_dev_setup(struct net_device *dev)
     case 0x7403:
     case 0x7405:
     case 0x7325:
+    case 0x7335:
         break;
     default:
         printk(KERN_DEBUG CARDNAME" not found\n");
@@ -3137,7 +3215,8 @@ int __init bcmemac_net_probe(void)
 #endif
             return -ENODEV;
 
-		dev = alloc_netdev(sizeof(struct BcmEnet_devctrl), "eth%d", bcmemac_dev_setup);
+	/* NOTE: BcmEnet_devctrl struct is allocated with kzalloc */
+        dev = alloc_netdev(sizeof(struct BcmEnet_devctrl), "eth%d", bcmemac_dev_setup);
         if (dev == NULL) {
             printk(KERN_ERR CARDNAME": Unable to allocate net_device structure!\n");
             return -ENODEV;
@@ -3163,6 +3242,11 @@ int __init bcmemac_net_probe(void)
 #ifdef CONFIG_BCMINTEMAC_NETLINK
 	INIT_WORK(&pDevCtrl->link_change_task, (void (*)(void *))bcmemac_link_change_task, pDevCtrl);
         printk("init link_change_task\n");
+#endif
+
+#if defined(CONFIG_BRCM_PM)
+    if(ret == 0)
+        brcm_pm_register_enet(bcmemac_power_off, bcmemac_power_on, dev);
 #endif
 
     return ret;
@@ -3300,6 +3384,13 @@ static int bcmemac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
         /* release allocated receive buffer memory */
         for (i = 0; i < MAX_RX_BUFS; i++) {
             if (pDevCtrl->skb_pool[i] != NULL) {
+				/* skb->users was increased by 1 in assign_rx_buffers,we force to 
+				 * decrease it before free the skb, this prevent memory leaks!
+				 */
+				if(atomic_read(&(pDevCtrl->skb_pool[i]->users)) > 1)
+				{
+					atomic_dec(&(pDevCtrl->skb_pool[i]->users));
+				}
                 dev_kfree_skb (pDevCtrl->skb_pool[i]);
                 pDevCtrl->skb_pool[i] = NULL;
             }
@@ -3323,12 +3414,19 @@ static int bcmemac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
         if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH)
           ethsw_del_proc_files();
 #endif
+		/* Quick fix for PR37075, force the usage count to 0*/
+		if(atomic_read(&pDevCtrl->devInUsed) < 0)
+			atomic_set(&pDevCtrl->devInUsed, 0);
+
         if (pDevCtrl->dev) {
             if (pDevCtrl->dev->reg_state != NETREG_UNINITIALIZED)
                 unregister_netdev(pDevCtrl->dev);
             free_netdev(pDevCtrl->dev);
         }
     }
+#if defined(CONFIG_BRCM_PM)
+    brcm_pm_unregister_enet();
+#endif
    
     return 0;
 }
@@ -3373,6 +3471,8 @@ static int bcmemac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
     struct mii_ioctl_data *mii;
     unsigned long flags;
     int val = 0;
+
+    BCMEMAC_POWER_ON(dev);
 
 #ifdef VPORTS
     if (is_vport(dev)) {

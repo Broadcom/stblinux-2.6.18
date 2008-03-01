@@ -21,11 +21,11 @@
 all: .made
 
 # Include some boilerplate Gnu makefile definitions.
-prefix = /myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs/
+prefix = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs/
 
 exec_prefix = ${prefix}
 bindir = ${exec_prefix}/bin
-libdir = /myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/libtermcap
+libdir = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/libtermcap
 infodir = ${prefix}/info
 includedir = ../../uClibc/include/
 
@@ -40,7 +40,7 @@ man3dir = $(mandir)/$(manpfx)$(man3ext)
 htmldir = 
 
 topdir = .
-BUILD_DIR = /myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
+BUILD_DIR = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
 srcdir = .
 VPATH = .:.
 
@@ -98,14 +98,14 @@ PROFILE_FLAGS=
 # The GNU coding standards don't recognize the possibility that
 # other information besides optimization and debugging might be
 # passed to cc.  A different name should have been used.
-CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
+CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
 CPPFLAGS = 
 LOCAL_CFLAGS =  ${DEBUG}
 DEFS = -DHAVE_CONFIG_H
 LOCAL_DEFS = -DSHELL
 LOCAL_LIBS = 
 LIBS = $(BUILTINS_LIB) $(LIBRARIES) -ldl 
-LDFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include $(STATIC_LD) $(LOCAL_LDFLAGS) $(PROFILE_FLAGS) $(CFLAGS)
+LDFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include $(STATIC_LD) $(LOCAL_LDFLAGS) $(PROFILE_FLAGS) $(CFLAGS)
 STATIC_LD = 
 LOCAL_LDFLAGS = -rdynamic
 

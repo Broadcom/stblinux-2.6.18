@@ -33,15 +33,15 @@ srcdir = .
 VPATH = .:.
 topdir = ..
 includedir = ../../uClibc/include/
-BUILD_DIR = /myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
+BUILD_DIR = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
 
 PROFILE_FLAGS = 
-CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
+CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
 LOCAL_CFLAGS = 
 CPPFLAGS = 
 DEFS = -DHAVE_CONFIG_H
 LOCAL_DEFS = -DSHELL
-LDFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include $(LOCAL_LDFLAGS) $(CFLAGS)
+LDFLAGS = -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include $(LOCAL_LDFLAGS) $(CFLAGS)
 LOCAL_LDFLAGS = -rdynamic
 LIBS = -ldl 
 

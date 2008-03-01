@@ -32,6 +32,11 @@
 
 extern int usb_disabled(void);
 
+#define BRCM_USB_AWAKE		0
+#define BRCM_USB_SLEEPING	1
+#define BRCM_USB_TRANSITION	2
+static atomic_t ohci_brcm_state = ATOMIC_INIT(BRCM_USB_SLEEPING);
+
 /*-------------------------------------------------------------------------*/
 
 static void brcm_start_hc(struct platform_device *dev)
@@ -151,7 +156,7 @@ static void usb_hcd_brcm_remove (struct usb_hcd *hcd, struct platform_device *de
 
 /*-------------------------------------------------------------------------*/
 
-static int __devinit
+static int
 ohci_brcm_start (struct usb_hcd *hcd)
 {
 	struct ohci_hcd	*ohci = hcd_to_ohci (hcd);
@@ -279,7 +284,7 @@ static struct device_driver ohci_hcd_brcm_driver[] = {
 
 static struct platform_device *plat_dev[NUM_OHCI_HOSTS];
 
-static int __init brcm_ohci_hcd_init (int ohci_id)
+static int brcm_ohci_hcd_init (int ohci_id)
 {
 	int err = -1;
 	struct resource devRes[2];
@@ -337,33 +342,76 @@ static int __init brcm_ohci_hcd_init (int ohci_id)
 	return(0);
 }
 
-static int __init ohci_hcd_brcm_init (void)
+static int ohci_brcm_enable(void *arg)
 {
 	int i;
 	int err = -1;
 
+	if(atomic_cmpxchg(&ohci_brcm_state, BRCM_USB_SLEEPING,
+		BRCM_USB_TRANSITION) != BRCM_USB_SLEEPING) {
+		return(-1);
+	}
+
 	printk("ohci_hcd_brcm_init: Initializing %d OHCI controller(s)\n", NUM_OHCI_HOSTS);
+
 	brcm_pm_usb_add();
 	for (i=0; i < NUM_OHCI_HOSTS; i++) {
 		err = brcm_ohci_hcd_init(i);
 		if (err) {
+			do {
+				driver_unregister(&ohci_hcd_brcm_driver[i]);
+				platform_device_unregister(plat_dev[i]);
+				i--;
+			} while(i >= 0);
+			atomic_set(&ohci_brcm_state, BRCM_USB_SLEEPING);
+
 			return err;
 		}
 	}
-	return err;
+	atomic_set(&ohci_brcm_state, BRCM_USB_AWAKE);
+	return(0);
 }
 
-
-static void __exit ohci_hcd_brcm_cleanup (void)
+static int ohci_brcm_disable(void *arg)
 {
 	int i;
 
+	if(atomic_cmpxchg(&ohci_brcm_state, BRCM_USB_AWAKE,
+		BRCM_USB_TRANSITION) != BRCM_USB_AWAKE) {
+		return(-1);
+	}
+
 	printk("ohci_hcd_brcm_cleanup: Taking down %d OHCI controller(s)\n", NUM_OHCI_HOSTS);
+
 	for (i=0; i<NUM_OHCI_HOSTS; i++) {
 		driver_unregister(&ohci_hcd_brcm_driver[i]);
 		platform_device_unregister(plat_dev[i]);
 	}
 	brcm_pm_usb_remove();
+	atomic_set(&ohci_brcm_state, BRCM_USB_SLEEPING);
+	return(0);
+}
+
+static int __init ohci_hcd_brcm_init (void)
+{
+	int ret;
+
+	ret = ohci_brcm_enable(NULL);
+	if(ret)
+		return(ret);
+#if defined(CONFIG_BRCM_PM)
+	brcm_pm_register_ohci(ohci_brcm_disable, ohci_brcm_enable, NULL);
+#endif
+	return(0);
+}
+
+
+static void __exit ohci_hcd_brcm_cleanup (void)
+{
+#if defined(CONFIG_BRCM_PM)
+	brcm_pm_unregister_ohci();
+#endif
+	ohci_brcm_disable(NULL);
 }
 
 module_init (ohci_hcd_brcm_init);

@@ -34,7 +34,14 @@
  * given platform build.
  */
 
+/* jipeng - MIPSCPU_INT_BASE should be platform dependent */
+#ifdef	CONFIG_MIPS_BCM7325
+#include <asm/brcmstb/brcm97325a0/bcmintrnum.h>
+
+#define MIPSCPU_INT_BASE	BCM_LINUX_IPC_0_IRQ
+#else 
 #define MIPSCPU_INT_BASE	16
+#endif
 
 #define MIPS_CPU_IPI_IRQ	1
 

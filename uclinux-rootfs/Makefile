@@ -50,6 +50,8 @@ LINUX_CONFIG  = $(ROOTDIR)/$(LINUXDIR)/.config
 CONFIG_CONFIG = $(ROOTDIR)/config/.config
 MODULES_CONFIG = $(ROOTDIR)/modules/.config
 
+LINUX_VERSION := $(shell cat $(ROOTDIR)/$(LINUXDIR)/include/linux/utsrelease.h | grep UTS_RELEASE|cut -d" " -f3 | sed 's/\"//g')
+
 CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 	  else if [ -x /bin/bash ]; then echo /bin/bash; \
 	  else echo sh; fi ; fi)
@@ -199,6 +201,11 @@ modules_install:
 		$(MAKEARCH) -C $(LINUXDIR) INSTALL_MOD_PATH=$(ROMFSDIR) DEPMOD=$(ROOTDIR)/tools/$(CROSS)depmod modules_install || exit 1; \
 		rm -f $(ROMFSDIR)/lib/modules/*/build; \
 		find $(ROMFSDIR)/lib/modules -type f | grep -v "modules\." | xargs -r $(STRIP) -g; \
+		if [ "$$CONFIG_HOTPLUG" != "y" ]; then \
+		rm -f $(ROMFSDIR)/lib/modules/$(LINUX_VERSION)/*map;		\
+		rm -f $(ROMFSDIR)/lib/modules/$(LINUX_VERSION)/modules.alias;	\
+		rm -f $(ROMFSDIR)/lib/modules/$(LINUX_VERSION)/modules.symbols;	\
+		fi	\
 	fi
 
 linux_xconfig:

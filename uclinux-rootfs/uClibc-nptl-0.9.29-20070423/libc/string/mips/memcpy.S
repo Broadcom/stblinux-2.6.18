@@ -26,6 +26,8 @@
 
 #include "endian.h"
 #include "sysdep.h"
+#include <sys/asm.h>
+#include <sys/regdef.h>
 
 #ifdef __mips64
 #error mips32 code being compiled for mips64!
@@ -45,8 +47,12 @@
 #  define SWLO	swl		/* low part is left in little-endian	*/
 #endif
 
-#define CPUTYPE_7400B0		0x2a040
-#define CPUTYPE_7405A0		0x2a044
+#define CPUTYPE_4380		0x0002a040
+#define CPUMASK_4380		0xffffffe0
+
+#ifdef __PIC__
+	.option	pic2
+#endif
 
 	.data
 	.align  2
@@ -59,10 +65,11 @@ cputype:
 
 ENTRY (memcpy)
 	.set	noreorder
-	.cpload	$25
+#ifdef __PIC__
+	.cpload	t9
+#endif
 
-	lw	t3, %got(cputype)(gp)	# decide which pref value to use
-	lw	t0, %lo(cputype)(t3)
+	lw	t0, cputype
 	beqz	t0, L(detect_cpu)	# based on cpu type
 L(detect_done):
 	li	t1, 4380
@@ -173,16 +180,16 @@ L(detect_cpu):
 	li	t0, 1			# cputype 1 = anything but 4380
 	mfc0	t2, $15			# NOTE: requires kernel support
 					# see simulate_rdhwr()
-	li	t1, CPUTYPE_7405A0
-	beq	t2, t1, L(is_4380)
-	nop
-	li	t1, CPUTYPE_7400B0
+	li	t4, CPUMASK_4380
+	li	t1, CPUTYPE_4380
+	and	t2, t2, t4
 	beql	t2, t1, L(not_4380)
-L(is_4380):
 	li	t0, 4380		# instruction is killed if not 4380
 L(not_4380):
+	
+	sw	t0, cputype
 	b	L(detect_done)
-	sw	t0, %lo(cputype)(t3)
+	nop
 
 L(_4380_memcpy):
 
@@ -936,4 +943,9 @@ L(uaRemain):
 
 	.set	reorder
 END (memcpy)
+
+#ifdef libc_hidden_def
 libc_hidden_def (memcpy)
+#else
+libc_hidden_builtin_def (memcpy)
+#endif

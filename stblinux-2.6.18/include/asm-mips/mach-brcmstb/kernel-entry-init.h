@@ -74,7 +74,7 @@ return_from_pci_slave_init:
 #endif
 
 #ifdef CONFIG_MIPS_BRCM97XXX
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) && ! defined(CONFIG_MIPS_MT)
 	.extern  g_boot_config
 	# Check to see which TP we are running on.
 	mfc0    $8, $22, 3

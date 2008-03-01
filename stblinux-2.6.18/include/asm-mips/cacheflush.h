@@ -95,6 +95,7 @@ extern void cache_printstats(struct seq_file *m);
 #ifdef CONFIG_MIPS_BRCM97XXX
 extern void brcm_r4k_flush_cache_range(struct vm_area_struct *vma,
 	unsigned long start, unsigned long end);
+extern void bcm_inv_rac_all(void);
 #endif
 
 #endif /* _ASM_CACHEFLUSH_H */

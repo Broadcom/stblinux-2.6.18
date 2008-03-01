@@ -857,6 +857,9 @@ void op_default_event(op_cpu cpu_type, struct op_default_event_descr * descr)
 			descr->name = "CYCLES";
 			break;
              
+		case CPU_MIPS_BCM4380:
+                        descr->name = "CYCLES";
+                        break;
 
 		// don't use default, if someone add a cpu he wants a compiler
 		// warning if he forgets to handle it here.

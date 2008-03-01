@@ -107,8 +107,8 @@ printk("board_init_once: regval=%08x, ddr0_strap=%x, , ddr1_strap=%x, pci_size=%
 		break;
 	}
 	
-	printk("Detected %d & %d MB on board, using only 256MB\n", memSize0 >> 20, memSize1 >> 20);
-	return memSize0;
+	printk("Detected %d & %d MB on board, total %d MB\n", memSize0 >> 20, memSize1 >> 20, memSize0 >> 20 + memSize1 >> 20);
+	return memSize0 + memSize1;
 #endif
 }
 

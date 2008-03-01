@@ -73,6 +73,7 @@ typedef enum {
        	CPU_MIPS_BCM7038, /**< MIPS BCM7038 */
 	CPU_MIPS_BCM4350, /**< MIPS BCM4350 */
 	CPU_MIPS_BCM3300,  /**< MIPS BCM3300 */
+	CPU_MIPS_BCM4380, /**< MIPS BCM4380 */
 	MAX_CPU_TYPE
 } op_cpu;
 

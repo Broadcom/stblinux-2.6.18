@@ -42,6 +42,9 @@
  *
  *  2007/09/17  Kevin Cernekee <cernekee>
  *              Add EXPERIMENTAL QDMA and NCQ support, bump version to 4.0
+ *
+ *  2008/01/08  Kevin Cernekee <cernekee>
+ *              Add power management support
  */
 
 #include <linux/kernel.h>
@@ -67,6 +70,31 @@
 #include <asm/brcmstb/common/brcmstb.h>
 #include <asm/brcmstb/common/brcm-pm.h>
 #endif
+
+#if defined(CONFIG_BRCM_PM)
+
+#define SLEEP_FLAG(host) (long)(host->private_data)
+#define SET_SLEEP_FLAG(host, val) do { \
+	host->private_data = (void *)(val); \
+	} while(0)
+
+#define K2_AWAKE	0
+#define K2_SLEEPING	1
+
+static int k2_power_on(void *arg);
+
+#define K2_POWER_ON(host) do { \
+	if(SLEEP_FLAG(host) != K2_AWAKE) \
+		k2_power_on(host); \
+	} while(0)
+
+#else
+
+#define K2_POWER_ON(host) do { } while(0)
+
+#endif
+// jipeng - if bcmsata2=1, but device only support SATA I, then downgrade to SATA I and reset SATA core
+#define	AUTO_NEG_SPEED	
 
 #ifdef	SATA_SVW_BRCM_WA
 extern int dma_write_wa_needed;
@@ -349,6 +377,8 @@ static void brcm_SetPllTxRxCtrl(void __iomem *mmio_base)
 static void brcm_TunePLL(void __iomem *mmio_base)
 {
 	volatile uint16_t tmp;
+	int i;
+
 	//program VCO step bit [12:10] start with 111
 	mdio_write_reg(mmio_base,0,0x13,0x1c00);
 
@@ -362,8 +392,13 @@ static void brcm_TunePLL(void __iomem *mmio_base)
 	//check lock bit
 	tmp = mdio_read_reg(mmio_base,0,0x7);
 
-	while((tmp & 0x8000)!= 0x8000)
+	for(i = 0; i < 10000; i++) {
 		tmp = mdio_read_reg(mmio_base,0,0x7);
+		if((tmp & 0x8000) == 0x8000)
+			return;
+		udelay(1);
+	}
+	printk(KERN_WARNING DRV_NAME ": PLL did not lock\n");
 }
 
 static void brcm_AnalogReset(void __iomem *mmio_base)
@@ -399,6 +434,13 @@ static void brcm_InitSata_1_5Gb(void __iomem *mmio_base)
 		udelay(10000); // wait
 		mdio_write_reg(mmio_base,0,0xd,0x0800);
 		udelay(10000); // wait
+
+#ifdef	AUTO_NEG_SPEED
+		// disable 3G feature
+		tmp32 = readl((void *)(MMIO_OFS + 0xf0 + port * 0x100));
+		writel(tmp32 & 0xfffffbff, (void *)(MMIO_OFS + 0xf0 + port * 0x100));
+		udelay(10000);
+#endif
 
 		//Enable low speed (1.5G) mode
 		tmp = mdio_read_reg(mmio_base,0,8);
@@ -496,6 +538,8 @@ extern int gSata2_3Gbps;
 
 static inline void brcm_initsata2(void __iomem *mmio_base)
 {
+retry_brcm_initsata2:
+
 	/*
 	 * Turn on 3Gbps if bcmsata2=1 is specified as kernel argument
 	 * during bootup
@@ -504,6 +548,24 @@ static inline void brcm_initsata2(void __iomem *mmio_base)
 		brcm_InitSata2_3Gb(mmio_base);
 	else
 		brcm_InitSata_1_5Gb(mmio_base);
+
+#ifdef	AUTO_NEG_SPEED
+	if(gSata2_3Gbps) 
+	{
+		int port;
+		msleep(10);
+
+		for (port=0; port < 2; port++)
+		{
+			unsigned int status = readl((void *)(mmio_base + port*K2_SATA_PORT_OFFSET + K2_SATA_SCR_STATUS_OFFSET));
+			if( (status & 0xf) >= 0x5 && (status & 0xf0) == 0 && (status & 0xf00) == 0 ) {
+		
+				gSata2_3Gbps = 0;	
+				goto retry_brcm_initsata2; 	
+			}
+		}
+	}
+#endif
 }
 
 static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_ent)
@@ -511,7 +573,7 @@ static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_
 	unsigned int reg;
 	void __iomem *mmio_base = probe_ent->mmio_base;
 	
-	if(dev->device == PCI_DEVICE_ID_SERVERWORKS_BCM7400B0)
+	if(dev->device == PCI_DEVICE_ID_SERVERWORKS_BCM7400D0)
 	{
 		brcm_initsata2(mmio_base);
 		return; /* Skip all workarounds.  Those have been fixed with 65nm */
@@ -1073,6 +1135,8 @@ static void k2_sata_error_handler(struct ata_port *ap)
 {
 	struct k2_port_priv *pp = ap->private_data;
 
+	K2_POWER_ON(ap->host);
+
 	if (pp->do_port_srst && !ap->nr_pmp_links) 
 		ata_bmdma_error_handler(ap);
 	else
@@ -1622,6 +1686,85 @@ static unsigned int k2_qdma_qc_issue(struct ata_queued_cmd *qc)
 
 #endif /* ! defined(USE_QDMA) */
 
+#if defined(CONFIG_BRCM_PM)
+
+/*
+ * Power management
+ */
+
+static int k2_power_off(void *arg)
+{
+	struct ata_host *host = arg;
+	int i, active = 0;
+
+	if(SLEEP_FLAG(host) == K2_SLEEPING)
+		return(-1);
+
+	for(i = 0; i < host->n_ports; i++) {
+		struct ata_port *ap;
+		struct ata_link *link;
+		struct ata_device *dev;
+
+		ap = host->ports[i];
+
+		/*
+		 * dev->sdev is set to NULL in ata_scsi_slave_destroy()
+		 * upon hot or warm unplug.  If it is non-NULL, the device
+		 * is still enabled and it is unsafe to power off the core.
+		 */
+		ata_port_for_each_link(link, ap) {
+			ata_link_for_each_dev(dev, link) {
+				if(dev->sdev)
+					active++;
+			}
+		}
+	}
+
+	if(active) {
+		printk(KERN_INFO DRV_NAME
+			": can't sleep with %d device(s) active\n", active);
+		return(-1);
+	} else {
+		SET_SLEEP_FLAG(host, K2_SLEEPING);
+		disable_irq(host->irq);
+		brcm_pm_sata_remove();
+		return(0);
+	}
+}
+
+static int k2_power_on(void *arg)
+{
+	struct ata_host *host = arg;
+
+	if(SLEEP_FLAG(host) == K2_AWAKE)
+		return(-1);
+	
+	brcm_pm_sata_add();
+	brcm_initsata2(host->mmio_base);
+	enable_irq(host->irq);
+	SET_SLEEP_FLAG(host, K2_AWAKE);
+	return(0);
+}
+
+static int k2_sata_hp_poll(struct ata_port *ap)
+{
+	/* don't check for hotplug events while the HW is sleeping */
+	if(SLEEP_FLAG(ap->host) == K2_SLEEPING)
+		return(0);
+	return(sata_std_hp_poll(ap));
+}
+
+static void k2_sata_remove_one(struct pci_dev *pdev)
+{
+	struct device *dev = pci_dev_to_dev(pdev);
+	struct ata_host *host = dev_get_drvdata(dev);
+
+	K2_POWER_ON(host);
+	ata_pci_remove_one(pdev);
+}
+
+#endif /* CONFIG_BRCM_PM */
+
 /*
  * Driver initialization
  */
@@ -1658,7 +1801,11 @@ static const struct ata_port_operations k2_sata_ops = {
 	.check_status		= k2_stat_check_status,
 	.port_disable		= ata_port_disable,
 	.hp_poll_activate	= sata_std_hp_poll_activate,
+#if defined(CONFIG_BRCM_PM)
+	.hp_poll		= k2_sata_hp_poll,
+#else
 	.hp_poll		= sata_std_hp_poll,
+#endif
 	.scr_read		= k2_sata_scr_read,
 	.scr_write		= k2_sata_scr_write,
 
@@ -1838,9 +1985,17 @@ static int k2_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 #ifdef CONFIG_MIPS_BRCM97XXX 
 	bcm97xxx_sata_init(pdev, probe_ent);
 #endif	
+
+	probe_ent->private_data = 0;	/* aka K2_AWAKE */
 	
 	/* FIXME: check ata_device_add return value */
 	ata_device_add(probe_ent);
+
+#ifdef CONFIG_BRCM_PM
+	/* arg is struct ata_host */
+	brcm_pm_register_sata(k2_power_off, k2_power_on,
+		dev_get_drvdata(probe_ent->dev));
+#endif
 	kfree(probe_ent);
 
 	return 0;
@@ -1860,7 +2015,7 @@ err_out:
  * 0x242 is device ID for Serverworks Frodo8 (same as 7038)
  * 0x24a is device ID for BCM5785 (aka HT1000) HT southbridge integrated SATA
  * controller
- * 0x8602 is device ID for BCM7400B0 SATA2
+ * 0x8602 is device ID for BCM7400D0 SATA2
  *
  * driver_data element is number of ports (4x number of channels??)
  * */
@@ -1870,7 +2025,7 @@ static const struct pci_device_id k2_sata_pci_tbl[] = {
 	{ PCI_VDEVICE(SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_BCM7038), 8 },
 	{ PCI_VDEVICE(SERVERWORKS, 0x024a), 4 },
 	{ PCI_VDEVICE(SERVERWORKS, 0x024b), 4 },
-	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_SERVERWORKS_BCM7400B0), 8 },
+	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_SERVERWORKS_BCM7400D0), 8 },
 	{ }
 };
 
@@ -1878,7 +2033,11 @@ static struct pci_driver k2_sata_pci_driver = {
 	.name			= DRV_NAME,
 	.id_table		= k2_sata_pci_tbl,
 	.probe			= k2_sata_init_one,
+#ifdef CONFIG_BRCM_PM
+	.remove			= k2_sata_remove_one,
+#else
 	.remove			= ata_pci_remove_one,
+#endif
 };
 
 static int __init k2_sata_init(void)

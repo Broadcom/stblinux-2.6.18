@@ -14,7 +14,7 @@
 
 CC=mipsel-linux-gcc
 
-CFLAGS=-O2 -g  -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -DHAVE_UNISTD_H -DUSE_MMAP
+CFLAGS=-O2 -g  -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -Dlinux -D__linux__ -D__uClinux__ -Dunix -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -DHAVE_UNISTD_H -DUSE_MMAP
 #CFLAGS=-O -DMAX_WBITS=14 -DMAX_MEM_LEVEL=7
 #CFLAGS=-g -DDEBUG
 #CFLAGS=-O3 -Wall -Wwrite-strings -Wpointer-arith -Wconversion \
@@ -33,7 +33,7 @@ RANLIB=mipsel-linux-ranlib
 TAR=tar
 SHELL=/bin/sh
 
-prefix =/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs
+prefix =/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs
 exec_prefix =${prefix}
 libdir =${exec_prefix}/lib
 includedir =${prefix}/include

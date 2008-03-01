@@ -61,6 +61,8 @@ void usage(void)
 	printf("  enet 1       power up ENET controller(s)\n");
 	printf("  sata 1       power up SATA controller\n");
 	printf("  cpu 4        set CPU clock to BASE/4\n");
+	printf("  ddr 64       enable DDR self-refresh after 64 idle cycles\n");
+	printf("  ddr 0        disable DDR self-refresh\n");
 	exit(1);
 }
 
@@ -93,6 +95,7 @@ int main(int argc, char **argv)
 		printf("cpu_base:     %d\n", state.cpu_base);
 		printf("cpu_divisor:  %d\n", state.cpu_divisor);
 		printf("cpu_speed:    %d\n", state.cpu_base / state.cpu_divisor);
+		printf("ddr:          %d\n", state.ddr_timeout);
 		return(0);
 	}
 
@@ -127,6 +130,14 @@ int main(int argc, char **argv)
 	if(! strcmp(argv[1], "cpu"))
 	{
 		state.cpu_divisor = val;
+		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
+			fatal("can't set PM state");
+		return(0);
+	}
+
+	if(! strcmp(argv[1], "ddr"))
+	{
+		state.ddr_timeout = val;
 		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
 			fatal("can't set PM state");
 		return(0);

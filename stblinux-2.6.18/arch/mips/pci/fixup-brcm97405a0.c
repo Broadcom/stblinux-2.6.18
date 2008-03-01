@@ -39,15 +39,7 @@
 #include <linux/ioport.h>
 #include <asm/io.h>
 
-#if defined(CONFIG_MIPS_BCM97456B0)
-#include <asm/brcmstb/brcm97456b0/boardmap.h>
-#include <asm/brcmstb/brcm97456b0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97456b0/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7405A0)
-#include <asm/brcmstb/brcm97405a0/boardmap.h>
-#include <asm/brcmstb/brcm97405a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97405a0/bcmintrnum.h>
-#endif
+#include <asm/brcmstb/common/brcmstb.h>
 
 //#define DEBUG 0
 #undef DEBUG
@@ -90,7 +82,7 @@
 static char irq_tab_brcm97405a0[] __initdata = {
 //[slot]  = IRQ
   [PCI_DEVICE_ID_SATA] = BCM_LINUX_SATA_IRQ,    /* SATA controller */
-#if defined(CONFIG_MIPS_BCM97456B0)
+#if defined(CONFIG_MIPS_BCM97456D0)
   [PCI_DEVICE_ID_3255] = BCM_LINUX_3255_IRQ,    /* 3255 */  
 #endif  
   [PCI_DEVICE_ID_EXT]  = BCM_LINUX_EXT_PCI_IRQ, /* On-board PCI slot */
@@ -382,7 +374,7 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
  * SATA is on the secondary bus, and requires special handling.
  */
 
-DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_SERVERWORKS_BCM7400B0,
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_SERVERWORKS_BCM7400D0,
 	 	brcm_pcibios_fixup_SATA);
 
 

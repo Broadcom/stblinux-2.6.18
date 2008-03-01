@@ -236,8 +236,9 @@ L(chk8w):
 L(lop8w):	
 
 	lw	t1,  0x10(a1)
-#if ! (defined(CONFIG_MIPS_BCM7400B0) || defined(CONFIG_MIPS_BCM7405A0))
-	/* pref usage on 7400B0 is TBD */
+#if ! (defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM7405) \
+	|| defined(CONFIG_MIPS_BCM7335))
+	/* pref usage on 7400D0 is TBD */
     	pref    31,  0x10(a0)
 #endif
 	lw	t2,  0x4(a1)

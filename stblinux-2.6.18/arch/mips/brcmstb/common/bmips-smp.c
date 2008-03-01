@@ -42,17 +42,7 @@ when	who what
 #include <asm/cpu.h>
 #include <asm/smp.h>
 
-#if defined(CONFIG_MIPS_BCM7400A0)
-#include <asm/brcmstb/brcm97400a0/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7456B0)
-#include <asm/brcmstb/brcm97456b0/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7400B0)
-#include <asm/brcmstb/brcm97400b0/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7405A0)
-#include <asm/brcmstb/brcm97405a0/bcmintrnum.h>
-#else
-#error Unsupported SMP platform
-#endif
+#include <asm/brcmstb/common/brcmstb.h>
 
 // Marcos that we use on the 7400
 #define read_c0_brcm_config_0()	__read_32bit_c0_register($22, 0)

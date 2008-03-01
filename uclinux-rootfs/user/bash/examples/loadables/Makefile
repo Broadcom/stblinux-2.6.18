@@ -19,16 +19,16 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA.
 
 # Include some boilerplate Gnu makefile definitions.
-prefix = /myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs/
+prefix = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs/
 
 exec_prefix = ${prefix}
 bindir = ${exec_prefix}/bin
-libdir = /myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/libtermcap
+libdir = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/libtermcap
 infodir = ${prefix}/info
 includedir = ../../uClibc/include/
 
 topdir = ../..
-BUILD_DIR = /myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
+BUILD_DIR = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
 srcdir = .
 VPATH = .:.
 
@@ -42,7 +42,7 @@ host_os = linux-gnu
 host_cpu = i386
 host_vendor = pc
 
-CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
+CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
 
 #
 # These values are generated for configure by ${topdir}/support/shobj-conf.

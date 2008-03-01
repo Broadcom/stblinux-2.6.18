@@ -42,6 +42,22 @@ void brcm_pm_enet_remove(void);
 void brcm_pm_sata_add(void);
 void brcm_pm_sata_remove(void);
 
+void brcm_pm_register_sata(int (*off_cb)(void *), int (*on_cb)(void *),
+	void *arg);
+void brcm_pm_unregister_sata(void);
+
+void brcm_pm_register_enet(int (*off_cb)(void *), int (*on_cb)(void *),
+	void *arg);
+void brcm_pm_unregister_enet(void);
+
+void brcm_pm_register_ohci(int (*off_cb)(void *), int (*on_cb)(void *),
+	void *arg);
+void brcm_pm_unregister_ohci(void);
+
+void brcm_pm_register_ehci(int (*off_cb)(void *), int (*on_cb)(void *),
+	void *arg);
+void brcm_pm_unregister_ehci(void);
+
 #else /* CONFIG_BRCM_PM */
 
 static inline void brcm_pm_usb_add(void) { }

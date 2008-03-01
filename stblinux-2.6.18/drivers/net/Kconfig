@@ -209,12 +209,14 @@ config BCM4413ETH_PCI
 config BCMINTEMAC_7038
 	tristate "Broadcom Internal Ethernet (ISB) support"
 	depends on NET_ETHERNET
-	depends on BRCM_PM_FORCE_MODULE
-	depends on MIPS_BCM7038 || MIPS_BCM7401 || MIPS_BCM7400 || MIPS_BCM7402 || MIPS_BCM7402S || MIPS_BCM7440 || MIPS_BCM7402B0S || MIPS_BCM7403 || MIPS_BCM7405 || MIPS_BCM7325
+	depends on MIPS_BCM7038 || MIPS_BCM7401 || MIPS_BCM7400 \
+		|| MIPS_BCM7402 || MIPS_BCM7402S || MIPS_BCM7440 \
+		|| MIPS_BCM7402B0S || MIPS_BCM7403 || MIPS_BCM7405 \
+		|| MIPS_BCM7325 || MIPS_BCM7335
 	select CRC32
 	help 
 	  Broadcom Internal MAC 100 Mbps Ethernet controller 
-	  for BCM97038, BCM97318, bcm7400, BCM7401 & BCM7405 STBs
+	  for BCM7038, BCM7400, BCM7401 & BCM7405 STBs
 
 config BCMINTEMAC_7038_STREAMING
 	bool "Extra buffers for streaming applications"

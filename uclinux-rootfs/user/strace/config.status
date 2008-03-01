@@ -36,12 +36,12 @@ sed 's/%@/@@/; s/@%/@@/; s/%g$/@g/; /@g$/s/[\\&%]/\\&/g;
 /^[ 	]*VPATH[ 	]*=[^:]*$/d
 
 s%@SHELL@%/bin/sh%g
-s%@CFLAGS@%-D_GNU_SOURCE -DDONE=1 -DBITS_PER_LONG=32 -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include/asm/mach-generic -I/opt/toolchains/crosstools_hf-linux-2.6.18.0_gcc-4.2-3ts_uclibc-nptl-0.9.29-20070423_20071102/bin/../mipsel-linux/include%g
+s%@CFLAGS@%-D_GNU_SOURCE -DDONE=1 -DBITS_PER_LONG=32 -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include/asm/mach-generic -I/opt/toolchains/crosstools_hf-linux-2.6.18.0_gcc-4.2-4ts_uclibc-nptl-0.9.29-20070423_20080212/bin/../mipsel-linux/include%g
 s%@CPPFLAGS@%%g
-s%@CXXFLAGS@%-Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include  -fname-mangling-version-0%g
+s%@CXXFLAGS@%-Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include  -fname-mangling-version-0%g
 s%@FFLAGS@%%g
 s%@DEFS@%-DHAVE_CONFIG_H%g
-s%@LDFLAGS@%-Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include%g
+s%@LDFLAGS@%-Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include%g
 s%@LIBS@%%g
 s%@exec_prefix@%${prefix}%g
 s%@prefix@%/usr/local%g
@@ -54,7 +54,7 @@ s%@sysconfdir@%${prefix}/etc%g
 s%@sharedstatedir@%${prefix}/com%g
 s%@localstatedir@%${prefix}/var%g
 s%@libdir@%${exec_prefix}/lib%g
-s%@includedir@%/projects/stbtc/crosstools_hf-linux-2.6.18.0_gcc-4.2-3ts_uclibc-nptl-0.9.29-20070423_20071102/bin/../lib/gcc/mipsel-linux-uclibc/4.2.0/../../../../mipsel-linux-uclibc/sys-include%g
+s%@includedir@%/projects/stbtc/crosstools_hf-linux-2.6.18.0_gcc-4.2-4ts_uclibc-nptl-0.9.29-20070423_20080212/bin/../lib/gcc/mipsel-linux-uclibc/4.2.0/../../../../mipsel-linux-uclibc/sys-include%g
 s%@oldincludedir@%/usr/include%g
 s%@infodir@%${prefix}/info%g
 s%@mandir@%${prefix}/man%g

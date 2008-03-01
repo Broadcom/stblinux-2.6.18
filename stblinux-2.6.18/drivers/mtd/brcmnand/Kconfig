@@ -36,4 +36,4 @@ config MTD_BRCMNAND_VERSION
 			Value	Controller  Platform
 			0		0.0			7400A0
 			1		0.1			7401Cx, 7118A0, 7403 * 7451, 7452
-			2		1.0			7440B0, 7400B0, 7405 and later
+			2		1.0			7440B0, 7400D0, 7405 and later

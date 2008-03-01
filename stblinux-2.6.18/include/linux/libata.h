@@ -37,7 +37,7 @@
 #include <scsi/scsi_host.h>
 
 // jipeng - old sata core require this workaround
-#ifndef	CONFIG_MIPS_BCM7405
+#if ! defined(CONFIG_MIPS_BCM7405) && ! defined(CONFIG_MIPS_BCM7335)
 #define	SATA_SVW_BRCM_WA
 #endif
 

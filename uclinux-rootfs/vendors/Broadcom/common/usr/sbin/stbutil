@@ -156,22 +156,31 @@ echo "********************************************************************"
 echo ""
 echo ""
 
+result=`cat /proc/partitions | ( grep sda > /dev/null || echo "1")`
 
+if [ $result -eq 1 ]; then
+echo "No harddisk found. It is either a diskless platform or no harddisk connected."
+exit 0
+fi
 
 HARDDRIVE="sda"
 TMP_HARDDRIVE=""
+hdd_status=0
 #until [ -f /proc/ide/${TMP_HARDDRIVE}/geometry ] ; do
+until [ $hdd_status -eq 1 ] ; do
 
-#echo "Please provide name of HD [${HARDDRIVE}]"
-#echo ""
+echo "Please provide name of HD [${HARDDRIVE}]"
+echo ""
 
-#read TMP_HARDDRIVE
-#if [ "${TMP_HARDDRIVE}" != "" ]; then 
-# HARDDRIVE=$TMP_HARDDRIVE
-#else
-# TMP_HARDDRIVE=${HARDDRIVE}
-#fi 
-#done
+read TMP_HARDDRIVE
+if [ "${TMP_HARDDRIVE}" != "" ]; then 
+ HARDDRIVE=$TMP_HARDDRIVE
+else
+ TMP_HARDDRIVE=${HARDDRIVE}
+fi
+
+hdd_status=`cat /proc/partitions | ( grep $TMP_HARDDRIVE > /dev/null && echo "1" || echo "0" )`
+done
 
    echo "   Creating new partition table..."
    dd if=/dev/zero of=/dev/${HARDDRIVE} bs=1k count=40960 2> /dev/null

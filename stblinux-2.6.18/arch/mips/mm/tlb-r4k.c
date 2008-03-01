@@ -69,7 +69,8 @@ extern void build_tlb_refill_handler(void);
 	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401 ) \
 	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7118 ) \
 	|| defined( CONFIG_MIPS_BCM7440 ) || defined( CONFIG_MIPS_BCM7403 ) \
-	|| defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325 )
+	|| defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325 ) \
+	|| defined( CONFIG_MIPS_BCM7335 )
 
 #ifdef CONFIG_MIPS_BCM7038A0
 #include <asm/brcmstb/brcm97038/bchp_pci_cfg.h>
@@ -103,15 +104,25 @@ extern void build_tlb_refill_handler(void);
 #include <asm/brcmstb/brcm97400a0/bchp_pci_cfg.h>
 #include <asm/brcmstb/brcm97400a0/boardmap.h>
 
-#elif defined(CONFIG_MIPS_BCM7400B0)
-#include <asm/brcmstb/brcm97400b0/bchp_pcix_bridge.h>
-#include <asm/brcmstb/brcm97400b0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97400b0/boardmap.h>
+#elif defined(CONFIG_MIPS_BCM7400D0)
+#include <asm/brcmstb/brcm97400d0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97400d0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97400d0/boardmap.h>
 
 #elif defined(CONFIG_MIPS_BCM7405A0)
 #include <asm/brcmstb/brcm97405a0/bchp_pcix_bridge.h>
 #include <asm/brcmstb/brcm97405a0/bchp_pci_cfg.h>
 #include <asm/brcmstb/brcm97405a0/boardmap.h>
+
+#elif defined(CONFIG_MIPS_BCM7405B0)
+#include <asm/brcmstb/brcm97405b0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97405b0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97405b0/boardmap.h>
+
+#elif defined(CONFIG_MIPS_BCM7335A0)
+#include <asm/brcmstb/brcm97335a0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97335a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97335a0/boardmap.h>
 
 #elif defined(CONFIG_MIPS_BCM7401B0) || defined(CONFIG_MIPS_BCM7402A0)
 #include <asm/brcmstb/brcm97401b0/bchp_pci_cfg.h>
@@ -215,7 +226,9 @@ void local_init_tlb(void)
 #endif
 
 
-#if defined(CONFIG_DISCONTIGMEM) && defined(CONFIG_MIPS_BCM7405)
+#if defined(CONFIG_DISCONTIGMEM) && \
+	(defined(CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335) || \
+	 defined(CONFIG_MIPS_BCM7400D0))
 {
 	/*
 	 * 7405 with DISCONTIG:
@@ -292,7 +305,8 @@ void local_init_tlb(void)
 	local_irq_restore(flags);
 }
 #elif defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7440 ) || \
-      defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325 )
+      defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325 ) || \
+      defined( CONFIG_MIPS_BCM7335 )
 /* Use 64MB page size mapping */
 	write_c0_pagemask(PM_64M);  /* The next best thing we can have since 256MB does not work */
 
@@ -1200,11 +1214,12 @@ printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
 
         local_init_tlb();
 
-#elif defined( CONFIG_MIPS_BCM7400B0) || defined( CONFIG_MIPS_BCM7405A0 )
+#elif defined( CONFIG_MIPS_BCM7400D0) || defined( CONFIG_MIPS_BCM7405 ) \
+	|| defined(CONFIG_MIPS_BCM7335)
 
 	local_init_tlb();
 
-	// tht 3/01/07: The external PCI bus remains the same between 7400A0/7440A0-B0, 7400B0 and 7405A0.
+	// tht 3/01/07: The external PCI bus remains the same between 7400A0/7440A0-B0, 7400D0 and 7405A0.
   
 #define MIPS_PCI_SATA_XCFG_INDEX     (0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)
 #define MIPS_PCI_SATA_XCFG_DATA      (0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)

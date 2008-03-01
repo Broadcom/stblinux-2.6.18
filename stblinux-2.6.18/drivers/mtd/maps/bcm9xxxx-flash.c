@@ -236,7 +236,8 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 #elif defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) || \
       defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) || \
       defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7118 ) || \
-      defined( CONFIG_MIPS_BCM7452 ) || defined( CONFIG_MIPS_BCM7405 )
+      defined( CONFIG_MIPS_BCM7452 ) || defined( CONFIG_MIPS_BCM7405 ) || \
+      defined( CONFIG_MIPS_BCM7335 )
 	
 #define DEFAULT_SIZE_MB 32 /* 32MB flash */  
   #if defined( CONFIG_MTD_ECM_PARTITION)

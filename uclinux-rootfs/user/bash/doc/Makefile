@@ -25,7 +25,7 @@ topdir = ..
 srcdir = .
 VPATH = .:.
 
-prefix = /myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs/
+prefix = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs/
 exec_prefix = ${prefix}
 
 infodir = ${prefix}/info
@@ -43,7 +43,7 @@ man3dir = $(mandir)/$(manpfx)$(man3ext)
 
 INSTALL = /usr/bin/install -c
 INSTALL_DATA = ${INSTALL} -m 644
-BUILD_DIR = /myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
+BUILD_DIR = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
 
 # bad style
 RL_LIBDIR = $(topdir)/lib/readline

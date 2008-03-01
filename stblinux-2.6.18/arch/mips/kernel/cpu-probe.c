@@ -908,11 +908,19 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
                 break;
 #endif 
 
+#if defined( CONFIG_MIPS_BCM7335 )
+        case PRID_IMP_BCM7335 :
+                c->cputype = CPU_BMIPS4380;
+                c->tlbsize = 32;
+                printk("MIPs 7335 id = %x\n", c->processor_id);
+                break;
+#endif 
+
 #ifdef CONFIG_MIPS_BCM7400
 	case PRID_IMP_BCM7400:
-#ifdef CONFIG_MIPS_BCM7400B0
+#ifdef CONFIG_MIPS_BCM7400D0
                 c->cputype = CPU_BMIPS4380;
-                printk("MIPs 7400B0 id = %x\n", c->processor_id);
+                printk("MIPs 7400D0 id = %x\n", c->processor_id);
 #else
                 c->cputype = CPU_BCM7400;
                 printk("MIPs 7400 id = %x\n", c->processor_id);

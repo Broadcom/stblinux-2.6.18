@@ -17,7 +17,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-# Makefile for BCM97400b0 board
+# Makefile for BCM97400d0 board
 #
 # when     who what
 # -------- --- ------------------------------------------------------
@@ -28,4 +28,11 @@
 # unless it's something special (ie not a .c file).
 #
 
-obj-y	 += irq.o bcm_uart.o hw_init.o board.o bchip.o 
+obj-y	 += bcm_uart.o hw_init.o board.o bchip.o 
+
+ifdef	CONFIG_MIPS_MT_SMTC
+obj-y	 += mt_irq.o
+else
+obj-y	 += irq.o
+endif
+

@@ -893,10 +893,13 @@ int attribute_hidden _ppfs_parsespec(ppfs_t *ppfs)
 		fmt = buf + 1;
 		i = 0;
 		do {
+			if(i == sizeof(buf))
+				break;
 			if ((buf[i] = (char) (((wchar_t *) ppfs->fmtpos)[i-1]))
 				!= (((wchar_t *) ppfs->fmtpos)[i-1])
 				) {
-				return -1;
+				buf[i] = 0;
+				break;
 			}
 		} while (buf[i++]);
 		buf[sizeof(buf)-1] = 0;

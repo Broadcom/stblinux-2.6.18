@@ -66,7 +66,7 @@ extern unsigned long rac_config0, rac_config1, rac_address_range;
 
 #if defined (CONFIG_SMP) && \
    (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0) || \
-    defined (CONFIG_MIPS_BCM7405))
+    defined (CONFIG_MIPS_BCM7405) || defined (CONFIG_MIPS_BCM7335))
 /*
  * PR36773:
  * BRCM_CMT_CACHE_WAR_0 controls D$-only flush.  Should never be global.
@@ -204,7 +204,7 @@ void bcm_local_inv_rac_all(void)
 	}
 
 #elif defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440) \
-	|| defined (CONFIG_MIPS_BCM7405)
+	|| defined (CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335)
 #ifndef CONFIG_SMP
 	if (*((volatile unsigned long *)rac_config0) & 0x02)	/* check RAC_D bit in RAC Config Register for TP0 */
 #else
@@ -1658,7 +1658,6 @@ void __init r4k_cache_init(void)
 		/* Do nothing for BRCM MIPS-5k*/
 #else
 #define ICACHE_DCACHE_ENABLED 0xC0000000
-		unsigned int reg;
 
 /* RYH  5/19/06 */
         /* if ( strstr(cfeBootParms,"bcmrac") ) */
@@ -1668,7 +1667,11 @@ void __init r4k_cache_init(void)
 			rac_setting(par_val);
 		}
 
-#if	!defined(CONFIG_MIPS_BCM7325)
+#if ! (defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_MIPS_BCM7335) \
+	|| defined(CONFIG_MIPS_BCM7405))
+		{
+		unsigned int reg;
+
 		/* Initialize and enable caches */
 	    	reg = read_c0_diag();
     		if ( (reg& ICACHE_DCACHE_ENABLED) != ICACHE_DCACHE_ENABLED)
@@ -1679,6 +1682,8 @@ void __init r4k_cache_init(void)
        
 		reg = read_c0_diag();
 		write_c0_diag(reg | ICACHE_DCACHE_ENABLED);
+
+		}
 #endif	// !defined(CONFIG_MIPS_BCM7325)
 #endif	//  defined(CONFIG_MIPS_BCM7320) 
 	}

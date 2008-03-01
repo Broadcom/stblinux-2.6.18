@@ -52,9 +52,9 @@
 /* specify number of BDs and buffers to use                            */
 /*---------------------------------------------------------------------*/
 #if defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7402C0 )  \
-    || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400B0 ) \
-    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405A0 ) \
-    || defined( CONFIG_MIPS_BCM7325A0 )
+    || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400D0 ) \
+    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405 ) \
+    || defined( CONFIG_MIPS_BCM7325A0 ) || defined( CONFIG_MIPS_BCM7335 )
 
 #define TOTAL_DESC				256		/* total number of Buffer Descriptors */
 #define RX_RATIO				1/2		/* ratio of RX descriptors number in total */
@@ -87,12 +87,13 @@
 	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
 	|| defined( CONFIG_MIPS_BCM7402S ) || defined( CONFIG_MIPS_BCM7440 ) \
         || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 ) \
-	|| defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325A0 )
+	|| defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325A0 ) \
+	|| defined( CONFIG_MIPS_BCM7335 )
 
 #if defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7402C0 ) \
-    || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400B0 ) \
-    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405A0 ) \
-    || defined( CONFIG_MIPS_BCM7325A0 )
+    || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400D0 ) \
+    || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405 ) \
+    || defined( CONFIG_MIPS_BCM7325A0 ) || defined( CONFIG_MIPS_BCM7335 )
  
 #define EMAC_RX_DESC_BASE   	0xb0082800	/* MAC DMA Rx Descriptor word */
 #else
@@ -203,6 +204,7 @@ typedef struct BcmEnet_devctrl {
     int             linkstatus_phyport;
     int             linkstatus_holder;
     atomic_t        devInUsed;          /* device in used */
+    int             sleep_flag;		/* device is powered down */
 
     struct net_device_stats stats;      /* statistics used by the kernel */
 

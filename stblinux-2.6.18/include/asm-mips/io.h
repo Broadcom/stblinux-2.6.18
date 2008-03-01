@@ -15,6 +15,7 @@
 #include <linux/compiler.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
+#include <linux/mmzone.h>
 
 #include <asm/addrspace.h>
 #include <asm/byteorder.h>

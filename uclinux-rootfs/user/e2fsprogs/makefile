@@ -42,3 +42,8 @@ romfs:
 	$(ROMFSINST) -e CONFIG_USER_E2FSPROGS_MISC_UUIDGEN misc/uuidgen /bin/uuidgen
 # PR11932 - Fix bad symbolic links in root filesystem
 	cd $(ROMFSDIR)/usr/lib; for i in libcom_err.so libe2p.so libext2fs.so libss.so libuuid.so; do ln -sf /lib/$$i $$i; done
+# PR29678 
+	cd lib/et; cat compile_et | sed -e 's/^\(\w*DIR\)\=.*/\1\=\"\/usr\/share\/et\/\"/' | sed -e 's/^AWK\=.*/AWK\=\/bin\/awk/' > $(ROMFSDIR)/usr/bin/compile_et
+# PR29679
+	cd lib/ss; cat mk_cmds | sed -e 's/^\(\w*DIR\)\=.*/\1\=\"\/usr\/share\/ss\/\"/' | sed -e 's/^AWK\=.*/AWK\=\/bin\/awk/' > $(ROMFSDIR)/usr/bin/mk_cmds
+

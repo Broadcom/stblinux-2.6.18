@@ -55,6 +55,7 @@ struct brcm_pm_state
         int sata_status;        /* 1=on, 0=off */
         int cpu_base;           /* base frequency, in Hz */
         int cpu_divisor;        /* 1, 2, 4, or 8 */
+	int ddr_timeout;	/* 0=no PM, >0 = timeout for self-refresh */
 };
 
 void *brcm_pm_init(void);

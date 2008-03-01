@@ -102,11 +102,35 @@ config MIPS_BCM7405AX
 	select SYS_SUPPORTS_SMP
 	select SYS_HAS_CPU_MIPS32_R1
 
-config MIPS_BCM97456BX
-	bool "Support for BCM97456BX board with NOR flash"
+config MIPS_BCM7405BX
+        bool "Support for BCM97405Bx with NOR flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7405B0
+        select MIPS_BCM7405
+        select HW_HAS_PCI
+        select SYS_SUPPORTS_32BIT_KERNEL
+        select SYS_SUPPORTS_BIG_ENDIAN
+        select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_SUPPORTS_SMP
+	select SYS_HAS_CPU_MIPS32_R1
+
+config MIPS_BCM7335AX
+        bool "Support for BCM97335Ax with NOR flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7335A0
+        select MIPS_BCM7335
+        select HW_HAS_PCI
+        select SYS_SUPPORTS_32BIT_KERNEL
+        select SYS_SUPPORTS_BIG_ENDIAN
+        select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_SUPPORTS_SMP
+	select SYS_HAS_CPU_MIPS32_R1
+
+config MIPS_BCM97456DX
+	bool "Support for BCM97456DX board with NOR flash"
 	select MIPS_BRCM97XXX
-	select MIPS_BCM97456B0
-	select MIPS_BCM7400B0
+	select MIPS_BCM97456D0
+	select MIPS_BCM7400D0
 	select MIPS_BCM7400
 	select HW_HAS_PCI
 	select SYS_SUPPORTS_32BIT_KERNEL
@@ -117,10 +141,10 @@ config MIPS_BCM97456BX
 	select MTD_ECM_PARTITION
 
 
-config MIPS_BCM7400BX
-	bool "Support for BCM97400Bx with NOR flash"
+config MIPS_BCM7400DX
+	bool "Support for BCM97400Dx with NOR flash"
 	select MIPS_BRCM97XXX
-	select MIPS_BCM7400B0
+	select MIPS_BCM7400D0
 	select MIPS_BCM7400
 	select HW_HAS_PCI
 	select SYS_SUPPORTS_32BIT_KERNEL
@@ -130,10 +154,10 @@ config MIPS_BCM7400BX
 	select SYS_HAS_CPU_MIPS32_R1
 
 
-config MIPS_BCM7400BX_NAND
-	bool "Support for BCM97400Bx with NAND flash"
+config MIPS_BCM7400DX_NAND
+	bool "Support for BCM97400Dx with NAND flash"
 	select MIPS_BRCM97XXX
-	select MIPS_BCM7400B0
+	select MIPS_BCM7400D0
 	select MIPS_BCM7400
 	select HW_HAS_PCI
 	select SYS_SUPPORTS_32BIT_KERNEL
@@ -145,11 +169,11 @@ config MIPS_BCM7400BX_NAND
 	select MTD_BRCMNAND_VERIFY_WRITE
 	select MTD_BLOCK_ROMBLOCK
 
-config MIPS_BCM97456BX_NAND
-	bool "Support for BCM97456B0 board with NOR flash"
+config MIPS_BCM97456DX_NAND
+	bool "Support for BCM97456D0 board with NOR flash"
 	select MIPS_BRCM97XXX
-	select MIPS_BCM97456B0
-	select MIPS_BCM7400B0
+	select MIPS_BCM97456D0
+	select MIPS_BCM7400D0
 	select MIPS_BCM7400
 	select HW_HAS_PCI
 	select SYS_SUPPORTS_32BIT_KERNEL
@@ -1300,7 +1324,8 @@ config MIPS_BRCM97XXX
 	select MIPS_BRCM
 	# Only swap on 32 bit.
 	# select SWAP_IO_SPACE_L
-	select BRCM_7XXX_SERIAL if ! (MIPS_BCM7400 || MIPS_BCM7440 || MIPS_BCM7118 || MIPS_BCM7405 || MIPS_BCM7325)
+	select BRCM_7XXX_SERIAL if ! (MIPS_BCM7400 || MIPS_BCM7440 || \
+		MIPS_BCM7118 || MIPS_BCM7405 || MIPS_BCM7325 || MIPS_BCM7335)
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
@@ -1379,19 +1404,19 @@ config MIPS_BCM7400A0
 	bool
  	depends MIPS_BCM7400AX || MIPS_BCM97456
 
-config MIPS_BCM7400B0
+config MIPS_BCM7400D0
 	bool
- 	depends MIPS_BCM7400BX || MIPS_BCM97456B0
+ 	depends MIPS_BCM7400DX || MIPS_BCM97456D0
 
 
-config MIPS_BCM97456B0
+config MIPS_BCM97456D0
 	bool
- 	depends MIPS_BCM97456BX || MIPS_BCM97456BX_NAND
+ 	depends MIPS_BCM97456DX || MIPS_BCM97456DX_NAND
 	select MTD_ECM_PARTITION
 
 config MIPS_BCM7400
 	bool
- 	depends MIPS_BCM7400A0 || MIPS_BCM7400B0
+ 	depends MIPS_BCM7400A0 || MIPS_BCM7400D0
 
 config MIPS_BCM7118
 	bool
@@ -1401,13 +1426,25 @@ config MIPS_BCM7118A0
 	depends MIPS_BCM7118AX || MIPS_BCM7118AX_NAND
 	select MTD_ECM_PARTITION
 
+config MIPS_BCM7405B0
+        bool
+        depends MIPS_BCM7405BX
+
 config MIPS_BCM7405A0
         bool
         depends MIPS_BCM7405AX
 
 config MIPS_BCM7405
         bool
-        depends MIPS_BCM7405A0
+        depends MIPS_BCM7405A0 || MIPS_BCM7405B0
+
+config MIPS_BCM7335A0
+	bool
+	depends MIPS_BCM7335AX
+
+config MIPS_BCM7335
+	bool
+	depends MIPS_BCM7335A0
 
 config MIPS_BCM7325A0
        bool
@@ -1443,7 +1480,7 @@ config BRCM_7XXX_SERIAL
 config MTD_ECM_PARTITION
 	bool "Special partition for BCM3255"
 	default n
-	depends MIPS_BCM97455C0 || MIPS_BCM97456A0 || MIPS_BCM97456B0 || MIPS_BCM97458A0 || MIPS_BCM7118A0
+	depends MIPS_BCM97455C0 || MIPS_BCM97456A0 || MIPS_BCM97456D0 || MIPS_BCM97458A0 || MIPS_BCM7118A0
 
 config SERIAL
 	bool
@@ -1577,7 +1614,7 @@ config MIPS_L1_CACHE_SHIFT
 	int
 	default "4" if MACH_DECSTATION
 	default "7" if SGI_IP27
-	default "6" if MIPS_BCM7400B0 || MIPS_BCM7405A0
+	default "6" if MIPS_BCM7400D0 || MIPS_BCM7405 || MIPS_BCM7335
 	default "5"
 
 config HAVE_STD_PC_SERIAL_PORT
@@ -1612,12 +1649,13 @@ config TOSHIBA_BOARDS
 
 config SYS_SUPPORTS_PM
 	bool
-	depends on MIPS_BCM7400B0 || MIPS_BCM7405
+	depends on MIPS_BCM7400D0 || MIPS_BCM7405 || MIPS_BCM7335
 	default y
 
 config SYS_SUPPORTS_CPUFREQ
 	bool
-	depends on MIPS_BCM7401C0 || MIPS_BCM7400B0 || MIPS_BCM7405
+	depends on MIPS_BCM7401C0 || MIPS_BCM7400D0 || MIPS_BCM7405 || \
+		MIPS_BCM7335
 	default y
 
 if SYS_SUPPORTS_PM || SYS_SUPPORTS_CPUFREQ
@@ -1656,12 +1694,6 @@ config BRCM_PM
 endmenu
 
 endif
-
-# force USB, ENET, SATA to be built as modules if power management is used
-config BRCM_PM_FORCE_MODULE
-	tristate
-	default m if BRCM_PM
-	default y
 
 
 menu "CPU selection"
@@ -2257,7 +2289,7 @@ config ARCH_FLATMEM_ENABLE
 
 config ARCH_DISCONTIGMEM_ENABLE
 	bool
-	default y if SGI_IP27 || MIPS_BCM7405
+	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0
 	help
 	  Say Y to upport efficient handling of discontiguous physical memory,
 	  for architectures which are either NUMA (Non-Uniform Memory Access)

@@ -104,7 +104,7 @@ extern char *strncat (char *__restrict __dest, __const char *__restrict __src,
  */
 
 #define __strcmp_asm__(s0, s1) ({		    \
-	register char *str0 = s0, *str1 = s1;	    \
+	register __const char *str0 = s0, *str1 = s1; \
 	register int ret;			    \
 	register unsigned long mask0, mask1,	    \
 		          tmp0, tmp1;		    \
@@ -236,7 +236,10 @@ extern char *strncat (char *__restrict __dest, __const char *__restrict __src,
 	! defined(_LIBC) && \
 	((__OPTIMIZE_LEVEL__ >= 3) || defined(_FORCE_INLINE_STRCMP_))
 
-#define strcmp(s0, s1) __strcmp_asm__(s0, s1)
+static __always_inline int strcmp (__const char *__s1, __const char *__s2)
+{
+	return(__strcmp_asm__(__s1, __s2));
+}
 
 #else
 

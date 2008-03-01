@@ -1,54 +1,40 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.18-3.0
-# Fri Sep 14 15:24:53 2007
+# Linux kernel version: 2.6.18-4.1
+# Mon Dec  3 21:20:20 2007
 #
 CONFIG_MIPS=y
 
 #
 # Machine selection
 #
-# CONFIG_MIPS_BCM3560A0 is not set
-# CONFIG_MIPS_BCM3560B0 is not set
 # CONFIG_MIPS_BCM3563 is not set
 CONFIG_MIPS_BCM3563CX=y
 # CONFIG_MIPS_BCM7038CX is not set
-# CONFIG_MIPS_BCM7110 is not set
-# CONFIG_MIPS_BCM7112 is not set
-# CONFIG_MIPS_BCM7115 is not set
 # CONFIG_MIPS_BCM7118AX is not set
 # CONFIG_MIPS_BCM7118AX_NAND is not set
 # CONFIG_MIPS_BCM7312 is not set
-# CONFIG_MIPS_BCM7328 is not set
 # CONFIG_MIPS_BCM7329 is not set
-# CONFIG_MIPS_BCM97456 is not set
-# CONFIG_MIPS_BCM7400AX is not set
 # CONFIG_MIPS_BCM7405AX is not set
-# CONFIG_MIPS_BCM7325AX is not set
-# CONFIG_MIPS_BCM97456BX is not set
-# CONFIG_MIPS_BCM7400BX is not set
-# CONFIG_MIPS_BCM7400BX_NAND is not set
-# CONFIG_MIPS_BCM97456BX_NAND is not set
-# CONFIG_MIPS_BCM97455 is not set
+# CONFIG_MIPS_BCM7405BX is not set
+# CONFIG_MIPS_BCM7335AX is not set
+# CONFIG_MIPS_BCM97456DX is not set
+# CONFIG_MIPS_BCM7400DX is not set
+# CONFIG_MIPS_BCM7400DX_NAND is not set
+# CONFIG_MIPS_BCM97456DX_NAND is not set
 # CONFIG_MIPS_BCM97455CX is not set
 # CONFIG_MIPS_BCM97455CX_NAND is not set
-# CONFIG_MIPS_BCM7401AX is not set
-# CONFIG_MIPS_BCM7401BX is not set
-# CONFIG_MIPS_BCM97455B0 is not set
 # CONFIG_MIPS_BCM7401CX is not set
 # CONFIG_MIPS_BCM7401CX_NAND is not set
 # CONFIG_MIPS_BCM97401CX_SW is not set
 # CONFIG_MIPS_BCM97458AX is not set
 # CONFIG_MIPS_BCM97458AX_NAND is not set
-# CONFIG_MIPS_BCM7402S is not set
-# CONFIG_MIPS_BCM7402B0S is not set
-# CONFIG_MIPS_BCM7402A0 is not set
 # CONFIG_MIPS_BCM7402CX is not set
 # CONFIG_MIPS_BCM7402CX_NAND is not set
 # CONFIG_MIPS_BCM7454 is not set
 # CONFIG_MIPS_BCM7403AX is not set
 # CONFIG_MIPS_BCM7403AX_NAND is not set
-# CONFIG_MIPS_BCM7440AX is not set
+# CONFIG_MIPS_BCM7325AX is not set
 # CONFIG_MIPS_MTX1 is not set
 # CONFIG_MIPS_BOSPORUS is not set
 # CONFIG_MIPS_PB1000 is not set
@@ -119,13 +105,12 @@ CONFIG_SYS_SUPPORTS_BIG_ENDIAN=y
 CONFIG_SYS_SUPPORTS_LITTLE_ENDIAN=y
 CONFIG_IRQ_CPU=y
 CONFIG_MIPS_BRCM97XXX=y
-CONFIG_MIPS_BCM3563C0=y
 CONFIG_MIPS_BCM3560=y
+CONFIG_MIPS_BCM3563C0=y
 CONFIG_MIPS_BRCM=y
 CONFIG_BRCM_7XXX_SERIAL=y
 CONFIG_SERIAL=y
 CONFIG_MIPS_L1_CACHE_SHIFT=5
-CONFIG_BRCM_PM_FORCE_MODULE=y
 
 #
 # CPU selection
@@ -284,12 +269,10 @@ CONFIG_MMU=y
 #
 # PCCARD (PCMCIA/CardBus) support
 #
-# CONFIG_PCCARD is not set
 
 #
 # PCI Hotplug Support
 #
-# CONFIG_HOTPLUG_PCI is not set
 
 #
 # Executable file formats
@@ -392,7 +375,6 @@ CONFIG_TCP_CONG_BIC=y
 #
 CONFIG_STANDALONE=y
 CONFIG_PREVENT_FIRMWARE_BUILD=y
-# CONFIG_FW_LOADER is not set
 # CONFIG_SYS_HYPERVISOR is not set
 
 #
@@ -457,7 +439,6 @@ CONFIG_MTD_CFI_UTIL=y
 # CONFIG_MTD_COMPLEX_MAPPINGS is not set
 # CONFIG_MTD_PHYSMAP is not set
 CONFIG_MTD_BCM7XXX=y
-# CONFIG_MTD_PCI is not set
 # CONFIG_MTD_PLATRAM is not set
 
 #
@@ -581,7 +562,6 @@ CONFIG_CHR_DEV_SG=m
 # CONFIG_SCSI_INIA100 is not set
 # CONFIG_SCSI_STEX is not set
 # CONFIG_SCSI_SYM53C8XX_2 is not set
-# CONFIG_SCSI_IPR is not set
 # CONFIG_SCSI_QLOGIC_1280 is not set
 # CONFIG_SCSI_QLA_FC is not set
 # CONFIG_SCSI_QLA_ISCSI is not set
@@ -595,55 +575,6 @@ CONFIG_CHR_DEV_SG=m
 # Serial ATA (prod) and Parallel ATA (experimental) drivers
 #
 # CONFIG_ATA is not set
-# CONFIG_SATA_FORCE_SPINUP is not set
-# CONFIG_SATA_AHCI is not set
-# CONFIG_SATA_SVW is not set
-# CONFIG_ATA_PIIX is not set
-# CONFIG_SATA_MV is not set
-# CONFIG_SATA_NV is not set
-# CONFIG_PDC_ADMA is not set
-# CONFIG_SATA_QSTOR is not set
-# CONFIG_SATA_PROMISE is not set
-# CONFIG_SATA_SX4 is not set
-# CONFIG_SATA_SIL is not set
-# CONFIG_SATA_SIL24 is not set
-# CONFIG_SATA_SIS is not set
-# CONFIG_SATA_ULI is not set
-# CONFIG_SATA_VIA is not set
-# CONFIG_SATA_VITESSE is not set
-# CONFIG_PATA_ALI is not set
-# CONFIG_PATA_AMD is not set
-# CONFIG_PATA_ARTOP is not set
-# CONFIG_PATA_ATIIXP is not set
-# CONFIG_PATA_CMD64X is not set
-# CONFIG_PATA_CS5520 is not set
-# CONFIG_PATA_CS5530 is not set
-# CONFIG_PATA_CYPRESS is not set
-# CONFIG_PATA_EFAR is not set
-# CONFIG_ATA_GENERIC is not set
-# CONFIG_PATA_HPT366 is not set
-# CONFIG_PATA_HPT37X is not set
-# CONFIG_PATA_HPT3X2N is not set
-# CONFIG_PATA_HPT3X3 is not set
-# CONFIG_PATA_IT821X is not set
-# CONFIG_PATA_JMICRON is not set
-# CONFIG_PATA_TRIFLEX is not set
-# CONFIG_PATA_MPIIX is not set
-# CONFIG_PATA_OLDPIIX is not set
-# CONFIG_PATA_NETCELL is not set
-# CONFIG_PATA_NS87410 is not set
-# CONFIG_PATA_OPTI is not set
-# CONFIG_PATA_OPTIDMA is not set
-# CONFIG_PATA_PDC_OLD is not set
-# CONFIG_PATA_RADISYS is not set
-# CONFIG_PATA_RZ1000 is not set
-# CONFIG_PATA_SC1200 is not set
-# CONFIG_PATA_SERVERWORKS is not set
-# CONFIG_PATA_PDC2027X is not set
-# CONFIG_PATA_SIL680 is not set
-# CONFIG_PATA_SIS is not set
-# CONFIG_PATA_VIA is not set
-# CONFIG_PATA_WINBOND is not set
 
 #
 # Multi-device support (RAID and LVM)
@@ -693,8 +624,6 @@ CONFIG_NETIF_DMA=y
 #
 CONFIG_NET_ETHERNET=y
 CONFIG_MII=y
-# CONFIG_BCMINTEMAC_7038 is not set
-# CONFIG_BCMINTEMAC_7038_STREAMING is not set
 # CONFIG_HAPPYMEAL is not set
 # CONFIG_SUNGEM is not set
 # CONFIG_CASSINI is not set
@@ -789,16 +718,10 @@ CONFIG_SERIAL_CONSOLE=y
 # Serial drivers
 #
 # CONFIG_SERIAL_8250 is not set
-# CONFIG_SERIAL_8250_CONSOLE is not set
-# CONFIG_SERIAL_8250_PCI is not set
-# CONFIG_SERIAL_8250_NR_UARTS is not set
-# CONFIG_SERIAL_8250_RUNTIME_UARTS is not set
-# CONFIG_SERIAL_8250_EXTENDED is not set
 
 #
 # Non-8250 serial port support
 #
-CONFIG_SERIAL_CORE=y
 CONFIG_SERIAL_CORE_CONSOLE=y
 # CONFIG_SERIAL_JSM is not set
 CONFIG_UNIX98_PTYS=y

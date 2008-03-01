@@ -661,6 +661,7 @@ static inline int simulate_rdhwr(struct pt_regs *regs)
 
 			EMU_MFC0(16, 0);
 			EMU_MFC0(16, 1);
+			EMU_MFC0(16, 7);
 
 			EMU_MFC0(22, 0);
 			EMU_MFC0(22, 1);
@@ -1502,6 +1503,13 @@ void __init per_cpu_trap_init(void)
 		tlb_init();
 #endif
 #ifdef CONFIG_MIPS_MT_SMTC
+	} else if (!secondaryTC) {
+		/*
+		 * First TC in non-boot VPE must do subset of tlb_init()
+		 * for MMU countrol registers.
+		 */
+		write_c0_pagemask(PM_DEFAULT_MASK);
+		write_c0_wired(0);
 	}
 #endif /* CONFIG_MIPS_MT_SMTC */
 }

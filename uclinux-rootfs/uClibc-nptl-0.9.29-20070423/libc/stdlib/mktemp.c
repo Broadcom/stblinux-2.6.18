@@ -32,4 +32,5 @@ char *mktemp(char *template)
 	return template;
 }
 
-link_warning(mktemp, "the use of `mktemp' is dangerous, better use `mkstemp'")
+// PR39390
+// link_warning(mktemp, "the use of `mktemp' is dangerous, better use `mkstemp'")

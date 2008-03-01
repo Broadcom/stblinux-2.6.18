@@ -48,7 +48,7 @@ when	who what
 
 #include "brcmnand_priv.h"
 
-#ifdef CONFIG_MIPS_BCM7400B0
+#ifdef CONFIG_MIPS_BCM7400D0
 #ifndef BCHP_SUN_TOP_CTRL_STRAP_VALUE
 #define BCHP_SUN_TOP_CTRL_STRAP_VALUE BCHP_SUN_TOP_CTRL_STRAP_VALUE_0
 #define BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_MASK \
@@ -2566,7 +2566,7 @@ out:
 }
 
 /**
- * nand_block_bad - [DEFAULT] Read bad block marker from the chip
+ * brcmnand_block_bad - [DEFAULT] Read bad block marker from the chip
  * @mtd:	MTD device structure
  * @ofs:	offset from device start
  * @getchip:	0, if the chip is already selected
@@ -3446,6 +3446,65 @@ brcmnand_validate_cs(struct mtd_info *mtd )
 	return 0;
 }
 
+static void brcmnand_prepare_reboot_priv(struct mtd_info *mtd)
+{
+#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
+	/* 
+	 * Must set NAND back to Direct Access mode for reboot, but only if NAND is on CS0
+	 */
+
+	struct brcmnand_chip* this;
+
+	if (mtd) {
+		this = (struct brcmnand_chip*) mtd->priv;
+		brcmnand_get_device(mtd, BRCMNAND_FL_XIP);
+	}
+	else {
+		/*
+		 * Prevent further access to the NAND flash, we are rebooting 
+		 */
+		this = brcmnand_get_device_exclusive();
+	}
+
+	if (this->CS[0] == 0) { // Only if on CS0
+		volatile unsigned long nand_select;
+
+		
+
+		nand_select = brcmnand_ctrl_read(BCHP_NAND_CS_NAND_SELECT);
+		//printk("%s: B4 nand_select = %08x\n", __FUNCTION__, (uint32_t) nand_select);
+		
+		// THT: Set Direct Access bit 
+		nand_select |= BCHP_NAND_CS_NAND_SELECT_EBI_CS_0_SEL_MASK;
+		brcmnand_ctrl_write(BCHP_NAND_CS_NAND_SELECT, nand_select);
+
+		//nand_select = brcmnand_ctrl_read(BCHP_NAND_CS_NAND_SELECT);
+		//printk("%s: After nand_select = %08x\n", __FUNCTION__, (uint32_t)  nand_select);
+	}
+	
+#endif
+
+	return;
+}
+
+// In case someone reboot w/o going thru the MTD notifier mechanism.
+void brcmnand_prepare_reboot(void)
+{
+	brcmnand_prepare_reboot_priv(NULL);
+}
+EXPORT_SYMBOL(brcmnand_prepare_reboot);
+
+
+
+static int brcmnand_reboot_cb(struct notifier_block *nb, unsigned long val, void *v)
+{
+	struct mtd_info *mtd;
+
+	mtd = container_of(nb, struct mtd_info, reboot_notifier);
+	brcmnand_prepare_reboot_priv(mtd);
+	return NOTIFY_DONE;
+}
+
 /**
  * brcmnand_scan - [BrcmNAND Interface] Scan for the BrcmNAND device
  * @param mtd		MTD device structure
@@ -3831,6 +3890,11 @@ udelay(2000000);
 	/* propagate ecc.layout to mtd_info */
 	mtd->ecclayout = chip->ecclayout;
 
+	mtd->reboot_notifier.notifier_call = brcmnand_reboot_cb;
+	register_reboot_notifier(&mtd->reboot_notifier);
+	
+	mtd->owner = THIS_MODULE;
+
 	/* Unlock whole block */
 PRINTK("Calling mtd->unlock(ofs=0, MTD Size=%08x\n", mtd->size);
 	if (mtd->unlock)
@@ -3844,46 +3908,6 @@ PRINTK("%s 99\n", __FUNCTION__);
 
 }
 
-void brcmnand_prepare_reboot(void)
-{
-#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
-	/* 
-	 * Must set NAND back to Direct Access mode for reboot, but only if NAND is on CS0
-	 */
-
-
-	struct brcmnand_chip* chip;
-	
-	/*
-	 * Prevent further access to the NAND flash, we are rebooting 
-	 */
-	chip = brcmnand_get_device_exclusive();
-
-	if (!chip) { /* MTD not initialized, bad NAND chip etc... */
-		return;
-	}
-
-	if (chip->CS[0] == 0) { // Only if on CS0
-		volatile unsigned long nand_select;
-
-		
-
-		nand_select = brcmnand_ctrl_read(BCHP_NAND_CS_NAND_SELECT);
-		//printk("%s: B4 nand_select = %08x\n", __FUNCTION__, (uint32_t) nand_select);
-		
-		// THT: Set Direct Access bit 
-		nand_select |= BCHP_NAND_CS_NAND_SELECT_EBI_CS_0_SEL_MASK;
-		brcmnand_ctrl_write(BCHP_NAND_CS_NAND_SELECT, nand_select);
-
-		//nand_select = brcmnand_ctrl_read(BCHP_NAND_CS_NAND_SELECT);
-		//printk("%s: After nand_select = %08x\n", __FUNCTION__, (uint32_t)  nand_select);
-	}
-	
-#endif
-
-	return;
-}
-EXPORT_SYMBOL(brcmnand_prepare_reboot);
 
 
 #if defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7118A0 )  || defined( CONFIG_MIPS_BCM7403A0 ) 
@@ -4117,6 +4141,12 @@ void brcmnand_release(struct mtd_info *mtd)
 	/* Deregister partitions */
 	del_mtd_partitions (mtd);
 #endif
+
+	/* Unregister reboot notifier */
+	brcmnand_prepare_reboot_priv(mtd);
+	unregister_reboot_notifier(&mtd->reboot_notifier);
+	mtd->reboot_notifier.notifier_call = NULL;
+	
 	/* Deregister the device */
 	del_mtd_device (mtd);
 

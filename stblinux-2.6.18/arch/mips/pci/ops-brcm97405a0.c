@@ -46,11 +46,7 @@
 #include <asm/io.h>
 #include <asm/debug.h>
 
-#include <asm/brcmstb/brcm97405a0/boardmap.h>
-#include <asm/brcmstb/brcm97405a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97405a0/bcmintrnum.h>
-#include <asm/brcmstb/brcm97405a0/bchp_pcix_bridge.h>
-
+#include <asm/brcmstb/common/brcmstb.h>
 
 
 /* Since the following is not defined in any of our header files. */

@@ -93,9 +93,9 @@
 	  io_type: SERIAL_IO_MEM /* 4 byte aligned */ \
 	}
 
-/* 3 or more 16550 UART on 7400 and 7118 and 7405*/
+/* 3 or more 16550 UART on 7400 and 7118 and 7405 and above */
 #if defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7405) \
- || defined(CONFIG_MIPS_BCM7325)
+ || defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_MIPS_BCM7335)
 
 /* 3 16550A compatible UARTs */
 #define BRCM_UART_PORT_DEFNS				\

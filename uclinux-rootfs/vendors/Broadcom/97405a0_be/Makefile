@@ -76,7 +76,7 @@ ifdef CONFIG_SQUASHFS
 FSIMG += $(SQUASHFSIMG)
 endif
 ifdef CONFIG_OPROFILE
-BMIPS_DIR=mips/bcm4350
+BMIPS_DIR=mips/bcm4380
 TARGET_PREFIX=/usr/local/share/oprofile/
 BUILD_PREFIX=$(ROOTDIR)/romfs/$(TARGET_PREFIX)
 OPROFILE_DIR=$(ROOTDIR)/user/oprofile
@@ -253,7 +253,7 @@ $(JFFSIMG):
 # Use default 64KB block size for SquashFS. 
 $(CRAMFSIMG) $(SQUASHFSIMG): common_ro_fs
 	if [ $@ == $(CRAMFSIMG) ]; then \
-		$(ROOTDIR)/user/cramfs/build/mkcramfs -v -n "Cramfs" $(INITRAMFS_DIR) $(CRAMFSIMG); \
+		$(ROOTDIR)/user/cramfs/build/mkcramfs -v -b -n "Cramfs" $(INITRAMFS_DIR) $(CRAMFSIMG); \
 		chmod a+r $(CRAMFSIMG); \
 	else \
 		$(ROOTDIR)/user/squashfs-tools/build/mksquashfs $(INITRAMFS_DIR) $(SQUASHFSIMG) -b 65536 -le -all-root -noappend -info; \

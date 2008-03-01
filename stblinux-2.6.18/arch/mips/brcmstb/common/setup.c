@@ -61,9 +61,9 @@ extern struct kbd_ops brcm_kbd_ops;
 
 #include "asm/brcmstb/common/brcmstb.h"
 
-#ifdef CONFIG_MTD_BRCMNAND 
-#include <linux/mtd/brcmnand.h>
-#endif
+//#if     defined(CONFIG_MTD_BRCMNAND) || defined(CONFIG_MTD_BRCMNAND_MODULE)
+//#include <linux/mtd/brcmnand.h>
+//#endif
 
 extern void uart_puts(const char*);
 extern void brcm_numa_init(void);
@@ -80,28 +80,37 @@ static void brcm_machine_restart(char *command)
 	|| defined( CONFIG_MIPS_BCM3560 ) || defined( CONFIG_MIPS_BCM7038C0 ) \
 	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7402S ) \
 	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 )  \
-        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 ) \
-	|| defined( CONFIG_MIPS_BCM7405 )
+        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 )
 #define SUN_TOP_CTRL_RESET_CTRL		0xb0404008
 #define MASTER_RESET_ENABLE 		(1<<3)
   
-  #if defined( CONFIG_MIPS_BCM7401A0 ) || defined( CONFIG_MIPS_BCM3560 ) \
+  /* NOTE: CONFIG_MIPS_BCM3563C0 implies CONFIG_MIPS_BCM3560 */
+  #if defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401B0 ) \
+  	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7440 ) \
+	|| defined(CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7118A0 ) \
+	|| defined(CONFIG_MIPS_BCM7403A0) || defined( CONFIG_MIPS_BCM7452A0 ) \
+	|| defined( CONFIG_MIPS_BCM3563 ) || defined(CONFIG_MIPS_BCM3563C0)
+  #define SUN_TOP_CTRL_SW_RESET		0xb0404014
+
+  #elif defined( CONFIG_MIPS_BCM7401A0 ) || defined( CONFIG_MIPS_BCM3560 ) \
  	|| defined( CONFIG_MIPS_BCM7038C0 ) || defined( CONFIG_MIPS_BCM7402S )
   #define SUN_TOP_CTRL_SW_RESET		0xb0404010
   
-  #elif defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401B0 ) \
-  	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7440 ) \
-	|| defined(CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7118A0 ) \
-        || defined(CONFIG_MIPS_BCM7403A0) || defined( CONFIG_MIPS_BCM7452A0 ) \
-	|| defined(CONFIG_MIPS_BCM7405A0)
-  #define SUN_TOP_CTRL_SW_RESET		0xb0404014
   #endif
 #define CHIP_MASTER_RESET 			(1<<31)
 
-// jipeng - fixup for 3563
-#if defined( CONFIG_MIPS_BCM3563 ) || defined(CONFIG_MIPS_BCM3563C0)
-#define SUN_TOP_CTRL_SW_RESET		0xb0404014
+
+#elif defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7335 ) \
+	|| defined( CONFIG_MIPS_BCM7325 )
+
+#define SUN_TOP_CTRL_SW_RESET		(BCHP_SUN_TOP_CTRL_SW_RESET | 0xb0000000)
+#define SUN_TOP_CTRL_RESET_CTRL		(BCHP_SUN_TOP_CTRL_RESET_CTRL | 0xb0000000)
+#define CHIP_MASTER_RESET		(1 << BCHP_SUN_TOP_CTRL_SW_RESET_chip_master_reset_SHIFT)
+#define MASTER_RESET_ENABLE		(1 << BCHP_SUN_TOP_CTRL_RESET_CTRL_master_reset_en_SHIFT)
+
 #endif
+
+#ifdef SUN_TOP_CTRL_SW_RESET
 
 	volatile unsigned long* ulp;
 
@@ -111,13 +120,14 @@ static void brcm_machine_restart(char *command)
 	udelay(10);
 #endif
 
-#ifdef CONFIG_MTD_BRCMNAND 
+#if 0 //def CONFIG_MTD_BRCMNAND 
+	// PR38914: 01-23-08 for 2.6.12-5.3 & 2.6.18-4.1: This is now called via the FS /MTD notifier.
   	/*
   	 * THT: For version 1.0+ of the NAND controller, must revert to Direct Access in order to
   	 * do XIP from the flash
   	 */
   	brcmnand_prepare_reboot();
- #endif
+#endif
 
 	ulp = (volatile unsigned long*) SUN_TOP_CTRL_RESET_CTRL;
 	*ulp |= MASTER_RESET_ENABLE;
@@ -166,17 +176,56 @@ static __init void brcm_time_init(void)
 
 }
 
+#ifdef	CONFIG_MIPS_MT_SMTC
+irqreturn_t smtc_timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+{
+	int cpu = smp_processor_id();
+	int vpflags;
+
+	if (read_c0_cause() & (1 << 30)) {
+		/* If timer interrupt, make it de-assert */
+		write_c0_compare (read_c0_count() - 1);
+
+		/*
+		 * There are things we only want to do once per tick
+		 * in an "MP" system.   One TC of each VPE will take
+		 * the actual timer interrupt.  The others will get
+		 * timer broadcast IPIs. We use whoever it is that takes
+		 * the tick on VPE 0 to run the full timer_interrupt().
+		 */
+		if (cpu_data[cpu].vpe_id == 0) {
+				timer_interrupt(irq, NULL, regs);
+				smtc_timer_broadcast(cpu_data[cpu].vpe_id);
+
+		} else {
+			write_c0_compare(read_c0_count() + (mips_hpt_frequency/HZ));
+			local_timer_interrupt(irq, dev_id, regs);
+			smtc_timer_broadcast(cpu_data[cpu].vpe_id);
+		}
+	}
+
+	return IRQ_HANDLED;
+}
+#endif
+
+
 void __init  plat_timer_setup(struct irqaction *irq)
 {
-	unsigned int count;
-
 	/* Connect the timer interrupt */
 	irq->dev_id = (void *) irq;
 	setup_irq(BCM_LINUX_SYSTIMER_IRQ, irq);
 
+	printk("plat_timer_setup: status %08x cause %08x\n",
+		read_c0_status(), read_c0_cause());
+
+#ifdef	CONFIG_MIPS_MT_SMTC 
+	irq->handler = smtc_timer_interrupt;
+	irq_desc[BCM_LINUX_SYSTIMER_IRQ].status &= ~IRQ_DISABLED;
+	irq_desc[BCM_LINUX_SYSTIMER_IRQ].status |= IRQ_PER_CPU;
+#endif
+
 	/* Generate first timer interrupt */
-	count = read_c0_count();
-	write_c0_count(count + 1000);
+	write_c0_compare(read_c0_count() + (mips_hpt_frequency/HZ));
 }
 
 void __init plat_mem_setup(void)
@@ -191,7 +240,8 @@ void __init plat_mem_setup(void)
 	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM3560 ) \
 	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
 	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 ) \
-        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7405 )
+        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7405 ) \
+	|| defined( CONFIG_MIPS_BCM7335 ) || defined( CONFIG_MIPS_BCM7325 )
 	
 	set_io_port_base(0xf0000000);  /* start of PCI IO space. */
 #elif defined( CONFIG_MIPS_BCM7329 )

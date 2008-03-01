@@ -20,13 +20,13 @@ smbtorture4_path=
 LIBS=-lcrypt -lresolv -ldl
 CC=mipsel-linux-gcc
 SHLD=shared-libraries-disabled
-CFLAGS= -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -fno-builtin -D_SAMBA_BUILD_=3
+CFLAGS= -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -fno-builtin -D_SAMBA_BUILD_=3
 CPPFLAGS=-DHAVE_CONFIG_H 
 EXEEXT=
 AR=mipsel-linux-ar
-LDSHFLAGS=shared-libraries-disabled -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
-WINBIND_NSS_LDSHFLAGS=shared-libraries-disabled -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
-LDFLAGS= -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
+LDSHFLAGS=shared-libraries-disabled -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
+WINBIND_NSS_LDSHFLAGS=shared-libraries-disabled -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
+LDFLAGS= -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
 AWK=gawk
 PICFLAG=
 DYNEXP=-Wl,--export-dynamic
@@ -52,8 +52,8 @@ UNINSTALLLIBCMD_SH=:
 UNINSTALLLIBCMD_A=:
 
 
-srcdir=/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/samba-3.0.25b/source
-builddir=/myviews/2618-4.0.4/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/samba-3.0.25b/source
+srcdir=/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/samba-3.0.25b/source
+builddir=/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/samba-3.0.25b/source
 SHELL=/bin/sh
 DESTDIR=/
 

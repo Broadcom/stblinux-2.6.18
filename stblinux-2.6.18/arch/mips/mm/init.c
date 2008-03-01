@@ -424,7 +424,8 @@ void __init paging_init(void)
 
 #ifdef CONFIG_FLATMEM
 	free_area_init(zones_size);
-#elif CONFIG_MIPS_BCM7405
+#elif defined(CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335) \
+	|| defined(CONFIG_MIPS_BCM7400D0)
 	if(g_board_RAM_size <= LOWER_RAM_SIZE) {
 		zones_size[ZONE_DMA] = PFN_DOWN(g_board_RAM_size);
 		zones_size[ZONE_NORMAL] = 0;

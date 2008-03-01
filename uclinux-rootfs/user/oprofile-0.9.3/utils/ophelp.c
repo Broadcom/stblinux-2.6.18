@@ -526,6 +526,10 @@ int main(int argc, char const * argv[])
 		printf("See BMIPS330 Architecture Specification\n"
 			"page 47-50. Available from Broadcom Corp.\n");
 		break;
+	case CPU_MIPS_BCM4380:
+                printf("See Brief Specification of BMIPS4380\n"
+                        "page 82. Available from Broadcom Corp.\n");
+                break;
 
 	case CPU_RTC:
 		break;

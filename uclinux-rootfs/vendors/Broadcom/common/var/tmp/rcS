@@ -7,16 +7,9 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin:.
 echo "Mount /proc fs"
 mount -t proc none /proc
 
-# USB/SATA/ENET are loadable modules when power management is enabled
-if [ -e /proc/driver/brcm-pm ]; then
-	modprobe ehci-hcd &
-	modprobe sata_svw &
-	modprobe bcmemacnet &
-	modprobe ohci-hcd &
-fi
-
 echo "Mount /sys fs"
 mount -t sysfs none /sys
+
 # Mount RW tmpfs, rely on /proc being mounted
 echo "Restore RW directories"
 /bin/bash /etc/mountvar.sh

@@ -32,7 +32,18 @@ obj-y	 += prom.o setup.o cfe_call.o cfe_entry.o \
 
 
 obj-$(CONFIG_KGDB)	+= dbg_io.o
-obj-$(CONFIG_SMP)	+= bmips-smp.o timerx.o
+
+ifdef	CONFIG_MIPS_MT_SMTC
+obj-$(CONFIG_MIPS_MT_SMTC) += bmips-mt.o
+else
+obj-$(CONFIG_SMP)	+= bmips-smp.o 
+endif
+
+obj-$(CONFIG_SMP)	+= timerx.o
 obj-$(CONFIG_DISCONTIGMEM) += discontig.o
 obj-$(CONFIG_BRCM_PM)	+= brcm-pm.o
 obj-$(CONFIG_CPU_FREQ_BRCM) += cpufreq.o
+
+# new platform-agnostic IRQ and RAC support
+obj-$(CONFIG_MIPS_BCM7405B0) += irq.o rac.o
+obj-$(CONFIG_MIPS_BCM7335) += irq.o rac.o

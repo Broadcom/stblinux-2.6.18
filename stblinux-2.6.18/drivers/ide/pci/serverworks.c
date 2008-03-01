@@ -909,7 +909,7 @@ static int __devinit init_setup_csb6 (struct pci_dev *dev, ide_pci_device_t *d)
 #if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 ) \
  || defined( CONFIG_MIPS_BCM7401 ) 	|| defined( CONFIG_MIPS_BCM7440 ) \
  || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 ) \
- || defined( CONFIG_MIPS_BCM7405 )
+ || defined( CONFIG_MIPS_BCM7405 )	|| defined( CONFIG_MIPS_BCM7335 )
 
 #define CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE   0x10520000
 #define SATA_IO_BASE KSEG1ADDR(CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE)
@@ -1055,17 +1055,17 @@ static ide_pci_device_t serverworks_chipsets[] __devinitdata = {
 #if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 ) \
  || defined( CONFIG_MIPS_BCM7401 ) 	|| defined( CONFIG_MIPS_BCM7440 ) \
  || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 ) \
- || defined( CONFIG_MIPS_BCM7405 )
+ || defined( CONFIG_MIPS_BCM7405 )	|| defined( CONFIG_MIPS_BCM7335 )
 	{ /* 4 */
 		//.vendor		= PCI_VENDOR_ID_SERVERWORKS,
 		//.device		= PCI_DEVICE_ID_SERVERWORKS_BCM7038,
 		.name		= "Broadcom BCM7038 SATA IDE",
 		.init_setup	= init_setup_svwks,
 		.init_chipset	= init_chipset_svwks,
-#if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 )  \
+#if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 ) \
  || defined( CONFIG_MIPS_BCM7401 ) 	|| defined( CONFIG_MIPS_BCM7440 ) \
- || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 )\
- || defined( CONFIG_MIPS_BCM7405 )
+ || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 ) \
+ || defined( CONFIG_MIPS_BCM7405 )	|| defined( CONFIG_MIPS_BCM7335 )
 		.init_iops	= bcm7038c0_hwif_iops,
 #else
 		.init_iops	= NULL,
@@ -1073,7 +1073,8 @@ static ide_pci_device_t serverworks_chipsets[] __devinitdata = {
 		.init_hwif	= init_hwif_svwks,
 		.init_dma	= init_dma_bcm7038,
 #if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) \
-	|| defined( CONFIG_MIPS_BCM7440 ) || defined( CONFIG_MIPS_BCM7405 )
+	|| defined( CONFIG_MIPS_BCM7440 ) || defined( CONFIG_MIPS_BCM7405 ) \
+	|| defined( CONFIG_MIPS_BCM7335 )
 		.channels	= 2,	/* 2, but 2nd channel is only enabled on 7038B1 or later chips */
 #else /* 7401 */
 		.channels	= 1,

@@ -36,7 +36,7 @@
 unsigned int par_val = 0x00;	/* for RAC Mode setting, 0x00-Disabled, 0xD4-I&D Enabled, 0x94-I Only */
 unsigned int par_val2 = 0x00;	/* for RAC Cacheable Space setting */
 
-/* Enable SATA2 3Gbps, only works on 65nm chips (7400b0, 7405) no-op otherwise */
+/* Enable SATA2 3Gbps, only works on 65nm chips (7400d0, 7405, 7335) no-op otherwise */
 int gSata2_3Gbps = 0;
 EXPORT_SYMBOL(gSata2_3Gbps);
 
@@ -350,6 +350,9 @@ void __init prom_init(void)
 #ifdef CONFIG_MIPS_BCM7405
 		mips_machtype  = MACH_BRCM_7405;
 #endif
+#ifdef CONFIG_MIPS_BCM7335
+		mips_machtype  = MACH_BRCM_7335;
+#endif
 #ifdef CONFIG_MIPS_BCM7118
 		mips_machtype  = MACH_BRCM_7118;		
 #endif
@@ -464,7 +467,8 @@ void __init prom_init(void)
 		}
 	  }
 	  else {
-#if defined(CONFIG_MIPS_BCM7400B0) || defined(CONFIG_MIPS_BCM7405A0)
+#if defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM7405) \
+	|| defined(CONFIG_MIPS_BCM7335)
 		par_val = 0xff;		/* default: keep CFE setting */
 #else
 		par_val = 0x03;		/* set default to I/D RAC on */

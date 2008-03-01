@@ -49,7 +49,8 @@
 
 #if defined(CONFIG_MIPS_BCM7401C0)
 #define MAX_FREQ 300000
-#elif defined(CONFIG_MIPS_BCM7400B0) || defined(CONFIG_MIPS_BCM7405)
+#elif defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM7405) \
+	|| defined(CONFIG_MIPS_BCM7335)
 #define MAX_FREQ 400000
 #else
 #error cpufreq is not supported on this platform.
@@ -64,6 +65,93 @@ static struct cpufreq_frequency_table clock_tbl[] = {
 };
 
 static int current_freq = MAX_FREQ;
+
+static void brcm_set_divisor (uint32_t new_div)
+{
+	uint32_t tmp0, tmp1, tmp2, tmp3;
+
+	/* see BMIPS datasheet, CP0 register $22 */
+#if defined(CONFIG_MIPS_BCM7401C0)
+	write_c0_diag4((read_c0_diag4() & ~0x01c00000) |
+		(new_div << 23) | (0 << 22));
+#elif defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM7405) \
+	|| defined(CONFIG_MIPS_BCM7335)
+	__asm__ __volatile__(
+	"	.set	push			\n"
+	"	.set	noreorder		\n"
+	"	.set	nomacro			\n"
+	"	.set	mips32			\n"
+	/* get kseg1 address for CBA into %3 */
+	"	mfc0	%3, $22, 6		\n"
+	"	li	%2, 0xfffc0000		\n"
+	"	and	%3, %2			\n"
+	"	li	%2, 0xa0000000		\n"
+	"	add	%3, %2			\n"
+	/* %1 = async bit, %2 = mask out everything but 30:28 */
+	"	lui	%1, 0x1000		\n"
+	"	lui	%2, 0x8fff		\n"
+	"	beqz	%0, 1f			\n"
+	"	ori	%2, 0xffff		\n"
+	/* handle SYNC to ASYNC */
+	"	sync				\n"
+	"	mfc0	%4, $22, 5		\n"
+	"	and	%4, %2			\n"
+	"	or	%4, %1			\n"
+	"	mtc0	%4, $22, 5		\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	lw	%2, 4(%3)		\n"
+	"	sw	%2, 4(%3)		\n"
+	"	sync				\n"
+	"	sll	%0, 29			\n"
+	"	or	%4, %0			\n"
+	"	mtc0	%4, $22, 5		\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	b	2f			\n"
+	"	nop				\n"
+	/* handle ASYNC to SYNC */
+	"1:					\n"
+	"	mfc0	%4, $22, 5		\n"
+	"	and	%4, %2			\n"
+	"	or	%4, %1			\n"
+	"	mtc0	%4, $22, 5		\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	sync				\n"
+	"	and	%4, %2			\n"
+	"	mtc0	%4, $22, 5		\n"
+	"	nop				\n"
+	"	nop				\n"
+	"	lw	%2, 4(%3)		\n"
+	"	sw	%2, 4(%3)		\n"
+	"	sync				\n"
+	"2:					\n"
+	"	.set	pop			\n"
+	: "+r" (new_div),
+	  "=&r" (tmp0), "=&r" (tmp1), "=&r" (tmp2), "=&r" (tmp3));
+#endif
+}
 
 /**
  * brcm_set_state - set the CPU clock divider
@@ -81,15 +169,7 @@ static void brcm_set_state (unsigned int best_i)
 
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
 
-	/* see MIPS datasheet, CP0 register $22 */
-#if defined(CONFIG_MIPS_BCM7401C0)
-	write_c0_diag4((read_c0_diag4() & ~0x01c00000) |
-		(clock_tbl[best_i].index << 23) | (0 << 22));
-#elif defined(CONFIG_MIPS_BCM7400B0) || defined(CONFIG_MIPS_BCM7405)
-	write_c0_diag5((read_c0_diag5() & ~0x70000000) |
-		(clock_tbl[best_i].index << 29) | (0 << 28));
-#endif
-
+	brcm_set_divisor(clock_tbl[best_i].index);
 	current_freq = clock_tbl[best_i].frequency;
 
 	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);

@@ -879,34 +879,51 @@ cflags-$(CONFIG_MIPS_BCM7400A0)	+= -Iinclude/asm-mips/mach-brcmstb
 load-$(CONFIG_MIPS_BCM7400A0) := 0x80001000
 
 #
-# BCM97400B0 & BCM97456B0
+# BCM97400D0 & BCM97456D0
 #
-ifeq ($(CONFIG_MIPS_BCM97456B0),y)
-# BCM97456B0
-core-$(CONFIG_MIPS_BCM97456B0) += arch/mips/brcmstb/brcm97456b0/
-UTS_MACHINE:=97456b0
+ifeq ($(CONFIG_MIPS_BCM97456D0),y)
+# BCM97456D0
+core-$(CONFIG_MIPS_BCM97456D0) += arch/mips/brcmstb/brcm97456d0/
+UTS_MACHINE:=97456d0
 else
-core-$(CONFIG_MIPS_BCM7400B0) += arch/mips/brcmstb/brcm97400b0/
-ifdef CONFIG_MIPS_BCM7400B0
-	UTS_MACHINE:=7400b0
+core-$(CONFIG_MIPS_BCM7400D0) += arch/mips/brcmstb/brcm97400d0/
+ifdef CONFIG_MIPS_BCM7400D0
+	UTS_MACHINE:=7400d0
 endif
 endif
 
-core-$(CONFIG_MIPS_BCM7400B0) += arch/mips/brcmstb/common/
-cflags-$(CONFIG_MIPS_BCM7400B0)	+= -Iinclude/asm-mips/mach-brcmstb
-load-$(CONFIG_MIPS_BCM7400B0) := 0x80001000
+core-$(CONFIG_MIPS_BCM7400D0) += arch/mips/brcmstb/common/
+cflags-$(CONFIG_MIPS_BCM7400D0)	+= -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7400D0) := 0x80001000
 
 #
-# BCM97405A0
+# BCM97405
 #
 ifeq ($(CONFIG_MIPS_BCM7405),y)
-core-$(CONFIG_MIPS_BCM7405A0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7405) += arch/mips/brcmstb/common/
 core-$(CONFIG_MIPS_BCM7405A0) += arch/mips/brcmstb/brcm97405a0/
-cflags-$(CONFIG_MIPS_BCM7405A0) += -Iinclude/asm-mips/mach-brcmstb
-load-$(CONFIG_MIPS_BCM7405A0) := 0x80001000
+core-$(CONFIG_MIPS_BCM7405B0) += arch/mips/brcmstb/brcm97405b0/
+cflags-$(CONFIG_MIPS_BCM7405) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7405) := 0x80001000
 endif
 ifdef CONFIG_MIPS_BCM7405A0
         UTS_MACHINE:=7405a0
+endif
+ifdef CONFIG_MIPS_BCM7405B0
+        UTS_MACHINE:=7405b0
+endif
+
+#
+# BCM97335
+#
+ifeq ($(CONFIG_MIPS_BCM7335),y)
+core-$(CONFIG_MIPS_BCM7335) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7335) += arch/mips/brcmstb/brcm97335a0/
+cflags-$(CONFIG_MIPS_BCM7335) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7335) := 0x80001000
+endif
+ifdef CONFIG_MIPS_BCM7335A0
+        UTS_MACHINE:=7335a0
 endif
 
 #

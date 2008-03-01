@@ -287,7 +287,7 @@ static struct cfi_fixup cfi_fixup_table[] = {
 	/*
          * THT: PR22727: Disable write buffers for S29GLxxxN.
 	 * Placing this after the previous entry will override it.
-         * This affects 7400a0, 7118a0, possibly others - but not 7400b0.
+         * This affects 7400a0, 7118a0, possibly others - but not 7400d0.
          *
          * NOTE: In x16 mode the id will be read as 0x227e.
 	 */

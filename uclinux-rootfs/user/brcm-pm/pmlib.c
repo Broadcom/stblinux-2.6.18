@@ -53,6 +53,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <unistd.h>
+#include <glob.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <pmlib.h>
@@ -65,13 +66,17 @@ struct brcm_pm_priv
 #define BUF_SIZE	64
 #define MAX_ARGS	16
 
-#define PROC_PMSTAT	"/proc/driver/brcm-pm"
+#define SYS_USB_STAT	"/sys/devices/platform/brcm-pm/usb"
+#define SYS_ENET_STAT	"/sys/devices/platform/brcm-pm/enet"
+#define SYS_SATA_STAT	"/sys/devices/platform/brcm-pm/sata"
+#define SYS_DDR_STAT	"/sys/devices/platform/brcm-pm/ddr"
 #define SYS_BASE_FREQ	"/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
 #define SYS_CUR_FREQ	"/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq"
 #define DHCPCD_PIDFILE	"/etc/config/dhcpc/dhcpcd-eth0.pid"
-#define RMMOD_PATH	"/sbin/rmmod"
-#define MODPROBE_PATH	"/sbin/modprobe"
 #define DHCPCD_PATH	"/bin/dhcpcd"
+#define IFCONFIG_PATH	"/bin/ifconfig"
+#define SATA_RESCAN_GLOB "/sys/class/scsi_host/host*/scan"
+#define SATA_DELETE_GLOB "/sys/class/scsi_device/*/device/delete"
 
 static int sysfs_get(char *path, unsigned int *out)
 {
@@ -101,6 +106,22 @@ static int sysfs_set(char *path, int in)
 		return(-1);
 	sprintf(buf, "%u", in);
 	if(! fputs(buf, f) < 0)
+	{
+		fclose(f);
+		return(-1);
+	}
+	fclose(f);
+	return(0);
+}
+
+static int sysfs_set_string(char *path, const char *in)
+{
+	FILE *f;
+
+	f = fopen(path, "w");
+	if(! f)
+		return(-1);
+	if(! fputs(in, f) < 0)
 	{
 		fclose(f);
 		return(-1);
@@ -178,29 +199,22 @@ void brcm_pm_close(void *vctx)
 int brcm_pm_get_status(void *vctx, struct brcm_pm_state *st)
 {
 	struct brcm_pm_priv *ctx = vctx;
-	char buf[BUF_SIZE];
-	FILE *f;
 	int tmp;
 
 	/* read status from /proc */
 
-	st->usb_status = st->enet_status = st->sata_status = 0;
-
-	f = fopen(PROC_PMSTAT, "r");
-	if(! f)
+	if(sysfs_get(SYS_USB_STAT, (unsigned int *)&st->usb_status) != 0) {
 		return(-1);
-	while(fgets(buf, BUF_SIZE, f))
-	{
-		if(sscanf(buf, "usb: %d", &tmp) == 1)
-		{
-			st->usb_status = tmp;
-		} else if(sscanf(buf, "enet: %d", &tmp) == 1) {
-			st->enet_status = tmp;
-		} else if(sscanf(buf, "sata: %d", &tmp) == 1) {
-			st->sata_status = tmp;
-		}
 	}
-	fclose(f);
+	if(sysfs_get(SYS_ENET_STAT, (unsigned int *)&st->enet_status) != 0) {
+		return(-1);
+	}
+	if(sysfs_get(SYS_SATA_STAT, (unsigned int *)&st->sata_status) != 0) {
+		return(-1);
+	}
+	if(sysfs_get(SYS_DDR_STAT, (unsigned int *)&st->ddr_timeout) != 0) {
+		return(-1);
+	}
 
 	if(ctx->last_state.cpu_base)
 	{
@@ -223,6 +237,37 @@ int brcm_pm_get_status(void *vctx, struct brcm_pm_state *st)
 	return(0);
 }
 
+static int sata_rescan_hosts(void)
+{
+	glob_t g;
+	int i, ret = 0;
+
+	if(glob(SATA_RESCAN_GLOB, GLOB_NOSORT, NULL, &g) != 0)
+		return(-1);
+
+	for(i = 0; i < g.gl_pathc; i++)
+		ret |= sysfs_set_string(g.gl_pathv[i], "0 - 0");
+	globfree(&g);
+
+	return(ret);
+}
+
+static int sata_delete_devices(void)
+{
+	glob_t g;
+	int i, ret = 0;
+
+	/* NOTE: if there are no devices present, it is not an error */
+	if(glob(SATA_DELETE_GLOB, GLOB_NOSORT, NULL, &g) != 0)
+		return(0);
+
+	for(i = 0; i < g.gl_pathc; i++)
+		ret |= sysfs_set(g.gl_pathv[i], 1);
+	globfree(&g);
+
+	return(ret);
+}
+
 int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 {
 	struct brcm_pm_priv *ctx = vctx;
@@ -232,11 +277,9 @@ int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 	{
 		if(st->usb_status)
 		{
-			ret |= run(MODPROBE_PATH, "ehci-hcd", NULL);
-			ret |= run(MODPROBE_PATH, "ohci-hcd", NULL);
+			ret |= sysfs_set(SYS_USB_STAT, 1);
 		} else {
-			ret |= run(RMMOD_PATH, "ohci-hcd", NULL);
-			ret |= run(RMMOD_PATH, "ehci-hcd", NULL);
+			ret |= sysfs_set(SYS_USB_STAT, 0);
 		}
 		ctx->last_state.usb_status = st->usb_status;
 	}
@@ -245,14 +288,14 @@ int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 	{
 		if(st->enet_status)
 		{
-			ret |= run(MODPROBE_PATH, "bcmemacnet", NULL);
-			ret |= run(DHCPCD_PATH, "-Hd", "eth0", NULL);
+			ret |= run(DHCPCD_PATH, "-H", "eth0", NULL);
 		} else {
 			unsigned int pid;
 
 			if(sysfs_get(DHCPCD_PIDFILE, &pid) == 0)
 				kill(pid, SIGTERM);
-			ret |= run(RMMOD_PATH, "bcmemacnet", NULL);
+			ret |= run(IFCONFIG_PATH, "eth0", "down", NULL);
+			ret |= sysfs_set(SYS_ENET_STAT, 0);
 		}
 		ctx->last_state.enet_status = st->enet_status;
 	}
@@ -261,9 +304,10 @@ int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 	{
 		if(st->sata_status)
 		{
-			ret |= run(MODPROBE_PATH, "sata_svw", NULL);
+			ret |= sata_rescan_hosts();
 		} else {
-			ret |= run(RMMOD_PATH, "sata_svw", NULL);
+			ret |= sata_delete_devices();
+			ret |= sysfs_set(SYS_SATA_STAT, 0);
 		}
 		ctx->last_state.sata_status = st->sata_status;
 	}
@@ -280,6 +324,11 @@ int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 			ret |= sysfs_set(SYS_CUR_FREQ, freq);
 		}
 		ctx->last_state.cpu_divisor = st->cpu_divisor;
+	}
+
+	if(st->ddr_timeout != ctx->last_state.ddr_timeout)
+	{
+		ret |= sysfs_set(SYS_DDR_STAT, st->ddr_timeout);
 	}
 
 	return(ret);

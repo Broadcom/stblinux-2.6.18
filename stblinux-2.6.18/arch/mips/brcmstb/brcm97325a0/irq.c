@@ -549,20 +549,19 @@ PRINTK("UART A\n");
 				do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
 			}
 
-			else if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) {
-				if ((*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ubirq_MASK) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ub_irqen_MASK) )
-				{
+			else if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT 
+				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ubirq_MASK) 
+				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ub_irqen_MASK) )
+			{
 PRINTK("UART B\n");
 					do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
-				}
-
-				if ((*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ucirq_MASK) 
-					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_uc_irqen_MASK) )
-				{
+			}
+			else if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT 
+				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ucirq_MASK) 
+				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_uc_irqen_MASK) )
+			{
 PRINTK("UART C\n");
 					do_IRQ(BCM_LINUX_UARTC_IRQ, regs);
-				}
 			}
 			else if (irq == BCM_LINUX_CPU_ENET_IRQ)
 			{
@@ -758,7 +757,8 @@ printk("timer irq %d\n", BCM_LINUX_SYSTIMER_IRQ);
 	//INTC->IrqMask = 0UL;
 	//INTC->IrqStatus = 0UL;
 	CPUINT1C->IntrW0MaskSet = 0xffffffff;
-	CPUINT1C->IntrW1MaskSet = 0xffffffff; //~(BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_reserved0_MASK);
+	CPUINT1C->IntrW1MaskSet = 0xffffffff;
+	CPUINT1C->IntrW2MaskSet = 0xffffffff;
 	
 	change_c0_status(ST0_IE, 0);
 	
@@ -790,7 +790,7 @@ PRINTK("setup timer int\n");
 #endif
 
 	/* Install all the 7xxx IRQs */
-	for (irq = 1; irq <= 32; irq++) 
+	for (irq = 1; irq <= 96; irq++) 
 	{
 		irq_desc[irq].status = IRQ_DISABLED;
 		irq_desc[irq].action = 0;
@@ -799,16 +799,7 @@ PRINTK("setup timer int\n");
 		DECLARE_SMTC_IRQ(irq, 2);
 		g_brcm_intc_cnt[irq -1] = 0;
 	}
-	for (irq = 32+1; irq <= 32+32; irq++)
-	{
-		irq_desc[irq].status = IRQ_DISABLED;
-		irq_desc[irq].action = 0;
-		irq_desc[irq].depth = 1;
-		irq_desc[irq].chip = &brcm_intc_type;
-		DECLARE_SMTC_IRQ(irq, 2);
-		g_brcm_intc_cnt[irq -1] = 0;
-	}
-PRINTK("setup int 1 to 64\n");
+PRINTK("setup int 1 to 96\n");
 
 	/* Handle the Serial IRQs differently so they can have unique IRQs */
 	irq_desc[BCM_LINUX_UARTA_IRQ].status = IRQ_DISABLED;
