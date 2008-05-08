@@ -232,7 +232,7 @@ config BCMINTEMAC_7038_STREAMING
 
 config BCMINTEMAC_7038_EXTMII
 	bool "Use external MII interface"
-	depends on BCMINTEMAC_7038 && MIPS_BCM7405
+	depends on BCMINTEMAC_7038 && (MIPS_BCM7405 || MIPS_BCM7335)
 	default n
 	help
 	  Say Y to use the external MII interface instead of the internal
@@ -240,14 +240,6 @@ config BCMINTEMAC_7038_EXTMII
 	  devices.
 
 	  If unsure, say N.
-
-config BCMINTEMAC_7038_PHY_ID
-	int "External PHY ID"
-	depends on BCMINTEMAC_7038_EXTMII
-	default 1
-	help
-	  MII device ID for the external PHY.  Use 31 for the Broadcom
-	  HPNA daughtercard, 1 for most other PHYs.
 
 source "drivers/net/arm/Kconfig"
 

@@ -56,6 +56,7 @@
 #include <linux/interrupt.h>
 #include <linux/device.h>
 #include <scsi/scsi_host.h>
+#include <linux/spinlock.h>
 #include <linux/libata.h>   /* BEWARE: redefines writel/readl/writew/readw */
 
 #ifdef CONFIG_PPC_OF
@@ -87,6 +88,8 @@ static int k2_power_on(void *arg);
 	if(SLEEP_FLAG(host) != K2_AWAKE) \
 		k2_power_on(host); \
 	} while(0)
+
+static DEFINE_SPINLOCK(sleep_lock);
 
 #else
 
@@ -1696,9 +1699,13 @@ static int k2_power_off(void *arg)
 {
 	struct ata_host *host = arg;
 	int i, active = 0;
+	long flags;
 
-	if(SLEEP_FLAG(host) == K2_SLEEPING)
+	spin_lock_irqsave(&sleep_lock, flags);
+	if(SLEEP_FLAG(host) == K2_SLEEPING) {
+		spin_unlock_irqrestore(&sleep_lock, flags);
 		return(-1);
+	}
 
 	for(i = 0; i < host->n_ports; i++) {
 		struct ata_port *ap;
@@ -1721,13 +1728,34 @@ static int k2_power_off(void *arg)
 	}
 
 	if(active) {
+		spin_unlock_irqrestore(&sleep_lock, flags);
 		printk(KERN_INFO DRV_NAME
 			": can't sleep with %d device(s) active\n", active);
 		return(-1);
 	} else {
+		void __iomem *port_base;
+
 		SET_SLEEP_FLAG(host, K2_SLEEPING);
+
+		/* put all ports in Slumber mode */
+		for(i = 0; i < host->n_ports; i++) {
+			port_base = PORT_BASE(host->mmio_base, i);
+			writel(readl(port_base + K2_SATA_SICR1_OFFSET) |
+				(1 << 25), port_base + K2_SATA_SICR1_OFFSET);
+			udelay(10);
+			writel((readl(port_base + K2_SATA_SICR2_OFFSET) &
+				~(7 << 18)) | (2 << 18),
+				port_base + K2_SATA_SICR2_OFFSET);
+			udelay(50);
+			writel((readl(port_base + K2_SATA_SICR2_OFFSET) &
+				~(7 << 18)) | (0 << 18),
+				port_base + K2_SATA_SICR2_OFFSET);
+		}
+
 		disable_irq(host->irq);
 		brcm_pm_sata_remove();
+		spin_unlock_irqrestore(&sleep_lock, flags);
+
 		return(0);
 	}
 }
@@ -1735,14 +1763,38 @@ static int k2_power_off(void *arg)
 static int k2_power_on(void *arg)
 {
 	struct ata_host *host = arg;
+	void __iomem *port_base;
+	int i;
+	long flags;
 
-	if(SLEEP_FLAG(host) == K2_AWAKE)
+	spin_lock_irqsave(&sleep_lock, flags);
+	if(SLEEP_FLAG(host) == K2_AWAKE) {
+		spin_unlock_irqrestore(&sleep_lock, flags);
 		return(-1);
+	}
 	
 	brcm_pm_sata_add();
 	brcm_initsata2(host->mmio_base);
 	enable_irq(host->irq);
+
+	/* wake up all ports */
+	for(i = 0; i < host->n_ports; i++) {
+		port_base = PORT_BASE(host->mmio_base, i);
+		writel(readl(port_base + K2_SATA_SICR1_OFFSET) &
+			~(1 << 25), port_base + K2_SATA_SICR1_OFFSET);
+		udelay(10);
+		writel((readl(port_base + K2_SATA_SICR2_OFFSET) &
+			~(7 << 18)) | (4 << 18),
+			port_base + K2_SATA_SICR2_OFFSET);
+		udelay(50);
+		writel((readl(port_base + K2_SATA_SICR2_OFFSET) &
+			~(7 << 18)) | (0 << 18),
+			port_base + K2_SATA_SICR2_OFFSET);
+	}
+
 	SET_SLEEP_FLAG(host, K2_AWAKE);
+	spin_unlock_irqrestore(&sleep_lock, flags);
+
 	return(0);
 }
 

@@ -226,6 +226,14 @@ enum module_state
 	MODULE_STATE_GOING,
 };
 
+#ifdef CONFIG_WINDRIVER_OCD
+#define MAX_SECTNAME 31
+struct mod_section {
+       void *address;
+       char name[MAX_SECTNAME + 1];
+};
+#endif
+
 /* Similar stuff for section attributes. */
 #define MODULE_SECT_NAME_LEN 32
 struct module_sect_attr
@@ -253,6 +261,28 @@ struct module
 	/* Unique handle for this module */
 	char name[MODULE_NAME_LEN];
 
+#ifdef CONFIG_WINDRIVER_OCD
+	/* keep kgdb info at the begining so that gdb doesn't have a chance to
+	 * miss out any fields */
+	unsigned long num_sections;
+	struct mod_section *mod_sections;
+
+	/*
+	 * PR29963: reorder struct members in kgdb build to preserve
+	 * binary compatibility with non-kgdb kernel modules from the released
+	 * rootfs
+	 */
+	/* Sysfs stuff. */
+	struct module_kobject mkobj;
+	struct module_param_attrs *param_attrs;
+	struct module_attribute *modinfo_attrs;
+	const char *version;
+	const char *srcversion;
+
+	/* Exported symbols (partial) */
+	const unsigned long *crcs;
+#else
+
 	/* Sysfs stuff. */
 	struct module_kobject mkobj;
 	struct module_param_attrs *param_attrs;
@@ -264,6 +294,7 @@ struct module
 	const struct kernel_symbol *syms;
 	unsigned int num_syms;
 	const unsigned long *crcs;
+#endif 
 
 	/* GPL-only exported symbols. */
 	const struct kernel_symbol *gpl_syms;
@@ -329,11 +360,18 @@ struct module
 	void (*exit)(void);
 #endif
 
+#ifdef CONFIG_WINDRIVER_OCD
+	/* Exported symbols (partial) */
+	const struct kernel_symbol *syms;
+	unsigned int num_syms;
+#endif
+
 #ifdef CONFIG_KALLSYMS
 	/* We keep the symbol and string tables for kallsyms. */
 	Elf_Sym *symtab;
 	unsigned long num_symtab;
 	char *strtab;
+
 
 	/* Section attributes */
 	struct module_sect_attrs *sect_attrs;
@@ -584,5 +622,8 @@ static inline void module_remove_driver(struct device_driver *driver)
 /* BELOW HERE ALL THESE ARE OBSOLETE AND WILL VANISH */
 
 #define __MODULE_STRING(x) __stringify(x)
+
+
+
 
 #endif /* _LINUX_MODULE_H */

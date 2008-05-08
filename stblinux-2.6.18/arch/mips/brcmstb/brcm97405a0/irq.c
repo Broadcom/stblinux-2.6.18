@@ -498,6 +498,10 @@ void brcm_mips_int1_dispatch(struct pt_regs *regs)
 
 #endif /* CONFIG_SMP */
 
+void migrate_irqs(void)
+{
+}
+
 /*
  * Broadcom specific IRQ setup
  */

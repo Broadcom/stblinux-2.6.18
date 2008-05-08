@@ -43,22 +43,63 @@ when	who what
 
 static int shift = 2;
 
+#define SUN_TOP_CTRL_PIN_MUX_CTRL_10	(0xb04040bc)
+#define SUN_TOP_CTRL_PIN_MUX_CTRL_11	(0xb04040c0)
+#define SUN_TOP_CTRL_PIN_MUX_CTRL_7		(0xb04040b0)
+
+void uartC_puts(const char *s);
+/* 
+ * UART IP pin assignments from the 7403A0 RDB SUN_TOP_CTRL_PIN_MUX_CTRL.
+ *  bits field is 3 bits wide
+ *
+ *      UART    GPIO    MUX     bits    value
+ *      ______________________________________
+ *      0 tx    49      11      02:00   1
+ *      0 rx    50      11      05:03   1
+ *      ______________________________________
+ *      1 tx     9       7      02:00   1
+ *      1 rx    10       7      05:03   1
+ *      ______________________________________
+ *      2 tx    42      10      11:09   1
+ *      2 rx    39      10      02:00   1
+ *      2 rtsb  41      10      08:06   3
+ *      2 ctsb  40      10      05:03   3
+ *      ______________________________________
+ *
+ */
+
 static void handle_gpio_mux(int uartNo)
 {
-#if 1
-	if (uartNo == 2) {
+	volatile unsigned long* pSunTopMuxCtrl11; 
+	volatile unsigned long* pSunTopMuxCtrl10;
+
+	switch(uartNo) {
+	case 0:
+//UART_B		volatile unsigned long* pSunTopMuxCtrl7 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_7;
+//UART_B		*pSunTopMuxCtrl7 &= 0xffffffc0;	// Clear it
+//UART_B		*pSunTopMuxCtrl7 |= 0x00000009;  // Write 001'b and 001'b at 11:9 and 20:18
+		break; //CFE already done this
+
+	case 1:
+		// MUX for UARTA 
+		pSunTopMuxCtrl11 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_11;
+
+		*pSunTopMuxCtrl11 &= 0xffffffc0;	// Clear it UART_0
+		*pSunTopMuxCtrl11 |= 0x00000009;  // Write 001'b and 001'b at 11:9 and 20:18
+
+		break;
+	case 2:
 		// MUX for UARTC are uart_txd_2: bits 18:20 (001'b),  uart_rxd_2 bits 09:11 (001'b)
 		// uart_rtsb_2 bits 15-17 (011'b) and uart_ctsb_2 bits 12-14 (011'b) not MUX'ed
 		// from SUN_TOP_CTRL_PIN_MUX_CTRL_10
-#define SUN_TOP_CTRL_PIN_MUX_CTRL_10	(0xb04040bc)
-		volatile unsigned long* pSunTopMuxCtrl10 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_10;
-
-		*pSunTopMuxCtrl10 &= 0xffe3f1ff;	// Clear it
-		*pSunTopMuxCtrl10 |= 0x00040200;  // Write 001'b and 001'b at 11:9 and 20:18
-		//*pSunTopMuxCtrl10 &= 0xffe001ff;	// Clear it
-		//*pSunTopMuxCtrl10 |= 0x0005b200; 	// and 011'b and 011'b at 15:17 & 12:14
+		pSunTopMuxCtrl10 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_10;
+		*pSunTopMuxCtrl10 &= 0xfffff000;	// Clear it
+		*pSunTopMuxCtrl10 |= 0x000002d9; 	// and 011'b and 011'b at 15:17 & 12:14
+		break;
+	default:
+		break;
 	}
-#endif
+		return;
 }
 
 static unsigned long serial_8250_init(int chan, void *ignored)
@@ -89,7 +130,7 @@ static unsigned long serial_8250_init(int chan, void *ignored)
 
 		sprintf(msg, "Done initializing UARTC at %08x\n", (u32) uartBaseAddr);
 		uart_puts(msg);
-		uartB_puts(msg);
+		uartC_puts(msg);
 	}
 	return (uartBaseAddr);
 }
@@ -140,9 +181,61 @@ serial_tstc(unsigned long com_port)
 -------------------------------------------------------------------------- */
 void 
 //PutChar(char c)
-uartB_putc(char c)
+uartA_putc(char c)
 {
-	void uartB_putc(char c);
+	void uartA_putc(char c);
+	
+	while (!(*((volatile unsigned long*) 0xb0400198) & 1));
+
+	*((volatile unsigned long*) 0xb040019c) = c;
+
+}
+
+
+/* --------------------------------------------------------------------------
+    Name: PutString
+ Purpose: Send a string to the UART
+-------------------------------------------------------------------------- */
+
+void 
+//PutString(const char *s)
+uartA_puts(const char *s)
+{
+    while (*s) {
+        if (*s == '\n') {
+            uartA_putc('\r');
+        }
+    	uartA_putc(*s++);
+    }
+}
+/* --------------------------------------------------------------------------
+    Name: GetChar
+ Purpose: Get a character from the UART. Non-blocking
+-------------------------------------------------------------------------- */
+
+char
+uartA_getc(void)
+{
+    	char cData = 0;
+	unsigned long uStatus = *((volatile unsigned long*) 0xb0400180);
+
+    	if (uStatus & 0x4) {
+        	cData = *((volatile unsigned long*) 0xb0400184);
+
+		// Check for Frame & Parity errors
+		if (uStatus & (0x10 | 0x20)) {
+           	 cData = 0;
+        	}
+    	}
+
+	return cData;
+
+}
+void 
+//PutChar(char c)
+uartC_putc(char c)
+{
+	//void uartB_putc(char c);
 	
 	serial_putc(UARTC_ADR_BASE, c);
 	//uartB_putc(c);
@@ -156,13 +249,13 @@ uartB_putc(char c)
 
 void 
 //PutString(const char *s)
-uartB_puts(const char *s)
+uartC_puts(const char *s)
 {
     while (*s) {
         if (*s == '\n') {
-            uartB_putc('\r');
+            uartC_putc('\r');
         }
-    	uartB_putc(*s++);
+    	uartC_putc(*s++);
     }
 }
 /* --------------------------------------------------------------------------
@@ -171,9 +264,22 @@ uartB_puts(const char *s)
 -------------------------------------------------------------------------- */
 
 char
-uartB_getc(void)
+uartC_getc(void)
 {
 	return serial_getc(UARTC_ADR_BASE);
+}
+
+
+
+void uartB_putc(char c)
+{
+	
+	uartA_putc(c);
+}
+
+char uartB_getc(void)
+{
+	return uartA_getc();
 }
 
 
@@ -198,7 +304,10 @@ EXPORT_SYMBOL(brcm_console_initialized);
 void 
 uart_init(unsigned long ignored)
 {
-	serial_bcm_init(27000000, NULL);		/* Uart B */
+//	handle_gpio_mux(0); // ttyS1 is mapped to UARTC
+	handle_gpio_mux(1); // ttyS1 is mapped to UARTC
+	serial_bcm_init(0, 27000000);		/* Uart B */
+	serial_bcm_init(1, 27000000);		/* Uart A */
 #ifdef CONFIG_SERIAL_8250
 	serial_8250_init(1, NULL);				/* Uart C */
 #endif

@@ -209,15 +209,9 @@ void __init prom_init(void)
 	int res = -1;
 	char msg[COMMAND_LINE_SIZE];
 	extern void determineBootFromFlashOrRom(void);
-
-
 #endif
 
-#ifdef CONFIG_KGDB
-	debugInit();
-#else
 	uart_init(27000000);
-#endif
 	uart_puts("HI WORLD!!!\n");
 
 	/* jipeng - mask out UPG L2 interrupt here */
@@ -237,7 +231,6 @@ void __init prom_init(void)
 	*((volatile unsigned long *)0xfffe0900) = 0x7fff;
 
 #ifndef CONFIG_MIPS_BCM7312
-
 	*(volatile unsigned char *)(0xfffe8008) = 0x00;
 	*(volatile unsigned char *)(0xfffe009d) = 0x00;
 	*(volatile unsigned char *)(0xfffe0092) = 0x00;
@@ -470,7 +463,7 @@ void __init prom_init(void)
 #if defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM7405) \
 	|| defined(CONFIG_MIPS_BCM7335)
 		par_val = 0xff;		/* default: keep CFE setting */
-#else
+#elif	!defined(CONFIG_MIPS_BCM7325A0)	/* no RAC in 7325A0 */
 		par_val = 0x03;		/* set default to I/D RAC on */
 #endif
 		par_val2 = (get_RAM_size()-1) & 0xffff0000;

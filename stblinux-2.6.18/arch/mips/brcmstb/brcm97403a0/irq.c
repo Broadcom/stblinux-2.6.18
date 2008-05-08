@@ -29,17 +29,12 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/module.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/mipsregs.h>
 #include <asm/addrspace.h>
-#include <asm/brcmstb/brcm97403a0/bcmuart.h>
-#include <asm/brcmstb/brcm97403a0/bcmtimer.h>
-#include <asm/brcmstb/brcm97403a0/bcmebi.h>
-#include <asm/brcmstb/brcm97403a0/int1.h>
-#include <asm/brcmstb/brcm97403a0/board.h>
-#include <asm/brcmstb/brcm97403a0/bchp_irq0.h>
-#include <asm/brcmstb/brcm97403a0/bcmintrnum.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 #ifdef CONFIG_REMOTE_DEBUG
 #include <asm/gdb-stub.h>
@@ -241,7 +236,8 @@ static struct hw_interrupt_type brcm_intc2_type = {
  *  UARTB				UARTA
  * 	UARTC				UARTB
  */
-static void brcm_uart_enable(unsigned int irq)
+
+void brcm_uart_enable(unsigned int irq)
 {
 	unsigned long flags;
 
@@ -256,7 +252,7 @@ static void brcm_uart_enable(unsigned int irq)
 	{
 //printk("$$$$$$$$ UART B irq enabled. %d \n", irq);
 		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_MASK;
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_uc_irqen_MASK;
+		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_ua_irqen_MASK;
 	}
 #if 0
 	else
@@ -496,6 +492,12 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 			{
 				do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
 			}
+			else if ((shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) 
+					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_uairq_MASK) 
+					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ua_irqen_MASK) )
+			{
+				do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
+			}
 			else if (irq == BCM_LINUX_CPU_ENET_IRQ)
 			{
 				//if (*((volatile unsigned long *)0xb0082418) & 0x2 )
@@ -504,6 +506,7 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 				else
 					printk("unsolicited ENET interrupt!!!\n");
 			}
+#if 0
 			else if ((shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) 
 					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ucirq_MASK) 
 					&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_uc_irqen_MASK) )
@@ -511,6 +514,7 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 //printk("@@@@@@@UARTB IRQ %d\n", irq);				
 				do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
 			}
+#endif //0
 			else
 				do_IRQ(irq, regs);
 		}

@@ -10,6 +10,9 @@ mount -t proc none /proc
 echo "Mount /sys fs"
 mount -t sysfs none /sys
 
+# Enable hotplug
+echo "/sbin/hotplug" > /proc/sys/kernel/hotplug
+
 # Mount RW tmpfs, rely on /proc being mounted
 echo "Restore RW directories"
 /bin/bash /etc/mountvar.sh

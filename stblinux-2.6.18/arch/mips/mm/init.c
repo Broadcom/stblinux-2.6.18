@@ -27,7 +27,6 @@
 #include <linux/pfn.h>
 
 #include <asm/bootinfo.h>
-#include <asm/bug.h>
 #include <asm/cachectl.h>
 #include <asm/cpu.h>
 #include <asm/dma.h>
@@ -140,10 +139,13 @@ static inline void *kmap_coherent(struct page *page, unsigned long addr)
 	int tlbidx;
 
 	inc_preempt_count();
-
-	BUG_ON(Page_dcache_dirty(page));
-
 #if defined(CONFIG_MIPS_BRCM97XXX)
+	/* PR33098: flush dirty pages before kmap_coherent() */
+	if(Page_dcache_dirty(page)) {
+		flush_data_cache_page((unsigned long)page_address(page));
+		ClearPageDcacheDirty(page);
+	}
+
 	/*
 	 * Preventing L1 cache aliasing between addr and vaddr:
 	 *
@@ -234,7 +236,7 @@ void copy_user_highpage(struct page *to, struct page *from,
 	void *vfrom, *vto;
 
 	vto = kmap_atomic(to, KM_USER1);
-	if (cpu_has_dc_aliases && page_mapped(from)) {
+	if (cpu_has_dc_aliases) {
 		vfrom = kmap_coherent(from, vaddr);
 		copy_page(vto, vfrom);
 		kunmap_coherent(from);

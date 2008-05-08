@@ -1,5 +1,6 @@
 default:
 	make LDFLAGS='$(filter-out -Wl, $(LDFLAGS))' \
+		CFLAGS="-fPIC" \
 		CFG="--host=$(MACHINE)-linux --prefix=$(ROMFSDIR)" -f Makefile
 	make -f Makefile
 	make -f Makefile install

@@ -39,33 +39,7 @@
 #include <linux/ioport.h>
 #include <asm/io.h>
 
-#if defined(CONFIG_MIPS_BCM97455) || defined(CONFIG_MIPS_BCM97455B0) || defined(CONFIG_MIPS_BCM97455C0)	\
- || defined(CONFIG_MIPS_BCM97458A0)
-#include <asm/brcmstb/brcm97455/boardmap.h>
-#include <asm/brcmstb/brcm97455/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97455/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7401A0) 
-#include <asm/brcmstb/brcm97401a0/boardmap.h>
-#include <asm/brcmstb/brcm97401a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97401a0/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7401B0) || defined( CONFIG_MIPS_BCM7402 )
-#include <asm/brcmstb/brcm97401b0/boardmap.h>
-#include <asm/brcmstb/brcm97401b0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97401b0/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7401C0) 
-#include <asm/brcmstb/brcm97401c0/boardmap.h>
-#include <asm/brcmstb/brcm97401c0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97401c0/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7118A0)
-#include <asm/brcmstb/brcm97118a0/boardmap.h>
-#include <asm/brcmstb/brcm97118a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97118a0/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7403A0) 
-#include <asm/brcmstb/brcm97403a0/boardmap.h>
-#include <asm/brcmstb/brcm97403a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97403a0/bcmintrnum.h>
-
-#endif
+#include <asm/brcmstb/common/brcmstb.h>
 
 //#define DEBUG
 
@@ -105,8 +79,7 @@
 static char irq_tab_brcm97401a0[] __initdata = {
 //[slot]  = IRQ
   [PCI_DEVICE_ID_SATA] = BCM_LINUX_SATA_IRQ,    /* SATA controller */
-#if defined(CONFIG_MIPS_BCM97455) || defined(CONFIG_MIPS_BCM97455B0) || defined(CONFIG_MIPS_BCM97455C0)	\
- || defined(CONFIG_MIPS_BCM97458A0)
+#if defined(PCI_DEVICE_ID_3255)
   [PCI_DEVICE_ID_3255] = BCM_LINUX_3255_IRQ,    /* 3255 */  
 #endif  
   [PCI_DEVICE_ID_EXT]  = BCM_LINUX_EXT_PCI_IRQ, /* On-board PCI slot */

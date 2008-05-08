@@ -27,7 +27,11 @@
 
 #if defined(CONFIG_HOTPLUG)
 u64 uevent_seqnum;
+#ifdef CONFIG_MIPS_BRCM97XXX
+char uevent_helper[UEVENT_HELPER_PATH_LEN] = "";
+#else
 char uevent_helper[UEVENT_HELPER_PATH_LEN] = "/sbin/hotplug";
+#endif
 static DEFINE_SPINLOCK(sequence_lock);
 #if defined(CONFIG_NET)
 static struct sock *uevent_sock;

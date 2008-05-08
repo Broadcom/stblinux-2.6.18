@@ -25,6 +25,10 @@
 #include <asm/atomic.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
+#include <asm/kgdb.h>
+
+/* Keep track of if we've done certain initialization already or not. */
+int kgdb_early_setup;
 
 static unsigned long irq_map[NR_IRQS / BITS_PER_LONG];
 
@@ -157,22 +161,12 @@ asmlinkage void spurious_interrupt(struct pt_regs *regs)
 	atomic_inc(&irq_err_count);
 }
 
-#ifdef CONFIG_KGDB
-extern void breakpoint(void);
-extern void set_debug_traps(void);
-
-static int kgdb_flag = 1;
-static int __init nokgdb(char *str)
-{
-	kgdb_flag = 0;
-	return 1;
-}
-__setup("nokgdb", nokgdb);
-#endif
-
 void __init init_IRQ(void)
 {
 	int i;
+
+	if (kgdb_early_setup)
+		return;
 
 	for (i = 0; i < NR_IRQS; i++) {
 		irq_desc[i].status  = IRQ_DISABLED;
@@ -186,12 +180,12 @@ void __init init_IRQ(void)
 	}
 
 	arch_init_irq();
-
 #ifdef CONFIG_KGDB
-	if (kgdb_flag) {
-		printk("Wait for gdb client connection ...\n");
-		set_debug_traps();
-		breakpoint();
-	}
+	/*
+	 * We have been called before kgdb_arch_init(). Hence,
+	 * we dont want the traps to be reinitialized
+	 */
+	if (kgdb_early_setup == 0)
+		kgdb_early_setup = 1;
 #endif
 }

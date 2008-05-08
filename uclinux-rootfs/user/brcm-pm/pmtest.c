@@ -60,6 +60,7 @@ void usage(void)
 	printf("  usb 0        power down USB controllers\n");
 	printf("  enet 1       power up ENET controller(s)\n");
 	printf("  sata 1       power up SATA controller\n");
+	printf("  tp1 0        power down TP1 (second CPU thread)\n");
 	printf("  cpu 4        set CPU clock to BASE/4\n");
 	printf("  ddr 64       enable DDR self-refresh after 64 idle cycles\n");
 	printf("  ddr 0        disable DDR self-refresh\n");
@@ -92,6 +93,7 @@ int main(int argc, char **argv)
 		printf("usb:          %d\n", state.usb_status);
 		printf("enet:         %d\n", state.enet_status);
 		printf("sata:         %d\n", state.sata_status);
+		printf("tp1:          %d\n", state.tp1_status);
 		printf("cpu_base:     %d\n", state.cpu_base);
 		printf("cpu_divisor:  %d\n", state.cpu_divisor);
 		printf("cpu_speed:    %d\n", state.cpu_base / state.cpu_divisor);
@@ -122,6 +124,14 @@ int main(int argc, char **argv)
 	if(! strcmp(argv[1], "sata"))
 	{
 		state.sata_status = val;
+		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
+			fatal("can't set PM state");
+		return(0);
+	}
+
+	if(! strcmp(argv[1], "tp1"))
+	{
+		state.tp1_status = val;
 		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
 			fatal("can't set PM state");
 		return(0);

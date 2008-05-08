@@ -65,7 +65,7 @@ static BOARD_PARAMETERS g_bcm97401_cfg2 =
 {
     "EXT_PHY",				    /* szBoardId */
     {BP_ENET_EXTERNAL_PHY,                  /* ucPhyType */
-      CONFIG_BCMINTEMAC_7038_PHY_ID,        /* ucPhyAddress */
+      0x01,                                 /* ucPhyAddress */
       0x01,                                 /* numSwitchPorts */
       BP_NOT_DEFINED,                       /* usManagementSwitch */
       BP_ENET_CONFIG_MDIO,                  /* usConfigType */

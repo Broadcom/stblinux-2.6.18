@@ -24,7 +24,7 @@
 
 obj-$(CONFIG_BCMINTEMAC_7038) += bcmemacnet.o
 
-bcmemacnet-objs := bcmemac.o bcmmii.o boardparms.o vnet.o
+bcmemacnet-objs := bcmemac.o bcmmii.o boardparms.o
 
 
 #-DDUMP_DATA -- dump data
@@ -32,7 +32,6 @@ bcmemacnet-objs := bcmemac.o bcmmii.o boardparms.o vnet.o
 #-DUSE_PROC -- display ethernet driver internal info
 # THT for debug only EXTRA_CFLAGS += -I. -DDUMP_TRACE -DDUMP_DATA
 EXTRA_CFLAGS += -I. -DUSE_PROC
-EXTRA_CFLAGS += -DVPORTS
 #EXTRA_CFLAGS += -I. -DUSE_PROC -DDUMP_TRACE -DDUMP_DATA
 # THT Not Yet EXTRA_CFLAGS += -DUSE_BH
 

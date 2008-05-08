@@ -50,7 +50,7 @@
 #include "bchp_uartb.h"
 #include "bchp_uartc.h"
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 #ifdef _cplusplus
 extern "C" {
 #endif
@@ -123,7 +123,7 @@ extern "C" {
 #define	TXIDLE				0x02
 #define	TXDREGEMT			0x01
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 
 /**********************************************************************
   Uart Register Structure
@@ -158,7 +158,7 @@ typedef struct UartChannel {
 #define UART  ((volatile UartChannel *)	UART_ADR_BASE)
 
 
-#endif /* _ASMLANGUAGE */
+#endif /* __ASSEMBLY__ */
 
 /******************************************************************
  * Baud Rate Table
@@ -185,7 +185,7 @@ typedef struct UartChannel {
 #define BAUD_115200_HI  BAUD_VAL_HI(115200)
 #define BAUD_115200_LO  BAUD_VAL_LO(115200)
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 #ifdef __cplusplus
 }
 #endif

@@ -2045,7 +2045,7 @@ static int yaffs_FindBlockForGarbageCollection(yaffs_Device * dev,
 	int i;
 	int iterations;
 	int dirtiest = -1;
-	int pagesInUse;
+	int pagesInUse = 0;
 	int prioritised=0;
 	yaffs_BlockInfo *bi;
 	static int nonAggressiveSkip = 0;
@@ -4700,7 +4700,6 @@ static int yaffs_Scan(yaffs_Device * dev)
 	int deleted;
 	yaffs_BlockState state;
 	yaffs_Object *hardList = NULL;
-	yaffs_Object *hl;
 	yaffs_BlockInfo *bi;
 	int sequenceNumber;
 	yaffs_ObjectHeader *oh;

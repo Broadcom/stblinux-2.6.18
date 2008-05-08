@@ -40,11 +40,17 @@ static loff_t map_over_bad_blocks(struct mtd_blktrans_dev* dev, loff_t from)
 	/* first time in */
 	if (block_map == NULL) {
 		block_top = mtd->size / mtd->erasesize;
-		block_map = kmalloc(sizeof(*block_map) * block_top, GFP_KERNEL);
+		//block_map = kmalloc(sizeof(*block_map) * block_top, GFP_KERNEL);
+		block_map = vmalloc(sizeof(*block_map) * block_top);
 		if (block_map == NULL) {
 			printk (KERN_ERR "map_over_bad_blocks(): unable to allocate block map\n");
 			return -ENOMEM;
 		}
+
+		/* THT/Sidc: Update global struct */
+		dev_cont->block_map = block_map;
+		dev_cont->block_top = block_top;
+		
 		for (i = 0; i < block_top; i++)
 			block_map[i] = -1;
 
@@ -81,10 +87,14 @@ static loff_t map_over_bad_blocks(struct mtd_blktrans_dev* dev, loff_t from)
 
 		block_map[++block_scantop] = i;
 		DEBUG(MTD_DEBUG_LEVEL0, "mtd: map %d -> %d\n", block_scantop, block_map[block_scantop]);
+		
+		/* THT/Sidc: Update global struct */
+		dev_cont->block_scantop = block_scantop;
 	}
 
 	block = block_map[(int)from / mtd->erasesize];
 	from = (block * mtd->erasesize) | ((int)from & (mtd->erasesize - 1));
+	
 	return from;
 }
 
@@ -101,13 +111,26 @@ static int romblock_readsect(struct mtd_blktrans_dev *dev,
 	return 0;
 }
 
+
 static int romblock_writesect(struct mtd_blktrans_dev *dev,
 			      unsigned long block, char *buf)
 {
 	size_t retlen;
+#if 0
+/*
+ * THT: I believe original codes are wrong, as we also need to adjust the write offset,
+ * but since we never call WR op on this device, the fixed codes won't be compiled in.
+ */
+	unsigned long from;
+
+	from = map_over_bad_blocks(dev, block<<9);
+	if (dev->mtd->write(dev->mtd, from, 512, &retlen, buf))
+		return 1;
+#else
 
 	if (dev->mtd->write(dev->mtd, (block * 512), 512, &retlen, buf))
 		return 1;
+#endif
 	return 0;
 }
 
@@ -132,8 +155,15 @@ static void romblock_add_mtd(struct mtd_blktrans_ops *tr, struct mtd_info *mtd)
 
 static void romblock_remove_dev(struct mtd_blktrans_dev *dev)
 {
+	struct romblock_map* dev_cont = container_of(dev, struct romblock_map, dev);
+	
 	del_mtd_blktrans_dev(dev);
-	kfree(dev);
+	/* THT: Free the map */
+	if (dev_cont->block_map) {
+		vfree(dev_cont->block_map);
+		dev_cont->block_map = NULL;
+	}
+	kfree(dev_cont);
 }
 
 static struct mtd_blktrans_ops romblock_tr = {

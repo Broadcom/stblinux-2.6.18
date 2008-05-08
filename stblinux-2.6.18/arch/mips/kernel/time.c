@@ -118,9 +118,17 @@ static void c0_timer_ack(void)
 
 	/* Check to see if we have missed any timer interrupts.  */
 	while (((count = read_c0_count()) - expirelo) < 0x7fffffff) {
+#if defined(CONFIG_MIPS_BRCM97XXX) && defined(CONFIG_SMP)
+		/* need to try to keep the count register on both TPs synched */
+		unsigned int missed = (count - expirelo) / cycles_per_jiffy;
+
+		expirelo += cycles_per_jiffy * (missed + 2);
+		write_c0_compare(expirelo);
+#else
 		/* missed_timer_count++; */
 		expirelo = count + cycles_per_jiffy;
 		write_c0_compare(expirelo);
+#endif
 	}
 }
 

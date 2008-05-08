@@ -196,6 +196,19 @@ static void brcm_intc_set_affinity(unsigned int irq, cpumask_t dest)
 #endif
 	local_irq_restore(flags);
 }
+
+void migrate_irqs(void)
+{
+	unsigned int i, cpu = smp_processor_id();
+
+	for(i = 1; i <= L1_IRQS; i++) {
+		if(cpu_isset(cpu, irq_desc[i].affinity)) {
+			irq_desc[i].affinity = cpumask_of_cpu(cpu ^ 1);
+			brcm_intc_set_affinity(i, irq_desc[i].affinity);
+		}
+	}
+}
+
 #endif /* CONFIG_SMP */
 
 /*

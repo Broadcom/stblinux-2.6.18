@@ -1065,7 +1065,7 @@ static inline int skb_copy_to_page(struct sock *sk, char __user *from,
 {
 	if (skb->ip_summed == CHECKSUM_NONE) {
 		int err = 0;
-		unsigned int csum = csum_and_copy_from_user(from,
+		unsigned int csum = csum_and_copy_from_user((const unsigned char __user *)from,
 						     page_address(page) + off,
 							    copy, 0, &err);
 		if (err)

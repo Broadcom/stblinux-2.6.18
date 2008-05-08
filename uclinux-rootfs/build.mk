@@ -32,7 +32,7 @@ endif
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.18-2.0 we only support a few platforms
-PLATFORMS=7325a0 7401c0 97455c0 7400d0 7400d0-smp 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7405a0 7405a0-smp 7038c0 3563c0 7335a0 7335a0-smp 7405b0 7405b0-smp  # 7400d0-smp-nand 97456d0-smp-nand
+PLATFORMS=7325a0 7325a0-smtc 7401c0 97455c0 7400d0 7400d0-smp 7400d0-smp-discontig 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7118c0-nand 7405a0 7405a0-smp 7038c0 3563c0 7335a0 7335a0-smp 7405b0 7405b0-smp 7405b0-nand 7405b0-smp-nand # 7400d0-smp-nand 97456d0-smp-nand
     # Obsoleted
     # 7400a0 7400a0-smp 7440a0 97398 7402 7402c0 7403a0 3560b0 3563 97456
     # 7318 7400a0-nand  7401b0-nand
@@ -250,42 +250,21 @@ $(BB_PLATFORMS) $(XFS_BB_PLATFORMS): prepare
 
 #
 # KGDB targets: will output kernel images of the form
-# vmlinuz-<platform>-kgdb
+# vmlinuz-<platform>-kgdb, for example, vmlinuz-7401c0-kgdb
 # Only non-initrd images can be targets, for now.
 #
 # Should do a make clean manually before involking any kgdb targets.
-# Omitted here since these are normally one time shot deals.
+# Omitted here since these are normally one shot deals.
 $(KGDB_PLATFORMS): prepare
 	-test -f $(KERNEL_DIR)/.config && rm -f $(KERNEL_DIR)/.config
-	for i in $(ALL_PLATFORMS); do \
-		if [ "$@" == "$(addprefix vmlinuz-,$(addsuffix -kgdb,$$i))" ]; then	\
-			if test -f $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig; then	\
-				echo $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig > .kgdb_target;	\
-			else	\
-				echo $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig > .kgdb_target;		\
-			fi;	\
-			cat .kgdb_target | xargs cat | \
-			sed 's,# CONFIG_DEBUG_KERNEL is not set,CONFIG_DEBUG_KERNEL=y,g' | \
-			sed 's,# CONFIG_KGDB is not set,CONFIG_KGDB=y,g' | \
-			sed 's,# CONFIG_DEBUG_INFO is not set,CONFIG_DEBUG_INFO=y,g' |	\
-			sed 's,# CONFIG_KGDB_8250 is not set,CONFIG_KGDB_8250=y,g' |	\
-			sed 's,# CONFIG_KGDB_115200BAUD is not set,CONFIG_KGDB_115200BAUD=y,g' |	\
-			sed 's,# CONFIG_KGDB_PORT=,CONFIG_KGDB_PORT=,g'	|	\
-			sed 's,# CONFIG_KGDB_IRQ=,CONFIG_KGDB_IRQ=,g'		\
-				> $(KERNEL_DIR)/.config.new;	\
-			grep CONFIG_KGDB_8250=y $(KERNEL_DIR)/.config.new &&	\
-			( 	cat $(KERNEL_DIR)/.config.new |	\
-				sed 's,# CONFIG_KGDB_8250_NOMODULE is not set,CONFIG_KGDB_8250_NOMODULE=y,g'		\
-				> $(KERNEL_DIR)/.config	)	||	\
-			( 	cat $(KERNEL_DIR)/.config.new |	\
-				sed 's,# CONFIG_BRCM_7XXX_SERIAL is not set,CONFIG_BRCM_7XXX_SERIAL=y,g'	|		\
-				sed 's,# CONFIG_SERIAL_CORE_CONSOLE is not set,CONFIG_SERIAL_CORE_CONSOLE=y,g'	|	\
-				sed 's,# CONFIG_KGDB_BRCM97XXX is not set,CONFIG_KGDB_BRCM97XXX=y,g'		\
-				> $(KERNEL_DIR)/.config		\
-			);	\
-			rm -f .kgdb_target && rm -f $(KERNEL_DIR)/.config.new;	\
-		fi	\
-	done
+	if test -f $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig; then	\
+		cp -f $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig .kgdb_target;		\
+	else	\
+		cp -f $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig .kgdb_target;		\
+	fi;	\
+	cat .kgdb_target $(KERNEL_DIR)/arch/mips/configs/bcm97xxx-kgdb.tpl | 				\
+	sed 's,# CONFIG_DEBUG_KERNEL is not set,CONFIG_DEBUG_KERNEL=y,g' > $(KERNEL_DIR)/.config;	\
+	rm -f .kgdb_target;	\
 	if [ "$(SINGLE_SERIAL_PORT)" == "y" ]; then \
 		echo "CONFIG_SINGLE_SERIAL_PORT=y" >> $(KERNEL_DIR)/.config; \
 	else \
@@ -313,6 +292,7 @@ $(OPROF_INITRD_PLATFORMS) : prepare
 		| sed -e "s/# CONFIG_PROFILING is not set/CONFIG_PROFILING=y/" \
 			> "$$CONFIG_LINUXDIR"/.config; \
 		echo "CONFIG_OPROFILE=y" >> "$$CONFIG_LINUXDIR"/.config; \
+		echo "# CONFIG_USER_PROFILE_OPROFILE_FULL is not set" >> "$$CONFIG_LINUXDIR"/.config; \
 		cp -f vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config.uClibc uClibc/.config; \
 		cp -f vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config.busybox user/busybox/.config; \
 		test -f config/.config && rm -f config/.config; \

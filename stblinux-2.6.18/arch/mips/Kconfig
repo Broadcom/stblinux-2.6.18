@@ -73,6 +73,31 @@ config MIPS_BCM7118AX_NAND
 	select MTD_BRCMNAND
 	select MTD_BRCMNAND_VERIFY_WRITE
 	select MTD_BLOCK_ROMBLOCK
+	
+config MIPS_BCM7118CX
+	bool "Support for BCM97118Cx with NOR flash"
+	select MIPS_BRCM97XXX
+	select MIPS_BCM7118C0
+	select MIPS_BCM7118
+	select HW_HAS_PCI
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+        select SYS_HAS_CPU_MIPS32_R1
+
+config MIPS_BCM7118CX_NAND
+	bool "Support for BCM97118Cx with NAND flash"
+	select MIPS_BRCM97XXX
+	select MIPS_BCM7118C0
+	select MIPS_BCM7118
+	select HW_HAS_PCI
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_BIG_ENDIAN
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_HAS_CPU_MIPS32_R1
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
 
 config MIPS_BCM7312
 	bool "Support for BCM97312"
@@ -113,6 +138,21 @@ config MIPS_BCM7405BX
         select SYS_SUPPORTS_LITTLE_ENDIAN
 	select SYS_SUPPORTS_SMP
 	select SYS_HAS_CPU_MIPS32_R1
+	
+config MIPS_BCM7405BX_NAND
+        bool "Support for BCM97405Bx with NAND flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7405B0
+        select MIPS_BCM7405
+        select HW_HAS_PCI
+        select SYS_SUPPORTS_32BIT_KERNEL
+        select SYS_SUPPORTS_BIG_ENDIAN
+        select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_SUPPORTS_SMP
+	select SYS_HAS_CPU_MIPS32_R1
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
 
 config MIPS_BCM7335AX
         bool "Support for BCM97335Ax with NOR flash"
@@ -1329,6 +1369,7 @@ config MIPS_BRCM97XXX
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_SUPPORTS_KGDB
 	
 config MIPS_BCM3560
 	bool
@@ -1420,15 +1461,21 @@ config MIPS_BCM7400
 
 config MIPS_BCM7118
 	bool
+	depends MIPS_BCM7118A0 || MIPS_BCM7118C0
 
 config MIPS_BCM7118A0
 	bool
 	depends MIPS_BCM7118AX || MIPS_BCM7118AX_NAND
 	select MTD_ECM_PARTITION
+	
+config MIPS_BCM7118C0
+	bool
+	depends MIPS_BCM7118CX || MIPS_BCM7118CX_NAND
+	select MTD_ECM_PARTITION
 
 config MIPS_BCM7405B0
         bool
-        depends MIPS_BCM7405BX
+        depends MIPS_BCM7405BX || MIPS_BCM7405BX_NAND
 
 config MIPS_BCM7405A0
         bool
@@ -1690,6 +1737,15 @@ config BRCM_PM
 	  NOTE: This may force the affected drivers to be built as modules.
 
 	  If unsure, say N.
+
+config HOTPLUG_CPU
+	bool "Support for hot-pluggable CPUs (EXPERIMENTAL)"
+	depends on SMP && HOTPLUG && EXPERIMENTAL && !MIPS_MT_SMTC
+	default n
+	help
+	  Say Y here to experiment with turning CPUs off and on, and to
+	  enable suspend on SMP systems. CPUs can be controlled through
+	  /sys/devices/system/cpu.
 
 endmenu
 

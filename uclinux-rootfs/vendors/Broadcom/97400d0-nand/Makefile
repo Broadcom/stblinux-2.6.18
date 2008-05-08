@@ -185,7 +185,8 @@ initrd: kinit
 	umask 022
 	cp -af etc/* $(ROMFSDIR)/etc
 	-test -d $(ROMFSDIR)/usr/sbin || mkdir $(ROMFSDIR)/usr/sbin
-	sed "s,@VERSION@,$(VERSION),g" usr/sbin/stbutil > $(ROMFSDIR)/usr/sbin/stbutil
+	sed "s,@VERSION@,$(VERSION),g" usr/sbin/stbutil | \
+		sed "s,@PLATFORM@,$(PLATFORM),g" > $(ROMFSDIR)/usr/sbin/stbutil
 	sed 's,###mount,mount,g' etc/init.d/rcS > $(ROMFSDIR)/var/tmp/rcS.hd
 	chmod +x $(ROMFSDIR)/usr/sbin/stbutil
 	cp -f usr/sbin/usb* $(ROMFSDIR)/usr/sbin/

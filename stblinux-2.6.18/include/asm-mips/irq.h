@@ -79,5 +79,6 @@ extern int setup_irq_smtc(unsigned int irq, struct irqaction * new,
 extern int allocate_irqno(void);
 extern void alloc_legacy_irqno(void);
 extern void free_irqno(unsigned int irq);
+extern void migrate_irqs(void);
 
 #endif /* _ASM_IRQ_H */

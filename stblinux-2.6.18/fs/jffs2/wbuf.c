@@ -970,9 +970,12 @@ exit:
 int jffs2_check_oob_empty(struct jffs2_sb_info *c,
 			  struct jffs2_eraseblock *jeb, int mode)
 {
-	int i, page, ret;
+	int i, ret;
 	int oobsize = c->mtd->oobsize;
 	struct mtd_oob_ops ops;
+#ifndef CONFIG_MTD_BRCMNAND
+	int page;
+#endif
 
 //printk("-->jffs2_check_oob_empty\n");
 

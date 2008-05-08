@@ -28,9 +28,7 @@
 #include <linux/config.h>
 // For module exports
 #include <linux/module.h>
-
 #include <asm/brcmstb/common/brcmstb.h>
-#include <asm/brcmstb/brcm97403a0/bchp_pci_cfg.h>
 
 
 #ifndef DRAM_SIZE

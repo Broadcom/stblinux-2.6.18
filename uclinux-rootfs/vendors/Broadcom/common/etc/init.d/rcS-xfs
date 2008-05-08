@@ -7,6 +7,12 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin:.
 echo "Mount /proc fs"
 mount -t proc none /proc
 
+echo "Mount /sys fs"
+mount -t sysfs none /sys
+
+# Enable hotplug
+echo "/sbin/hotplug" > /proc/sys/kernel/hotplug
+
 # USB/SATA/ENET are loadable modules when power management is enabled
 if [ -e /proc/driver/brcm-pm ]; then
 	modprobe ehci-hcd &

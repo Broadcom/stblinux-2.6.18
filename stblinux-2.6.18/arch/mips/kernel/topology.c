@@ -1,3 +1,4 @@
+#include <linux/autoconf.h>
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/init.h>
@@ -16,6 +17,10 @@ static int __init topology_init(void)
 		register_one_node(i);
 #endif /* CONFIG_NUMA */
 
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_MIPS_BRCM97XXX)
+	/* can't shut down TP0 */
+	per_cpu(cpu_devices, 0).no_control = 1;
+#endif
 	for_each_present_cpu(i) {
 		ret = register_cpu(&per_cpu(cpu_devices, i), i);
 		if (ret)

@@ -1,3 +1,0 @@
-udivdi3.o: udivdi3.c \
-   gcclib.h \
-   longlong.h

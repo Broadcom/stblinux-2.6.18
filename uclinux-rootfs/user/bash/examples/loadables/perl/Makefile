@@ -20,28 +20,28 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA.
 
 # Include some boilerplate Gnu makefile definitions.
-prefix = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/romfs/
+prefix = /home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/romfs/
 
 exec_prefix = ${prefix}
 bindir = ${exec_prefix}/bin
-libdir = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/libtermcap
+libdir = /home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/romfs/lib/
 infodir = ${prefix}/info
 includedir = ../../uClibc/include/
 
 topdir = ../../..
-BUILD_DIR = /myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/user/bash
+BUILD_DIR = /home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/user/bash
 srcdir = .
 VPATH = .:.
 
 
-CC = mipsel-linux-gcc
+CC = mips-linux-gcc
 RM = rm -f
 
 SHELL = /bin/sh
 
 PERL5 = perl5
 
-CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
+CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include
 
 #
 # These values are generated for configure by ${topdir}/support/shobj-conf.
@@ -49,7 +49,7 @@ CFLAGS = -Os -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.
 # dynamic loading of shared objects, please update the script and send the
 # changes to bash-maintainers@gnu.org.
 #
-SHOBJ_CC = mipsel-linux-gcc
+SHOBJ_CC = mips-linux-gcc
 SHOBJ_CFLAGS = -fPIC
 SHOBJ_LD = ${CC}
 SHOBJ_LDFLAGS = -shared -Wl,-soname,$@

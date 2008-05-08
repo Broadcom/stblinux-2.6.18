@@ -45,13 +45,7 @@
 //#include <asm/pci_channel.h>
 #include <asm/io.h>
 #include <asm/debug.h>
-
-#include <asm/brcmstb/brcm97400d0/boardmap.h>
-#include <asm/brcmstb/brcm97400d0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97400d0/bcmintrnum.h>
-#include <asm/brcmstb/brcm97400d0/bchp_pcix_bridge.h>
-
-
+#include <asm/brcmstb/common/brcmstb.h>
 
 /* Since the following is not defined in any of our header files. */
 #define MIPS_PCI_XCFG_INDEX     0xf0600004

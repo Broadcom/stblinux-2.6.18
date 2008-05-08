@@ -70,12 +70,15 @@ struct brcm_pm_priv
 #define SYS_ENET_STAT	"/sys/devices/platform/brcm-pm/enet"
 #define SYS_SATA_STAT	"/sys/devices/platform/brcm-pm/sata"
 #define SYS_DDR_STAT	"/sys/devices/platform/brcm-pm/ddr"
+#define SYS_TP1_STAT	"/sys/devices/system/cpu/cpu1/online"
 #define SYS_BASE_FREQ	"/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
 #define SYS_CUR_FREQ	"/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq"
 #define DHCPCD_PIDFILE	"/etc/config/dhcpc/dhcpcd-eth0.pid"
 #define DHCPCD_PATH	"/bin/dhcpcd"
 #define IFCONFIG_PATH	"/bin/ifconfig"
+#define HDPARM_PATH	"/sbin/hdparm"
 #define SATA_RESCAN_GLOB "/sys/class/scsi_host/host*/scan"
+#define SATA_DEVICE_GLOB "/sys/class/scsi_device/*/device/block:*"
 #define SATA_DELETE_GLOB "/sys/class/scsi_device/*/device/delete"
 
 static int sysfs_get(char *path, unsigned int *out)
@@ -204,16 +207,19 @@ int brcm_pm_get_status(void *vctx, struct brcm_pm_state *st)
 	/* read status from /proc */
 
 	if(sysfs_get(SYS_USB_STAT, (unsigned int *)&st->usb_status) != 0) {
-		return(-1);
+		st->usb_status = BRCM_PM_UNDEF;
 	}
 	if(sysfs_get(SYS_ENET_STAT, (unsigned int *)&st->enet_status) != 0) {
-		return(-1);
+		st->enet_status = BRCM_PM_UNDEF;
 	}
 	if(sysfs_get(SYS_SATA_STAT, (unsigned int *)&st->sata_status) != 0) {
-		return(-1);
+		st->sata_status = BRCM_PM_UNDEF;
 	}
 	if(sysfs_get(SYS_DDR_STAT, (unsigned int *)&st->ddr_timeout) != 0) {
-		return(-1);
+		st->ddr_timeout = BRCM_PM_UNDEF;
+	}
+	if(sysfs_get(SYS_TP1_STAT, (unsigned int *)&st->tp1_status) != 0) {
+		st->tp1_status = BRCM_PM_UNDEF;
 	}
 
 	if(ctx->last_state.cpu_base)
@@ -228,7 +234,7 @@ int brcm_pm_get_status(void *vctx, struct brcm_pm_state *st)
 		st->cpu_divisor = st->cpu_base / tmp;
 	} else {
 		st->cpu_base = 0;
-		st->cpu_divisor = 1;
+		st->cpu_divisor = -1;
 	}
 
 	if(st != &ctx->last_state)
@@ -252,12 +258,37 @@ static int sata_rescan_hosts(void)
 	return(ret);
 }
 
-static int sata_delete_devices(void)
+static int sata_spindown_devices(void)
 {
 	glob_t g;
 	int i, ret = 0;
 
 	/* NOTE: if there are no devices present, it is not an error */
+	if(glob(SATA_DEVICE_GLOB, GLOB_NOSORT, NULL, &g) != 0)
+		return(0);
+
+	for(i = 0; i < g.gl_pathc; i++)
+	{
+		char *devname = rindex(g.gl_pathv[i], ':');
+		char buf[BUF_SIZE];
+		
+		if(! devname)
+			return(-1);
+		snprintf(buf, BUF_SIZE, "/dev/%s", devname + 1);
+
+		/* ignore return value as some devices will fail */
+		run(HDPARM_PATH, "-y", buf, NULL);
+	}
+	globfree(&g);
+
+	return(ret);
+}
+
+static int sata_delete_devices(void)
+{
+	glob_t g;
+	int i, ret = 0;
+
 	if(glob(SATA_DELETE_GLOB, GLOB_NOSORT, NULL, &g) != 0)
 		return(0);
 
@@ -273,18 +304,18 @@ int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 	struct brcm_pm_priv *ctx = vctx;
 	int ret = 0;
 
-	if(st->usb_status != ctx->last_state.usb_status)
+#define CHANGED(element) \
+	((st->element != BRCM_PM_UNDEF) && \
+	 (st->element != ctx->last_state.element))
+
+	
+	if(CHANGED(usb_status))
 	{
-		if(st->usb_status)
-		{
-			ret |= sysfs_set(SYS_USB_STAT, 1);
-		} else {
-			ret |= sysfs_set(SYS_USB_STAT, 0);
-		}
+		ret |= sysfs_set(SYS_USB_STAT, st->usb_status ? 1 : 0);
 		ctx->last_state.usb_status = st->usb_status;
 	}
 
-	if(st->enet_status != ctx->last_state.enet_status)
+	if(CHANGED(enet_status))
 	{
 		if(st->enet_status)
 		{
@@ -300,19 +331,25 @@ int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 		ctx->last_state.enet_status = st->enet_status;
 	}
 
-	if(st->sata_status != ctx->last_state.sata_status)
+	if(CHANGED(sata_status))
 	{
 		if(st->sata_status)
 		{
 			ret |= sata_rescan_hosts();
 		} else {
+			ret |= sata_spindown_devices();
 			ret |= sata_delete_devices();
 			ret |= sysfs_set(SYS_SATA_STAT, 0);
 		}
 		ctx->last_state.sata_status = st->sata_status;
 	}
 
-	if(st->cpu_divisor != ctx->last_state.cpu_divisor)
+	if(CHANGED(tp1_status))
+	{
+		ret |= sysfs_set(SYS_TP1_STAT, st->tp1_status);
+	}
+
+	if(CHANGED(cpu_divisor))
 	{
 		if(! st->cpu_divisor || ! ctx->last_state.cpu_base)
 		{
@@ -326,10 +363,12 @@ int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 		ctx->last_state.cpu_divisor = st->cpu_divisor;
 	}
 
-	if(st->ddr_timeout != ctx->last_state.ddr_timeout)
+	if(CHANGED(ddr_timeout))
 	{
 		ret |= sysfs_set(SYS_DDR_STAT, st->ddr_timeout);
 	}
+
+#undef CHANGED
 
 	return(ret);
 }

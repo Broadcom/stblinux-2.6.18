@@ -10,6 +10,8 @@
  * Kevin D. Kissell, kevink@mips.com and Carsten Langgaard, carstenl@mips.com
  * Copyright (C) 2000, 01 MIPS Technologies, Inc.
  * Copyright (C) 2002, 2003, 2004, 2005  Maciej W. Rozycki
+ *
+ * KGDB specific changes - Manish Lachwani (mlachwani@mvista.com)
  */
 #include <linux/init.h>
 #include <linux/mm.h>
@@ -20,6 +22,7 @@
 #include <linux/spinlock.h>
 #include <linux/kallsyms.h>
 #include <linux/bootmem.h>
+#include <linux/kgdb.h>
 #include <linux/interrupt.h>
 
 #include <asm/atomic.h>
@@ -42,6 +45,7 @@
 #include <asm/mmu_context.h>
 #include <asm/watch.h>
 #include <asm/types.h>
+#include <asm/kdebug.h>
 
 extern asmlinkage void handle_int(void);
 extern asmlinkage void handle_tlbm(void);
@@ -126,6 +130,13 @@ static void show_backtrace(struct task_struct *task, struct pt_regs *regs)
 #else
 #define show_backtrace(task, r) show_raw_backtrace((r)->regs[29]);
 #endif
+
+ATOMIC_NOTIFIER_HEAD(mips_die_chain);
+
+int register_die_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&mips_die_chain, nb);
+}
 
 /*
  * This routine abuses get_user()/put_user() to reference pointers
@@ -1492,18 +1503,21 @@ void __init per_cpu_trap_init(void)
 	enter_lazy_tlb(&init_mm, current);
 
 #ifdef CONFIG_MIPS_MT_SMTC
-	if (bootTC) {
+	if (bootTC)
 #endif /* CONFIG_MIPS_MT_SMTC */
-#ifndef CONFIG_DISCONTIGMEM
-		/*
-		 * on DISCONTIGMEM, these are done in setup_arch() in order
-		 * to create the extra kernel mappings for upper memory
-		 */
+#ifdef CONFIG_DISCONTIGMEM
+	/*
+	 * on DISCONTIGMEM, these are done in setup_arch() on TP0 in order
+	 * to create the extra kernel mappings for upper memory
+	 */
+	if(smp_processor_id() != 0)
+#endif
+	{
 		cpu_cache_init();
 		tlb_init();
-#endif
+	}
 #ifdef CONFIG_MIPS_MT_SMTC
-	} else if (!secondaryTC) {
+	else if (!secondaryTC) {
 		/*
 		 * First TC in non-boot VPE must do subset of tlb_init()
 		 * for MMU countrol registers.
@@ -1539,6 +1553,11 @@ void __init trap_init(void)
 	extern char except_vec3_generic, except_vec3_r4000;
 	extern char except_vec4;
 	unsigned long i;
+
+#if defined(CONFIG_KGDB)
+	if (kgdb_early_setup)
+		return;	/* Already done */
+#endif
 
 	if (cpu_has_veic || cpu_has_vint)
 		ebase = (unsigned long) alloc_bootmem_low_pages (0x200 + VECTORSPACING*64);

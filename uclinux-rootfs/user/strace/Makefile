@@ -6,7 +6,7 @@
 
 srcdir		= .
 
-CC		= mipsel-linux-gcc
+CC		= mips-linux-gcc
 
 INSTALL		= /usr/bin/install -c
 INSTALL_PROGRAM	= ${INSTALL}
@@ -15,9 +15,9 @@ INSTALL_DATA	= ${INSTALL} -m 644
 DEFS		= -DHAVE_CONFIG_H
 LDLIBS		= 
 
-CFLAGS		= -D_GNU_SOURCE -DDONE=1 -DBITS_PER_LONG=32 -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include/asm/mach-generic -I/opt/toolchains/crosstools_hf-linux-2.6.18.0_gcc-4.2-4ts_uclibc-nptl-0.9.29-20070423_20080212/bin/../mipsel-linux/include
+CFLAGS		= -D_GNU_SOURCE -DDONE=1 -DBITS_PER_LONG=32 -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include/asm/mach-generic -I/opt/toolchains/uclibc-crosstools/bin/../mips-linux/include
 CPPFLAGS	= 
-LDFLAGS		= -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/lib/uClibc/include -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs -fno-builtin -I/myviews/2618-4.1/vobs/Ref_Linux_Kernel/src/uclinux-rootfs/linux-2.6.x/include
+LDFLAGS		= -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include -Os  -Dlinux -D__linux__ -Dunix -D__uClinux__ -DEMBED -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/lib/uClibc/include -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs -fno-builtin -I/home/jipeng/build-2.6.18/jipeng2.6.18-1.5-prerel-package/src/stblinux-2.6.18-0.1/uclinux-rootfs/linux-2.6.x/include
 WARNFLAGS	= -Wall
 
 # OS is one of `linux', `sunos4', `svr4', or `freebsd'.
@@ -32,7 +32,7 @@ OSARCH		= linux/mips
 EXTRA_DEFS	=
 
 # Where include files are located, useful for cross-compiling.
-includedir	= /projects/stbtc/crosstools_hf-linux-2.6.18.0_gcc-4.2-4ts_uclibc-nptl-0.9.29-20070423_20080212/bin/../lib/gcc/mipsel-linux-uclibc/4.2.0/../../../../mipsel-linux-uclibc/sys-include
+includedir	= /opt/toolchains-2.6.12_3.4.6/crosstools_linux-2.6.12.0_gcc-3.4.6-19_uclibc-0.9.28-20050817-20061010/bin/../lib/gcc/mips-linux-uclibc/3.4.6/../../../../mips-linux-uclibc/sys-include
 
 # Where to install the program:
 # I recommend `/usr' for Linux, `/usr/local' for the others.

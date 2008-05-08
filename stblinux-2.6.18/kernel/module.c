@@ -55,8 +55,10 @@
 #define ARCH_SHF_SMALL 0
 #endif
 
+
 /* If this is set, the section belongs in the init part of the module */
 #define INIT_OFFSET_MASK (1UL << (BITS_PER_LONG-1))
+
 
 /* Protects module list */
 static DEFINE_SPINLOCK(modlist_lock);
@@ -1118,6 +1120,11 @@ static void free_module(struct module *mod)
 	/* Arch-specific cleanup. */
 	module_arch_cleanup(mod);
 
+#ifdef CONFIG_WINDRIVER_OCD
+	/* kgdb info */
+	vfree(mod->mod_sections);
+#endif
+
 	/* Module unload stuff */
 	module_unload_free(mod);
 
@@ -1457,6 +1464,32 @@ static inline void add_kallsyms(struct module *mod,
 }
 #endif /* CONFIG_KALLSYMS */
 
+#ifdef CONFIG_WINDRIVER_OCD
+int add_modsects (struct module *mod, Elf_Ehdr *hdr, Elf_Shdr *sechdrs, const
+                char *secstrings)
+{
+        int i;
+
+        mod->num_sections = hdr->e_shnum - 1;
+        mod->mod_sections = vmalloc((hdr->e_shnum - 1)*
+		sizeof (struct mod_section));
+
+        if (mod->mod_sections == NULL) {
+                return -ENOMEM;
+        }
+
+        for (i = 1; i < hdr->e_shnum; i++) {
+                mod->mod_sections[i - 1].address = (void *)sechdrs[i].sh_addr;
+                strncpy(mod->mod_sections[i - 1].name, secstrings +
+                                sechdrs[i].sh_name, MAX_SECTNAME);
+                mod->mod_sections[i - 1].name[MAX_SECTNAME] = '\0';
+	}
+
+	return 0;
+}
+#endif
+
+
 /* Allocate and load the module: note that size of section 0 is always
    zero, and we rely on this for optional sections. */
 static struct module *load_module(void __user *umod,
@@ -1788,6 +1821,12 @@ static struct module *load_module(void __user *umod,
 
 	add_kallsyms(mod, sechdrs, symindex, strindex, secstrings);
 
+#ifdef CONFIG_WINDRIVER_OCD
+        if ((err = add_modsects(mod, hdr, sechdrs, secstrings)) < 0) {
+                goto nomodsectinfo;
+        }
+#endif
+
 	err = module_finalize(hdr, sechdrs, mod);
 	if (err < 0)
 		goto cleanup;
@@ -1847,6 +1886,11 @@ static struct module *load_module(void __user *umod,
 
  arch_cleanup:
 	module_arch_cleanup(mod);
+#ifdef CONFIG_WINDRIVER_OCD
+nomodsectinfo:
+       vfree(mod->mod_sections);
+#endif
+
  cleanup:
 	module_unload_free(mod);
 	module_free(mod, mod->module_init);

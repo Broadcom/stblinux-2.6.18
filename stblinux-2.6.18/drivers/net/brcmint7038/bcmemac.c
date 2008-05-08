@@ -85,7 +85,7 @@
   #elif defined(CONFIG_MIPS_BCM7038) || defined(CONFIG_MIPS_BCM7400) || \
         defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7403) || \
         defined(CONFIG_MIPS_BCM7452) || defined(CONFIG_MIPS_BCM7405) || \
-	defined(CONFIG_MIPS_BCM7335)
+		defined(CONFIG_MIPS_BCM7335)
   /* 32MB Flash */
   #define FLASH_MACADDR_OFFSET 0x01FFF824
 
@@ -154,10 +154,6 @@
 #endif
 
 extern unsigned long getPhysFlashBase(void);
-#ifdef VPORTS
-extern int vnet_probe(void);
-extern void vnet_module_cleanup(void);
-#endif
 
 static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr);
 static int bcmemac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
@@ -180,6 +176,9 @@ static int bcmIsEnetUp(struct net_device *dev);
 #define skb_dataref(x)   skb_datarefp(x)
 #endif
 
+/* Ignore the link status if the MSB of the PHY ID is set */
+#define IGNORE_LINK_STATUS(phy_id) ((phy_id) & 0x10)
+
 #if defined(CONFIG_BRCM_PM)
 
 #define BCMEMAC_AWAKE		0
@@ -187,9 +186,8 @@ static int bcmIsEnetUp(struct net_device *dev);
 
 #define BCMEMAC_POWER_ON(dev) do \
 	{ \
-		BcmEnet_devctrl *pDevCtrl = netdev_priv(dev); \
-		if(pDevCtrl->sleep_flag == BCMEMAC_SLEEPING) \
-			bcmemac_power_on(dev); \
+		if(g_sleep_flag == BCMEMAC_SLEEPING) \
+			bcmemac_power_on(NULL); \
 	} while(0)
 
 static int bcmemac_power_on(void *arg);
@@ -199,7 +197,6 @@ static int bcmemac_power_on(void *arg);
 #define BCMEMAC_POWER_ON(dev) do { } while(0)
 
 #endif /* CONFIG_BRCM_PM */
-
 
 /*
  * IP Header Optimization, on 7401B0 and on-wards
@@ -213,10 +210,10 @@ static int bcmemac_power_on(void *arg);
  * Private fields for 7401B0 on-wards
  * Set the offset into the data buffer (bits 9-10 of RX_CONTROL)
  */
-#define RX_CONFIG_PKT_OFFSET_SHIFT	9
+#define RX_CONFIG_PKT_OFFSET_SHIFT		9
 #define RX_CONFIG_PKT_OFFSET_MASK		0x0000_0600
 
-#define ENET_POLL_DONE      0x80000000
+#define ENET_POLL_DONE      			0x80000000
 
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
@@ -325,67 +322,12 @@ static void dumpMem32(uint32 * pMemAddr, int iNumWords);
 static void bcmemac_link_change_task(BcmEnet_devctrl *pDevCtrl);
 #endif
 
-static struct net_device *eth_root_dev = NULL;
-static struct net_device* vnet_dev[MAX_NUM_OF_VPORTS] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-static struct net_device* dev_xmit_halt[MAX_NUM_OF_VPORTS] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-struct net_device *get_vnet_dev(int port);
-struct net_device *set_vnet_dev(int port, struct net_device *dev);
-int get_num_vports(void);
-
-EXPORT_SYMBOL(get_num_vports);
-EXPORT_SYMBOL(get_vnet_dev);
-EXPORT_SYMBOL(set_vnet_dev);
-
-int get_num_vports(void)
-{
-    BcmEnet_devctrl *pDevCtrl;
-
-	if (vnet_dev[0] == NULL)
-		return 0;
-
-	pDevCtrl = (BcmEnet_devctrl*)netdev_priv(vnet_dev[0]);
-	return pDevCtrl->EnetInfo.numSwitchPorts + 1;
-}
-
-struct net_device* get_vnet_dev(int port)
-{
-    if ((port < 0) || (port >= MAX_NUM_OF_VPORTS))
-        return NULL;
-
-    return vnet_dev[port];
-}
-
-struct net_device *set_vnet_dev(int port, struct net_device *dev)
-{
-    BcmEnet_devctrl *pDevCtrl = netdev_priv(eth_root_dev);
-    unsigned long flags;
-
-    if ((port < 0) || (port >= MAX_NUM_OF_VPORTS))
-        return NULL;
-
-    spin_lock_irqsave(&pDevCtrl->lock, flags);
-
-    if (port == 1)
-    {
-        if (dev != NULL)
-            ethsw_switch_frame_manage_mode(vnet_dev[0]);
-        else
-            ethsw_switch_unmanage_mode(vnet_dev[0]);
-    }
-
-    vnet_dev[port] = dev;
-    spin_unlock_irqrestore(&pDevCtrl->lock, flags);
-    return dev;
-}
-
-#ifdef VPORTS
-static inline struct sk_buff *bcmemac_put_tag(struct sk_buff *skb,struct net_device *dev);
-static int bcmemac_header(struct sk_buff *s, struct net_device *d, unsigned short ty, void *da, void *sa, unsigned len);
-#define is_vport(dev) ((vnet_dev[0] != NULL) && (dev->hard_header == vnet_dev[0]->hard_header))
-#define is_vmode() (vnet_dev[1] != NULL)
-#define egress_vport_id_from_dev(dev) ((dev->base_addr == vnet_dev[0]->base_addr) ? 0: (dev->base_addr - 1))
-#define ingress_vport_id_from_tag(p) (((unsigned char *)p)[17] & 0x0f)
+#ifdef CONFIG_BRCM_PM
+static int g_sleep_flag = BCMEMAC_AWAKE;
 #endif
+static int g_num_devs = 0;
+static struct net_device *g_devs[BCMEMAC_MAX_DEVS];
+static uint8 g_flash_eaddr[ETH_ALEN];
 
 /* --------------------------------------------------------------------------
     Name: bcmemac_get_free_txdesc
@@ -394,13 +336,6 @@ static int bcmemac_header(struct sk_buff *s, struct net_device *d, unsigned shor
 int bcmemac_get_free_txdesc( struct net_device *dev ){
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     return pDevCtrl->txFreeBds;
-}
-/* --------------------------------------------------------------------------
-    Name: bcmemac_get_device
- Purpose: Obtain net_device handle (for export) 
--------------------------------------------------------------------------- */
-struct net_device * bcmemac_get_device( void ){
-    return eth_root_dev;
 }
 
 static inline void IncFlowCtrlAllocRegister(BcmEnet_devctrl *pDevCtrl) 
@@ -471,7 +406,7 @@ static void dumpHexData(unsigned char *head, int len)
     }
     printk("\n");
 
-} //dumpHexData
+}
 
 /*
  * dumpMem32 dump out the number of 32 bit hex data 
@@ -510,18 +445,6 @@ static int bcmemac_net_open(struct net_device * dev)
 
     TRACE(("%s: bcmemac_net_open, EMACConf=%x, &RxDMA=%x, rxDma.cfg=%x\n", 
                 dev->name, pDevCtrl->emac->config, &pDevCtrl->rxDma, pDevCtrl->rxDma->cfg));
-
-#ifdef VPORTS
-    if (is_vport(dev) && (dev != vnet_dev[0]))
-    {
-        if ((vnet_dev[0]->flags & IFF_UP) == 0) {
-            return -ENETDOWN;
-        }
-
-        netif_start_queue(dev);
-        return 0;
-    }
-#endif
 
     MOD_INC_USE_COUNT;
 
@@ -563,14 +486,8 @@ static int bcmemac_net_open(struct net_device * dev)
     }
 	
 
-#ifdef CONFIG_SMP
-    if (smp_processor_id() == 0) {
-#endif    
-        pDevCtrl->timer.expires = jiffies + POLLTIME_100MS;
-        add_timer(&pDevCtrl->timer);
-#ifdef CONFIG_SMP
-    }
-#endif    
+    pDevCtrl->timer.expires = jiffies + POLLTIME_100MS;
+    add_timer_on(&pDevCtrl->timer, 0);
 
     // Start the network engine
     netif_start_queue(dev);
@@ -615,13 +532,6 @@ static int bcmemac_net_close(struct net_device * dev)
 
     TRACE(("%s: bcmemac_net_close\n", dev->name));
 
-#ifdef VPORTS
-    if (is_vport(dev) && (dev != vnet_dev[0]))
-    {
-        netif_stop_queue(dev);
-        return 0;
-    }
-#endif
     netif_stop_queue(dev);
 
     MOD_DEC_USE_COUNT;
@@ -685,12 +595,6 @@ static void bcmemac_net_timeout(struct net_device * dev)
 static void bcm_set_multicast_list(struct net_device * dev)
 {
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
-#ifdef VPORTS
-    static int num_of_promisc_vports = 0;
-
-    if (is_vport(dev))
-        pDevCtrl = netdev_priv(vnet_dev[0]);
-#endif
 
     BCMEMAC_POWER_ON(dev);
 
@@ -698,22 +602,9 @@ static void bcm_set_multicast_list(struct net_device * dev)
 
     /* Promiscous mode */
     if (dev->flags & IFF_PROMISC) {
-#ifdef VPORTS
-        if (is_vport(dev))
-            num_of_promisc_vports ++;
-#endif
-        pDevCtrl->emac->rxControl |= EMAC_PROM;   
+		pDevCtrl->emac->rxControl |= EMAC_PROM;   
     } else {
-#ifdef VPORTS
-        if (is_vport(dev)) {
-            if (-- num_of_promisc_vports == 0)
-                pDevCtrl->emac->rxControl &= ~EMAC_PROM;
-        } 
-        else 
-#endif
-        {
-            pDevCtrl->emac->rxControl &= ~EMAC_PROM;
-        }
+		pDevCtrl->emac->rxControl &= ~EMAC_PROM;
     }
 
 #ifndef MULTICAST_HW_FILTER
@@ -836,14 +727,8 @@ static void tx_reclaim_timer(unsigned long arg)
         }
     }
 
-#ifdef CONFIG_SMP
-    if (smp_processor_id() == 0) {
-#endif    
-        pDevCtrl->timer.expires = jiffies + POLLTIME_100MS;
-        add_timer(&pDevCtrl->timer);
-#ifdef CONFIG_SMP
-    }
-#endif    
+    pDevCtrl->timer.expires = jiffies + POLLTIME_100MS;
+    add_timer_on(&pDevCtrl->timer, 0);
 }
 
 #ifdef CONFIG_BCMINTEMAC_NETLINK
@@ -964,107 +849,6 @@ int bcmemac_xmit_check(struct net_device * dev)
     return ret;
 }
 
-#ifdef VPORTS
-
-static inline struct sk_buff *bcmemac_put_tag(struct sk_buff *skb,struct net_device *dev)
-{
-    BcmEnet_hdr *pHdr = (BcmEnet_hdr *)skb->data;
-    int headroom;
-    int tailroom;
-
-    if (pHdr->brcm_type == BRCM_TYPE)
-    {
-        headroom = 0;
-        tailroom = ETH_ZLEN + BRCM_TAG_LEN - skb->len;
-    }
-    else
-    {
-        headroom = BRCM_TAG_LEN;
-        tailroom = ETH_ZLEN - skb->len;
-    }
-
-    tailroom = (tailroom < 0)? ETH_CRC_LEN: ETH_CRC_LEN + tailroom ;
-    if ((skb_headroom(skb) < headroom) || (skb_tailroom(skb) < tailroom))
-    {
-        struct sk_buff *oskb = skb;
-
-        skb = skb_copy_expand(oskb, headroom, tailroom, GFP_ATOMIC);
-        kfree_skb(oskb);
-
-        if (!skb)
-            return NULL;
-    }
-    else if (headroom != 0)
-    {
-        skb = skb_unshare(skb, GFP_ATOMIC);
-
-        if (!skb)
-            return NULL;
-    }
-
-    memset(skb->data + skb->len, 0, tailroom);
-    skb_put(skb, tailroom);
-
-    if (headroom != 0)
-    {
-        BcmEnet_hdr *pHdr = (BcmEnet_hdr *)skb_push(skb, headroom);
-        memmove(pHdr, skb->data + headroom, ETH_ALEN * 2);
-        pHdr->brcm_type = BRCM_TYPE;
-        pHdr->brcm_tag = 0;
-
-        if (vnet_dev[1] != NULL)
-            pHdr->brcm_tag |= BRCM_TAG_EGRESS | egress_vport_id_from_dev(dev);
-    }
-    return skb; 
-}
-
-static int bcmemac_header(struct sk_buff *skb, struct net_device *dev, unsigned short type, void *da, void *sa, unsigned len)
-{
-    struct ethhdr *eth;
-    BcmEnet_hdr *pHdr;
-    uint32 header_len;
-
-    header_len = is_vmode() ? dev->hard_header_len: ETH_HLEN;
-    eth = (struct ethhdr *)skb_push(skb, header_len);
-
-    if (type != ETH_P_802_3)
-        eth->h_proto = htons(type);
-    else
-        eth->h_proto = htons(len);
-
-    if (!is_vmode())
-        goto skip_tag;
-
-    memmove(skb->data + 18, skb->data + 12, 2);
-
-    pHdr = (BcmEnet_hdr *)eth;
-    pHdr->brcm_type = BRCM_TYPE;
-    pHdr->brcm_tag = 0;
-
-    if (vnet_dev[1] != NULL)
-        pHdr->brcm_tag |= BRCM_TAG_EGRESS | egress_vport_id_from_dev(dev);
-
-skip_tag:
-
-    if (sa)
-        memcpy(eth->h_source, sa, dev->addr_len);
-    else
-        memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
-
-    if (dev->flags & (IFF_LOOPBACK | IFF_NOARP)) {
-        memset(eth->h_dest, 0, dev->addr_len);
-        return header_len;
-    }
-
-    if (da) {
-        memcpy(eth->h_dest, da, dev->addr_len);
-        return header_len;
-    }
-    return (-1 * header_len);
-}
-
-#endif
-
 /* --------------------------------------------------------------------------
     Name: bcmemac_net_xmit
  Purpose: Send ethernet traffic
@@ -1076,16 +860,11 @@ static int bcmemac_net_xmit(struct sk_buff * skb, struct net_device * dev)
     Enet_Tx_CB *txedCBPtr;
     volatile DmaDesc *firstBdPtr;
     unsigned long flags;
-    int i = 0;
 
     ASSERT(pDevCtrl != NULL);
 
     BCMEMAC_POWER_ON(dev);
 
-#ifdef VPORTS
-    if (is_vport(dev))
-        pDevCtrl = netdev_priv(vnet_dev[0]);
-#endif
     /*
      * Obtain exclusive access to transmitter.  This is necessary because
      * we might have more than one stack transmitting at once.
@@ -1131,11 +910,7 @@ static int bcmemac_net_xmit(struct sk_buff * skb, struct net_device * dev)
         if (txCBPtr != NULL) {
             txCb_enq(pDevCtrl, txCBPtr);
         }
-        while(dev_xmit_halt[i]) {
-            netif_wake_queue(dev_xmit_halt[i]);
-            dev_xmit_halt[i] = NULL;
-            i++;
-        }
+		netif_wake_queue(dev);
         spin_unlock_irqrestore(&pDevCtrl->lock, flags);
         return 0;
     }
@@ -1150,23 +925,11 @@ static int bcmemac_net_xmit(struct sk_buff * skb, struct net_device * dev)
      * available, we can't send the packet. Discard the packet.
      */
     if (txCBPtr == NULL) {
-        while(dev_xmit_halt[i++] != NULL) {};
         netif_stop_queue(dev);
-        dev_xmit_halt[--i] = dev;
         spin_unlock_irqrestore(&pDevCtrl->lock, flags);
         return 1;
     }
 
-#ifdef VPORTS
-    if (is_vport(dev) && is_vmode())
-        skb = bcmemac_put_tag(skb, dev);
-
-    if (skb == NULL)
-    {
-        spin_unlock_irqrestore(&pDevCtrl->lock, flags);
-        return 0;
-    }
-#endif
     txCBPtr->nrBds = 1;
     txCBPtr->skb = skb;
 
@@ -1174,9 +937,7 @@ static int bcmemac_net_xmit(struct sk_buff * skb, struct net_device * dev)
     if (pDevCtrl->txFreeBds < txCBPtr->nrBds) {
         TRACE(("%s: bcmemac_net_xmit low on txFreeBds\n", dev->name));
         txCb_enq(pDevCtrl, txCBPtr);
-        while(dev_xmit_halt[i++] != NULL) {};
         netif_stop_queue(dev);
-        dev_xmit_halt[--i] = dev;
         spin_unlock_irqrestore(&pDevCtrl->lock, flags);
         return 1;
     }
@@ -1193,7 +954,7 @@ static int bcmemac_net_xmit(struct sk_buff * skb, struct net_device * dev)
      */
     dma_cache_wback_inv((unsigned long)skb->data, skb->len);
 
-    pDevCtrl->txNextBdPtr->address = EMAC_SWAP32((uint32)CPHYSADDR(skb->data));
+    pDevCtrl->txNextBdPtr->address = EMAC_SWAP32((uint32)virt_to_phys(skb->data));
     pDevCtrl->txNextBdPtr->length_status  = EMAC_SWAP32((((unsigned long)((skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len))<<16));
     /*
      * Set status of DMA BD to be transmitted and
@@ -1222,9 +983,7 @@ static int bcmemac_net_xmit(struct sk_buff * skb, struct net_device * dev)
 
     if ( (pDevCtrl->txFreeBds == 0) || (pDevCtrl->txCbQHead == NULL) ) {
         TRACE(("%s: bcmemac_net_xmit no transmit queue space -- stopping queues\n", dev->name));
-        while(dev_xmit_halt[i++] != NULL) {};
         netif_stop_queue(dev);
-        dev_xmit_halt[--i] = dev;
     }
     /*
      * Packet was enqueued correctly.
@@ -1244,16 +1003,6 @@ static int bcmemac_net_xmit(struct sk_buff * skb, struct net_device * dev)
     pDevCtrl->txDma->cfg |= DMA_ENABLE;
 
     /* update stats */
-#ifdef VPORTS
-    if (is_vport(dev) && (dev->base_addr > 0) && (dev->base_addr <= pDevCtrl->EnetInfo.numSwitchPorts)) {
-        struct net_device_stats *s =
-            (struct net_device_stats *)netdev_priv(vnet_dev[dev->base_addr]);
-
-        s->tx_bytes += ((skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len);
-        s->tx_bytes += ETH_CRC_LEN;
-        s->tx_packets++;
-    }
-#endif
     pDevCtrl->stats.tx_bytes += ((skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len);
     pDevCtrl->stats.tx_bytes += 4;
     pDevCtrl->stats.tx_packets++;
@@ -1315,7 +1064,7 @@ int bcmemac_xmit_fragment( int ch, unsigned char *buf, int buf_len,
      * Add the buffer to the ring.
      * Set addr and length of DMA BD to be transmitted.
      */
-    pDevCtrl->txNextBdPtr->address = EMAC_SWAP32((uint32)CPHYSADDR(buf));
+    pDevCtrl->txNextBdPtr->address = EMAC_SWAP32((uint32)virt_to_phys(buf));
     pDevCtrl->txNextBdPtr->length_status  = EMAC_SWAP32((((unsigned long)buf_len)<<16));	
     /*
      * Set status of DMA BD to be transmitted and
@@ -1531,9 +1280,6 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
     uint32 rxpktmax = budget + (budget / 2);
     int brcm_hdr_len = 0;
     int brcm_fcs_len = 0;
-#ifdef VPORTS
-    int vport = 0;
-#endif
 
     dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff);
     gLastDmaFlag = dmaFlag;
@@ -1607,7 +1353,7 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
                 bufferAddress = (uint32) EMAC_SWAP32(pDevCtrl->rxBdReadPtr->address);
                 pDevCtrl->rxBdReadPtr->address = 0;
 
-                pBuf = (unsigned char *)KSEG0ADDR(bufferAddress);
+                pBuf = (unsigned char *)phys_to_virt(bufferAddress);
                 skb = (struct sk_buff *)*(unsigned long *)(pBuf-4);
                 atomic_set(&skb->users, 1);
 
@@ -1649,7 +1395,7 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
         gNumberOfOverflows = 0;
         gNoDescCount = 0;
 
-        pBuf = (unsigned char *)(KSEG0ADDR(EMAC_SWAP32(pDevCtrl->rxBdReadPtr->address)));
+        pBuf = (unsigned char *)(phys_to_virt(EMAC_SWAP32(pDevCtrl->rxBdReadPtr->address)));
 
         /*
          * THT: Invalidate the RAC cache again, since someone may have read near the vicinity
@@ -1667,20 +1413,6 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
         // Recover the SKB pointer saved during assignment.
         skb = (struct sk_buff *)*(unsigned long *)(pBuf-4);
 
-#ifdef VPORTS
-        vport = 0;
-        if (is_vport(pDevCtrl->dev)&& is_vmode()) {
-            unsigned char *p;
-
-            vport = ingress_vport_id_from_tag(pBuf) + 1;
-            vport = (vnet_dev[vport] == NULL) ? 0: vport;
-            for (p = pBuf + 11; p >= pBuf; p--)
-                *(p + 6) = *p;
-
-            brcm_hdr_len = 6;
-            brcm_fcs_len = 4;
-        }
-#endif
         dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status))&0xffff);
         gLastDmaFlag = dmaFlag;
 
@@ -1693,22 +1425,8 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
 #endif
 
         /* Finish setting up the received SKB and send it to the kernel */
-#ifdef VPORTS
-        if ((vport > 0) && (vport <= pDevCtrl->EnetInfo.numSwitchPorts)) {
-            struct net_device_stats *s = 
-                (struct net_device_stats *)netdev_priv(vnet_dev[vport]);
-
-            skb->dev = vnet_dev[vport];
-            skb->protocol = eth_type_trans(skb, vnet_dev[vport]);
-            s->rx_packets ++;
-            s->rx_bytes += len;
-        }
-        else
-#endif
-        {
-            skb->dev = pDevCtrl->dev;
-            skb->protocol = eth_type_trans(skb, pDevCtrl->dev);
-        }
+        skb->dev = pDevCtrl->dev;
+        skb->protocol = eth_type_trans(skb, pDevCtrl->dev);
 
         /* Allocate a new SKB for the ring */
         if (atomic_read(&pDevCtrl->rxDmaRefill) == 0) {
@@ -1762,10 +1480,6 @@ void write_mac_address(struct net_device *dev)
 {
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
     volatile uint32 data32bit;
-#ifdef VPORTS
-    if (is_vport(dev))
-        pDevCtrl = netdev_priv(vnet_dev[0]);
-#endif
 
     ASSERT(pDevCtrl != NULL);
 
@@ -1962,10 +1676,11 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
             if (dmaAddr & 0xff) {
                 printk("@@@@@@@@@@@@@@@ DMA Address %08x not aligned\n", (unsigned int) dmaAddr);
             }
-            pDevCtrl->rxBdAssignPtr->address = EMAC_SWAP32((uint32)CPHYSADDR(dmaAddr));
+            pDevCtrl->rxBdAssignPtr->address = EMAC_SWAP32((uint32)
+		virt_to_phys((volatile void *)dmaAddr));
         }
         else {
-            pDevCtrl->rxBdAssignPtr->address = EMAC_SWAP32((uint32)CPHYSADDR(skb->data));
+            pDevCtrl->rxBdAssignPtr->address = EMAC_SWAP32((uint32)virt_to_phys(skb->data));
         }
         pDevCtrl->rxBdAssignPtr->length_status  = EMAC_SWAP32((pDevCtrl->rxBufLen<<16));
 
@@ -2140,20 +1855,24 @@ static void clear_mib(volatile EmacRegisters *emac)
     }
 }
 
-/*
- * init_emac: Initializes the Ethernet Switch control registers
- */
-static int init_emac(BcmEnet_devctrl *pDevCtrl)
+static void __attribute_unused__ init_pinmux(void)
 {
-    volatile EmacRegisters *emac;
-
-    TRACE(("bcmemacenet: init_emac\n"));
-
-    pDevCtrl->emac = (volatile EmacRegisters * const)ENET_MAC_ADR_BASE;
-    emac = pDevCtrl->emac;
-
-#ifdef CONFIG_MIPS_BCM97401CX_SW
-    if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH) {
+	/* set up pinmux for external MII */
+#if defined(CONFIG_MIPS_BCM7405)
+	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2,
+	    (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2) & 0x3ffffff) | 0x24000000);
+	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3, 0x09249249);
+	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4,
+	    (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4) & 0xfffc0000) | 0x9249);
+        /* flush writes */
+        DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4);
+#elif defined(CONFIG_MIPS_BCM7335)
+        DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9, 03333333333);
+        DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10,
+            (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10) & ~0777777770) | 0333333330);
+        /* flush writes */
+        DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10);
+#elif defined(CONFIG_MIPS_BCM97401CX_SW)
 	volatile uint32 *pin_mux_ctrl;
 	uint32 data;
         pin_mux_ctrl = (volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_1);
@@ -2183,6 +1902,27 @@ static int init_emac(BcmEnet_devctrl *pDevCtrl)
         data = *pin_mux_ctrl;
         data &= GPIO_45; // mux setting for gpio45. clear bit 29, 28, 27
         *pin_mux_ctrl = data;
+#endif
+}
+
+/*
+ * init_emac: Initializes the Ethernet Switch control registers
+ */
+static int init_emac(BcmEnet_devctrl *pDevCtrl)
+{
+    volatile EmacRegisters *emac;
+
+    TRACE(("bcmemacenet: init_emac\n"));
+
+    pDevCtrl->emac = (volatile EmacRegisters * const)(pDevCtrl->dev->base_addr);
+    emac = pDevCtrl->emac;
+
+#ifdef CONFIG_MIPS_BCM97401CX_SW
+    if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH) {
+	volatile uint32 *pin_mux_ctrl;
+	uint32 data;
+
+        init_pinmux();
 
         // reset the Ethernet Switch
         data = *(volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_GIO_IODIR_HI);
@@ -2199,15 +1939,7 @@ static int init_emac(BcmEnet_devctrl *pDevCtrl)
     }
 #endif
     if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_PHY) {
-	/* set up pinmux for external MII */
-#ifdef CONFIG_MIPS_BCM7405
-	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2,
-	    (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2) & 0x3ffffff) | 0x24000000);
-	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3, 0x09249249);
-	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4,
-	    (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4) & 0xfffc0000) | 0x9249);
-#endif
-	/* enable external PHY */
+	/* enable external PHY (pinmux was already set up) */
 	emac->config |= EMAC_EXT_PHY;
     }
 
@@ -2265,8 +1997,8 @@ static void init_IUdma(BcmEnet_devctrl *pDevCtrl)
     pDevCtrl->dmaRegs->controller_cfg = DMA_FLOWC_CH1_EN;
     pDevCtrl->dmaRegs->flowctl_ch1_thresh_lo = DMA_FC_THRESH_LO;
     pDevCtrl->dmaRegs->flowctl_ch1_thresh_hi = DMA_FC_THRESH_HI;
-#ifdef CONFIG_MIPS_BCM7405
-    /* connect emac0 to the phy */
+#ifdef CONFIG_MIPS_BCM7405A0
+    /* connect emac0 to the phy (HW bug workaround) */
     pDevCtrl->dmaRegs->enet_iudma_tstctl |= 0x2000;
 #endif
     // transmit
@@ -2338,11 +2070,12 @@ static int init_buffers(BcmEnet_devctrl *pDevCtrl)
     /* assign packet buffers to all available Dma descriptors */
     bdfilled = assign_rx_buffers(pDevCtrl);
     if (bdfilled > 0) {
-        printk("init_buffers: %d descriptors initialized\n", bdfilled);
+        //printk("init_buffers: %d descriptors initialized\n", bdfilled);
     }
     // This avoid depending on flowclt_alloc which may go negative during init
     pDevCtrl->dmaRegs->flowctl_ch1_alloc = IUDMA_CH1_FLOW_ALLOC_FORCE | bdfilled;
-    printk("init_buffers: %08lx descriptors initialized, from flowctl\n", pDevCtrl->dmaRegs->flowctl_ch1_alloc);
+    //printk("init_buffers: %08lx descriptors initialized, from flowctl\n",
+    //	pDevCtrl->dmaRegs->flowctl_ch1_alloc);
 
     return 0;
 }
@@ -2358,18 +2091,22 @@ static int bcmemac_init_dev(BcmEnet_devctrl *pDevCtrl)
     void *p;
     Enet_Tx_CB *txCbPtr;
 
+#ifdef BCM_LINUX_CPU_ENET_1_IRQ
+    pDevCtrl->rxIrq = pDevCtrl->devnum ? BCM_LINUX_CPU_ENET_1_IRQ : BCM_LINUX_CPU_ENET_IRQ;
+#else
     pDevCtrl->rxIrq = BCM_LINUX_CPU_ENET_IRQ;
+#endif
     /* setup buffer/pointer relationships here */
     pDevCtrl->nrTxBds = NR_TX_BDS;
     pDevCtrl->nrRxBds = NR_RX_BDS;
     pDevCtrl->rxBufLen = ENET_MAX_MTU_SIZE + (pDevCtrl->bIPHdrOptimize ? 2: 0);
 
     /* init rx/tx dma channels */
-    pDevCtrl->dmaRegs = (DmaRegs *)(DMA_ADR_BASE);
+    pDevCtrl->dmaRegs = (DmaRegs *)(pDevCtrl->dev->base_addr + EMAC_DMA_OFFSET);
     pDevCtrl->rxDma = &pDevCtrl->dmaRegs->chcfg[EMAC_RX_CHAN];
     pDevCtrl->txDma = &pDevCtrl->dmaRegs->chcfg[EMAC_TX_CHAN];
-    pDevCtrl->rxBds = (DmaDesc *) EMAC_RX_DESC_BASE;
-    pDevCtrl->txBds = (DmaDesc *) EMAC_TX_DESC_BASE;
+    pDevCtrl->rxBds = (DmaDesc *) (pDevCtrl->dev->base_addr + EMAC_RX_DESC_OFFSET);
+    pDevCtrl->txBds = (DmaDesc *) (pDevCtrl->dev->base_addr + EMAC_TX_DESC_OFFSET);
 	
     /* alloc space for the tx control block pool */
     nrCbs = pDevCtrl->nrTxBds; 
@@ -2892,14 +2629,15 @@ void bcmemac_dump(BcmEnet_devctrl *pDevCtrl)
 EXPORT_SYMBOL(bcmemac_dump);
 
 
-static void bcmemac_getMacAddr(struct net_device* dev)
+static void bcmemac_getMacAddr(void)
 {
     uint8 flash_eaddr[ETH_ALEN];
-    void *virtAddr;
-    uint16 word;
     int i;
 
 #if !defined( CONFIG_BRCM_PCI_SLAVE) && !defined( CONFIG_MTD_BRCMNAND )
+    uint16 word;
+    void *virtAddr;
+
 #if 1
     virtAddr = (void *)FLASH_MACADDR_ADDR;
 #else
@@ -2909,8 +2647,8 @@ static void bcmemac_getMacAddr(struct net_device* dev)
     /* It is a common problem that the flash and/or Chip Select are
      * not initialized properly, so leave this printk on
      */
-    printk("%s: Reading MAC address from %08lX, FLASH_BASE=%08lx\n", 
-        dev->name,(uint32) virtAddr, (unsigned long) 0xA0000000L|getPhysFlashBase());
+    printk("bcmemac: Reading MAC address from %08lX, FLASH_BASE=%08lx\n", 
+        (uint32) virtAddr, (unsigned long) 0xA0000000L|getPhysFlashBase());
 
     word=0;
     word=readw(virtAddr);
@@ -2923,8 +2661,7 @@ static void bcmemac_getMacAddr(struct net_device* dev)
     flash_eaddr[4]=(uint8) (word & 0x00FF);
     flash_eaddr[5]=(uint8) ((word & 0xFF00) >> 8);
 
-    printk("%s: MAC address %02X:%02X:%02X:%02X:%02X:%02X fetched from addr %lX\n",
-                dev->name,
+    printk("bcmemac: EMAC_0 address %02X:%02X:%02X:%02X:%02X:%02X fetched from addr %lX\n",
                 flash_eaddr[0],flash_eaddr[1],flash_eaddr[2],
                 flash_eaddr[3],flash_eaddr[4],flash_eaddr[5],
                 (uint32) virtAddr);
@@ -2939,8 +2676,7 @@ static void bcmemac_getMacAddr(struct net_device* dev)
 			flash_eaddr[i] = (uint8) gHwAddrs[0][i];
 		}
 
-		printk("%s: MAC address %02X:%02X:%02X:%02X:%02X:%02X fetched from bootloader\n",
-			dev->name,
+		printk("bcmemac: MAC address %02X:%02X:%02X:%02X:%02X:%02X fetched from bootloader\n",
 			flash_eaddr[0],flash_eaddr[1],flash_eaddr[2],
 			flash_eaddr[3],flash_eaddr[4],flash_eaddr[5]
 			);
@@ -2962,23 +2698,14 @@ static void bcmemac_getMacAddr(struct net_device* dev)
         flash_eaddr[3] = 0x74;
         flash_eaddr[4] = 0x3b;
         flash_eaddr[5] = 0x51;
-        printk("%s: Default MAC address %02X:%02X:%02X:%02X:%02X:%02X used\n",
-                    dev->name,
+        printk("bcmemac: Default MAC address %02X:%02X:%02X:%02X:%02X:%02X used\n",
                     flash_eaddr[0],flash_eaddr[1],flash_eaddr[2],
                     flash_eaddr[3],flash_eaddr[4],flash_eaddr[5]);
     }
 #endif
     /* fill in the MAC address */
-    for (i = 0; i < 6; i++) {
-        dev->dev_addr[i] = flash_eaddr[i];
-    }
-
-    /* print the Ethenet address */
-    printk("%s: MAC Address: ", dev->name);
-    for (i = 0; i < 5; i++) {
-        printk("%2.2X:", dev->dev_addr[i]);
-    }
-    printk("%2.2X\n", dev->dev_addr[i]);
+    for (i = 0; i < 6; i++)
+        g_flash_eaddr[i] = flash_eaddr[i];
 }
 
 #if defined(CONFIG_BRCM_PM)
@@ -2989,35 +2716,43 @@ static void bcmemac_getMacAddr(struct net_device* dev)
 
 static int bcmemac_power_on(void *arg)
 {
-	struct net_device *dev = arg;
-	BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
+	int i;
 
-	if(pDevCtrl->sleep_flag == BCMEMAC_AWAKE)
+	if(g_sleep_flag == BCMEMAC_AWAKE)
 		return(-1);
 	
 	brcm_pm_enet_add();
-	enable_irq(pDevCtrl->rxIrq);
-	pDevCtrl->sleep_flag = BCMEMAC_AWAKE;
+	for(i = 0; i < g_num_devs; i++) {
+		BcmEnet_devctrl *pDevCtrl = netdev_priv(g_devs[i]);
+		enable_irq(pDevCtrl->rxIrq);
+	}
+	g_sleep_flag = BCMEMAC_AWAKE;
 	return(0);
 }
 
 static int bcmemac_power_off(void *arg)
 {
-	BcmEnet_devctrl *pDevCtrl = netdev_priv((struct net_device *)arg);
-	int active;
+	BcmEnet_devctrl *pDevCtrl;
+	int active = 0, i;
 
-	if(pDevCtrl->sleep_flag == BCMEMAC_SLEEPING)
+	if(g_sleep_flag == BCMEMAC_SLEEPING)
 		return(-1);
 	
-	active = atomic_read(&pDevCtrl->devInUsed);
+	for(i = 0; i < g_num_devs; i++) {
+		pDevCtrl = netdev_priv(g_devs[i]);
+		active += (atomic_read(&pDevCtrl->devInUsed) > 0) ? 1 : 0;
+	}
 	if(active > 0) {
 		printk(KERN_INFO CARDNAME
 			": can't sleep with %d interface(s) active\n",
 			active);
 		return(-1);
 	} else {
-		pDevCtrl->sleep_flag = BCMEMAC_SLEEPING;
-		disable_irq(pDevCtrl->rxIrq);
+		g_sleep_flag = BCMEMAC_SLEEPING;
+		for(i = 0; i < g_num_devs; i++) {
+			pDevCtrl = netdev_priv(g_devs[i]);
+			disable_irq(pDevCtrl->rxIrq);
+		}
 		brcm_pm_enet_remove();
 	}
 	return(0);
@@ -3025,7 +2760,7 @@ static int bcmemac_power_off(void *arg)
 
 #endif /* CONFIG_BRCM_PM */
 
-static void bcmemac_dev_setup(struct net_device *dev)
+static void bcmemac_dev_setup(struct net_device *dev, int devnum, int phy_id)
 {
     int ret;
     ETHERNET_MAC_INFO EnetInfo;
@@ -3040,12 +2775,13 @@ static void bcmemac_dev_setup(struct net_device *dev)
         return;
     }
 
-    eth_root_dev = dev;
     /* initialize the context memory */
     memset(pDevCtrl, 0, sizeof(BcmEnet_devctrl));
     /* back pointer to our device */
     pDevCtrl->dev = dev;
     pDevCtrl->linkstatus_phyport = -1;
+    pDevCtrl->devnum = devnum;
+    dev->base_addr = devnum ? ENET_MAC_1_ADR_BASE : ENET_MAC_ADR_BASE;
 
     /* figure out which chip we're running on */
 #if defined(CONFIG_MIPS_BCM7038)    || defined(CONFIG_MIPS_BCM7400) || \
@@ -3082,27 +2818,28 @@ static void bcmemac_dev_setup(struct net_device *dev)
         return;
     }
     /* print the ChipID and module version info */
-    printk("Broadcom BCM%X%X Ethernet Network Device ", pDevCtrl->chipId, pDevCtrl->chipRev);
-    printk(VER_STR "\n");
+    if(! devnum) {
+        printk("Broadcom BCM%X P%X Ethernet Network Device ", pDevCtrl->chipId, pDevCtrl->chipRev + 0x10);
+        printk(VER_STR "\n");
+    }
 
     if( BpGetEthernetMacInfo( &EnetInfo) != BP_SUCCESS ) {
         printk(KERN_DEBUG CARDNAME" board id not set\n");
         return;
     }
     memcpy(&(pDevCtrl->EnetInfo), &EnetInfo, sizeof(ETHERNET_MAC_INFO));
+    if(phy_id != BCMEMAC_NO_PHY_ID)
+        pDevCtrl->EnetInfo.ucPhyAddress = phy_id;
 
-    if ((pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH) &&
-        (pDevCtrl->EnetInfo.usManagementSwitch == BP_ENET_MANAGEMENT_PORT)) {
-            pDevCtrl->bIPHdrOptimize = FALSE;
-        } else {
-            pDevCtrl->bIPHdrOptimize = haveIPHdrOptimization();
-        }
-
-    bcmemac_getMacAddr(dev);
+	/* L.Sun, Removed EXTERN_SWITCH condition */
+	pDevCtrl->bIPHdrOptimize = haveIPHdrOptimization();
+	
+    memcpy(dev->dev_addr, g_flash_eaddr, ETH_ALEN);
+    /* create a unique address for each interface */
+    dev->dev_addr[5] += devnum;
 
     if ((ret = bcmemac_init_dev(pDevCtrl))) {
         bcmemac_uninit_dev(pDevCtrl);
-        eth_root_dev = NULL;
         return;
     }
 #ifdef USE_PROC
@@ -3111,14 +2848,11 @@ static void bcmemac_dev_setup(struct net_device *dev)
     if ((p = create_proc_entry(proc_name, 0, NULL)) == NULL) {
         printk((KERN_ERR CARDNAME ": unable to create proc entry!\n"));
         bcmemac_uninit_dev(pDevCtrl);
-        eth_root_dev = NULL;
         return;
     }
     p->proc_fops = &eth_proc_operations;
     p->data = pDevCtrl;
 
-    if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH)
-        ethsw_add_proc_files(dev);
 #endif
 
 
@@ -3147,38 +2881,24 @@ static void bcmemac_dev_setup(struct net_device *dev)
     printk(KERN_INFO CARDNAME ": CPO MIPSSTATUS: %08X\n", read_c0_status(/*$12*/));
 #endif	
     ether_setup(dev);
-    	dev->irq                    = pDevCtrl->rxIrq;
-    	dev->base_addr              = ENET_MAC_ADR_BASE;
-    	dev->open                   = bcmemac_net_open;
-    	dev->stop                   = bcmemac_net_close;
-    	dev->hard_start_xmit        = bcmemac_net_xmit;
-    	dev->tx_timeout             = bcmemac_net_timeout;
-    	dev->watchdog_timeo         = 2*HZ;
-    	dev->get_stats              = bcmemac_net_query;
-        dev->set_mac_address        = bcm_set_mac_addr;
-    	dev->set_multicast_list     = bcm_set_multicast_list;
-        dev->do_ioctl               = &bcmemac_enet_ioctl;
-        /* two new additions */
-        /* first register my poll method */
-        dev->poll                   = bcmemac_enet_poll;
-        /* next register my weight/quanta */
-        dev->weight                 = 64;
+   	dev->irq                    = pDevCtrl->rxIrq;
+   	dev->open                   = bcmemac_net_open;
+   	dev->stop                   = bcmemac_net_close;
+   	dev->hard_start_xmit        = bcmemac_net_xmit;
+   	dev->tx_timeout             = bcmemac_net_timeout;
+   	dev->watchdog_timeo         = 2*HZ;
+   	dev->get_stats              = bcmemac_net_query;
+	dev->set_mac_address        = bcm_set_mac_addr;
+   	dev->set_multicast_list     = bcm_set_multicast_list;
+	dev->do_ioctl               = &bcmemac_enet_ioctl;
+    /* two new additions */
+    /* first register my poll method */
+    dev->poll                   = bcmemac_enet_poll;
+    /* next register my weight/quanta */
+    dev->weight                 = 64;
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
         dev->poll_controller        = &bcmemac_poll;
-#endif
-#ifdef VPORTS
-    if ((pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH) &&
-        (pDevCtrl->EnetInfo.usManagementSwitch == BP_ENET_MANAGEMENT_PORT)) {
-        dev->header_cache_update    = NULL;
-        dev->hard_header_cache      = NULL;
-        dev->hard_header_parse      = NULL;
-        dev->hard_header            = bcmemac_header;
-        dev->hard_header_len        = ETH_HLEN + BRCM_TAG_LEN;
-        set_vnet_dev(0, dev);
-        ethsw_switch_unmanage_mode(vnet_dev[0]);
-        ethsw_config_vlan(vnet_dev[0], VLAN_DISABLE, 0);
-    }
 #endif
     // These are default settings
     write_mac_address(dev);
@@ -3191,22 +2911,26 @@ static void bcmemac_dev_setup(struct net_device *dev)
     SET_MODULE_OWNER(dev);
 }
 
+static void bcmemac_null_setup(struct net_device *dev)
+{
+}
 
 /*
  *      bcmemac_net_probe: - Probe Ethernet switch and allocate device
  */
-#ifdef MODULE
-static
-#endif
-int __init bcmemac_net_probe(void)
+static int __init bcmemac_net_probe(int devnum, int phy_id)
 {
-    static int probed = 0;
+    /*static*/ 
+	int probed = 0;
     int ret;
     struct net_device *dev = NULL;
     BcmEnet_devctrl *pDevCtrl;
 
     if (probed == 0) {
-#if defined(CONFIG_BCM5325_SWITCH) && (CONFIG_BCM5325_SWITCH == 1)
+#if defined(CONFIG_MIPS_BCM7405B0) || defined(CONFIG_MIPS_BCM7335)
+        /* on dual EMAC systems, EMAC_0 is internal and EMAC_1 is external */
+        if (BpSetBoardId(devnum ? "EXT_PHY" : "INT_PHY") != BP_SUCCESS)
+#elif defined(CONFIG_BCM5325_SWITCH) && (CONFIG_BCM5325_SWITCH == 1)
         if (BpSetBoardId("EXT_5325_MANAGEMENT") != BP_SUCCESS)
 #elif defined(CONFIG_BCMINTEMAC_7038_EXTMII)
         if (BpSetBoardId("EXT_PHY") != BP_SUCCESS)
@@ -3215,39 +2939,33 @@ int __init bcmemac_net_probe(void)
 #endif
             return -ENODEV;
 
-	/* NOTE: BcmEnet_devctrl struct is allocated with kzalloc */
-        dev = alloc_netdev(sizeof(struct BcmEnet_devctrl), "eth%d", bcmemac_dev_setup);
+		/* NOTE: BcmEnet_devctrl struct is allocated with kzalloc */
+        dev = alloc_netdev(sizeof(struct BcmEnet_devctrl), "eth%d", bcmemac_null_setup);
         if (dev == NULL) {
             printk(KERN_ERR CARDNAME": Unable to allocate net_device structure!\n");
             return -ENODEV;
         }
+        bcmemac_dev_setup(dev, devnum, phy_id);
     } else {
         /* device has already been initialized */
         return -ENXIO;
     }
 
-    pDevCtrl = (BcmEnet_devctrl *)netdev_priv(eth_root_dev);
+    pDevCtrl = (BcmEnet_devctrl *)netdev_priv(dev);
     if (0 != (ret = register_netdev(dev))) {
         bcmemac_uninit_dev(pDevCtrl);
-        eth_root_dev = NULL;
         return ret;
     }
-#ifdef VPORTS
-    if ((pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH) &&
-        (pDevCtrl->EnetInfo.usManagementSwitch == BP_ENET_MANAGEMENT_PORT)) {
-        ret = vnet_probe();
-    }
-#endif
 
 #ifdef CONFIG_BCMINTEMAC_NETLINK
 	INIT_WORK(&pDevCtrl->link_change_task, (void (*)(void *))bcmemac_link_change_task, pDevCtrl);
         printk("init link_change_task\n");
 #endif
 
-#if defined(CONFIG_BRCM_PM)
-    if(ret == 0)
-        brcm_pm_register_enet(bcmemac_power_off, bcmemac_power_on, dev);
-#endif
+    if(ret == 0) {
+        g_devs[g_num_devs] = dev;
+        g_num_devs++;
+    }
 
     return ret;
 }
@@ -3282,6 +3000,8 @@ static int bcmIsEnetUp(struct net_device *dev)
                  */
                 if( mii_linkstatus_check(dev, &ls) )
                 {
+                    if(IGNORE_LINK_STATUS(pDevCtrl->EnetInfo.ucPhyAddress))
+                        ls = 1;
                     /* The link state for one switch port has been read.  Save
                      * it in a temporary holder.
                      */
@@ -3349,7 +3069,7 @@ static int bcmemac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
 {
     Enet_Tx_CB *txCBPtr;
     char proc_name[32];
-    int i;
+    int i, devnum __attribute_unused__ = pDevCtrl->devnum;
 
     if (pDevCtrl) {
         /* disable DMA */
@@ -3411,8 +3131,6 @@ static int bcmemac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
 #ifdef USE_PROC
         sprintf(proc_name, PROC_ENTRY_NAME);
         remove_proc_entry(proc_name, NULL);
-        if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH)
-          ethsw_del_proc_files();
 #endif
 		/* Quick fix for PR37075, force the usage count to 0*/
 		if(atomic_read(&pDevCtrl->devInUsed) < 0)
@@ -3421,12 +3139,10 @@ static int bcmemac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
         if (pDevCtrl->dev) {
             if (pDevCtrl->dev->reg_state != NETREG_UNINITIALIZED)
                 unregister_netdev(pDevCtrl->dev);
-            free_netdev(pDevCtrl->dev);
+
+			free_netdev(pDevCtrl->dev);
         }
     }
-#if defined(CONFIG_BRCM_PM)
-    brcm_pm_unregister_enet();
-#endif
    
     return 0;
 }
@@ -3436,11 +3152,6 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     u32 ethcmd;
     
-#ifdef VPORTS
-    if (is_vport(dev)) {
-        pDevCtrl = netdev_priv(vnet_dev[0]);
-    }
-#endif
 
     ASSERT(pDevCtrl != NULL);   
         
@@ -3474,12 +3185,6 @@ static int bcmemac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
     BCMEMAC_POWER_ON(dev);
 
-#ifdef VPORTS
-    if (is_vport(dev)) {
-        pDevCtrl = netdev_priv(vnet_dev[0]);
-    }
-#endif
-
     /* we can add sub-command in ifr_data if we need to in the future */
     switch (cmd)
     {
@@ -3512,28 +3217,56 @@ static int __init bcmemac_module_init(void)
 {
     int status;
 
+#ifdef CONFIG_BRCM_PM
     brcm_pm_enet_add();
-    TRACE(("bcmemacenet: bcmemac_module_init\n"));
-    status = bcmemac_net_probe();
+    brcm_pm_register_enet(bcmemac_power_off, bcmemac_power_on, NULL);
+#endif
+    bcmemac_getMacAddr();
 
-    return status;
+    TRACE(("bcmemacenet: bcmemac_module_init\n"));
+    status = bcmemac_net_probe(0, BCMEMAC_NO_PHY_ID);
+
+#if defined(CONFIG_BCMINTEMAC_7038_EXTMII) && \
+    (defined(CONFIG_MIPS_BCM7405B0) || defined(CONFIG_MIPS_BCM7335))
+    /* probe EMAC_1 (this might fail) */
+    if(! status) {
+        int phy_id;
+
+        init_pinmux();
+        phy_id = mii_probe(ENET_MAC_1_ADR_BASE);
+
+        if(phy_id != BCMEMAC_NO_PHY_ID) {
+            printk("bcmemac: detected PHY at ID %d on EMAC_1\n", phy_id);
+            bcmemac_net_probe(1, phy_id);
+        } else {
+            printk("bcmemac: no PHY detected on EMAC_1, disabling\n");
+        }
+    }
+#endif
+
+#ifdef CONFIG_BRCM_PM
+    if(status) {
+        brcm_pm_unregister_enet();
+        brcm_pm_enet_remove();
+    }
+#endif
+
+	return status;
 }
 
 static void __exit bcmemac_module_cleanup(void)
 {
+	int i;
     BcmEnet_devctrl *pDevCtrl;
-
-    if (eth_root_dev) {
-        pDevCtrl = (BcmEnet_devctrl *)netdev_priv(eth_root_dev);
-        if (pDevCtrl) {
-#ifdef VPORTS
-            vnet_module_cleanup();
+	
+	for(i = 0; i < g_num_devs; i++) {
+		pDevCtrl = netdev_priv(g_devs[i]);
+		bcmemac_uninit_dev(pDevCtrl);
+	}
+#ifdef CONFIG_BRCM_PM
+	brcm_pm_unregister_enet();
+	brcm_pm_enet_remove();
 #endif
-            bcmemac_uninit_dev(pDevCtrl);
-        }
-        eth_root_dev = NULL;
-    }
-    brcm_pm_enet_remove();
     TRACE(("bcmemacenet: bcmemac_module_cleanup\n"));
 }
 
@@ -3541,6 +3274,5 @@ module_init(bcmemac_module_init);
 module_exit(bcmemac_module_cleanup);
 
 EXPORT_SYMBOL(bcmemac_get_free_txdesc);
-EXPORT_SYMBOL(bcmemac_get_device);
 EXPORT_SYMBOL(bcmemac_xmit_multibuf);
 EXPORT_SYMBOL(bcmemac_xmit_check);

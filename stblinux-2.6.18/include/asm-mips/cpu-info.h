@@ -82,6 +82,7 @@ struct cpuinfo_mips {
 	int			vpe_id;  /* Virtual Processor number */
 	int			tc_id;   /* Thread Context number */
 #endif /* CONFIG_MIPS_MT */
+	struct task_struct	*idle;
 	void 			*data;	/* Additional data */
 } __attribute__((aligned(SMP_CACHE_BYTES)));
 

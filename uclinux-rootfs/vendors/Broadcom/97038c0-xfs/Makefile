@@ -168,7 +168,8 @@ ifdef CONFIG_USER_XFS_XFSPROGS
 	cp -af etc/init.d/rcS-xfs $(ROMFSDIR)/etc/init.d/rcS
 	cp -af etc/fstab-xfs $(ROMFSDIR)/etc/fstab
 endif
-	sed "s,@VERSION@,$(VERSION),g" usr/sbin/stbutil > $(ROMFSDIR)/usr/sbin/stbutil
+	sed "s,@VERSION@,$(VERSION),g" usr/sbin/stbutil | \
+		sed "s,@PLATFORM@,$(PLATFORM),g" > $(ROMFSDIR)/usr/sbin/stbutil
 	sed 's,###mount,mount,g' etc/init.d/rcS > $(ROMFSDIR)/var/tmp/rcS.hd
 	chmod +x $(ROMFSDIR)/usr/sbin/stbutil
 	cp -f usr/sbin/usb* $(ROMFSDIR)/usr/sbin/

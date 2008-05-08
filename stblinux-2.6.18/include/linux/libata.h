@@ -56,9 +56,9 @@ extern int dma_write_wa_needed;
 #endif
 
 //jipeng - redefine readw/l for BE 
-#if     defined( CONFIG_MIPS_BRCM97XXX )	\
-     && defined( CONFIG_SATA_SVW )		\
-    &&  defined( CONFIG_CPU_BIG_ENDIAN )
+#if	defined( CONFIG_MIPS_BRCM97XXX )						\
+	&& (defined( CONFIG_SATA_SVW ) || defined(CONFIG_SATA_SVW_MODULE))		\
+	&&  defined( CONFIG_CPU_BIG_ENDIAN )
 #undef	readl
 #define	readl(x)	(le32_to_cpu(*(volatile u32 *)(x)))
 

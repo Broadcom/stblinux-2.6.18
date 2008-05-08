@@ -34,7 +34,7 @@ extern "C" {
 #endif
 
 
-#ifndef _ASMLANGUAGE
+#ifndef __ASSEMBLY__
 
 /*
 ** DMA Channel Configuration
@@ -92,15 +92,24 @@ THT: Not defined on 7038 and 7318
     
     unsigned long enet_iudma_rev;              /* (10) Enet rev             */
     unsigned long enet_iudma_tstctl;           /* (14) Enet test control    */
-	unsigned long enet_iudma_pci_irq_sts;      /* (18) Enet pci intr status */
-	unsigned long enet_iudma_pci_irq_msk;      /* (1C) Enet pci intr mask   */
-	unsigned long enet_iudma_r5k_irq_sts;      /* (20) Enet r5k intr status */
-	unsigned long enet_iudma_r5k_irq_msk;      /* (24) Enet r5k intr mask   */
-	unsigned long enet_iudma_diag_ctl;         /* (28) Enet diag control   */
-	unsigned long enet_iudma_diag_rdbk;        /* (2C) Enet diag readback   */
+    unsigned long enet_iudma_pci_irq_sts;      /* (18) Enet pci intr status */
+    unsigned long enet_iudma_pci_irq_msk;      /* (1C) Enet pci intr mask   */
+    unsigned long enet_iudma_r5k_irq_sts;      /* (20) Enet r5k intr status */
+    unsigned long enet_iudma_r5k_irq_msk;      /* (24) Enet r5k intr mask   */
+    unsigned long enet_iudma_diag_ctl;         /* (28) Enet diag control   */
+    unsigned long enet_iudma_diag_rdbk;        /* (2C) Enet diag readback   */
+
+    /* new registers added in 7405b0 */
+    unsigned long enet_iudma_mii_select;       /* (30) Enet PHY select */
+    unsigned long resv0[3];
+    unsigned long enet_iudma_desc_alloc;       /* (40) Enet RX desc allocation */
+    unsigned long enet_iudma_desc_thres;       /* (44) Enet RX desc threshold */
+    unsigned long enet_iudma_desc_timeout;     /* (48) Enet RX desc timeout */
+    unsigned long enet_iudma_desc_irq_sts;     /* (4c) Enet RX desc irq status */
+    unsigned long enet_iudma_desc_irq_msk;     /* (50) Enet RX desc irq mask */
 	
     /* Unused words */
-    unsigned long resv[52];
+    unsigned long resv1[43];
 
     /* Per channel registers/state ram */
     DmaChannel chcfg[2];                   /* (100) Channel configuration */  
@@ -302,7 +311,7 @@ typedef struct EmacRegisters {
 #define EMAC_TX_THRESHOLD       0x34
 #define EMAC_MIB_CONTROL        0x38
 
-#endif /* _ASMLANGUAGE */
+#endif /* __ASSEMBLY__ */
 
 #define EMAC_RX_CHAN               0
 #define EMAC_TX_CHAN               1

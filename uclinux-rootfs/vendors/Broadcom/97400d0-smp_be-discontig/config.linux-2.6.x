@@ -1,0 +1,1 @@
+../../../linux-2.6.x/arch/mips/configs/bcm97400d0-smp_be-discontig_initrd_defconfig

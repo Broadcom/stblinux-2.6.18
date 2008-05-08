@@ -29,7 +29,7 @@
 #include "bchp_common.h"
 #include "bchp_ebi.h"
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -98,7 +98,7 @@ extern "C" {
 #define EBI_RX_BUF_DN           0x00000001
 
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 #ifdef __cplusplus
 }
 #endif

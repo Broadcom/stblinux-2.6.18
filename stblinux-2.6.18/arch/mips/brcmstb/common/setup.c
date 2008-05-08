@@ -87,7 +87,7 @@ static void brcm_machine_restart(char *command)
   /* NOTE: CONFIG_MIPS_BCM3563C0 implies CONFIG_MIPS_BCM3560 */
   #if defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401B0 ) \
   	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7440 ) \
-	|| defined(CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7118A0 ) \
+	|| defined(CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7118 ) \
 	|| defined(CONFIG_MIPS_BCM7403A0) || defined( CONFIG_MIPS_BCM7452A0 ) \
 	|| defined( CONFIG_MIPS_BCM3563 ) || defined(CONFIG_MIPS_BCM3563C0)
   #define SUN_TOP_CTRL_SW_RESET		0xb0404014

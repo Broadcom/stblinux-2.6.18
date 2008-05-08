@@ -77,10 +77,10 @@ $(RECURSIVE_TARGETS) all-am am--refresh:
 	make -f Makefile $@
 
 romfs:
-	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE ./pp/opannotate /usr/bin/opannotate
-	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE ./pp/oparchive /usr/bin//oparchive
+	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE_FULL ./pp/opannotate /usr/bin/opannotate
+	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE_FULL ./pp/oparchive /usr/bin//oparchive
 	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE -p 555 ./utils/opcontrol /usr/bin/opcontrol
-	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE ./pp/opgprof /usr/bin/opgprof
+	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE_FULL ./pp/opgprof /usr/bin/opgprof
 	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE ./utils/ophelp /usr/bin/ophelp
 	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE ./pp/opreport /usr/bin/opreport
 	$(ROMFSINST) -e CONFIG_USER_PROFILE_OPROFILE ./daemon/oprofiled /usr/bin/oprofiled

@@ -22,8 +22,8 @@
 #include <asm/mipsregs.h>
 #include <asm/system.h>
 
-int bcm7118A0_boardtype = 0;
-EXPORT_SYMBOL(bcm7118A0_boardtype);
+int bcm7118_boardtype = 0;
+EXPORT_SYMBOL(bcm7118_boardtype);
 
 /*
  * Not all of the MIPS CPUs have the "wait" instruction available. Moreover,
@@ -831,7 +831,7 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
 		if( *((volatile unsigned long *)0xb0040000) == 0x1c )
 		{
 			printk("7118RNG board found\n");
-			bcm7118A0_boardtype = 1;
+			bcm7118_boardtype = 1;
 		}
 		printk("MIPs 7118 id = %x\n", c->processor_id);
                 break;

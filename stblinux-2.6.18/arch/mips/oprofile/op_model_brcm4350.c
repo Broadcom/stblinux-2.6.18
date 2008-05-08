@@ -11,11 +11,7 @@
 #include <linux/interrupt.h>
 #include <linux/smp.h>
 #include <linux/version.h>
-
-#include <asm/brcmstb/brcm97400a0/int1.h>
-#include <asm/brcmstb/brcm97400a0/board.h>
-#include <asm/brcmstb/brcm97400a0/bchp_irq0.h>
-#include <asm/brcmstb/brcm97400a0/bcmintrnum.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 #include "op_impl.h"
 

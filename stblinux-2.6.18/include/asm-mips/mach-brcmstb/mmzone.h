@@ -87,7 +87,7 @@ extern int numnodes;
 #define IS_KADDR_UPPER_RAM(kaddr) ((u32)kaddr >= UPPER_RAM_VBASE && \
 				   (u32)kaddr < (UPPER_RAM_VBASE + UPPER_RAM_SIZE))
 
-/* These funcitons fail for non-ram addresses */
+/* These functions fail for non-ram addresses */
 static __inline__ unsigned long 
 __pa(unsigned long x)
 {
@@ -104,7 +104,7 @@ __pa(unsigned long x)
 	else if (IS_KADDR_LOWER_RAM(x))
 		return (x - PAGE_OFFSET);
 		
-	printk(KERN_ERR "__pa invaild address 0x%08lx\n", x);
+	printk(KERN_ERR "__pa invalid address 0x%08lx\n", x);
 	BUG();
 	return(0);
 }

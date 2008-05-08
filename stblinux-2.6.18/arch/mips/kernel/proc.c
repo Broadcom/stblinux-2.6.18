@@ -22,6 +22,9 @@
 #ifdef  CONFIG_PROC_FS
 extern atomic_t unaligned_instructions;
 extern atomic_t brdhwr_ctr, rdhwr_ctr;
+#ifdef CONFIG_SMP
+extern atomic_t process_migrations;
+#endif
 #endif
 
 unsigned int vced_count, vcei_count;
@@ -197,6 +200,10 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 			atomic_read(&unaligned_instructions));
 		seq_printf(m, "rdhwr/brdhwr traps\t: %d / %d\n",
 			atomic_read(&rdhwr_ctr), atomic_read(&brdhwr_ctr));
+#ifdef CONFIG_SMP
+		seq_printf(m, "process migrations\t: %d\n",
+			atomic_read(&process_migrations));
+#endif
 #ifdef CONFIG_CACHE_STATS
 		cache_printstats(m);
 #endif

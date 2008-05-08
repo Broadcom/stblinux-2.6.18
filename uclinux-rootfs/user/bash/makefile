@@ -40,7 +40,7 @@ all:
 	CFLAGS='$(filter-out -fno-builtin, $(CFLAGS))';  \
 	./configure 				\
 		--target=$(TARGET)		\
-		--host=i386-pc-linux-gnu	\
+		--host=$(TARGET)		\
 		--build=i386-pc-linux-gnu	\
 		--prefix=$(ROOTDIR)/romfs/	\
 		--includedir=$(UCLIBC_INC)/	\

@@ -14,3 +14,4 @@
 #endif
 
 #define __always_inline		inline __attribute__((always_inline))
+#define __attribute_unused__	__attribute__((__unused__))

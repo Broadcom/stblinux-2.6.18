@@ -38,16 +38,7 @@
 #include <linux/pci_ids.h>
 #include <linux/ioport.h>
 #include <asm/io.h>
-
-#if defined(CONFIG_MIPS_BCM97456)
-#include <asm/brcmstb/brcm97456/boardmap.h>
-#include <asm/brcmstb/brcm97456/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97456/bcmintrnum.h>
-#elif defined(CONFIG_MIPS_BCM7400A0)
-#include <asm/brcmstb/brcm97400a0/boardmap.h>
-#include <asm/brcmstb/brcm97400a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97400a0/bcmintrnum.h>
-#endif
+#include <asm/brcmstb/common/brcmstb.h>
 
 //#define DEBUG 0
 #undef DEBUG

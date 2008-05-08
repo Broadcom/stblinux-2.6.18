@@ -65,7 +65,7 @@
 #define EXTRA_TX_DESC			24		/* fine adjustment in TX descriptor number */
 #endif
 
-#define DESC_MASK		(TOTAL_DESC - 1)
+#define DESC_MASK				(TOTAL_DESC - 1)
 #define NR_RX_BDS               ((TOTAL_DESC*RX_RATIO) - EXTRA_TX_DESC)
 #define NR_TX_BDS               (TOTAL_DESC - NR_RX_BDS)
 
@@ -95,16 +95,17 @@
     || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405 ) \
     || defined( CONFIG_MIPS_BCM7325A0 ) || defined( CONFIG_MIPS_BCM7335 )
  
-#define EMAC_RX_DESC_BASE   	0xb0082800	/* MAC DMA Rx Descriptor word */
+#define EMAC_RX_DESC_OFFSET   	0x2800	/* MAC DMA Rx Descriptor word */
 #else
-#define EMAC_RX_DESC_BASE   	0xb0082000	/* MAC DMA Rx Descriptor word */
+#define EMAC_RX_DESC_OFFSET   	0x2000	/* MAC DMA Rx Descriptor word */
 #endif
 
-#define ENET_MAC_ADR_BASE		0xb0080000
-#define EMAC_TX_DESC_BASE   	(EMAC_RX_DESC_BASE+(8*NR_RX_BDS))			/* MAC DMA Tx Descriptor word */
+#define EMAC_TX_DESC_OFFSET   	(EMAC_RX_DESC_OFFSET+(8*NR_RX_BDS))			/* MAC DMA Tx Descriptor word */
 
-#define EMAC_DMA_BASE   		0xb0082400
-#define DMA_ADR_BASE			EMAC_DMA_BASE
+#define ENET_MAC_ADR_BASE		0xb0080000
+#define ENET_MAC_1_ADR_BASE		0xb0090000
+
+#define EMAC_DMA_OFFSET   		0x2400
 
 #if defined( CONFIG_MIPS_BCM7401) || defined( CONFIG_MIPS_BCM7402 ) \
     || defined( CONFIG_MIPS_BCM7402S ) || defined( CONFIG_MIPS_BCM7403 ) \
@@ -120,7 +121,6 @@
 #define EMAC_RX_DESC_BASE   	(ENET_ADR_BASE+0x2000)		/* 0xfffd6000  MAC DMA Rx Descriptor word */
 #define EMAC_TX_DESC_BASE   	(EMAC_RX_DESC_BASE+(8*NR_RX_BDS))	/* MAC DMA Tx Descriptor word */
 #define EMAC_DMA_BASE           (EMAC_RX_DESC_BASE+0x400)	/* 0xfffd6400 */
-#define DMA_ADR_BASE			EMAC_DMA_BASE
 
 #else
   #error "Unsupported platform for IntEMAC\n"
@@ -135,8 +135,6 @@
 #define ASSERT(x)       if (x); else ERROR(("assert: "__FILE__" line %d\n", __LINE__)); 
 #endif
 
-//#define DUMP_TRACE
-//#define DUMP_DATA
 #define IUDMA_INIT_WORKAROUND // for 7038 A0 since IUDMA endine does not get reset properly. Should not need it for 7038B0.
 
 #if defined(DUMP_TRACE)
@@ -183,7 +181,7 @@ typedef struct PM_Addr {
     unsigned char       dAddr[ETH_ALEN];/* perfect match register's destination address */
     char                unused[2];      /* pad */
 } PM_Addr;					 
-#define MAX_PMADDR      8               /* # of perfect match address */
+#define MAX_PMADDR			8               /* # of perfect match address */
 
 #define MAX_NUM_OF_VPORTS   8
 #define BRCM_TAG_LEN        6
@@ -192,6 +190,9 @@ typedef struct PM_Addr {
 #define BRCM_TAG_MULTICAST  0x20000000
 #define BRCM_TAG_EGRESS     0x40000000
 #define BRCM_TAG_INGRESS    0x60000000
+
+#define BCMEMAC_MAX_DEVS	2
+#define BCMEMAC_NO_PHY_ID	-1
 
 /*
  * device context
@@ -204,7 +205,6 @@ typedef struct BcmEnet_devctrl {
     int             linkstatus_phyport;
     int             linkstatus_holder;
     atomic_t        devInUsed;          /* device in used */
-    int             sleep_flag;		/* device is powered down */
 
     struct net_device_stats stats;      /* statistics used by the kernel */
 
@@ -273,6 +273,7 @@ typedef struct BcmEnet_devctrl {
 #endif	
     ethsw_info_t    ethSwitch;          /* external switch */
     ETHERNET_MAC_INFO EnetInfo;
+    int             devnum;	/* 0=EMAC_0, 1=EMAC_1 */
 } BcmEnet_devctrl;
 
 // BD macros

@@ -33,7 +33,22 @@ config MTD_BRCMNAND_VERSION
 	depends on MTD_BRCMNAND
 	help
 		Version number of the controller.
-			Value	Controller  Platform
+		Value	Maj.Min Platform
 			0		0.0			7400A0
-			1		0.1			7401Cx, 7118A0, 7403 * 7451, 7452
-			2		1.0			7440B0, 7400D0, 7405 and later
+		1	0.1	7401Cx, 7400B0, 7118A0, 7403 * 7451, 7452, 3563
+		2	1.0	7440B0, 7405a0 (also 7118C0 running as 1.0 in 2.6.12)
+		3	2.0	/* Not implemented for 2.6.12 */
+		4	2.1	/* Not implemented for 2.6.12 */
+		5	2.2	/* Not implemented for 2.6.12 */ 7118C0 & 7405b0 (in 2.6.18)
+
+config MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+	bool "Refresh a block on a one bit correctable ECC error"
+	default y
+	depends on MTD_BRCMNAND
+	help
+	  If there is a 1-bit correctable error detected during NAND flash read, the
+	  Broadcom NAND flash driver can refresh the corresponding NAND flash block.
+	  Refreshing implies a sequence of read->erase->write. Refreshing the block
+	  drastically reduces the probability of occurance of a similar (correctable)
+	  error.
+

@@ -85,12 +85,19 @@
 
 #define irq_disable_hazard
 
+#elif defined(CONFIG_CPU_SB1)
+
+#define irq_enable_hazard
+#define irq_disable_hazard						\
+	_ssnop; _ssnop; _ssnop
+
 #else
 
 /*
  * Classic MIPS needs 1 - 3 nops or ssnops
  */
-#define irq_enable_hazard
+#define irq_enable_hazard						\
+	_ssnop; _ssnop; _ssnop
 #define irq_disable_hazard						\
 	_ssnop; _ssnop; _ssnop
 
@@ -191,6 +198,22 @@ __asm__(
 	"	.macro	irq_disable_hazard			\n"
 	"	.endm						\n");
 
+#elif defined(CONFIG_CPU_SB1)
+
+__asm__(
+	"	#						\n"
+	"	# There is a hazard but we do not care		\n"
+	"	#						\n"
+	"	.macro\tirq_enable_hazard			\n"
+	"	.endm						\n"
+	"							\n"
+	"	.macro\tirq_disable_hazard			\n"
+	"	_ssnop						\n"
+	"	_ssnop						\n"
+	"	_ssnop						\n"
+	"	.endm						\n");
+
+
 #else
 
 /*
@@ -204,6 +227,9 @@ __asm__(
 	"	# There is a hazard but we do not care		\n"
 	"	#						\n"
 	"	.macro\tirq_enable_hazard			\n"
+	"	_ssnop						\n"
+	"	_ssnop						\n"
+	"	_ssnop						\n"
 	"	.endm						\n"
 	"							\n"
 	"	.macro\tirq_disable_hazard			\n"

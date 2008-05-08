@@ -20,6 +20,7 @@
 #include <asm/mmu_context.h>
 #include <asm/pgtable.h>
 #include <asm/system.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 /*
  * Make sure all entries differ.  If they're not different
@@ -53,7 +54,7 @@
 
 #endif /* CONFIG_MIPS_MT_SMTC */
 
-extern int bcm7118A0_boardtype;
+extern int bcm7118_boardtype;
 extern void build_tlb_refill_handler(void);
 
 #ifdef DPRINTK
@@ -65,101 +66,7 @@ extern void build_tlb_refill_handler(void);
 #define DPRINTK(...) do { } while(0)
 #endif
 
-#if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM3560 ) \
-	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401 ) \
-	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7118 ) \
-	|| defined( CONFIG_MIPS_BCM7440 ) || defined( CONFIG_MIPS_BCM7403 ) \
-	|| defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325 ) \
-	|| defined( CONFIG_MIPS_BCM7335 )
-
-#ifdef CONFIG_MIPS_BCM7038A0
-#include <asm/brcmstb/brcm97038/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97038/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7038B0)
-#include <asm/brcmstb/brcm97038b0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97038b0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7038C0)
-#include <asm/brcmstb/brcm97038c0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97038c0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM3560A0)
-#include <asm/brcmstb/brcm93560/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm93560/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM3560B0)
-#include <asm/brcmstb/brcm93560b0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm93560b0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM3563)
-#include <asm/brcmstb/brcm93563/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm93563/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM3563C0)
-#include <asm/brcmstb/brcm93563c0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm93563c0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7400A0)
-#include <asm/brcmstb/brcm97400a0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97400a0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7400D0)
-#include <asm/brcmstb/brcm97400d0/bchp_pcix_bridge.h>
-#include <asm/brcmstb/brcm97400d0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97400d0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7405A0)
-#include <asm/brcmstb/brcm97405a0/bchp_pcix_bridge.h>
-#include <asm/brcmstb/brcm97405a0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97405a0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7405B0)
-#include <asm/brcmstb/brcm97405b0/bchp_pcix_bridge.h>
-#include <asm/brcmstb/brcm97405b0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97405b0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7335A0)
-#include <asm/brcmstb/brcm97335a0/bchp_pcix_bridge.h>
-#include <asm/brcmstb/brcm97335a0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97335a0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7401B0) || defined(CONFIG_MIPS_BCM7402A0)
-#include <asm/brcmstb/brcm97401b0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97401b0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7401C0) || defined(CONFIG_MIPS_BCM7402C0) 
-#include <asm/brcmstb/brcm97401c0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97401c0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7402S)
-/* FIX ME: For now, will change to 7401B0 later when we have it */
-#include <asm/brcmstb/brcm97401a0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97401a0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7401A0)
-#include <asm/brcmstb/brcm97401a0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97401a0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7118A0)
-#include <asm/brcmstb/brcm97118a0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97118a0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7440A0)
-#include <asm/brcmstb/brcm97440a0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97440a0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7403A0)
-#include <asm/brcmstb/brcm97403a0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97403a0/boardmap.h>
-
-#elif defined(CONFIG_MIPS_BCM7325A0)
-#include <asm/brcmstb/brcm97325a0/bchp_pci_cfg.h>
-#include <asm/brcmstb/brcm97325a0/boardmap.h>
-
-#else
-#error "Unsupported Chip revision"
-#endif
+#ifdef CONFIG_MIPS_BRCM97XXX
 
 //#define PCI_MEM_WIN_BASE 0xd0000000
 //#define CPU2PCI_CPU_PHYS_MEM_WIN_BASE 0xd0000000
@@ -205,7 +112,6 @@ extern void build_tlb_refill_handler(void);
 //#define PCI_DEV_NUM_3250        (PCI_DEVICE_ID_3250 << 11)
 //#define PCI_DEV_NUM_SATA        (PCI_DEVICE_ID_SATA << 11)
 
-//#if	defined( CONFIG_MIPS_BRCM97XXX ) && defined( CONFIG_SATA_SVW )
 #if	defined( CONFIG_MIPS_BRCM97XXX )
 #if	defined( CONFIG_CPU_BIG_ENDIAN )
 #define	CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN	2
@@ -1054,11 +960,11 @@ void __init tlb_init(void)
 	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
 	//printk("$$$$$$$$$$external dev id %08x\n", *((volatile unsigned long *)0xf0600008));
 
-#ifdef CONFIG_SATA_SVW
+#if	defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
 
-#ifdef	CONFIG_MIPS_BCM7118A0
-	if( bcm7118A0_boardtype == 1)
-	goto done1;
+#ifdef	CONFIG_MIPS_BCM7118
+	if( bcm7118_boardtype == 1)
+		goto done1;
 #endif	/* CONFIG_MIPS_BCM7118A0 */
 
 /* 2nd PCI Bridge for SATA on 7038C0 */
@@ -1131,7 +1037,7 @@ void __init tlb_init(void)
 	//printk("$$$$$$$$$$SATA dev id %08x\n", *((volatile unsigned long *)0xb0500208));
 #endif /* CONFIG_SATA_SVW */
 
-#ifdef	CONFIG_MIPS_BCM7118A0
+#ifdef	CONFIG_MIPS_BCM7118
 done1:
 #endif
 
@@ -1378,10 +1284,10 @@ if (0) {
 /*
  * Set BCM7038 PCI Bus Bridge Command
  */
-#ifdef CONFIG_SATA_SVW
+#if	defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
 
-#ifdef	CONFIG_MIPS_BCM7118A0
-	if( bcm7118A0_boardtype == 1)
+#ifdef	CONFIG_MIPS_BCM7118
+	if( bcm7118_boardtype == 1)
 	goto done2;
 #endif	/* CONFIG_MIPS_BCM7118A0 */
 
@@ -1503,10 +1409,10 @@ done2:
  * Set BCM7038 PCI Bus Bridge Command
  */
 
-#ifdef CONFIG_SATA_SVW
+#if	defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
 
-#ifdef	CONFIG_MIPS_BCM7118A0
-	if( bcm7118A0_boardtype == 1)
+#ifdef	CONFIG_MIPS_BCM7118
+	if( bcm7118_boardtype == 1)
 	goto done3;
 #endif	/* CONFIG_MIPS_BCM7118A0 */
 
@@ -1572,7 +1478,7 @@ done2:
   #endif /* CONFIG_SATA_SVW */
 #endif /* 7401 */
 
-#ifdef	CONFIG_MIPS_BCM7118A0
+#ifdef	CONFIG_MIPS_BCM7118
 done3:
 #endif
 	build_tlb_refill_handler();

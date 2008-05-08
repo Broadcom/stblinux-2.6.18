@@ -12,7 +12,9 @@ echo "   4) Install RO CRAMFS rootfs on flash"
 echo "   5) Install RO SQUASHFS rootfs on flash  (recommended for RO fs)"
 echo "   6) Install RO YAFFS2 rootfs on NAND flash"
 echo "   7) Install RW YAFFS2 rootfs on NAND flash (Recommended for RW fs for Large Page only)"
-echo "   8) Exit"
+echo "   8) Install non-free WLAN drivers from network"
+echo "   9) Install non-free HPNA drivers from network"
+echo "   0) Exit"
 echo ""
 echo -n "Selection: "
 }
@@ -37,10 +39,16 @@ else
     CUR_REL=@VERSION@
 fi
 
+RAWVER=@VERSION@
+RAWVER=${RAWVER%*-be}
+PLATFORM=@PLATFORM@
+
 if [ -z "$CUR_REL" ]; then
     IMGPFX=""
+    NONFREEPFX=""
 else
     IMGPFX="$CUR_REL/"
+    NONFREEPFX="$RAWVER-nonfree/"
 fi
 
 # JFFS2 only works when the endian of the flash is the same as that of the CPU.
@@ -92,7 +100,7 @@ do
 
    read RESPONSE
    if [ -z "$RESPONSE" ]; then
-	echo "Please enter a value between 1 and 8"
+	echo "Please enter a value between 0 and 9"
 	continue
    fi
    case "$RESPONSE" in
@@ -103,7 +111,7 @@ do
       continue
       ;;
    esac
-   if  [ $RESPONSE -lt 1 -o $RESPONSE -gt 8 ]; then
+   if  [ $RESPONSE -lt 0 -o $RESPONSE -gt 9 ]; then
         echo "Invalid choice"
 	continue
    fi
@@ -272,6 +280,7 @@ mkdir -p /mnt/hd/mnt/nfs
 mkdir /mnt/hd/mnt/hd
 mkdir /mnt/hd/proc
 mkdir /mnt/hd/tmp
+mkdir /mnt/hd/sys
 mkdir /mnt/hd/opt
 mkdir /mnt/hd/data
 
@@ -337,10 +346,12 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 ]; then
    echo ""
    ERASE_FLAG='-j'
 fi
-if [ $RESPONSE -eq 8 ]; then
+
+if [ $RESPONSE -eq 0 ]; then
    echo ""
    exit 0
 fi
+
 if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
        -o $RESPONSE -eq 6 -o $RESPONSE -eq 7 ]; then
    case "`uname -m`" in
@@ -365,7 +376,7 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
      MTD_DEV="/dev/mtdblock0"
 
      ;;
-esac
+   esac
 
 
    case "`uname -m`" in
@@ -578,3 +589,56 @@ esac
    exit 0
 fi
 
+# install drivers from network
+if [ $RESPONSE -eq 8 -o $RESPONSE -eq 9 ]; then
+    echo "ping -c 4 $TFTP_SERVER"
+    if ping -c 4 $TFTP_SERVER >& /dev/null; then
+        echo "ping: succeed"
+    else
+        echo "ping failed.  Aborting."
+        exit 1
+    fi
+    if [ $RESPONSE -eq 8 ]; then
+        echo "Fetching WLAN drivers..."
+
+        mkdir -p /tmp/wlan
+        PFX=${NONFREEPFX}wlan_pci/${PLATFORM}/
+        if ! tftp -g $TFTP_SERVER -l /tmp/wlan/wl_ap.ko -r ${PFX}/wl_ap.ko; then
+            echo "tftp failed.  Aborting."
+            exit 1
+        fi
+        if ! tftp -g $TFTP_SERVER -l /tmp/wlan/wl_sta.ko -r ${PFX}/wl_sta.ko; then
+            echo "tftp failed.  Aborting."
+            exit 1
+        fi
+        F=${NONFREEPFX}wlan_pci/bin/wl${ENDIAN}
+        if ! tftp -g $TFTP_SERVER -l /tmp/wlan/wl -r $F; then
+            echo "tftp failed.  Aborting."
+            exit 1
+        fi
+        echo ""
+        echo "WLAN files are now installed in /tmp/wlan"
+        echo ""
+        exit 0
+    elif [ $RESPONSE -eq 9 ]; then
+        F=${NONFREEPFX}hpna/hpna-$RAWVER.tar.bz2
+        if ! tftp -g $TFTP_SERVER -l /tmp/hpna.tar.bz2 -r $F; then
+            echo "tftp failed.  Aborting."
+            exit 1
+        fi
+        cd /tmp
+        tar jxf hpna.tar.bz2
+        rm -f hpna.tar.bz2
+        cd hpna
+        if [ -z "$ENDIAN" ]; then
+            rm -rf bin_be
+        else
+            rm -rf bin
+            mv bin_be bin
+        fi
+        echo ""
+        echo "HPNA files are now installed in /tmp/hpna"
+        echo ""
+        exit 0
+    fi
+fi

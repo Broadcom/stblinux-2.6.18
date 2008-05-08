@@ -111,6 +111,15 @@ static inline void smp_send_reschedule(int cpu)
 
 extern asmlinkage void smp_call_function_interrupt(void);
 
+/* CPU hotplug */
+extern int __cpu_disable(void);
+extern int mach_cpu_disable(unsigned int cpu);
+extern void __cpu_die(unsigned int cpu);
+extern void cpu_die(void);
+
+extern void platform_cpu_die(unsigned int cpu);
+extern int platform_cpu_kill(unsigned int cpu);
+
 #endif /* CONFIG_SMP */
 
 #endif /* __ASM_SMP_H */

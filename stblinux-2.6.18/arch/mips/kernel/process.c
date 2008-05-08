@@ -25,6 +25,7 @@
 #include <linux/init.h>
 #include <linux/completion.h>
 #include <linux/kallsyms.h>
+#include <linux/cpu.h>
 
 #include <asm/abi.h>
 #include <asm/bootinfo.h>
@@ -59,6 +60,10 @@ ATTRIB_NORET void cpu_idle(void)
 			extern void smtc_idle_loop_hook(void);
 
 			smtc_idle_loop_hook();
+#endif
+#ifdef CONFIG_HOTPLUG_CPU
+			if (cpu_is_offline(smp_processor_id()))
+				cpu_die();
 #endif
 			if (cpu_wait)
 				(*cpu_wait)();

@@ -31,7 +31,7 @@ unsigned int csum_and_copy_from_user (const unsigned char __user *src, unsigned 
 				      int len, int sum, int *err_ptr)
 {
 	if (access_ok(VERIFY_READ, src, len))
-		return csum_partial_copy_from_user(src, dst, len, sum, err_ptr);
+		return csum_partial_copy_from_user((const unsigned char __user *)src, dst, len, sum, err_ptr);
 
 	if (len)
 		*err_ptr = -EFAULT;

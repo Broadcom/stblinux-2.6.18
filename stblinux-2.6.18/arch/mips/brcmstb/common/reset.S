@@ -9,37 +9,6 @@
  * Written by Ton Truong and Lee Tokuda
  */
 
-#if 0
-// Already included in head.S which include us 
-
-#include <linux/config.h>
-#include <asm/asm.h>
-#include <asm/regdef.h>
-#include <asm/mipsregs.h>
-#include <asm/stackframe.h>
-
-// #ifdef CONFIG_MIPS_BCM7402S
-#include <asm/brcmstb/brcm97401a0/bcmmips.h>
-#include <asm/brcmstb/brcm97401a0/bcmuart.h>
-
-#define BCHP_SUN_TOP_CTRL_SW_RESET 	            		0x00404010
-#define BCHP_SUN_TOP_CTRL_SEMAPHORE_8          	0x00404048
-#define BCHP_SUN_GISB_ARB_TIMER                      	0x0040600c
-#define BCHP_SUN_GISB_ARB_REQ_MASK               		0x00406008
-#define BCHP_FMISC_SOFT_RESET                        	0x00104000 
-#define BCHP_MEMC_0_DDR_PLL_FREQ_DIVIDER_RESET	0x0010683c
-#define BCHP_MEMC_0_DDR_PLL_FREQ_CNTL            	0x00106818
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_5         	0x00404098
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_8         	0x004040a4 
-
-#define BCHP_SUN_TOP_CTRL_RESET_CTRL			0x00404008
-//#define BCHP_SUN_TOP_CTRL_SW_RESET			0x00404014
-#define BCHP_VCXO_0_RM_CONTROL                   		0x00181700 /* Rate Manager Controls */
-#define UART_ADR_BASE		0xb04001a0		// UARTB
-
-#endif
-
-
         /* defines */
 #define INITIAL_SR      (ST0_CU0 | ST0_CU1 | ST0_BEV | ST0_ERL)     
 

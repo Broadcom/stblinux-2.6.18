@@ -39,6 +39,7 @@
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include <linux/smp.h>
+#include <linux/kgdb.h>
 #include <linux/threads.h>
 #include <linux/timer.h>
 #include <linux/rcupdate.h>
@@ -52,6 +53,7 @@
 #include <linux/acct.h>
 #include <linux/kprobes.h>
 #include <linux/delayacct.h>
+#include <asm/atomic.h>
 #include <asm/tlb.h>
 
 #include <asm/unistd.h>
@@ -4908,6 +4910,8 @@ out:
 }
 EXPORT_SYMBOL_GPL(set_cpus_allowed);
 
+atomic_t process_migrations = ATOMIC_INIT(0);
+
 /*
  * Move (not current) task off this cpu, onto dest cpu.  We're doing
  * this because either it can't run here any more (set_cpus_allowed()
@@ -4954,6 +4958,7 @@ static int __migrate_task(struct task_struct *p, int src_cpu, int dest_cpu)
 			resched_task(rq_dest->curr);
 	}
 	ret = 1;
+	atomic_inc(&process_migrations);
 out:
 	double_rq_unlock(rq_src, rq_dest);
 	return ret;
@@ -6827,6 +6832,9 @@ void __might_sleep(char *file, int line)
 {
 #ifdef in_atomic
 	static unsigned long prev_jiffy;	/* ratelimiting */
+
+	if (atomic_read(&debugger_active))
+		return;
 
 	if ((in_atomic() || irqs_disabled()) &&
 	    system_state == SYSTEM_RUNNING && !oops_in_progress) {

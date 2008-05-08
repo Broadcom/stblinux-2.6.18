@@ -31,7 +31,7 @@
 #include "bchp_timer.h"
 
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 #ifdef _cplusplus
 extern "C" {
 #endif
@@ -70,7 +70,7 @@ extern "C" {
 /* Timer status register */
 #define TIMER_STS_COUNTER_MASK      0x3FFFFFFF
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 
 
 

@@ -47,10 +47,6 @@
 
 #include "8250.h"
 
-#ifdef	CONFIG_KGDB
-extern int kgdb_detached;		/* RYH */
-#endif
-
 /*
  * On the 7401B0, the bcm3250 UART driver claimed the first 64 entries,
  * so we start the 16550A at ttyS64.
@@ -1188,21 +1184,28 @@ receive_chars(struct uart_8250_port *up, int *status, struct pt_regs *regs)
 		if (uart_handle_sysrq_char(&up->port, ch, regs))
 			goto ignore_char;
 
-#if 0
+#ifdef	CONFIG_KGDB
 {
-volatile unsigned long* pRacCount0 = (volatile unsigned long*) 0xb0000618;
-volatile unsigned long* pRacCount1 = (volatile unsigned long*) 0xb000061c;
-
-/* Print out RAC count on CTRL-W */
 	switch (ch) {
-		case 0x17:
-			printk("RAC0 Count = %lx, RAC1 Count = %lx\n", *pRacCount0, *pRacCount1);
-			break;
+		case 0x3:	/* CTRL-C breakpoint */
+		   if ( up->port.line == 1 ) {
+			set_debug_traps();
+                       	breakpoint();
+                       	goto goout;
+		   }
+		break;
+
+
+		case 0xb: 	/* CTRL-K breakpoint */
+                   printk("\nkgdb enter> Please Start a Gdb Session To UART-B With 115200");
+		   set_debug_traps();
+                   breakpoint();
+		   goto goout;
+
 		default:
 			break;
 	}
 }
-
 #endif
 
 		uart_insert_char(&up->port, lsr, UART_LSR_OE, ch, flag);
@@ -1214,6 +1217,11 @@ volatile unsigned long* pRacCount1 = (volatile unsigned long*) 0xb000061c;
 	tty_flip_buffer_push(tty);
 	spin_lock(&up->port.lock);
 	*status = lsr;
+
+#ifdef	CONFIG_KGDB
+goout:
+	;
+#endif
 }
 
 static void transmit_chars(struct uart_8250_port *up)
@@ -1462,13 +1470,10 @@ static unsigned int serial8250_tx_empty(struct uart_port *port)
 static unsigned int serial8250_get_mctrl(struct uart_port *port)
 {
 	struct uart_8250_port *up = (struct uart_8250_port *)port;
-	unsigned long flags;
 	unsigned char status;
 	unsigned int ret;
 
-	spin_lock_irqsave(&up->port.lock, flags);
 	status = serial_in(up, UART_MSR);
-	spin_unlock_irqrestore(&up->port.lock, flags);
 
 	ret = 0;
 	if (status & UART_MSR_DCD)
@@ -2579,6 +2584,27 @@ void serial8250_unregister_port(int line)
 	mutex_unlock(&serial_mutex);
 }
 EXPORT_SYMBOL(serial8250_unregister_port);
+
+/**
+ *      serial8250_unregister_by_port - remove a 16x50 serial port
+ *      at runtime.
+ *      @port: A &struct uart_port that describes the port to remove.
+ *
+ *      Remove one serial port.  This may not be called from interrupt
+ *      context.  We hand the port back to the our control.
+ */
+void serial8250_unregister_by_port(struct uart_port *port)
+{
+        struct uart_8250_port *uart;
+
+        mutex_lock(&serial_mutex);
+        uart = serial8250_find_match_or_unused(port);
+        mutex_unlock(&serial_mutex);
+
+        if (uart)
+                serial8250_unregister_port(uart->port.line);
+}
+EXPORT_SYMBOL(serial8250_unregister_by_port);
 
 /**
  *	serial8250_release_irq - remove a 16x50 serial port at runtime based

@@ -73,6 +73,8 @@ extern cpumask_t phys_cpu_present_map;		/* Bitmask of available CPUs */
 extern void brcm_timerx_setup(struct irqaction *);
 extern irqreturn_t timerx_interrupt(int, void *, struct pt_regs *);
 
+static int tp1_running = 0;
+
 void __init plat_smp_setup(void)
 {
        int i, num;
@@ -179,6 +181,7 @@ void __init plat_prepare_cpus(unsigned int max_cpus)
     } else {
         printk("plat_prepare_cpus: ENABLING 2nd Thread...\n");
         cpu_set(1, phys_cpu_present_map);
+        cpu_set(1, cpu_present_map);
     }
 
 #if defined(CONFIG_MIPS_7400A0)
@@ -219,6 +222,49 @@ void core_send_ipi(int cpu, unsigned int action)
 }
 
 /*
+ * Try to detect a CFE image by looking for 8 consecutive jumps to the
+ * same address, e.g.
+ *
+ *       8c:       1000038e        b       0xec8
+ *       90:       00000000        nop
+ *       94:       1000038c        b       0xec8
+ *       98:       00000000        nop
+ *       9c:       1000038a        b       0xec8
+ *       a0:       00000000        nop
+ *       ...
+ *
+ * These correspond to the RVECENT() macros in reset.s and exist in all
+ * recent CFE images.
+ */
+
+static int cfecheck(uint32_t *buf, unsigned int len)
+{
+	unsigned int i, count = 0, last_dst = 0;
+
+	len >>= 2;
+
+	for(i = 0; i < (len - 1); i++) {
+		if(((buf[i] & 0xffff0000) == 0x10000000) &&
+			(buf[i + 1] == 0x0)) {
+			unsigned int dst = buf[i] & 0xffff;
+
+			dst = (dst + i + 1) << 2;
+			if(! dst || (dst > 0x8000))
+				continue;
+			if(dst == last_dst) {
+				count++;
+				if(count == 8)
+					return(0);
+			} else {
+				last_dst = dst;
+				count = 1;
+			}
+		}
+	}
+	return(-1);
+}
+
+/*
  * Setup the PC, SP, and GP of a secondary processor and start it
  * running!
  */
@@ -226,7 +272,12 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
 {
     register unsigned long temp;
 
-    printk("TP%d: prom_boot_secondary: switching to non-blocking mode...\n", smp_processor_id());
+    if(tp1_running) {
+	// TP1 was booted and then shut down - trigger SW1 to wake it up
+	set_c0_cause(C_SW1);
+	return;
+    }
+
     // disable non-blocking mode
     temp = read_c0_brcm_config_0();
     // PR22809 Add NBK and weak order flags
@@ -241,42 +292,91 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
     // interrupt crossover. To set the h/w interrupt crossover, we need to set 
     // a different bit in that same CP0 register.  The XIR bits (31:27) 
     // control h/w IRQ 4..0, respectively.
-    printk("TP%d: prom_boot_secondary: adjusting s/w interrupt crossover\n", smp_processor_id());
     
     temp = read_c0_cmt_interrupt();
     temp |= 0x10018000;
     write_c0_cmt_interrupt(temp);
 
-    printk("TP%d: prom_boot_secondary: c0 22,1=%lx\n", smp_processor_id(),temp);
+    //printk("TP%d: prom_boot_secondary: c0 22,1=%lx\n", smp_processor_id(),temp);
     
 	// first save the boot data...
     boot_config->func_addr = (unsigned long) smp_bootstrap;      // function 
     boot_config->sp        = (unsigned long) __KSTK_TOS(idle);    // sp
     boot_config->gp        = (unsigned long) idle->thread_info;   // gp
     boot_config->arg       = 0;
-     
-    printk("TP%d: prom_boot_secondary: Kick off 2nd CPU, and adjust TLB serialization...\n", smp_processor_id());
-    temp = read_c0_cmt_control();
 
-    temp |= 0x01;           // Takes second CPU	out of reset
+    // TP1 always starts executing from bfc0_0000 (MIPS reset vector)
+    // If CFE has been remapped to somewhere else (e.g. by changing EBI
+    // settings), TP1 will not start.
+
+    if(cfecheck((void *)0xbfc00000, 0x400) == -1)
+	    printk("WARNING: CFE image not detected at reset vector; TP1 may not start\n");
+     
+    printk("TP%d: prom_boot_secondary: Kick off 2nd CPU...\n", smp_processor_id());
+    temp = read_c0_cmt_control();
 
 	// The following flags can be adjusted to suit performance and debugging needs
     //temp |= (1<<4);           // TP0 priority
     //temp |= (1<<5);           // TP1 priority
 
-#ifdef CONFIG_MIPS_BCM7400A0
-    // adjust tlb serialization
-    temp &= ~(0x0F << 16);   // mask off old tlb serialization thingie...
-//    temp |= (0x06 << 16);   // adjust tlb serialization (only exception serialization)
-//    temp |= (0x04 << 16);   // adjust tlb serialization (full serialization)
-//    temp |= (0x00 << 16);   // adjust tlb serialization (no serialization)
-//    temp |= (0x07 << 16);   // adjust tlb serialization (USE THIS!)
-    temp |= (0x01 << 16);   // adjust tlb serialization (no serialization RECOMMENDED!)
-#endif
-    
 //	temp |= (0x01 << 30);	// Debug and profile TP1 thread
 
-    printk("TP%d: prom_boot_secondary: cp0 22,2 => %08lx\n", smp_processor_id(), temp);
+    //printk("TP%d: prom_boot_secondary: cp0 22,2 => %08lx\n", smp_processor_id(), temp);
+    temp |= 0x01;           // Takes second CPU out of reset
     write_c0_cmt_control(temp);
+
+    tp1_running = 1;
 }
 
+#ifdef CONFIG_HOTPLUG_CPU
+
+static DECLARE_COMPLETION(cpu_killed);
+
+int mach_cpu_disable(unsigned int cpu)
+{
+	/* not allowed to shut down TP0 */
+	return cpu == 0 ? -EPERM : 0;
+}
+
+/* runs on living CPU */
+int platform_cpu_kill(unsigned int cpu)
+{
+	return(wait_for_completion_timeout(&cpu_killed, 5000));
+}
+
+/* runs on dying CPU */
+void platform_cpu_die(unsigned int cpu)
+{
+	complete(&cpu_killed);
+	mb();
+
+	/* enable SW1 for wakeup, disable all other interrupts */
+	write_c0_status((read_c0_status() & ~0xff00) | IE_SW1 | ST0_IE);
+	mb();
+
+	/* wait for wakeup IPI from TP0 */
+	__asm__ __volatile__(
+		".set	push\n"
+		".set	mips3\n"
+		"wait\n"
+		".set	pop\n");
+
+	/* reset stack pointer and __current_thread_info ($gp) */
+	local_irq_disable();
+	mb();
+
+	__asm__ __volatile__(
+		".extern g_boot_config\n"
+		"la	$8, g_boot_config\n"
+		"lw	$29, 12($8)\n"
+		"lw	$28, 16($8)\n"
+		);
+	
+	/* unmask the usual interrupts */
+	set_c0_status(IE_SW0 | IE_SW1 | IE_IRQ1 | IE_IRQ5);
+	mb();
+
+	__asm__ __volatile__("j restart_secondary\n");
+}
+
+#endif /* CONFIG_HOTPLUG_CPU */

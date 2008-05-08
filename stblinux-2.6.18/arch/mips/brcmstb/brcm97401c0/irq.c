@@ -35,13 +35,7 @@
 #include <asm/irq.h>
 #include <asm/mipsregs.h>
 #include <asm/addrspace.h>
-#include <asm/brcmstb/brcm97401c0/bcmuart.h>
-#include <asm/brcmstb/brcm97401c0/bcmtimer.h>
-#include <asm/brcmstb/brcm97401c0/bcmebi.h>
-#include <asm/brcmstb/brcm97401c0/int1.h>
-#include <asm/brcmstb/brcm97401c0/board.h>
-#include <asm/brcmstb/brcm97401c0/bchp_irq0.h>
-#include <asm/brcmstb/brcm97401c0/bcmintrnum.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 #ifdef CONFIG_REMOTE_DEBUG
 #include <asm/gdb-stub.h>

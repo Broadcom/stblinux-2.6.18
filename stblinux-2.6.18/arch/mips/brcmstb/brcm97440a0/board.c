@@ -29,9 +29,7 @@
 #include <linux/config.h>
 // For module exports
 #include <linux/module.h>
-
 #include <asm/brcmstb/common/brcmstb.h>
-#include <asm/brcmstb/brcm97400a0/bchp_pci_cfg.h>
 
 #ifdef CONFIG_MIPS_BRCM_IKOS
 

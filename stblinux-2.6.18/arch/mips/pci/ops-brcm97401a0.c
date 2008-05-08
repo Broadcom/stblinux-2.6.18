@@ -45,34 +45,10 @@
 //#include <asm/pci_channel.h>
 #include <asm/io.h>
 #include <asm/debug.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
-#if	defined(CONFIG_MIPS_BCM7401A0)
-#include <asm/brcmstb/brcm97401a0/boardmap.h>
-#include <asm/brcmstb/brcm97401a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97401a0/bcmintrnum.h>
-
-#elif	defined(CONFIG_MIPS_BCM7401B0)
-#include <asm/brcmstb/brcm97401b0/boardmap.h>
-#include <asm/brcmstb/brcm97401b0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97401b0/bcmintrnum.h>
-
-#elif	defined(CONFIG_MIPS_BCM7401C0)
-#include <asm/brcmstb/brcm97401c0/boardmap.h>
-#include <asm/brcmstb/brcm97401c0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97401c0/bcmintrnum.h>
-
-#elif defined(CONFIG_MIPS_BCM7403A0)
-#include <asm/brcmstb/brcm97403a0/boardmap.h>
-#include <asm/brcmstb/brcm97403a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97403a0/bcmintrnum.h>
-
-
-#elif	defined(CONFIG_MIPS_BCM7118A0)
-#include <asm/brcmstb/brcm97118a0/boardmap.h>
-#include <asm/brcmstb/brcm97118a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97118a0/bcmintrnum.h>
-
-extern int bcm7118A0_boardtype;
+#if	defined(CONFIG_MIPS_BCM7118)  /* 7118A0 and 7118C0 */
+extern int bcm7118_boardtype;
 #endif
 
 
@@ -157,15 +133,15 @@ static int brcm_pci_read_config_dword(struct pci_bus *bus, unsigned int devfn,
     /* SATA PCI bus?  */
     switch (bus->number) {
     case 1: /*slot_num == PCI_DEV_NUM_SATA*/
-#ifdef CONFIG_SATA_SVW
-	#ifdef	CONFIG_MIPS_BCM7118A0
-	if(bcm7118A0_boardtype == 1)
+#if	defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
+  #ifdef	CONFIG_MIPS_BCM7118
+	if(bcm7118_boardtype == 1)
 		return PCIBIOS_FUNC_NOT_SUPPORTED;
 	else
 		return brcm_pci_sata_read_config_dword(bus, devfn, where, val);
-	#else
-	return brcm_pci_sata_read_config_dword(bus, devfn, where, val);
-	#endif
+  #else
+		return brcm_pci_sata_read_config_dword(bus, devfn, where, val);
+  #endif
 #else		
 	return PCIBIOS_FUNC_NOT_SUPPORTED;
 #endif

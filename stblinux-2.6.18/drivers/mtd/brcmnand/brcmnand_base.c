@@ -93,6 +93,14 @@ extern int* gNandCS;
 #define BRCMNAND_FLASH_STATUS_ERROR			(-2)
 #define BRCMNAND_TIMED_OUT					(-3)
 
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+/* Avoid infinite recursion between brcmnand_refresh_blk() and brcmnand_read_ecc() */
+static atomic_t inrefresh = ATOMIC_INIT(0); 
+static int brcmnand_refresh_blk(struct mtd_info *, loff_t);
+static int brcmnand_erase_nolock(struct mtd_info *, struct erase_info *, int);
+#endif
+
+
 /*
  * MTD structure for Broadcom NAND
  */
@@ -104,6 +112,7 @@ typedef struct brcmnand_chip_Id {
 	char* chipIdStr;
 	uint32 options;
 	uint32 timing1, timing2; // Specify a non-zero value to override the default timings.
+	unsigned int ctrlVersion; // Required controller version if different than 0
 } brcmnand_chip_Id;
 
 /*
@@ -118,29 +127,26 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 				//| NAND_COMPLEX_OOB_WRITE	/* Write data together with OOB for write_oob */
 		.timing1 = 0, //00070000,
 		.timing2 = 0,
+		.ctrlVersion = 0,
 	},
+
 	{	/* 1 */
-		.chipId = ST_NAND01GW3B,
-		.mafId = FLASHTYPE_ST,
-		.chipIdStr = "ST NAND01GW3B2B",
-		.options = NAND_USE_FLASH_BBT,
-		.timing1 = 0, .timing2 = 0,
-	},
-	{	/* 2 */
 		.chipId = ST_NAND512W3A,
 		.mafId = FLASHTYPE_ST,
 		.chipIdStr = "ST ST_NAND512W3A",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, //0x6474555f, 
 		.timing2 = 0, //0x00000fc7,
+		.ctrlVersion = 0,
 	},
-	{	/* 3 */
+	{	/* 2 */
 		.chipId = ST_NAND256W3A,
 		.mafId = FLASHTYPE_ST,
 		.chipIdStr = "ST ST_NAND256W3A",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, //0x6474555f, 
 		.timing2 = 0, //0x00000fc7,
+		.ctrlVersion = 0,
 	},
 #if 0 // EOL
 	{	/* 4 */
@@ -154,20 +160,22 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 	/* This is the new version of HYNIX_HY27UF081G2M which is EOL.
 	 * Both use the same DevID
 	 */
-	{	/* 4 */
+	{	/* 3 */
 		.chipId = HYNIX_HY27UF081G2A,
 		.mafId = FLASHTYPE_HYNIX,
 		.chipIdStr = "Hynix HY27UF081G2A",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
-	{	/* 5 */
+	{	/* 4 */
 		.chipId = MICRON_MT29F2G08AAB,
 		.mafId = FLASHTYPE_MICRON,
 		.chipIdStr = "MICRON_MT29F2G08AAB",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 /* This is just the 16 bit version of the above?
 	{
@@ -179,12 +187,22 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 	}
 */
 
-	{	/* 6 */
+	{	/* 5 */
 		.chipId = SAMSUNG_K9F2G08U0A,
 		.mafId = FLASHTYPE_SAMSUNG,
 		.chipIdStr = "Samsung K9F2G08U0A",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
+	},
+
+	{	/* 6 */
+		.chipId = SAMSUNG_K9K8G08U0A,
+		.mafId = FLASHTYPE_SAMSUNG,
+		.chipIdStr = "Samsung K9K8G08U0A",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 
@@ -194,6 +212,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "Hynix HY27UF082G2A",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 
@@ -204,6 +223,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "Hynix HY27UF084G2M",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 9 */
@@ -212,6 +232,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION S30ML512P_08",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 10 */
@@ -220,6 +241,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION S30ML512P_16",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 11 */
@@ -228,6 +250,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION S30ML256P_08",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 12 */
@@ -236,6 +259,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION S30ML256P_16",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 13 */
@@ -244,6 +268,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION S30ML128P_08",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 14 */
@@ -252,6 +277,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION S30ML128P_16",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 15 */
@@ -260,6 +286,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION_S30ML01GP_08",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 16 */
@@ -268,6 +295,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION_S30ML01GP_16",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 17 */
@@ -276,6 +304,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION_S30ML02GP_08",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 18 */
@@ -284,6 +313,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION_S30ML02GP_16",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 19 */
@@ -292,6 +322,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION_S30ML04GP_08",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
 	{	/* 20 */
@@ -300,20 +331,71 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "SPANSION_S30ML04GP_16",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
-#if 0
-	{	/* 9 */
-		.chipId = SAMSUNG_K9K8G08UOA,
-		.mafId = FLASHTYPE_SAMSUNG,
-		.chipIdStr = "Samsung K9K8G08UOA",
+	{	/* 21 */
+		.chipId = ST_NAND128W3A,
+		.mafId = FLASHTYPE_ST,
+		.chipIdStr = "ST NAND128W3A",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = 0,
 	},
 
+	/* The following 6 ST chips only allow 4 writes per page, and requires version2.2 (5) of the controller or later */
+	{	/* 22 */
+		.chipId = ST_NAND01GW3B,
+		.mafId = FLASHTYPE_ST,
+		.chipIdStr = "ST NAND01GW3B2B",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_2,
+	},
 
-#endif
+	{	/* 23 */ 
+		.chipId = ST_NAND01GR3B,
+		.mafId = FLASHTYPE_ST,
+		.chipIdStr = "ST NAND01GR3B2B",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_2,
+	},
+
+	{	/* 24 */ 
+		.chipId = ST_NAND02GR3B,
+		.mafId = FLASHTYPE_ST,
+		.chipIdStr = "ST NAND02GR3B2C",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_2,
+	},
+	{	/* 25 */ 
+		.chipId = ST_NAND02GW3B,
+		.mafId = FLASHTYPE_ST,
+		.chipIdStr = "ST NAND02GW3B2C",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_2,
+	},
 	
+	{	/* 26 */ 
+		.chipId = ST_NAND04GW3B,
+		.mafId = FLASHTYPE_ST,
+		.chipIdStr = "ST NAND04GW3B2B",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_2,
+	},
+	{	/* 27 */ 
+		.chipId = ST_NAND08GW3B,
+		.mafId = FLASHTYPE_ST,
+		.chipIdStr = "ST NAND08GW3B2A",
+		.options = NAND_USE_FLASH_BBT,
+		.timing1 = 0, .timing2 = 0,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_2,
+	},
+		
 	{	/* LAST DUMMY ENTRY */
 		.chipId = 0,
 		.mafId = 0,
@@ -1450,6 +1532,153 @@ print_oobbuf(outp_oob, mtd->oobsize); }
 	return ret;
 }
 
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+static int brcmnand_refresh_blk(struct mtd_info *mtd, loff_t from)
+{
+	struct brcmnand_chip *this = mtd->priv;
+	int i, j, k, numpages, ret, count = 0, nonecccount = 0;
+	uint8_t *blk_buf;	/* Store one block of data (including OOB) */
+	unsigned int realpage, pg_idx, oob_idx;
+	struct erase_info *instr;
+	//int gdebug = 1; 
+	struct nand_ecclayout *oobinfo;
+	uint8_t *oobptr;
+	uint32_t *oobptr32, blkbegin;
+	unsigned int block_size;
+
+
+#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
+	this->ctrl_write(BCHP_NAND_ECC_CORR_EXT_ADDR, 0);
+#endif
+	this->ctrl_write(BCHP_NAND_ECC_CORR_ADDR, 0);
+
+	DEBUG(MTD_DEBUG_LEVEL3, "Inside %s:\n", __FUNCTION__, __ll__low(from));
+	printk(KERN_INFO "%s: Performing block refresh to single bit ECC error\n", __FUNCTION__);
+	pg_idx = 0;
+	oob_idx = mtd->writesize;
+	numpages = mtd->erasesize/mtd->writesize;
+	block_size = (1 << this->erase_shift);
+	blkbegin = (uint32_t) (from & (~(mtd->erasesize-1)));
+	realpage = (unsigned int)(blkbegin >> this->page_shift);
+	blk_buf = (uint8_t *) vmalloc(numpages*(mtd->writesize + mtd->oobsize));
+	if (unlikely(blk_buf == NULL)) {
+		printk(KERN_ERR "%s: vmalloc failed\n", __FUNCTION__);
+		return -1;
+	}
+	memset(blk_buf, 0xff, numpages*(mtd->writesize + mtd->oobsize));
+
+	if (unlikely(gdebug > 0)) {
+		printk("---> %s: from = %08x, numpages = %d, realpage = %x\n",\
+				__FUNCTION__, (uint32_t) from, numpages, realpage);
+		printk("     Locking flash for read ... \n");
+	}
+
+	/* Read an entire block */
+	brcmnand_get_device(mtd, FL_READING);
+	for (i = 0; i < numpages; i++) {
+		ret = brcmnand_read_page(mtd, blk_buf+pg_idx, blk_buf+oob_idx, realpage);
+		if (ret < 0) {
+			vfree(blk_buf);
+			brcmnand_release_device(mtd);
+			return -1;
+		}
+		//printk("DEBUG -> Reading %d realpage = %x %x ret = %d oob = %x\n", i, realpage, *(blk_buf+pg_idx), ret, *(blk_buf + oob_idx));
+		//print_oobbuf(blk_buf+oob_idx, mtd->oobsize);
+		pg_idx += mtd->writesize + mtd->oobsize;
+		oob_idx += mtd->oobsize + mtd->writesize;
+		realpage++;
+	}
+	if (unlikely(gdebug > 0)) {
+		printk("---> %s:  Read -> erase\n", __FUNCTION__);
+	}
+	this->state = FL_ERASING;
+
+	/* Erase the block */
+	instr = kmalloc(sizeof(struct erase_info), GFP_KERNEL);
+	if (instr == NULL) {
+		printk(KERN_WARNING "kmalloc for erase_info failed\n");
+		vfree(blk_buf);
+		brcmnand_release_device(mtd);
+		return -ENOMEM;
+	}
+	memset(instr, 0, sizeof(struct erase_info));
+	instr->mtd = mtd;
+	instr->addr = blkbegin;
+	instr->len = mtd->erasesize;
+	if (unlikely(gdebug > 0)) {
+		printk("DEBUG -> erasing %x, %x %d\n", instr->addr, instr->len, this->state);
+	}
+	ret = brcmnand_erase_nolock(mtd, instr, 0);
+	if (ret) {
+		vfree(blk_buf);
+		kfree(instr);
+		brcmnand_release_device(mtd);
+		printk(KERN_WARNING " %s Erase failed %d\n", __FUNCTION__, ret);
+		return ret;
+	}
+	kfree(instr);
+
+	/* Write the entire block */
+	pg_idx = 0;
+	oob_idx = mtd->writesize;
+	realpage = (unsigned int)(blkbegin >> this->page_shift);
+	if (unlikely(gdebug > 0)) {
+		printk("---> %s: Erase -> write ... %d\n", __FUNCTION__, this->state);
+	}
+	oobinfo = this->ecclayout;
+	this->state = FL_WRITING;
+	for (i = 0; i < numpages; i++) {
+		/* Avoid writing empty pages */
+		count = 0;
+		nonecccount = 0;
+		oobptr = (uint8_t *) (blk_buf + oob_idx);
+		oobptr32 = (uint32_t *) (blk_buf + oob_idx);
+		for (j = 0; j < oobinfo->eccbytes; j++) {
+			if (oobptr[oobinfo->eccpos[j]] == 0xff) { count++; }
+		}
+		for (k = 0; k < mtd->oobsize/4; k++) {
+			if (oobptr32[k] == 0xffffffff) { nonecccount++; }
+		}
+		/* Skip this page if ECC is 0xff */
+		if (count == j && nonecccount == k) {
+			pg_idx += mtd->writesize + mtd->oobsize;
+			oob_idx += mtd->oobsize + mtd->writesize;
+			realpage++;
+			continue;
+		}
+		/* Skip this page, but write the OOB */
+		if (count == j && nonecccount != k) {
+			ret = this->write_page_oob(mtd, blk_buf + oob_idx, realpage);
+			if (ret) {
+				vfree(blk_buf);
+				brcmnand_release_device(mtd);
+				return ret;
+			}
+			pg_idx += mtd->writesize + mtd->oobsize;
+			oob_idx += mtd->oobsize + mtd->writesize;
+			realpage++;
+			continue;
+		}
+		for (j = 0; j < oobinfo->eccbytes; j++) {
+			oobptr[oobinfo->eccpos[j]] = 0xff;
+		}
+		ret = this->write_page(mtd, blk_buf+pg_idx, blk_buf+oob_idx, realpage);
+		if (ret) {
+			vfree(blk_buf);
+			brcmnand_release_device(mtd);
+			return ret; 
+		}
+		pg_idx += mtd->writesize + mtd->oobsize;
+		oob_idx += mtd->oobsize + mtd->writesize;
+		realpage++;
+	}
+	brcmnand_release_device(mtd);
+	vfree(blk_buf);
+	printk(KERN_INFO "%s: block refresh succes\n", __FUNCTION__);
+
+	return 0;
+}
+#endif
 
 
 /**
@@ -1624,6 +1853,16 @@ printk("-->%s, offset=%08x\n", __FUNCTION__, (uint32_t) from);}
 	*retlen = chip->ops.retlen;
 
 	brcmnand_release_device(mtd);
+
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+	if (unlikely(ret == -EUCLEAN && !atomic_read(&inrefresh))) {
+		atomic_inc(&inrefresh);
+		if(brcmnand_refresh_blk(mtd, from) == 0) { 
+			ret = 0; 
+		}
+		atomic_dec(&inrefresh);
+	}
+#endif
 
 	return ret;
 }
@@ -2650,6 +2889,85 @@ static int brcmnand_block_checkbad(struct mtd_info *mtd, loff_t ofs, int getchip
 	return res;
 }
 
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+/**
+ * brcmnand_erase_nolock - [Private] erase block(s)
+ * @param mtd		MTD device structure
+ * @param instr		erase instruction
+ * @allowBBT			allow erase of BBT
+ *
+ * Erase one ore more blocks
+ * ** FIXME ** This code does not work for multiple chips that span an address space > 4GB
+ * Similar to BBT, except does not use locks and no alignment checks
+ * Assumes lock held by caller
+ */
+static int brcmnand_erase_nolock(struct mtd_info *mtd, struct erase_info *instr, int allowbbt)
+{
+	struct brcmnand_chip * chip = mtd->priv;
+	unsigned int block_size;
+	loff_t addr;
+	int len;
+	int ret = 0;
+	int needBBT;
+	
+	block_size = (1 << chip->erase_shift);
+	instr->fail_addr = 0xffffffff;
+
+	/* Clear ECC registers */
+	chip->ctrl_write(BCHP_NAND_ECC_CORR_ADDR, 0);
+	chip->ctrl_write(BCHP_NAND_ECC_UNC_ADDR, 0);
+#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
+	chip->ctrl_write(BCHP_NAND_ECC_CORR_EXT_ADDR, 0);
+	chip->ctrl_write(BCHP_NAND_ECC_UNC_EXT_ADDR, 0);
+#endif
+
+	/* Loop throught the pages */
+	len = instr->len;
+	addr = instr->addr;
+	instr->state = MTD_ERASING;
+
+	while (len) {
+		/* Check if we have a bad block, we do not erase bad blocks */
+		if (brcmnand_block_checkbad(mtd, addr, 0, allowbbt)) {
+			printk (KERN_ERR "%s: attempt to erase a bad block at addr 0x%08x\n", __FUNCTION__, (unsigned int) addr);
+			instr->state = MTD_ERASE_FAILED;
+			goto erase_one_block;
+		}
+		chip->ctrl_writeAddr(chip, addr, 0);
+		chip->ctrl_write(BCHP_NAND_CMD_START, OP_BLOCK_ERASE);
+
+		/* Wait until flash is ready */
+		ret = brcmnand_write_is_complete(mtd, &needBBT);
+
+		/* Check, if it is write protected: TBD */
+		if (needBBT ) {
+			if ( !allowbbt) {
+				printk(KERN_ERR "brcmnand_erase: Failed erase, block %d, flash status=%08x\n", 
+						__ll_low(__ll_RightShift(addr, chip->erase_shift)), needBBT);
+				instr->state = MTD_ERASE_FAILED;
+				instr->fail_addr = addr;
+				printk(KERN_WARNING "%s: Marking bad block @%08x\n", __FUNCTION__, (unsigned int) addr);
+				(void) chip->block_markbad(mtd, addr);
+				goto erase_one_block;
+			}
+		}
+erase_one_block:
+		len -= block_size;
+		addr = __ll_add32(addr, block_size);
+	}
+
+	instr->state = MTD_ERASE_DONE;
+	ret = instr->state == MTD_ERASE_DONE ? 0 : -EIO;
+	/* Do call back function */
+	if (!ret) {
+		mtd_erase_callback(instr);
+	}
+
+	return ret;
+}
+#endif
+
+
 /**
  * brcmnand_erase_bbt - [Private] erase block(s)
  * @param mtd		MTD device structure
@@ -3229,6 +3547,16 @@ static int brcmnand_probe(struct mtd_info *mtd, unsigned int chipSelect)
 #endif
 	}
 
+	/*
+	 * Check to see if the NAND chip requires any special controller version
+	 */
+	if (brcmnand_chips[i].ctrlVersion > CONFIG_MTD_BRCMNAND_VERSION) {
+		printk(KERN_ERR "#########################################################\n");
+		printk(KERN_ERR "DevId %s requires controller version %d or later, but STB is version %d\n",
+			brcmnand_chips[i].chipIdStr, brcmnand_chips[i].ctrlVersion, CONFIG_MTD_BRCMNAND_VERSION);
+		printk(KERN_ERR "#########################################################\n");
+	}
+
 	nand_config = chip->ctrl_read(BCHP_NAND_CONFIG);
 
 	/*
@@ -3446,9 +3774,59 @@ brcmnand_validate_cs(struct mtd_info *mtd )
 	return 0;
 }
 
+/*
+ * CS0 reset values are gone by now, since the bootloader disabled CS0 before booting Linux
+ * in order to give the EBI address space to NAND.
+ * We will need to read strap_ebi_rom_size in order to reconstruct the CS0 values
+ * This will not be a problem, since in order to boot with NAND on CSn (n != 0), the board
+ * must be strapped for NOR.
+ */
+static unsigned int 
+get_rom_size(unsigned long* outp_cs0Base)
+{
+	volatile unsigned long strap_ebi_rom_size, sun_top_ctrl_strap_value;
+	uint32_t romSize = 0;
+
+#ifdef BCHP_SUN_TOP_CTRL_STRAP_VALUE_0
+	sun_top_ctrl_strap_value = *(volatile unsigned long*) (0xb0000000|BCHP_SUN_TOP_CTRL_STRAP_VALUE_0);
+	strap_ebi_rom_size = sun_top_ctrl_strap_value & BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_ebi_rom_size_MASK;
+	strap_ebi_rom_size >>= BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_ebi_rom_size_SHIFT;
+#else
+	sun_top_ctrl_strap_value = *(volatile unsigned long*) (0xb0000000|BCHP_SUN_TOP_CTRL_STRAP_VALUE);
+	strap_ebi_rom_size = sun_top_ctrl_strap_value & BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_MASK;
+	strap_ebi_rom_size >>= BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_SHIFT;
+#endif
+
+	// Here we expect these values to remain the same across platforms.
+	// Some customers want to have a 2MB NOR flash, but I don't see how that is possible.
+	switch(strap_ebi_rom_size) {
+	case 0:
+		romSize = 64<<20;
+		*outp_cs0Base = (0x20000000 - romSize) | BCHP_EBI_CS_BASE_0_size_SIZE_64MB;
+		break;
+	case 1:
+		romSize = 16<<20;
+		*outp_cs0Base = (0x20000000 - romSize) | BCHP_EBI_CS_BASE_0_size_SIZE_16MB;
+		break;
+	case 2:
+		romSize = 8<<20;
+		*outp_cs0Base = (0x20000000 - romSize) | BCHP_EBI_CS_BASE_0_size_SIZE_8MB;
+		break;
+	case 3:
+		romSize = 4<<20;
+		*outp_cs0Base = (0x20000000 - romSize) | BCHP_EBI_CS_BASE_0_size_SIZE_4MB;
+		break;
+	default:
+		printk("%s: Impossible Strap Value %08x for BCHP_SUN_TOP_CTRL_STRAP_VALUE\n", 
+			__FUNCTION__, sun_top_ctrl_strap_value);
+		BUG();
+	}
+	return romSize;
+}
+
+
 static void brcmnand_prepare_reboot_priv(struct mtd_info *mtd)
 {
-#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
 	/* 
 	 * Must set NAND back to Direct Access mode for reboot, but only if NAND is on CS0
 	 */
@@ -3466,10 +3844,81 @@ static void brcmnand_prepare_reboot_priv(struct mtd_info *mtd)
 		this = brcmnand_get_device_exclusive();
 	}
 
+	// PR41560: Handle boot from NOR but open NAND flash for access in Linux
+	if (!is_bootrom_nand) {
+		// Restore CS0 in order to allow boot from NOR.
+
+		int ret = -EFAULT;
+		int i; 
+		int csNand; // Which CS is NAND
+		volatile unsigned long cs0Base, cs0Cnfg, cs0BaseAddr, csNandSelect;
+		volatile unsigned long csNandBase[MAX_NAND_CS], csNandCnfg[MAX_NAND_CS];
+		unsigned int romSize;
+		
+		romSize = get_rom_size(&cs0Base);
+printk("ROM size is %dMB\n", romSize >>20);
+		
+		cs0BaseAddr = cs0Base & BCHP_EBI_CS_BASE_0_base_addr_MASK;
+
+		cs0Cnfg = *(volatile unsigned long*) (0xb0000000|BCHP_EBI_CS_CONFIG_0);
+
+		// Turn off NAND CS
+		for (i=0; i < this->numchips; i++) {
+			csNand = this->CS[i];
+
+			if (csNand == 0) {
+				printk("%s: Call this routine only if NAND is not on CS0\n", __FUNCTION__);
+			}
+
+#if CONFIG_MTD_BRCMNAND_VERSION < CONFIG_MTD_BRCMNAND_VERS_1_0
+			BUG_ON(csNand > 5);
+#else
+			BUG_ON(csNand > 8);
+#endif
+			csNandBase[i] = *(volatile unsigned long*) (0xb0000000 + BCHP_EBI_CS_BASE_0 + 8*csNand);
+			csNandCnfg[i] = *(volatile unsigned long*) (0xb0000000 + BCHP_EBI_CS_CONFIG_0 + 8*csNand);
+
+			// Turn off NAND, must turn off both NAND_CS_NAND_SELECT and CONFIG.
+			// We turn off the CS_CONFIG here, and will turn off NAND_CS_NAND_SELECT for all CS at once,
+			// outside the loop.
+			*(volatile unsigned long*) (0xb0000000 + BCHP_EBI_CS_CONFIG_0 + 8*csNand) = 
+				csNandCnfg[i] & (~BCHP_EBI_CS_CONFIG_0_enable_MASK);
+
+		}
+		
+#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_0_1
+		csNandSelect = brcmnand_ctrl_read(BCHP_NAND_CS_NAND_SELECT);
+
+		brcmnand_ctrl_write(BCHP_NAND_CS_NAND_SELECT, csNandSelect & 
+			~(
+#if CONFIG_MTD_BRCMNAND_VERSION < CONFIG_MTD_BRCMNAND_VERS_1_0
+				BCHP_NAND_CS_NAND_SELECT_EBI_CS_5_SEL_MASK
+				| BCHP_NAND_CS_NAND_SELECT_EBI_CS_4_SEL_MASK
+				| BCHP_NAND_CS_NAND_SELECT_EBI_CS_3_SEL_MASK
+				| BCHP_NAND_CS_NAND_SELECT_EBI_CS_2_SEL_MASK
+				| BCHP_NAND_CS_NAND_SELECT_EBI_CS_1_SEL_MASK
+				| BCHP_NAND_CS_NAND_SELECT_EBI_CS_0_SEL_MASK
+#else
+				0x0000003E	/* Not documented on V1.0+ */
+#endif // Version < 1.0
+			));
+#endif // version >= 0.1
+		
+printk("Turn on NOR\n");
+		// Turn on NOR on CS0
+		*(volatile unsigned long*) (0xb0000000|BCHP_EBI_CS_CONFIG_0) = 
+			cs0Cnfg | BCHP_EBI_CS_CONFIG_0_enable_MASK;
+
+printk("returning from reboot\n");
+		// We have turned on NOR, just return, leaving NAND locked
+		// The CFE will straighten out everything.
+		return;
+	}
+		
+#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
+	// Otherwise if NAND is on CS0, turn off direct access before rebooting
 	if (this->CS[0] == 0) { // Only if on CS0
 		volatile unsigned long nand_select;
-
-		
 
 		nand_select = brcmnand_ctrl_read(BCHP_NAND_CS_NAND_SELECT);
 		//printk("%s: B4 nand_select = %08x\n", __FUNCTION__, (uint32_t) nand_select);
@@ -3482,7 +3931,8 @@ static void brcmnand_prepare_reboot_priv(struct mtd_info *mtd)
 		//printk("%s: After nand_select = %08x\n", __FUNCTION__, (uint32_t)  nand_select);
 	}
 	
-#endif
+#endif  //#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
+
 
 	return;
 }
@@ -3610,7 +4060,53 @@ int brcmnand_scan(struct mtd_info *mtd , int maxchips )
 PRINTK("gNumNand=%d, cs=%d\n", gNumNand, cs);
 	}
 	
-#endif
+#elif CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_2_0
+  	/* 
+  	 * Starting with version 2.0 (bcm7118C0 and later, 
+  	 * We can use EBI_CS_USES_NAND  Registers to find out where the NAND
+  	 * chips are (which CS) 
+  	 */
+  	if (gNumNand > 0) { /* Kernel argument nandcs=<comma-sep-list> override CFE settings */
+		if (brcmnand_sort_chipSelects(mtd, maxchips, gNandCS, this->CS))
+			return (-EINVAL);
+		cs = this->CS[this->numchips - 1];
+PRINTK("gNumNand=%d, cs=%d\n", gNumNand, cs);
+  	}
+	else {
+		
+		/* Load the gNandCS_priv[] array from EBI_CS_USES_NAND values,
+		 * same way that get_options() does, i.e. first entry is gNumNand
+		 */
+		int nandCsShift, i;
+		int numNand = 0;
+		int nandCS[MAX_NAND_CS];
+
+		for (i = 0; i< MAX_NAND_CS; i++) {
+			nandCS[i] = -1;
+		}
+		
+		nand_select = brcmnand_ctrl_read(BCHP_NAND_CS_NAND_SELECT);
+		for (i=0, nandCsShift = BCHP_NAND_CS_NAND_SELECT_EBI_CS_0_USES_NAND_SHIFT;
+			nandCsShift <= BCHP_NAND_CS_NAND_SELECT_EBI_CS_7_USES_NAND_SHIFT;
+			nandCsShift ++)
+		{
+			if (nand_select & (1 << nandCsShift)) {
+				nandCS[i] = nandCsShift - BCHP_NAND_CS_NAND_SELECT_EBI_CS_0_USES_NAND_SHIFT;
+				PRINTK("Found NAND on CS%1d\n", nandCS[i]);
+				i++;
+			}
+		}
+		numNand = i;
+		if (brcmnand_sort_chipSelects(mtd, maxchips, nandCS, this->CS))
+			return (-EINVAL);
+		cs = this->CS[this->numchips - 1];
+PRINTK("gNumNand=%d, cs=%d\n", gNumNand, cs);
+	}
+
+  
+#else
+	#error "Unknown Broadcom NAND controller version"
+#endif /* Versions >= 1.0 */
 
 
 PRINTK("brcmnand_scan: Calling brcmnand_probe\n");
@@ -3951,49 +4447,6 @@ HANDLE_MISB_WAR_END(void)
 #define HANDLE_MISB_WAR_END()
 #endif
 
-/*
- * CS0 reset values are gone by now, since the bootloader disabled CS0 before booting Linux
- * in order to give the EBI address space to NAND.
- * We will need to read strap_ebi_rom_size in order to reconstruct the CS0 values
- * This will not be a problem, since in order to boot with NAND on CSn (n != 0), the board
- * must be strapped for NOR.
- */
-static unsigned int 
-get_rom_size(unsigned long* outp_cs0Base)
-{
-	volatile unsigned long strap_ebi_rom_size, sun_top_ctrl_strap_value;
-	uint32_t romSize = 0;
-
-	sun_top_ctrl_strap_value = *(volatile unsigned long*) (0xb0000000|BCHP_SUN_TOP_CTRL_STRAP_VALUE);
-	strap_ebi_rom_size = sun_top_ctrl_strap_value & BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_MASK;
-	strap_ebi_rom_size >>= BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_SHIFT;
-
-	// Here we expect these values to remain the same across platforms.
-	// Some customers want to have a 2MB NOR flash, but I don't see how that is possible.
-	switch(strap_ebi_rom_size) {
-	case 0:
-		romSize = 64<<20;
-		*outp_cs0Base = (0x20000000 - romSize) | BCHP_EBI_CS_BASE_0_size_SIZE_64MB;
-		break;
-	case 1:
-		romSize = 16<<20;
-		*outp_cs0Base = (0x20000000 - romSize) | BCHP_EBI_CS_BASE_0_size_SIZE_16MB;
-		break;
-	case 2:
-		romSize = 8<<20;
-		*outp_cs0Base = (0x20000000 - romSize) | BCHP_EBI_CS_BASE_0_size_SIZE_8MB;
-		break;
-	case 3:
-		romSize = 4<<20;
-		*outp_cs0Base = (0x20000000 - romSize) | BCHP_EBI_CS_BASE_0_size_SIZE_4MB;
-		break;
-	default:
-		printk("%s: Impossible Strap Value %08x for BCHP_SUN_TOP_CTRL_STRAP_VALUE\n", 
-			__FUNCTION__, sun_top_ctrl_strap_value);
-		BUG();
-	}
-	return romSize;
-}
 
 /*
  * @ buff		Kernel buffer to hold the data read from the NOR flash, must be able to hold len bytes, 
@@ -4065,6 +4518,7 @@ int brcmnand_readNorFlash(struct mtd_info *mtd, void* buff, unsigned int offset,
 
 	}
 	
+#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_0_1
 	csNandSelect = brcmnand_ctrl_read(BCHP_NAND_CS_NAND_SELECT);
 
 	brcmnand_ctrl_write(BCHP_NAND_CS_NAND_SELECT, csNandSelect & 
@@ -4080,6 +4534,7 @@ int brcmnand_readNorFlash(struct mtd_info *mtd, void* buff, unsigned int offset,
 			0x0000003E	/* Not documented on V1.0+ */
 #endif
 		));
+#endif
 
 	// Turn on NOR on CS0
 	*(volatile unsigned long*) (0xb0000000|BCHP_EBI_CS_CONFIG_0) = 
@@ -4117,8 +4572,10 @@ int brcmnand_readNorFlash(struct mtd_info *mtd, void* buff, unsigned int offset,
 		*(volatile unsigned long*) (0xb0000000 + BCHP_EBI_CS_CONFIG_0 + 8*csNand) = csNandCnfg[i];
 	}
 
+#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_0_1
 	// Restore NAND_CS_SELECT
 	brcmnand_ctrl_write(BCHP_NAND_CS_NAND_SELECT, csNandSelect);
+#endif
 	udelay(10000); // Wait for ID Configuration to stabilize
 	
 release_device_and_out:

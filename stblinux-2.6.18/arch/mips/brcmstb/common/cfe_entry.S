@@ -54,9 +54,15 @@ ret_value:
 		.set	at
 #ifdef CONFIG_KGDB
 	# PR33365: enable JTAG interface for hot attach
+# jipeng - check DEBUG.DM to ensure dseg is accessible 
+		mfc0 t0, CP0_DEBUG
+		srl  t0, t0, 16
+		andi t0, t0, 0x4000		
+		beqz t0, patch_done	
 		lui k0, 0xff30
 		li  k1, 0x1a
 		sw  k1, 0(k0)
+patch_done:
 #endif
 		
 	#Check to see if we were really launched by CFE

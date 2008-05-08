@@ -72,7 +72,12 @@ static int irq_affinity_write_proc(struct file *file, const char __user *buffer,
 		   code to set default SMP affinity. */
 		return select_smp_affinity(irq) ? -EINVAL : full_count;
 
+#ifdef CONFIG_MIPS_BRCM97XXX
+	/* always clear bits for offline CPUs */
+	proc_set_irq_affinity(irq, tmp);
+#else
 	proc_set_irq_affinity(irq, new_value);
+#endif
 
 	return full_count;
 }

@@ -46,9 +46,7 @@
 #include <asm/io.h>
 #include <asm/debug.h>
 
-#include <asm/brcmstb/brcm97400a0/boardmap.h>
-#include <asm/brcmstb/brcm97400a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97400a0/bcmintrnum.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 
 

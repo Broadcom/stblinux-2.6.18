@@ -390,7 +390,7 @@ static inline void brcm_default_boot_mem(void)
 		  * Kernels on STBs with larger than 32MB, we only use 32MB RAM for the kernel
 		  */
 
-#ifdef CONFIG_MTD_BRCMNAND
+#if 0 // // PR41020: Removed since mem leak was fixed.    def CONFIG_MTD_BRCMNAND
 		size = 48; // FOr BBT tables
 #else
 		size = 32;
@@ -961,6 +961,7 @@ void __init setup_arch(char **cmdline_p)
 	prom_init();
 	cpu_report();
 #ifdef CONFIG_DISCONTIGMEM
+	BUG_ON(smp_processor_id() != 0);
 	cpu_cache_init();
 	tlb_init();
 #endif

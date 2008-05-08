@@ -38,17 +38,7 @@
 #include <linux/pci_ids.h>
 #include <linux/ioport.h>
 #include <asm/io.h>
-
-
-
-#if defined( CONFIG_MIPS_BCM7402 )
-#include <asm/brcmstb/brcm97401b0/boardmap.h>
-#include <asm/brcmstb/brcm97401b0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97401b0/bcmintrnum.h>
-
-#else
-#error "Wrong platform"
-#endif
+#include <asm/brcmstb/common/brcmstb.h>
 
 /* from PCI spec, Maybe we can put this in some include file. */
 #define PCI_ENABLE              0x80000000

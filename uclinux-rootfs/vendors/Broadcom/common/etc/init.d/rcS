@@ -10,6 +10,9 @@ mount -t proc none /proc
 echo "Mount /sys fs"
 mount -t sysfs none /sys
 
+# Enable hotplug
+echo "/sbin/hotplug" > /proc/sys/kernel/hotplug
+
 # Mount /dev/pts
 echo "Mount /dev/pts"
 mount -t devpts none /dev/pts

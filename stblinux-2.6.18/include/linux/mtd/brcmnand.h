@@ -43,6 +43,11 @@
 #define CONFIG_MTD_BRCMNAND_VERS_0_1		1
 #define CONFIG_MTD_BRCMNAND_VERS_1_0		2
 
+/* The followings revs are not implemented for 2.6.12 */
+#define CONFIG_MTD_BRCMNAND_VERS_2_0		3
+#define CONFIG_MTD_BRCMNAND_VERS_2_1		4
+#define CONFIG_MTD_BRCMNAND_VERS_2_2		5
+
 #define BRCMNAND_VERSION(major, minor)	((major<<8) | minor)
 
 
@@ -99,6 +104,8 @@
 #define SAMSUNG_K9F1G08U0A      0xF1
 #define SAMSUNG_K9F2G08U1A      0xF1
 #define SAMSUNG_K9F2G08U0A      0xDA
+#define SAMSUNG_K9K8G08U0A      0xD3
+
 
 //K9F5608(R/U/D)0D
 #define SAMSUNG_K9F5608R0D      0x35

@@ -269,12 +269,31 @@ static struct timer_list serial_timer;
 #define WAKEUP_CHARS 256
 
 /*
+ * This event is scheduled to run at timer-interrupt
+ * time, instead of at rs interrupt time.
+ */
+
+#define BRCMSERIAL_RECEIVE      3
+
+/*
  * IRQ_timeout		- How long the timeout should be for each IRQ
  * 				should be after the IRQ has been active.
  */
 
 static struct async_struct *IRQ_ports[NR_IRQS];
 static int IRQ_timeout[NR_IRQS];
+
+/*
+ * ADTADT
+ * Byte FIFO for the two serial port, 256 bytes deep for now
+ */
+#define BRCMSERIAL_FIFO_DEPTH              256
+
+static char *brcmserial_fifo[NR_IRQS];
+static char *brcmserial_fifo_stat[NR_IRQS];
+static int  brcmserial_fifo_readptr[NR_IRQS];
+static int  brcmserial_fifo_writeptr[NR_IRQS];
+
 
 #ifdef CONFIG_SERIAL_CONSOLE
 static struct console sercons;
@@ -373,8 +392,6 @@ extern void breakpoint();
 extern int kgdb_detached;    /* RYH */
 #endif
 
-
-
 static inline int serial_paranoia_check(struct async_struct *info,
 					char* kname, const char *routine)
 {
@@ -400,10 +417,10 @@ static _INLINE_ unsigned int serial_in(struct async_struct *info, int offset)
 {
 /* PR12020 - Most non-pci systems are happy with no changes for endianess, Pci based Bcm97038 needs this though */
 #if !defined(CONFIG_CPU_LITTLE_ENDIAN) && defined(CONFIG_PCI)
-      return readb((unsigned long *) (((unsigned long)info->iomem_base +
-	     (offset<<info->iomem_reg_shift))^3));
+      return readb(((unsigned long) info->iomem_base +
+	     (offset<<info->iomem_reg_shift))^3);
 #else
-      return readb((unsigned long *) ((unsigned long)info->iomem_base +
+      return readb(((unsigned long) info->iomem_base +
 	     (offset<<info->iomem_reg_shift)));
 #endif
 }
@@ -412,10 +429,10 @@ static _INLINE_ void serial_out(struct async_struct *info, int offset,
 {
 /* PR12020 - Most non-pci systems are happy with no changes for endianess, Pci based Bcm97038 needs this though */
 #if !defined(CONFIG_CPU_LITTLE_ENDIAN) && defined(CONFIG_PCI)
-	writeb(value, (unsigned long *) (((unsigned long)info->iomem_base +
-		(offset<<info->iomem_reg_shift))^3));
+	writeb(value, ((unsigned long) info->iomem_base +
+		(offset<<info->iomem_reg_shift))^3);
 #else
-	writeb(value, (unsigned long *) ((unsigned long)info->iomem_base +
+	writeb(value, ((unsigned long) info->iomem_base +
 		(offset<<info->iomem_reg_shift)));
 #endif
 }
@@ -504,7 +521,7 @@ static _INLINE_ void rs_sched_event(struct async_struct *info,
 	//schedule_work(&info->work);
 	tasklet_schedule(&info->tlet);
 }
-
+#if 0
 static _INLINE_ void receive_chars(struct async_struct *info,
 				 int *status, struct pt_regs * regs)
 {
@@ -554,45 +571,19 @@ static _INLINE_ void receive_chars(struct async_struct *info,
 		}
 		*status &= info->read_status_mask;
 #ifdef CONFIG_KGDB
-#ifdef CONFIG_SINGLE_SERIAL_PORT_FORCE
-        if ( ch == 0x0 ) /* This is serial break signal */
-        {
-		           if ( kgdb_detached ) {
-			           kgdb_detached = 0;
-			           set_debug_traps();
-		           }
-			   
-                   breakpoint();
-                   goto goout;
-        }
-#else /* assume serial port is line 1 for kgdb */
-        if ( info->line == 1 )
-        {
-		           if ( kgdb_detached ) {
-			           kgdb_detached = 0;
-			           set_debug_traps();
-		           }
-			   
-                   breakpoint();
-                   goto goout;
-        }
-#endif /* CONFIG_SINGLE_SERIAL_PORT */
-                if (ch == 0x12) /* CTRL-R dumps register */
-                {
-                   show_regs(regs);
-                   goto goout;
-                }
+	        if ( info->line == 1 )
+		{
+			set_debug_traps();
+			breakpoint();
+        	        goto goout;
+	        }
+
                 if (ch == 0xb) /* CTRL-K breakpoint */
                 {
-                   printk("\nkgdb enter> Please Start a Gdb Session To UART-B With 115200");
-		           if ( kgdb_detached ) {
-			           kgdb_detached = 0;
-			           set_debug_traps();
-		           }
-			   
-                   breakpoint();
-                   goto goout;
-
+			printk("\nkgdb enter> Please Start a Gdb Session To UART-B With 115200");
+			set_debug_traps();
+                   	breakpoint();
+                   	goto goout;
                 }
 #endif
 		   /* Intercept CTRL-W - only when not debugging on 2nd serial port */
@@ -672,6 +663,7 @@ static _INLINE_ void receive_chars(struct async_struct *info,
 	goout:
 		return;
 }
+#endif //0
 
 static _INLINE_ void transmit_chars(struct async_struct *info, int *intr_done)
 {
@@ -729,7 +721,10 @@ static irqreturn_t rs_interrupt_single(int irq, void *dev_id, struct pt_regs * r
 {
 	int status;
 	int pass_counter = 0;
+	unsigned char ch;
+	int           *writeptr;
 	struct async_struct * info;
+	int           sched_receive = 0;
 	
 #ifdef SERIAL_DEBUG_INTR
 /*	printk("rs_interrupt_single(%d)...", irq);*/
@@ -738,6 +733,7 @@ static irqreturn_t rs_interrupt_single(int irq, void *dev_id, struct pt_regs * r
 
 #endif
 
+	writeptr = &(brcmserial_fifo_writeptr[irq]);
 	info = IRQ_ports[irq];
 	if (!info || !info->tty)
 		return IRQ_NONE;
@@ -751,8 +747,112 @@ static irqreturn_t rs_interrupt_single(int irq, void *dev_id, struct pt_regs * r
 
 #endif
 		if (status & (UART_RDRF|UART_OVRN|UART_FE|UART_PE))
-			receive_chars(info, &status, regs);
-		
+		{
+			ch = serial_inp(info, UART_RECV_DATA);
+
+#ifdef CONFIG_KGDB
+#ifdef CONFIG_SINGLE_SERIAL_PORT_FORCE
+			if ( ch == 0x0 ) /* This is serial break signal */
+			{
+				if ( kgdb_detached ) 
+				{
+					kgdb_detached = 0;
+					set_debug_traps();
+				}
+
+				breakpoint();
+				goto goout;
+			}
+#else /* assume serial port is line 1 for kgdb */
+			if ( info->line == 1 )
+			{
+				if ( kgdb_detached ) 
+				{
+					kgdb_detached = 0;
+					set_debug_traps();
+				}
+
+				breakpoint();
+				goto goout;
+			}
+#endif /* CONFIG_SINGLE_SERIAL_PORT */
+#if 0
+			if (ch == 0x12) /* CTRL-R dumps register */
+			{
+				show_regs(regs);
+				goto goout;
+			}
+#endif
+			if (ch == 0xb) /* CTRL-K breakpoint */
+			{
+				printk("\nkgdb enter> Please Start a Gdb Session To UART-B With 115200");
+				if ( kgdb_detached ) 
+				{
+					kgdb_detached = 0;
+					set_debug_traps();
+				}
+
+				breakpoint();
+				goto goout;
+
+			}
+#endif
+                   /* Intercept CTRL-W - only when not debugging on 2nd serial port */
+#if 0
+			if (tty->index == 0 && ch == 0x17) /* CTRL-W  */
+#else
+			if(0)
+#endif
+			{
+				//dump_softirq();
+#ifdef CONFIG_MIPS_BCM7038B0
+				dump_INTC_regs();
+
+#elif defined(CONFIG_MIPS_BCM7318)
+				printk("INTC->mask=%08x, status=%08x, polarity=%08x, enet_top_mask=%08x, enet_top_status=%08x\n",
+					*(volatile unsigned long*) 0xfffe060c,
+					*(volatile unsigned long*) 0xfffe0610,
+					*(volatile unsigned long*) 0xfffe0608,
+					*(volatile unsigned long*) 0xfffd641c,
+					*(volatile unsigned long*) 0xfffd6418);
+				printk("RX mask=%08x, RX status=%08x, TX mask=%08x,  TX status %08x\n",
+					*(volatile unsigned long*) 0xfffd6508,
+					*(volatile unsigned long*) 0xfffd6504,
+					*(volatile unsigned long*) 0xfffd6588,
+					*(volatile unsigned long*) 0xfffd6584);
+#endif
+				show_regs(regs);
+				// THT 4/05/06: Display stack to debug PR20442
+				show_stack(current, NULL);
+				printk(" ========== Done Dumping INTC & MIPS registers\n");
+				//printk(" ========== Dumping TLB\n");
+				//dump_tlb_all();
+				//dump_tlb_wired();
+#if defined( CONFIG_BCMINTEMAC ) || defined(CONFIG_BCMINTEMAC_7038)
+				printk(" ========== Dumping EMAC\n");
+				dump_emac();
+#endif
+
+#ifdef CONFIG_IDE
+				printk(" ========== Dumping IDE\n");
+				dump_ide();
+#endif
+
+
+				printk(" ========== Done with dump\n");
+				goto goout;
+
+			}
+
+			brcmserial_fifo[irq][*writeptr]      = ch;
+                        brcmserial_fifo_stat[irq][*writeptr] = status;
+			*writeptr = (*writeptr + 1) & (BRCMSERIAL_FIFO_DEPTH - 1);
+                        sched_receive = 1;
+
+		}
+
+		goout:
+
 		status = serial_inp(info, UART_XMIT_STATUS);
 		
 		if (status & UART_TDRE)
@@ -768,9 +868,12 @@ static irqreturn_t rs_interrupt_single(int irq, void *dev_id, struct pt_regs * r
 			break;
 		}
 	} while ((serial_inp(info, UART_RECV_STATUS) & UART_RDRF) ||
-			 (serial_inp(info, UART_XMIT_STATUS) & (UART_TDRE|UART_TIE))
+		 (serial_inp(info, UART_XMIT_STATUS) & (UART_TDRE|UART_TIE))
 			  == (UART_TDRE|UART_TIE));
 	info->last_active = jiffies;
+	if (sched_receive)
+                rs_sched_event(info, BRCMSERIAL_RECEIVE);
+
 
 #ifdef SERIAL_DEBUG_INTR
 /*	printk("end.\n");*/
@@ -794,6 +897,144 @@ static irqreturn_t rs_interrupt_single(int irq, void *dev_id, struct pt_regs * r
  * Here ends the serial interrupt routines.
  * -------------------------------------------------------------------
  */
+
+static _INLINE_ void sched_receive_chars(struct async_struct *info)
+{
+        struct tty_struct *tty = info->tty;
+        unsigned char ch;
+        unsigned char status;
+        int ignored = 0;
+        struct  async_icount *icount;
+        char          *fifo = brcmserial_fifo[info->state->irq];
+        char          *fifostat = brcmserial_fifo_stat[info->state->irq];
+        int           *readptr  = &(brcmserial_fifo_readptr[info->state->irq]);
+        int           writeptr;
+        unsigned long flags;
+		char flag; //vindent
+
+        local_irq_save(flags);
+        writeptr = brcmserial_fifo_writeptr[info->state->irq];
+        local_irq_restore(flags);
+        icount = &info->state->icount;
+        while (*readptr != writeptr)
+        {
+                ch = fifo[*readptr];
+                status = fifostat[*readptr];
+				if (tty_buffer_request_room(tty, 1) == 0) goto ignore_char;
+                if (tty->buf.tail->used >= TTY_FLIPBUF_SIZE)
+                {
+#ifdef SERIAL_DEBUG_INTR
+                        uart_putc('+');
+#endif
+			goto ignore_char;  
+                }
+
+                icount->rx++;
+
+#ifdef SERIAL_DEBUG_INTR
+/*              printk("DR%02x:%02x...", ch, *status);*/
+                sprintf(_str_, "DR%02x:%02x...\r\n", ch, status);
+                dbg_print(_str_);
+#endif
+
+                /*
+                 * For statistics only
+                 */
+
+                if (ch == 0x03)   /* break   */
+                {
+                        icount->brk++;
+                        if (info->flags & ASYNC_SAK)
+                                do_SAK(tty);
+                }
+
+                else if (status & UART_PE)
+                        icount->parity++;
+                else if (status & UART_FE)
+                        icount->frame++;
+                else if (status & UART_OVRN)
+                {
+                        icount->overrun++;
+/*                      printk("OVRN....\r\n");*/
+#ifdef SERIAL_DEBUG_INTR
+                        uart_putc('x');
+#endif
+                }
+                /*
+                 * Now check to see if character should be
+                 * ignored, and mask off conditions which
+                 * should be ignored.
+                 */
+                if (status & info->ignore_status_mask)
+                {
+                        if (++ignored > 100)
+                                break;
+#ifdef SERIAL_DEBUG_INTR
+			sprintf(_str_, "ignoring:%c ignore mask: %x\r\n",
+			              ch, info->ignore_status_mask);
+			dbg_print(_str_);
+#endif
+                        goto ignore_char;
+                }
+		
+
+                status &= info->read_status_mask;
+                flag = TTY_NORMAL;
+
+
+                if (ch == 0x03) /* break */
+                {
+
+#ifdef SERIAL_DEBUG_INTR
+/*                      printk("handling break....");*/
+                        sprintf(_str_, "handling break....\r\n");
+                        dbg_print (_str_);
+
+#endif
+                        flag = TTY_BREAK;
+                }
+                else if (status & UART_PE)
+                        flag = TTY_PARITY;
+                else if (status & UART_FE)
+                        flag = TTY_FRAME;
+
+                if (status & UART_OVRN) 
+                {
+                        /*
+                         * Overrun is special, since it's
+                         * reported immediately, and doesn't
+                         * affect the current character
+                         */
+						tty_insert_flip_char(tty, ch, TTY_OVERRUN);
+                    	if (tty->buf.tail->used>= TTY_FLIPBUF_SIZE)
+							goto ignore_char;
+                }
+				tty_insert_flip_char(tty, ch, flag);
+
+		ignore_char:
+
+                *readptr = (*readptr + 1) & (BRCMSERIAL_FIFO_DEPTH - 1);
+                local_irq_save(flags);
+                writeptr = brcmserial_fifo_writeptr[info->state->irq];
+                local_irq_restore(flags);
+        }
+
+        tty_flip_buffer_push(tty);
+/*      sprintf(_str_, "%d\r\n",icount->rx );
+        dbg_print(_str_);*/
+/*      printk("%d\r\n",icount->rx ); */
+#ifdef SERIAL_DEBUG_INTR
+        if ((icount->rx % 100) == 0)
+        {
+                uart_putc('\r');
+                uart_putc('\n');
+        }
+        uart_putc('.');
+#endif
+
+}
+
+
 
 #if 0
 /*
@@ -827,6 +1068,11 @@ static void do_softint(unsigned long private_)
 		wake_up_interruptible(&tty->poll_wait);
 #endif
 	}
+	if (test_and_clear_bit(BRCMSERIAL_RECEIVE, &info->event))
+        {
+                sched_receive_chars(info);
+        }
+
 }
 
 /*
@@ -1042,6 +1288,21 @@ static int startup(struct async_struct * info)
 #endif
 	figure_IRQ_timeout(state->irq);
 
+        /*
+         * ADTADT FIFO init
+         */
+
+        if (!brcmserial_fifo[state->irq])
+                brcmserial_fifo[state->irq] =
+                     (char *)kmalloc(BRCMSERIAL_FIFO_DEPTH, GFP_KERNEL);
+        if (!brcmserial_fifo_stat[state->irq])
+                brcmserial_fifo_stat[state->irq] =
+                     (char *)kmalloc(BRCMSERIAL_FIFO_DEPTH, GFP_KERNEL);
+        brcmserial_fifo_readptr[state->irq] = 0;
+        brcmserial_fifo_writeptr[state->irq] = 0;
+
+
+
 	/*
 	 * Now, initialize the UART 
 	 */
@@ -1094,6 +1355,7 @@ static void shutdown(struct async_struct * info)
 	unsigned long	flags;
 	struct serial_state *state;
 	int		retval;
+	unsigned char   ctrl;
 
 	if (!(info->flags & ASYNC_INITIALIZED))
 		return;
@@ -1165,6 +1427,24 @@ static void shutdown(struct async_struct * info)
 		free_page(pg);
 	}
 
+        /*
+         * reset pointers for  receive FIFO
+         */
+
+        brcmserial_fifo_readptr[state->irq] = 0;
+        brcmserial_fifo_writeptr[state->irq] = 0;
+
+        /*
+         * ADT Disable receiver and transmitter
+         */
+        ctrl = serial_inp(info, UART_CONTROL);
+        ctrl &= ~(UART_RE | UART_TE);
+        serial_out(info, UART_CONTROL, ctrl);
+
+        /* flush out the hardware 4-byte receive FIFO */
+        while (serial_inp(info, UART_RECV_STATUS) & UART_RDRF)
+                ctrl = serial_in(info, UART_RECV_DATA);
+
 	info->IER = 0;
 	serial_out(info, UART_RECV_STATUS, 0x00);	/* disable all intrs */
 	serial_out(info, UART_XMIT_STATUS, 0x00);	/* disable all intrs */
@@ -1179,13 +1459,13 @@ static void shutdown(struct async_struct * info)
 }
 
 /* #if (LINUX_VERSION_CODE < 131394) */ /* Linux 2.1.66 */
-#if (LINUX_VERSION_CODE >= 131394)  /* Linux 2.1.66 */
+#if 0
 static int baud_table[] = {
 	0, 50, 75, 110, 134, 150, 200, 300,
 	600, 1200, 1800, 2400, 4800, 9600, 19200,
 	38400, 57600, 115200, 230400, 460800, 0 };
 
-static int brcm_get_baud_rate(struct tty_struct *tty)
+static int tty_get_baud_rate(struct tty_struct *tty)
 {
 	struct async_struct * info = (struct async_struct *)tty->driver_data;
 	unsigned int cflag, i;
@@ -1206,7 +1486,7 @@ static int brcm_get_baud_rate(struct tty_struct *tty)
 		if ((info->flags & ASYNC_SPD_MASK) == ASYNC_SPD_VHI)
 			i += 2;
 	}
-	/* printk ("brcm_get_baud_rate: %d\r\n", baud_table[i]);    RYH */
+	/* printk ("tty_get_baud_rate: %d\r\n", baud_table[i]);    RYH */
 	return baud_table[i];
 }
 #endif
@@ -1253,7 +1533,7 @@ static void change_speed(struct async_struct *info,
 		cval |= UART_PODD;
 
 /* Determine divisor based on baud rate */
-	baud = brcm_get_baud_rate(info->tty);
+	baud = tty_get_baud_rate(info->tty);
 	if (!baud)
 		baud = 115200;	/* B0 transition handled in rs_set_termios */
 	baud_base = info->state->baud_base;
@@ -1265,7 +1545,7 @@ static void change_speed(struct async_struct *info,
 	if (!quot && old_termios) {
 		info->tty->termios->c_cflag &= ~CBAUD;
 		info->tty->termios->c_cflag |= (old_termios->c_cflag & CBAUD);
-		baud = brcm_get_baud_rate(info->tty);
+		baud = tty_get_baud_rate(info->tty);
 		if (!baud)
 			baud = 115200;
 		else if (baud)
@@ -1364,6 +1644,7 @@ static void rs_put_char(struct tty_struct *tty, unsigned char ch)
 static void rs_flush_chars(struct tty_struct *tty)
 {
 	struct async_struct *info = (struct async_struct *)tty->driver_data;
+	unsigned long flags;
 				
 	if (serial_paranoia_check(info, tty->name, "rs_flush_chars"))
 		return;
@@ -1476,6 +1757,7 @@ static void rs_send_xchar(struct tty_struct *tty, char ch)
 static void rs_throttle(struct tty_struct * tty)
 {
 	struct async_struct *info = (struct async_struct *)tty->driver_data;
+	unsigned long flags;
 #ifdef SERIAL_DEBUG_THROTTLE
 	char	buf[64];
 	
@@ -1497,6 +1779,7 @@ static void rs_throttle(struct tty_struct * tty)
 static void rs_unthrottle(struct tty_struct * tty)
 {
 	struct async_struct *info = (struct async_struct *)tty->driver_data;
+	unsigned long flags;
 #ifdef SERIAL_DEBUG_THROTTLE
 	char	buf[64];
 	
@@ -1934,7 +2217,7 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 		return;
 	}
 	info->flags |= ASYNC_CLOSING;
-	local_irq_restore(flags);
+	restore_flags(flags);
 #if 0
 	/*
 	 * Save the termios structure, since this port may have
@@ -2145,6 +2428,10 @@ static int block_til_ready(struct tty_struct *tty, struct file * filp,
 		if (tty->termios->c_cflag & CLOCAL)
 			do_clocal = 1;
 	}
+#else
+	/* ADT ADT will remove this #if later to include the fix for all platforms */
+        if (tty->termios->c_cflag & CLOCAL)
+              do_clocal = 1;
 #endif
 	
 	/*
@@ -2575,8 +2862,8 @@ static void autoconfig(struct serial_state * state)
 }
 
 #if !defined( CONFIG_MIPS_BCM7401B0 ) && !defined( CONFIG_MIPS_BCM7402 ) && \
-    !defined( CONFIG_MIPS_BCM7401C0 ) && !defined( CONFIG_MIPS_BCM7403A0 )
-
+    !defined( CONFIG_MIPS_BCM7401C0 ) && !defined( CONFIG_MIPS_BCM7403A0 ) && \
+    !defined( CONFIG_MIPS_BCM7452A0 )
 /* Already defined in 8250.c */
 
 int register_serial(struct serial_struct *req);
@@ -2640,8 +2927,8 @@ static int __init rs_init(void)
 
 
 #if defined( CONFIG_MIPS_BCM7401B0 ) || defined( CONFIG_MIPS_BCM7402 ) || \
-    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 )
-
+    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 ) || \
+    defined( CONFIG_MIPS_BCM7452A0 )
     /* 
      * Currently this module is called before 8250 is called
      * but we want to be deadsure
@@ -2671,6 +2958,12 @@ static int __init rs_init(void)
 	for (i = 0; i < NR_IRQS; i++) {
 		IRQ_ports[i] = 0;
 		IRQ_timeout[i] = 0;
+		/* ADTADT */
+                brcmserial_fifo[i] = 0;
+                brcmserial_fifo_stat[i] = 0;
+                brcmserial_fifo_readptr[i] = 0;
+                brcmserial_fifo_writeptr[i] = 0;
+
 	}
 
 #ifdef CONFIG_SERIAL_CONSOLE
@@ -2830,8 +3123,8 @@ static int __init rs_init(void)
 
 
 #if defined( CONFIG_MIPS_BCM7401B0 ) || defined( CONFIG_MIPS_BCM7402 ) || \
-    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 )
-
+    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 ) || \
+    defined( CONFIG_MIPS_BCM7452A0 )
 /*
  * THT: On BCM7401, where both the bcm3250 style UART and the 16550A style UART
  * are present, we have to make sure that the bcm3250 UARTS are initialized first.
@@ -3130,8 +3423,8 @@ static struct console sercons = {
 /**************************************************/
 
 #if defined( CONFIG_MIPS_BCM7401B0 ) || defined( CONFIG_MIPS_BCM7402 ) || \
-    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 )
-
+    defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7403A0 ) || \
+    defined( CONFIG_MIPS_BCM7452A0 )
 extern int console_initialized;
 extern int brcm_console_initialized(void);
 

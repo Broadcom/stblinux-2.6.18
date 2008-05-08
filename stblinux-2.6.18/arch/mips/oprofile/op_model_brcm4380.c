@@ -11,7 +11,6 @@
 #include <linux/interrupt.h>
 #include <linux/smp.h>
 #include <linux/version.h>
-
 #include <asm/brcmstb/common/brcmstb.h>
 
 #include "op_impl.h"

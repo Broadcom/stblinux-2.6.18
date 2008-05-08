@@ -124,27 +124,27 @@ if (chan == 1) {
 #define SUN_TOP_CTRL_PIN_MUX_CTRL_4	(0xb0404110)
 	volatile unsigned long* pSunTopMuxCtrl4 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_4;
 	
-	*pSunTopMuxCtrl3 &= 0xc7ffffff;	// Clear it
-	*pSunTopMuxCtrl3 |= 0x08000000;  // Write 001'b at 27:29
+	*pSunTopMuxCtrl3 &= 0x3fffffff;	// Clear it
+	*pSunTopMuxCtrl3 |= 0x00092400;  // Write 001'b at 27:29
 
-	*pSunTopMuxCtrl4 &= 0xfffffff8;	// Clear it
-	*pSunTopMuxCtrl4 |= 0x00000001;  // Write 001'b  at 00:02
+	*pSunTopMuxCtrl4 &= 0x3fffffff;	// Clear it
+//	*pSunTopMuxCtrl4 |= 0x00000001;  // Write 001'b  at 00:02
 }
 #endif
 
 	/* UARTA has already been initialized by the bootloader */
 	if (chan > 0 ) {
 		// Write DLAB, and (8N1) = 0x83
-		writel(UART_LCR_DLAB|UART_LCR_WLEN8, (void *)(uartBaseAddr + (UART_LCR << shift)));
+		writel(UART_LCR_DLAB|UART_LCR_WLEN8, uartBaseAddr + (UART_LCR << shift));
 		// Write DLL to 0xe
-		writel(DIVISOR, (void *)(uartBaseAddr + (UART_DLL << shift)));
-		writel(0, (void *)(uartBaseAddr + (UART_DLM << shift)));
+		writel(DIVISOR, uartBaseAddr + (UART_DLL << shift));
+		writel(0, uartBaseAddr + (UART_DLM << shift));
 
 		// Clear DLAB
-		writel(UART_LCR_WLEN8, (void *)(uartBaseAddr + (UART_LCR << shift)));
+		writel(UART_LCR_WLEN8, uartBaseAddr + (UART_LCR << shift));
 
 		// Disable FIFO
-		writel(0, (void *)(uartBaseAddr + (UART_FCR << shift)));
+		writel(0, uartBaseAddr + (UART_FCR << shift));
 
 		if (chan == 1) {
 			uartB_puts("Done initializing UARTB\n");
@@ -172,26 +172,23 @@ my_writel(unsigned char c, unsigned long addr)
 void
 serial_putc(unsigned long com_port, unsigned char c)
 {
-	unsigned long flags;
-	local_irq_save(flags);
-	while ((readl((void *)(com_port + (UART_LSR << shift))) & UART_LSR_THRE) == 0)
+	while ((readl(com_port + (UART_LSR << shift)) & UART_LSR_THRE) == 0)
 		;
-	writel(c, (void *)com_port);
-	local_irq_restore(flags);
+	writel(c, com_port);
 }
 
 unsigned char
 serial_getc(unsigned long com_port)
 {
-	while ((readl((void *)(com_port + (UART_LSR << shift))) & UART_LSR_DR) == 0)
+	while ((readl(com_port + (UART_LSR << shift)) & UART_LSR_DR) == 0)
 		;
-	return readl((void *)com_port);
+	return readl(com_port);
 }
 
 int
 serial_tstc(unsigned long com_port)
 {
-	return ((readl((void *)(com_port + (UART_LSR << shift))) & UART_LSR_DR) != 0);
+	return ((readl(com_port + (UART_LSR << shift)) & UART_LSR_DR) != 0);
 }
 
 /* Old interface, for compatibility */

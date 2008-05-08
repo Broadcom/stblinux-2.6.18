@@ -36,13 +36,7 @@
 #include <asm/irq.h>
 #include <asm/mipsregs.h>
 #include <asm/addrspace.h>
-#include <asm/brcmstb/brcm97400d0/bcmuart.h>
-#include <asm/brcmstb/brcm97400d0/bcmtimer.h>
-#include <asm/brcmstb/brcm97400d0/bcmebi.h>
-#include <asm/brcmstb/brcm97400d0/int1.h>
-#include <asm/brcmstb/brcm97400d0/board.h>
-#include <asm/brcmstb/brcm97400d0/bchp_irq0.h>
-#include <asm/brcmstb/brcm97400d0/bcmintrnum.h>
+#include <asm/brcmstb/common/brcmstb.h>
 #include <asm/smp.h>
 
 #ifdef CONFIG_REMOTE_DEBUG
@@ -743,6 +737,10 @@ struct irq_chip *dummy_chip_ref[] = {
 &brcm_mips_int2_type,
 &brcm_mips_int6_type
 };
+
+void migrate_irqs(void)
+{
+}
 
 /*
  * Broadcom specific IRQ setup

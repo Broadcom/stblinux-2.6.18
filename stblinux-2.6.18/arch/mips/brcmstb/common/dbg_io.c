@@ -25,14 +25,15 @@
  */
 #include <asm/io.h>
 #include <linux/kgdb.h>
-
-
 #include <asm/brcmstb/common/brcmstb.h>
 
 
 static int	remoteDebugInitialized = 0;
+extern void uart_init(unsigned long uClock);
+extern char uartB_getc(void);
+extern void uartB_putc(char c);
 
-void debugInit()
+int debugInit(void)
 {
 	uart_init(27000000);
 
@@ -41,6 +42,7 @@ void debugInit()
 #else
 	uart_puts("KGDB on /dev/ttyS1\n");
 #endif
+	return 0;
 }
 
 unsigned char getDebugChar(void)
@@ -57,11 +59,10 @@ unsigned char getDebugChar(void)
 #else
 	while((c=uartB_getc())==0);	/* 0 : receiver not ready */     
 	return c;	
-	/* return uartB_getc(); */	/* 0 : receiver not ready */     
 #endif
 }
 
-int putDebugChar(char c)
+void putDebugChar(u8 c)
 {
 	if( !remoteDebugInitialized ) {
 		remoteDebugInitialized = 1;
@@ -69,13 +70,11 @@ int putDebugChar(char c)
 	}
 	
 #ifdef CONFIG_SINGLE_SERIAL_PORT
-	uart_putc(c); 
+	uart_putc((char)c); 
 #else
-	uartB_putc(c); 
+	uartB_putc((char)c); 
 #endif
-	return 1;
 }
-
 
 struct kgdb_io kgdb_io_ops = {
 	.read_char = getDebugChar,

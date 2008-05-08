@@ -32,15 +32,20 @@ endif
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.18-2.0 we only support a few platforms
-CHIPS=7400d0 7400d0-smp 7401c0 7118a0 7403a0 97401c0-sw1 7405a0 7405a0-smp 7038c0 7325a0 7335a0 7335a0-smp 7405b0 7405b0-smp # 97398 7400a0 7400a0-smp 7318 # 7400d0-smp-nand
+CHIPS=7400d0 7400d0-smp 7401c0 7118a0 7403a0 97401c0-sw1 7405a0 7405a0-smp 7038c0 7325a0 7325a0-smtc 7335a0 7335a0-smp 7405b0 7405b0-smp # 97398 7400a0 7400a0-smp 7318 # 7400d0-smp-nand
 PLATFORMS=$(addsuffix _be,$(CHIPS))
 # THT Must define the NAND platforms separately, since we want -be to precede -nand, as -nand does not really define a new platform
 NAND_PLATFORMS = 7400d0_be-nand 7401c0_be-nand 7118a0_be-nand # 7400d0-smp-be-nand
+OTHER_PLATFORMS = 7400d0-smp_be-discontig
 XFS_PLATFORMS = 7038c0_be-xfs 7401c0_be-xfs # 97398_be-xfs
-ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS) $(NAND_PLATFORMS)
+ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS) $(NAND_PLATFORMS) $(OTHER_PLATFORMS)
 
-BB_PLATFORMS:=$(addprefix vmlinuz-,$(PLATFORMS)) $(addprefix vmlinuz-,$(NAND_PLATFORMS))
-BB_INITRD_PLATFORMS	:= $(addprefix vmlinuz-initrd-,$(PLATFORMS)) $(addprefix vmlinuz-initrd-,$(NAND_PLATFORMS))
+BB_PLATFORMS:=$(addprefix vmlinuz-,$(PLATFORMS)) \
+	$(addprefix vmlinuz-,$(NAND_PLATFORMS)) \
+	$(addprefix vmlinuz-,$(OTHER_PLATFORMS))
+BB_INITRD_PLATFORMS	:= $(addprefix vmlinuz-initrd-,$(PLATFORMS)) \
+	$(addprefix vmlinuz-initrd-,$(NAND_PLATFORMS)) \
+	$(addprefix vmlinuz-initrd-,$(OTHER_PLATFORMS))
 
 XFS_BB_PLATFORMS:=$(addprefix vmlinuz-,$(XFS_PLATFORMS))
 XFS_INITRD_PLATFORMS := $(addprefix vmlinuz-initrd-,$(XFS_PLATFORMS))
@@ -243,25 +248,21 @@ $(BB_PLATFORMS) $(XFS_BB_PLATFORMS): prepare
 
 #
 # KGDB targets: will output kernel images of the form
-# vmlinuz-<platform>-kgdb
+# vmlinuz-<platform>-kgdb, for example, vmlinuz-7325a0-smtc_be-kgdb
 # Only non-initrd images can be targets, for now.
 #
 # Should do a make clean manually before involking any kgdb targets.
-# Omitted here since these are normally one time shot deals.
+# Omitted here since these are normally one shot deals.
 $(KGDB_PLATFORMS): prepare
 	-test -f $(KERNEL_DIR)/.config && rm -f $(KERNEL_DIR)/.config
-	if [ "$(subst vmlinuz-,,$@)" == "937xx_be-kgdb" -o "$(subst vmlinuz-,,$@)" == "97398_be-kgdb" \
-        "$(subst vmlinuz-,,$@)" == "937xx_be-xfs-kgdb" -o "$(subst vmlinuz-,,$@)" == "97398_be-xfs-kgdb" ]; then \
-		cat $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig | \
-			sed 's,# CONFIG_KGDB is not set,CONFIG_KGDB=y,g' | \
-			sed 's,# CONFIG_DEBUG_INFO is not set,CONFIG_DEBUG_INFO=y,g' \
-				> $(KERNEL_DIR)/.config; \
-	else \
-		cat $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig | \
-			sed 's,# CONFIG_KGDB is not set,CONFIG_KGDB=y,g' | \
-			sed 's,# CONFIG_DEBUG_INFO is not set,CONFIG_DEBUG_INFO=y,g' \
-				>  $(KERNEL_DIR)/.config; \
-	fi
+	if test -f $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig; then	\
+		cp -f $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig .kgdb_target;		\
+	else	\
+		cp -f $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$(subst -kgdb,,$@))_defconfig .kgdb_target;		\
+	fi;	\
+	cat .kgdb_target $(KERNEL_DIR)/arch/mips/configs/bcm97xxx-kgdb.tpl | 				\
+	sed 's,# CONFIG_DEBUG_KERNEL is not set,CONFIG_DEBUG_KERNEL=y,g' > $(KERNEL_DIR)/.config;	\
+	rm -f .kgdb_target;	\
 	if [ "$(SINGLE_SERIAL_PORT)" == "y" ]; then \
 		echo "CONFIG_SINGLE_SERIAL_PORT=y" >> $(KERNEL_DIR)/.config; \
 	else \
@@ -290,6 +291,7 @@ $(OPROF_INITRD_PLATFORMS) : prepare
 		| sed -e "s/# CONFIG_PROFILING is not set/CONFIG_PROFILING=y/" \
 			> "$$CONFIG_LINUXDIR"/.config; \
 		echo "CONFIG_OPROFILE=y" >> "$$CONFIG_LINUXDIR"/.config; \
+		echo "# CONFIG_USER_PROFILE_OPROFILE_FULL is not set" >> "$$CONFIG_LINUXDIR"/.config; \
 		cp -f vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config.uClibc uClibc/.config; \
 		cp -f vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config.busybox user/busybox/.config; \
 		test -f config/.config && rm -f config/.config; \

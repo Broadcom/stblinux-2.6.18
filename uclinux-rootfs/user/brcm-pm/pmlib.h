@@ -43,18 +43,31 @@
     when        who         what
     -----       ---         ----
     20071030    cernekee    initial version
+    20080303    cernekee    add TP1 shutdown
  ------------------------------------------------------------------------- */
 
 #ifndef _H_PMLIB_
 #define _H_PMLIB_
 
+/*
+ * For all read/write fields:
+ *
+ * BRCM_PM_UNDEF from brcm_pm_get_status() means Not Available
+ * BRCM_PM_UNDEF to brcm_pm_set_status() means Don't Touch
+ */
+
+#define BRCM_PM_UNDEF		-1
+
 struct brcm_pm_state
 {
-        int usb_status;         /* 1=on, 0=off */
-        int enet_status;        /* 1=on, 0=off */
-        int sata_status;        /* 1=on, 0=off */
-        int cpu_base;           /* base frequency, in Hz */
-        int cpu_divisor;        /* 1, 2, 4, or 8 */
+	int usb_status;		/* 1=on, 0=off */
+	int enet_status;	/* 1=on, 0=off */
+	int sata_status;	/* 1=on, 0=off */
+	int tp1_status;		/* 1=on, 0=off */
+
+	int cpu_base;		/* base frequency, in Hz */
+	int cpu_divisor;	/* 1, 2, 4, or 8 */
+
 	int ddr_timeout;	/* 0=no PM, >0 = timeout for self-refresh */
 };
 

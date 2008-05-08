@@ -158,7 +158,6 @@ uart_puts(msg);
 	}
 	else {
 		if (strlen(eth0HwAddr) >= ETH_HWADDR_LEN*(*numAddrs)) {
-			int i;
 			sprintf(msg, "Warnings, CFE boot params truncated to %d\n", ETH_HWADDR_LEN);
 			uart_puts(msg);
 			

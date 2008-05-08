@@ -47,7 +47,9 @@ else
 obj-$(CONFIG_MIPS_BCM7401)  	+= pci-brcm97401a0.o ops-brcm97401a0.o fixup-brcm97401a0.o
 endif
 
+# 7118a0 and 7118c0 are identical, except for NAND support.
 obj-$(CONFIG_MIPS_BCM7118A0)  	+= pci-brcm97401a0.o ops-brcm97401a0.o fixup-brcm97401a0.o
+obj-$(CONFIG_MIPS_BCM7118C0)  	+= pci-brcm97401a0.o ops-brcm97401a0.o fixup-brcm97401a0.o
 
 obj-$(CONFIG_MIPS_BCM7403)	+= pci-brcm97401a0.o ops-brcm97401a0.o fixup-brcm97401a0.o
 

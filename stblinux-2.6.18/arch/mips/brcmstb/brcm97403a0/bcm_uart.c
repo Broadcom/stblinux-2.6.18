@@ -53,7 +53,11 @@ typedef struct {
 } 	Uart7401;
 
 #define UART7401_UARTB_BASE		0xb04001a0  
-#define stUart ((volatile Uart7401 * const) UART7401_UARTB_BASE)
+
+//#define stUart ((volatile Uart7401 * const) UART7401_UARTB_BASE)
+static unsigned long uart_base[2] = {0xB04001A0, 0xB0400180};
+static volatile Uart7401 *stUart;
+static volatile Uart7401 *conUart;
 
 #define DFLT_BAUDRATE   115200
 
@@ -127,9 +131,15 @@ uart_getc(void)
 -------------------------------------------------------------------------- */
 void 
 //bcm71xx_uart_init(uint32 uClock)
-serial_bcm_init(unsigned long uClock)
+serial_bcm_init(unsigned long uartport, unsigned long uClock)
 {
-    unsigned long uBaudRate;
+    unsigned long uBaudRate, p_stUart;
+	char msg[40];
+//	conUart = (volatile Uart7401 * const)uart_base[console_uart];
+	p_stUart = uart_base[uartport];
+	stUart  = (volatile Uart7401 * )p_stUart;
+
+	if(uartport == 1) stUart = (volatile Uart7401 * )0xB0400180;
 
     // Make sure clock is ticking
     //INTC->blkEnables = INTC->blkEnables | UART_CLK_EN;
@@ -147,4 +157,16 @@ serial_bcm_init(unsigned long uClock)
 	// Enable the UART, 8N1, Tx & Rx enabled
 	stUart->uControl = 0x16;
 //	stUartB->uControl = 0x16;
+	sprintf(msg, "Done initializing UART%d\n", uartport);
+	if (uartport == 0)
+	{
+		uart_puts(msg);	
+		brcm_uart_enable(65);
+	}
+	else
+	{
+		uartA_puts(msg);
+		brcm_uart_enable(66);
+	}
+
 }

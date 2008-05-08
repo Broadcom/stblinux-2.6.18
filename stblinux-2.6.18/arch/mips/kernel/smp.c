@@ -37,10 +37,16 @@
 #include <asm/system.h>
 #include <asm/mmu_context.h>
 #include <asm/smp.h>
+#include <asm/irq.h>
 
 #ifdef CONFIG_MIPS_MT_SMTC
 #include <asm/mipsmtregs.h>
 #endif /* CONFIG_MIPS_MT_SMTC */
+
+#ifdef CONFIG_MIPS_BRCM97XXX
+extern void brcm_save_timer(void);
+extern void brcm_sync_timer(void);
+#endif
 
 cpumask_t phys_cpu_present_map;		/* Bitmask of available CPUs */
 volatile cpumask_t cpu_callin_map;	/* Bitmask of started secondaries */
@@ -94,9 +100,49 @@ asmlinkage void start_secondary(void)
 	prom_smp_finish();
 
 	cpu_set(cpu, cpu_callin_map);
+#ifdef CONFIG_MIPS_BRCM97XXX
+	while(! cpu_online(cpu)) { }
+	brcm_sync_timer();
+#else
+	/* give the other CPU time to set my cpu_online bit */
+	udelay(1000);
+#endif
 
 	cpu_idle();
 }
+
+#ifdef CONFIG_HOTPLUG_CPU
+asmlinkage void restart_secondary(void)
+{
+	int cpu = smp_processor_id();
+
+	/* reset VM state */
+	cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
+	TLBMISS_HANDLER_SETUP();
+	atomic_inc(&init_mm.mm_count);
+	current->active_mm = &init_mm;
+	current->mm = NULL;
+	enter_lazy_tlb(&init_mm, current);
+
+	/* notify TP0 that we're alive */
+	cpu_set(cpu, cpu_callin_map);
+#ifdef CONFIG_MIPS_BRCM97XXX
+	while(! cpu_online(cpu)) { }
+	brcm_sync_timer();
+#else
+	/* give the other CPU time to set my cpu_online bit */
+	udelay(1000);
+#endif
+
+	/* re-enable interrupts */
+	mb();
+	local_irq_enable();
+
+	printk("CPU%u: restarted\n", cpu);
+
+	cpu_idle();
+}
+#endif /* CONFIG_HOTPLUG_CPU */
 
 DEFINE_SPINLOCK(smp_call_lock);
 
@@ -143,8 +189,10 @@ int smp_call_function (void (*func) (void *info), void *info, int retry,
 	if (!cpus)
 		return 0;
 
+#if	!defined(CONFIG_KGDB)
 	/* Can deadlock when called with interrupts disabled */
 	WARN_ON(irqs_disabled());
+#endif
 
 	data.func = func;
 	data.info = info;
@@ -256,29 +304,124 @@ void __devinit smp_prepare_boot_cpu(void)
  */
 int __devinit __cpu_up(unsigned int cpu)
 {
-	struct task_struct *idle;
+	struct cpuinfo_mips *ci = &cpu_data[cpu];
+	struct task_struct *idle = ci->idle;
+	int i;
 
 	/*
 	 * Processor goes to start_secondary(), sets online flag
 	 * The following code is purely to make sure
 	 * Linux can schedule processes on this slave.
 	 */
-	idle = fork_idle(cpu);
-	if (IS_ERR(idle))
-		panic(KERN_ERR "Fork failed for CPU %d", cpu);
+	if(! idle) {
+		idle = fork_idle(cpu);
+		if (IS_ERR(idle))
+			panic(KERN_ERR "Fork failed for CPU %d", cpu);
+		ci->idle = idle;
+	}
 
 	prom_boot_secondary(cpu, idle);
 
-	/*
-	 * Trust is futile.  We should really have timeouts ...
-	 */
-	while (!cpu_isset(cpu, cpu_callin_map))
+	for(i = 0; i < 1000; i++) {
+		if(cpu_isset(cpu, cpu_callin_map)) {
+#ifdef CONFIG_MIPS_BRCM97XXX
+			brcm_save_timer();
+#endif
+			cpu_set(cpu, cpu_online_map);
+			return(0);
+		}
 		udelay(100);
+	}
 
-	cpu_set(cpu, cpu_online_map);
+	printk(KERN_CRIT "CPU%u: processor failed to boot\n", cpu);
+	return(-EIO);
+}
+
+#ifdef CONFIG_HOTPLUG_CPU
+
+/*
+ * __cpu_disable runs on the processor to be shutdown.
+ */
+int __cpuexit __cpu_disable(void)
+{
+	unsigned int cpu = smp_processor_id();
+	struct task_struct *p;
+	int ret;
+
+	ret = mach_cpu_disable(cpu);
+	if (ret)
+		return ret;
+
+	/*
+	 * Take this CPU offline.  Once we clear this, we can't return,
+	 * and we must not schedule until we're ready to give up the cpu.
+	 */
+	cpu_clear(cpu, cpu_online_map);
+
+	/*
+	 * OK - migrate IRQs away from this CPU
+	 */
+	migrate_irqs();
+
+	/*
+	 * Flush user cache and TLB mappings, and then remove this CPU
+	 * from the vm mask set of all processes.
+	 */
+#ifdef CONFIG_MIPS_BRCM97XXX
+	flush_icache_all();
+#else
+	flush_cache_all();
+#endif
+	local_flush_tlb_all();
+
+	read_lock(&tasklist_lock);
+	for_each_process(p) {
+		if (p->mm)
+			cpu_clear(cpu, p->mm->cpu_vm_mask);
+	}
+	read_unlock(&tasklist_lock);
 
 	return 0;
 }
+
+/*
+ * called on the thread which is asking for a CPU to be shutdown -
+ * waits until shutdown has completed, or it is timed out.
+ */
+void __cpuexit __cpu_die(unsigned int cpu)
+{
+	if (!platform_cpu_kill(cpu))
+		printk("CPU%u: unable to kill\n", cpu);
+	else
+		printk("CPU%u: shutdown\n", cpu);
+}
+
+/*
+ * Called from the idle thread for the CPU which has been shutdown.
+ *
+ * Note that we disable IRQs here, but do not re-enable them
+ * before returning to the caller. This is also the behaviour
+ * of the other hotplug-cpu capable cores, so presumably coming
+ * out of idle fixes this.
+ */
+void __cpuexit cpu_die(void)
+{
+	unsigned int cpu = smp_processor_id();
+
+	local_irq_disable();
+	idle_task_exit();
+
+	/*
+	 * actual CPU shutdown procedure is at least platform (if not
+	 * CPU) specific
+	 */
+	platform_cpu_die(cpu);
+
+	/* jump back to the beginning (probably never reached) */
+	mb();
+	__asm__("j	kernel_entry\n");
+}
+#endif /* CONFIG_HOTPLUG_CPU */
 
 /* Not really SMP stuff ... */
 int setup_profiling_timer(unsigned int multiplier)
