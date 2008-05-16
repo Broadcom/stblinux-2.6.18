@@ -3338,10 +3338,9 @@ static void brcmnand_print_device_info(brcmnand_chip_Id* chipId, unsigned long f
 
 /*
  * bit 31: 	1 = OTP read-only
- * 30: 		Page Size: 0 = PG_SIZE_512, 1 = PG_SIZE_2KB
+ * 	v2.1 and earlier: 30: 		Page Size: 0 = PG_SIZE_512, 1 = PG_SIZE_2KB version 
  * 28-29: 	Block size: 3=512K, 1 = 128K, 0 = 16K, 2 = 8K
- * 27:		Reserved
- * 24-26:	Device_Size
+ * 24-27:	Device_Size
  *			0:	4MB
  *			1:	8MB
  *			2: 	16MB
@@ -3349,8 +3348,18 @@ static void brcmnand_print_device_info(brcmnand_chip_Id* chipId, unsigned long f
  *			4:	64MB
  *			5:	128MB
  *			6: 	256MB
+ *			7:	512MB
+ *			8:	1GB
+ *			9:	2GB
+ *			10:	4GB  << Hit limit of MTD struct here.
+ *			11:	8GB
+ *			12:	16GB
+ *			13:	32GB
+ *			14:	64GB
+ *			15:	128GB
  * 23:		Dev_Width 0 = Byte8, 1 = Word16
- * 22-19: 	Reserved
+ *   v2.1 and earlier:22-19: 	Reserved
+ *   v2.2 and later:  21:20	page Size
  * 18:16:	Full Address Bytes
  * 15		Reserved
  * 14:12	Col_Adr_Bytes
@@ -3382,6 +3391,8 @@ brcmnand_decode_config(struct brcmnand_chip* chip, uint32_t nand_config)
 	}
 	chip->erase_shift = ffs(chip->blockSize) - 1;
 
+#if CONFIG_MTD_BRCMNAND_VERSION < CONFIG_MTD_BRCMNAND_VERS_2_2
+	// Version 2.1 or earlier: Bit 30
 	switch((nand_config & 0x40000000) >> 30) {
 		case 0:
 			chip->pageSize= 512;
@@ -3390,11 +3401,39 @@ brcmnand_decode_config(struct brcmnand_chip* chip, uint32_t nand_config)
 			chip->pageSize = 2048;
 			break;
 	}
+	
+#else
+	// Version 2.2 or later, bits 20:21
+	switch((nand_config & 0x300000) >> 20) {
+		case 0:
+			chip->pageSize= 512;
+			break;
+		case 1:
+			chip->pageSize = 2048;
+			break;
+		case 2:
+			chip->pageSize = 4096;
+			break;
+		case 3:
+			printk(KERN_ERR "Un-supported page size\n");
+			chip->pageSize = 0; // Let it crash
+			break;
+	}
+#endif
+
 	chip->page_shift = ffs(chip->pageSize) - 1;
 	chip->page_mask = (1 << chip->page_shift) - 1;
 
-	chipSizeShift = (nand_config & 0x07000000) >> 24;
-	chip->chipSize = (4 << 20) << chipSizeShift;
+	chipSizeShift = (nand_config & 0x0F000000) >> 24;
+	if (chipSizeShift <= 0xa)
+		chip->chipSize = (4 << 20) << chipSizeShift;
+	else {
+		unsigned int chipSizeMB = 4 << chipSizeShift;
+
+		printk(KERN_ERR "Size of chip %dMB exceeded MTD layer limit\n", chipSizeMB);
+		chip->chipSize = (4 << 20) << 10;
+	}
+		
 
 	chip->busWidth = 1 + ((nand_config & 0x00400000) >> 23);
 

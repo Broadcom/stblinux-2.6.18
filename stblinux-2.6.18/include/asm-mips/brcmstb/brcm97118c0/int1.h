@@ -7,7 +7,7 @@
 #include "int1_api.h"
 
 
-#if __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -22,7 +22,7 @@ extern "C" {
 
 
 
-#if __cplusplus
+#ifdef __cplusplus
 }
 #endif
 

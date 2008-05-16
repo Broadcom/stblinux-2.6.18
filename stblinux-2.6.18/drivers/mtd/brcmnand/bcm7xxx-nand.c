@@ -90,7 +90,7 @@ static struct mtd_partition bcm7XXX_nand_parts[] =
 	{ name: "cfe",		offset: 0x00C00000,			size: 2<<20 },
 	{ name: "nvm",		offset: 0x00E00000,			size: 1<<20 },
 	/* BBT 1MB not mountable by anyone */
-	{ name: "data", 	offset: 0x400000000,		size: 0 },
+	{ name: "data", 	offset: 0x20000000,		size: 0 },
 };
 
 struct brcmnand_info {

@@ -95,13 +95,21 @@ extern char *strcat (char *__restrict __dest, __const char *__restrict __src)
 extern char *strncat (char *__restrict __dest, __const char *__restrict __src,
 		      size_t __n) __THROW __nonnull ((1, 2));
 
-#if defined(__mips__) && ! defined(__mips64)
+#if defined(__mips__) && ! defined(__mips16) && ! defined(__mips64)
 
 /*
  * Fast MIPS32 strcmp() -- Copyright 2007 Broadcom Corporation
  *
  * Dual licensed under LGPL 2.1 (see COPYING.LIB) and Broadcom SLA.
  */
+
+#ifdef __MIPSEL__
+#define __STRCMP_MASK_NEXT_BYTE__(reg) \
+	"	andi	" reg ", 0xff		\n"
+#else
+#define __STRCMP_MASK_NEXT_BYTE__(reg) \
+	"	srl	" reg ", 24		\n"
+#endif
 
 #define __strcmp_asm__(s0, s1) ({		    \
 	register __const char *str0 = s0, *str1 = s1; \
@@ -168,7 +176,7 @@ extern char *strncat (char *__restrict __dest, __const char *__restrict __src,
 	"	lw	%0, 16(%5)		\n" \
 	"	addiu	%5, 16			\n" \
 	"	bnel	%0, %1, 5f		\n" \
-	"	andi	%0, 0xff		\n" \
+	__STRCMP_MASK_NEXT_BYTE__("%0")		    \
 	"	b	3b			\n" \
 	"	subu	%1, %0, %3		\n" \
 	"4:					\n" \

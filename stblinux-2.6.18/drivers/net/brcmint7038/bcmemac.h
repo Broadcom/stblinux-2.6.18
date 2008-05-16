@@ -199,8 +199,10 @@ typedef struct PM_Addr {
  */ 
 typedef struct BcmEnet_devctrl {
     struct net_device *dev;             /* ptr to net_device */
+	struct net_device *next_dev;
     spinlock_t      lock;               /* Serializing lock */
     struct timer_list timer;            /* used by Tx reclaim */
+	struct timer_list poll_timer;
     int             linkstatus_polltimer;
     int             linkstatus_phyport;
     int             linkstatus_holder;

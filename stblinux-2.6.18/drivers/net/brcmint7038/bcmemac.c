@@ -325,6 +325,7 @@ static void bcmemac_link_change_task(BcmEnet_devctrl *pDevCtrl);
 #ifdef CONFIG_BRCM_PM
 static int g_sleep_flag = BCMEMAC_AWAKE;
 #endif
+static struct net_device *eth_root_dev = NULL;
 static int g_num_devs = 0;
 static struct net_device *g_devs[BCMEMAC_MAX_DEVS];
 static uint8 g_flash_eaddr[ETH_ALEN];
@@ -337,7 +338,9 @@ int bcmemac_get_free_txdesc( struct net_device *dev ){
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     return pDevCtrl->txFreeBds;
 }
-
+struct net_device * bcmemac_get_device(void) {
+	return eth_root_dev;
+}
 static inline void IncFlowCtrlAllocRegister(BcmEnet_devctrl *pDevCtrl) 
 {
     volatile unsigned long* pAllocReg = &pDevCtrl->dmaRegs->flowctl_ch1_alloc;
@@ -489,6 +492,11 @@ static int bcmemac_net_open(struct net_device * dev)
     pDevCtrl->timer.expires = jiffies + POLLTIME_100MS;
     add_timer_on(&pDevCtrl->timer, 0);
 
+#ifdef DISABLE_INTERRUPTS
+	printk("Enable RX POLL timer\n");
+	pDevCtrl->poll_timer.expires = jiffies + POLLTIME_100MS;
+	add_timer_on(&pDevCtrl->poll_timer, 0);
+#endif
     // Start the network engine
     netif_start_queue(dev);
 
@@ -549,6 +557,7 @@ static int bcmemac_net_close(struct net_device * dev)
     }
 
     del_timer_sync(&pDevCtrl->timer);
+	del_timer_sync(&pDevCtrl->poll_timer);
 
     /* free the skb in the txCbPtrHead */
     while (pDevCtrl->txCbPtrHead)  {
@@ -1024,22 +1033,14 @@ int bcmemac_xmit_fragment( int ch, unsigned char *buf, int buf_len,
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
     Enet_Tx_CB *txCBPtr;
     volatile DmaDesc *firstBdPtr;
-    unsigned long flags;
 	
     ASSERT(pDevCtrl != NULL);
-    /*
-     * Obtain exclusive access to transmitter.  This is necessary because
-     * we might have more than one stack transmitting at once.
-     */
-    spin_lock_irqsave(&pDevCtrl->lock, flags);
-                
     txCBPtr = txCb_deq(pDevCtrl);
     /*
      * Obtain a transmit header from the free list.  If there are none
      * available, we can't send the packet. Discard the packet.
      */
     if (txCBPtr == NULL) {
-        spin_unlock_irqrestore(&pDevCtrl->lock, flags);
         return 1;
     }
 
@@ -1050,7 +1051,6 @@ int bcmemac_xmit_fragment( int ch, unsigned char *buf, int buf_len,
     if (pDevCtrl->txFreeBds < txCBPtr->nrBds) {
         TRACE(("%s: bcmemac_net_xmit low on txFreeBds\n", dev->name));
         txCb_enq(pDevCtrl, txCBPtr);
-        spin_unlock_irqrestore(&pDevCtrl->lock, flags);
         return 1;
     }
 
@@ -1112,8 +1112,6 @@ int bcmemac_xmit_fragment( int ch, unsigned char *buf, int buf_len,
 
     dev->trans_start = jiffies;
 
-    spin_unlock_irqrestore(&pDevCtrl->lock, flags);
-
     return 0;
 }
 
@@ -1125,7 +1123,15 @@ EXPORT_SYMBOL(bcmemac_xmit_fragment);
 -------------------------------------------------------------------------- */
 int bcmemac_xmit_multibuf( int ch, unsigned char *hdr, int hdr_len, unsigned char *buf, int buf_len, unsigned char *tail, int tail_len, struct net_device *dev)
 {
+	unsigned long flags;
+    BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
+	
     while(bcmemac_xmit_check(dev));
+    /*
+     * Obtain exclusive access to transmitter.  This is necessary because
+     * we might have more than one stack transmitting at once.
+     */
+    spin_lock_irqsave(&pDevCtrl->lock, flags);
 
     /* Header + Optional payload in two parts */
     if((hdr_len> 0) && (buf_len > 0) && (tail_len > 0) && (hdr) && (buf) && (tail)){ 
@@ -1155,8 +1161,10 @@ int bcmemac_xmit_multibuf( int ch, unsigned char *hdr, int hdr_len, unsigned cha
             bcmemac_xmit_check(dev);
     }
     else{
+    	spin_unlock_irqrestore(&pDevCtrl->lock, flags);
         return 0; /* Drop the packet */
     }
+   	spin_unlock_irqrestore(&pDevCtrl->lock, flags);
     return 0;
 }
 
@@ -1233,7 +1241,8 @@ static int bcmemac_enet_poll(struct net_device * dev, int * budget)
 
     /* We are done */
     netif_rx_complete(dev);
-    
+
+#ifndef DISABLE_INTERRUPTS    
     /* Reschedule if there are more packets on the DMA ring to be received. */
     if( (((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff) & DMA_OWN) == 0 ) {
         netif_rx_reschedule(pDevCtrl->dev, work_done);
@@ -1242,6 +1251,7 @@ static int bcmemac_enet_poll(struct net_device * dev, int * budget)
         enable_irq(pDevCtrl->rxIrq);
         pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= 0x2;
     }
+#endif
 
     return 0;
 }
@@ -1260,6 +1270,18 @@ static irqreturn_t bcmemac_net_isr(int irq, void * dev_id, struct pt_regs * regs
     netif_rx_schedule(pDevCtrl->dev);
 
     return IRQ_HANDLED;
+}
+static void rx_poll_timer(unsigned long arg)
+{
+    BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)arg;
+	int work_done = 64;
+
+    bcmemac_rx(pDevCtrl, work_done);
+
+	bcmemac_xmit_check(pDevCtrl->dev);
+
+   	pDevCtrl->poll_timer.expires = jiffies + 2;
+   	add_timer_on(&pDevCtrl->poll_timer,0);
 }
 
 /*
@@ -2000,6 +2022,9 @@ static void init_IUdma(BcmEnet_devctrl *pDevCtrl)
 #ifdef CONFIG_MIPS_BCM7405A0
     /* connect emac0 to the phy (HW bug workaround) */
     pDevCtrl->dmaRegs->enet_iudma_tstctl |= 0x2000;
+#elif defined(CONFIG_MIPS_BCM7335)
+    /* connect emac0->internal PHY, emac1->external MII pins */
+    pDevCtrl->dmaRegs->enet_iudma_tstctl &= ~(1 << 13);
 #endif
     // transmit
     pDevCtrl->txDma->cfg = 0;       /* initialize first (will enable later) */
@@ -2903,6 +2928,10 @@ static void bcmemac_dev_setup(struct net_device *dev, int devnum, int phy_id)
     // These are default settings
     write_mac_address(dev);
 
+    init_timer(&pDevCtrl->poll_timer);
+    pDevCtrl->poll_timer.data = (unsigned long)pDevCtrl;
+    pDevCtrl->poll_timer.function = rx_poll_timer;
+
     // Let boot setup info overwrite default settings.
     netdev_boot_setup_check(dev);
 
@@ -2946,12 +2975,14 @@ static int __init bcmemac_net_probe(int devnum, int phy_id)
             return -ENODEV;
         }
         bcmemac_dev_setup(dev, devnum, phy_id);
+		eth_root_dev = dev;
     } else {
         /* device has already been initialized */
         return -ENXIO;
     }
 
     pDevCtrl = (BcmEnet_devctrl *)netdev_priv(dev);
+	pDevCtrl->next_dev = eth_root_dev;
     if (0 != (ret = register_netdev(dev))) {
         bcmemac_uninit_dev(pDevCtrl);
         return ret;
@@ -3267,12 +3298,20 @@ static void __exit bcmemac_module_cleanup(void)
 	brcm_pm_unregister_enet();
 	brcm_pm_enet_remove();
 #endif
+	eth_root_dev = NULL;
     TRACE(("bcmemacenet: bcmemac_module_cleanup\n"));
 }
+int isEnetConnected(char *pn)
+{
+	return bcmIsEnetUp(bcmemac_get_device());
+}
+
 
 module_init(bcmemac_module_init);
 module_exit(bcmemac_module_cleanup);
 
 EXPORT_SYMBOL(bcmemac_get_free_txdesc);
+EXPORT_SYMBOL(bcmemac_get_device);
 EXPORT_SYMBOL(bcmemac_xmit_multibuf);
+EXPORT_SYMBOL(isEnetConnected);
 EXPORT_SYMBOL(bcmemac_xmit_check);

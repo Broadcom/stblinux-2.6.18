@@ -51,20 +51,31 @@ else
     NONFREEPFX="$RAWVER-nonfree/"
 fi
 
+UTSNAME=`uname -m`
+ENDIAN2=$ENDIAN
+
 # JFFS2 only works when the endian of the flash is the same as that of the CPU.
 # For the 93730 STBs with a BE flash, we can only use JFFS for now
-case  `uname -m` in
+case $UTSNAME in
 #7038)
 #JFFS=jffs
-#IMAGE="jffs-`uname -m`.img"
+#IMAGE="jffs-${UTSNAME}.img"
 #;;
+7400d0-smp-discontig)
+if [ "${ENDIAN}x" = "_bex" ]; then
+	UTSNAME="7400d0-smp_be-discontig"
+	unset ENDIAN
+fi
+FSTYPE=jffs2
+IMAGE="jffs2-${UTSNAME}${DOCSIS}${ENDIAN}.img"
+;;
 356*|7*|97*)
 FSTYPE=jffs2
-IMAGE="jffs2-`uname -m`${DOCSIS}${ENDIAN}.img"
+IMAGE="jffs2-${UTSNAME}${DOCSIS}${ENDIAN}.img"
 ;;
 93730)
 FSTYPE=jffs
-IMAGE="jffs-`uname -m`${DOCSIS}${ENDIAN}.img"
+IMAGE="jffs-${UTSNAME}${DOCSIS}${ENDIAN}.img"
 ;;
 esac
 
@@ -133,7 +144,7 @@ do
    fi
 
    if [ $RESPONSE -eq 3 ]; then
-       case `uname -m` in
+       case ${UTSNAME} in
           356*|7112|7312|7319|7328|7402|7454*)
               echo "HD install not applicable to diskless STBs"
               continue
@@ -239,7 +250,7 @@ done
    tune2fs -i 0 /dev/${HARDDRIVE}1 2> /dev/null
    tune2fs -i 0 /dev/${HARDDRIVE}3 2> /dev/null
 
-   case `uname -m` in
+   case ${UTSNAME} in
    356*|7112|7312|7319|7328)
     echo "HD install not applicable to diskless STBs"
     exit 1
@@ -321,14 +332,14 @@ fi
 if [ $RESPONSE -eq 4 ]; then
    echo "Installing CRAMFS rootfs"
    echo ""
-   IMAGE="cramfs-`uname -m`${DOCSIS}${ENDIAN}.img"
+   IMAGE="cramfs-${UTSNAME}${DOCSIS}${ENDIAN}.img"
    FSTYPE="cramfs"
    ERASE_FLAG=
 fi
 if [ $RESPONSE -eq 5 ]; then
    echo "Installing SQUASHFS rootfs"
    echo ""
-   IMAGE="squashfs-`uname -m`${DOCSIS}${ENDIAN}.img"
+   IMAGE="squashfs-${UTSNAME}${DOCSIS}${ENDIAN}.img"
    FSTYPE="squashfs"
    ERASE_FLAG=
 fi
@@ -336,7 +347,7 @@ if [ $RESPONSE -eq 6 -o $RESPONSE -eq 7 ]; then
    echo "Installing YAFFS rootfs"
    echo ""
    # Currently mkyaffs does not handle BE, so we just copy the FS over on the fly
-   #IMAGE="yaffs2-`uname -m`${DOCSIS}${ENDIAN}.img"
+   #IMAGE="yaffs2-${UTSNAME}${DOCSIS}${ENDIAN}.img"
    FSTYPE="yaffs2"
    ERASE_FLAG=
 fi
@@ -354,7 +365,7 @@ fi
 
 if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
        -o $RESPONSE -eq 6 -o $RESPONSE -eq 7 ]; then
-   case "`uname -m`" in
+   case "${UTSNAME}" in
    7315bbx)
       echo "The STB BCM97315-BBX does not support a root file system partition"
       echo "on flash.  Operation aborted"
@@ -379,7 +390,7 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
    esac
 
 
-   case "`uname -m`" in
+   case "${UTSNAME}" in
    93730|356*|7*|97*)
 
      echo ""
@@ -408,13 +419,13 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
      NOR*)
      	# Do not use the -j flag with summary on NOR flash
      	ERASE_FLAG=
-	if [ `uname -m` == "7401c0" -o `uname -m` == "7401c0_be" ];
+	if [ ${UTSNAME} == "7401c0" -o ${UTSNAME} == "7401c0_be" ];
 	then
 		if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 ]; 
 		then
 			if [ ${ERASE_SIZE} -eq 64 ]; 
 			then
-				IMAGE="jffs2-${ERASE_SIZE}k-`uname -m`${DOCSIS}${ENDIAN}.img"
+				IMAGE="jffs2-${ERASE_SIZE}k-${UTSNAME}${DOCSIS}${ENDIAN}.img"
 			fi
 		fi
 	fi
@@ -432,7 +443,7 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
      NAND*)
      	case "$RESPONSE" in
 	1|2)  # JFFS2
-    		IMAGE="jffs2-${ERASE_SIZE}k-`uname -m`${DOCSIS}${ENDIAN}-nand.img"
+    		IMAGE="jffs2-${ERASE_SIZE}k-${UTSNAME}${DOCSIS}${ENDIAN}-nand.img"
 
      		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
      		tftp -gr ${IMGPFX}${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
@@ -448,10 +459,10 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
 	4|5)  # CRAMFS and SQUASHFS
 		case "$RESPONSE" in
 		4)
-			IMAGE="cramfs-`uname -m`${DOCSIS}${ENDIAN}-nand.img"
+			IMAGE="cramfs-${UTSNAME}${DOCSIS}${ENDIAN}-nand.img"
 			;;
 		5)
-			IMAGE="squashfs-`uname -m`${DOCSIS}${ENDIAN}-nand.img"
+			IMAGE="squashfs-${UTSNAME}${DOCSIS}${ENDIAN}-nand.img"
 			;;
 		esac
   		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
@@ -472,7 +483,7 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
 		# sidc - PR33102 Since we derive a yaffs2 image from cramfs fs image we do not
 		# need to check the erase size. 
 		# Source: cramfs image mounted in loopback Dest: yaffs image to be created
-		IMAGE="yaffs-frm-cramfs-`uname -m`${DOCSIS}${ENDIAN}-nand.img"
+		IMAGE="yaffs-frm-cramfs-${UTSNAME}${DOCSIS}${ENDIAN}-nand.img"
 		mount -t ${FSTYPE} "$MTD_DEV" /mnt/flash
      		echo "Fetching flash image ${IMAGE} from ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
      		tftp -gr ${IMGPFX}${IMAGE} -l /tmp/${IMAGE} ${TFTP_SERVER} &> tftp.err
@@ -611,7 +622,7 @@ if [ $RESPONSE -eq 8 -o $RESPONSE -eq 9 ]; then
             echo "tftp failed.  Aborting."
             exit 1
         fi
-        F=${NONFREEPFX}wlan_pci/bin/wl${ENDIAN}
+        F=${NONFREEPFX}wlan_pci/bin/wl${ENDIAN2}
         if ! tftp -g $TFTP_SERVER -l /tmp/wlan/wl -r $F; then
             echo "tftp failed.  Aborting."
             exit 1
@@ -630,7 +641,7 @@ if [ $RESPONSE -eq 8 -o $RESPONSE -eq 9 ]; then
         tar jxf hpna.tar.bz2
         rm -f hpna.tar.bz2
         cd hpna
-        if [ -z "$ENDIAN" ]; then
+        if [ -z "$ENDIAN2" ]; then
             rm -rf bin_be
         else
             rm -rf bin

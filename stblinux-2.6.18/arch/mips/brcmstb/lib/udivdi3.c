@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include "gcclib.h"
 #include "longlong.h"
+#include <linux/module.h>
 
 const UQItype __clz_tab[] =
 {
