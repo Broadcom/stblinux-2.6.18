@@ -23,57 +23,19 @@
 #include <asm/page.h>
 #include <asm/mipsregs.h>
 #include <asm/stackframe.h>
+#include <asm/brcmstb/common/brcmstb.h>
 #include <kernel-entry-init.h>
 
 #ifdef CONFIG_BRCM_PCI_SLAVE
-	#if defined( CONFIG_MIPS_BCM7402S ) 
-	#include <asm/brcmstb/brcm97401a0/bcmmips.h>
-	#include <asm/brcmstb/brcm97401a0/bcmuart.h>
+#define UART_ADR_BASE					(0xb0000000 | BCHP_UARTB_RCVSTAT)
 
+#define BAUD_VAL(x)     				(((XTALFREQ/8/(x) + 1)/2) - 1)
+#define BAUD_VAL_LO(x)  				(BAUD_VAL(x) & 0xff)
+#define BAUD_VAL_HI(x)  				((BAUD_VAL(x) >> 8) & 0xff)
 
-	#define BCHP_SUN_TOP_CTRL_SW_RESET 	            	0x00404010
-	#define BCHP_SUN_TOP_CTRL_SEMAPHORE_8          		0x00404048
-	#define BCHP_SUN_GISB_ARB_TIMER                      	0x0040600c
-	#define BCHP_SUN_GISB_ARB_REQ_MASK               	0x00406008
-	#define BCHP_FMISC_SOFT_RESET                        	0x00104000 
-	#define BCHP_MEMC_0_DDR_PLL_FREQ_DIVIDER_RESET		0x0010683c
-	#define BCHP_MEMC_0_DDR_PLL_FREQ_CNTL            	0x00106818
-	#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_5         	0x00404098
-	#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_8         	0x004040a4 
-
-	#define BCHP_SUN_TOP_CTRL_RESET_CTRL			0x00404008
-	//#define BCHP_SUN_TOP_CTRL_SW_RESET			0x00404014
-	#define BCHP_VCXO_0_RM_CONTROL                   	0x00181700 		/* Rate Manager Controls */
-	#define UART_ADR_BASE					0xb04001a0		// UARTB
-
-	#elif defined( CONFIG_MIPS_BCM7402B0S )
-	#include <asm/brcmstb/brcm97401b0/bcmmips.h>
-	#include <asm/brcmstb/brcm97401b0/bcmuart.h>
-	#define BCHP_SUN_TOP_CTRL_SW_RESET 	            	0x00404014
-	#define BCHP_SUN_TOP_CTRL_SEMAPHORE_8          		0x00404050
-	#define BCHP_SUN_GISB_ARB_TIMER                      	0x0040600c
-	#define BCHP_SUN_GISB_ARB_REQ_MASK               	0x00406008
-	#define BCHP_FMISC_SOFT_RESET                        	0x00104000 
-	#define BCHP_MEMC_0_DDR_PLL_FREQ_DIVIDER_RESET		0x0010683c
-	#define BCHP_MEMC_0_DDR_PLL_FREQ_CNTL            	0x00106818
-	#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_7         	0x004040b0 
-	#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10         	0x004040bc 
-
-	#define BCHP_SUN_TOP_CTRL_RESET_CTRL			0x00404008
-	//#define BCHP_SUN_TOP_CTRL_SW_RESET			0x00404014
-	#define BCHP_VCXO_0_RM_CONTROL                   	0x00181700 		/* Rate Manager Controls */
-	//#define UART_ADR_BASE					0xb04001a0		// UARTB
-
-	#define BAUD_VAL(x)     				(((XTALFREQ/8/(x) + 1)/2) - 1)
-	#define BAUD_VAL_LO(x)  				(BAUD_VAL(x) & 0xff)
-	#define BAUD_VAL_HI(x)  				((BAUD_VAL(x) >> 8) & 0xff)
-
-	#define BAUD_115200_LO  				BAUD_VAL_LO(115200)
-	#define BAUD_115200_HI  				BAUD_VAL_HI(115200)
-
-	#endif /* 7402s, 7402b0s */
-
-#endif /* CONFIG_BRCM_PCI_SLAVE */
+#define BAUD_115200_LO  				BAUD_VAL_LO(115200)
+#define BAUD_115200_HI  				BAUD_VAL_HI(115200)
+#endif
 
 	.macro	ARC64_TWIDDLE_PC
 #if defined(CONFIG_ARC64) || defined(CONFIG_MAPPED_KERNEL)

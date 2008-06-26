@@ -667,6 +667,7 @@ void add_disk_randomness(struct gendisk *disk)
 }
 
 EXPORT_SYMBOL(add_disk_randomness);
+EXPORT_SYMBOL(add_input_randomness);
 
 #define EXTRACT_SIZE 10
 

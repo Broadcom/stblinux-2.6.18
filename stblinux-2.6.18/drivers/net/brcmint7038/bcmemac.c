@@ -85,7 +85,7 @@
   #elif defined(CONFIG_MIPS_BCM7038) || defined(CONFIG_MIPS_BCM7400) || \
         defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7403) || \
         defined(CONFIG_MIPS_BCM7452) || defined(CONFIG_MIPS_BCM7405) || \
-		defined(CONFIG_MIPS_BCM7335)
+	defined(CONFIG_MIPS_BCM7335) || defined(CONFIG_MIPS_BCM3548)
   /* 32MB Flash */
   #define FLASH_MACADDR_OFFSET 0x01FFF824
 
@@ -338,9 +338,11 @@ int bcmemac_get_free_txdesc( struct net_device *dev ){
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     return pDevCtrl->txFreeBds;
 }
+
 struct net_device * bcmemac_get_device(void) {
 	return eth_root_dev;
 }
+
 static inline void IncFlowCtrlAllocRegister(BcmEnet_devctrl *pDevCtrl) 
 {
     volatile unsigned long* pAllocReg = &pDevCtrl->dmaRegs->flowctl_ch1_alloc;
@@ -1112,6 +1114,7 @@ int bcmemac_xmit_fragment( int ch, unsigned char *buf, int buf_len,
 
     dev->trans_start = jiffies;
 
+
     return 0;
 }
 
@@ -1125,8 +1128,9 @@ int bcmemac_xmit_multibuf( int ch, unsigned char *hdr, int hdr_len, unsigned cha
 {
 	unsigned long flags;
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
-	
-    while(bcmemac_xmit_check(dev));
+    
+	while(bcmemac_xmit_check(dev));
+
     /*
      * Obtain exclusive access to transmitter.  This is necessary because
      * we might have more than one stack transmitting at once.
@@ -1164,7 +1168,7 @@ int bcmemac_xmit_multibuf( int ch, unsigned char *hdr, int hdr_len, unsigned cha
     	spin_unlock_irqrestore(&pDevCtrl->lock, flags);
         return 0; /* Drop the packet */
     }
-   	spin_unlock_irqrestore(&pDevCtrl->lock, flags);
+    spin_unlock_irqrestore(&pDevCtrl->lock, flags);
     return 0;
 }
 
@@ -1242,7 +1246,7 @@ static int bcmemac_enet_poll(struct net_device * dev, int * budget)
     /* We are done */
     netif_rx_complete(dev);
 
-#ifndef DISABLE_INTERRUPTS    
+#ifndef DISABLE_INTERRUPTS 
     /* Reschedule if there are more packets on the DMA ring to be received. */
     if( (((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff) & DMA_OWN) == 0 ) {
         netif_rx_reschedule(pDevCtrl->dev, work_done);
@@ -1881,19 +1885,19 @@ static void __attribute_unused__ init_pinmux(void)
 {
 	/* set up pinmux for external MII */
 #if defined(CONFIG_MIPS_BCM7405)
-	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2,
-	    (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2) & 0x3ffffff) | 0x24000000);
-	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3, 0x09249249);
-	DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4,
-	    (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4) & 0xfffc0000) | 0x9249);
+	BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2,
+	    (BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2) & 0x3ffffff) | 0x24000000);
+	BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3, 0x09249249);
+	BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4,
+	    (BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4) & 0xfffc0000) | 0x9249);
         /* flush writes */
-        DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4);
+        BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4);
 #elif defined(CONFIG_MIPS_BCM7335)
-        DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9, 03333333333);
-        DEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10,
-            (DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10) & ~0777777770) | 0333333330);
+        BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9, 03333333333);
+        BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10,
+            (BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10) & ~0777777770) | 0333333330);
         /* flush writes */
-        DEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10);
+        BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10);
 #elif defined(CONFIG_MIPS_BCM97401CX_SW)
 	volatile uint32 *pin_mux_ctrl;
 	uint32 data;
@@ -2020,8 +2024,8 @@ static void init_IUdma(BcmEnet_devctrl *pDevCtrl)
     pDevCtrl->dmaRegs->flowctl_ch1_thresh_lo = DMA_FC_THRESH_LO;
     pDevCtrl->dmaRegs->flowctl_ch1_thresh_hi = DMA_FC_THRESH_HI;
 #ifdef CONFIG_MIPS_BCM7405A0
-    /* connect emac0 to the phy (HW bug workaround) */
-    pDevCtrl->dmaRegs->enet_iudma_tstctl |= 0x2000;
+    /* connect emac0->internal PHY (HW bug workaround) */
+    pDevCtrl->dmaRegs->enet_iudma_tstctl |= (1 << 13);
 #elif defined(CONFIG_MIPS_BCM7335)
     /* connect emac0->internal PHY, emac1->external MII pins */
     pDevCtrl->dmaRegs->enet_iudma_tstctl &= ~(1 << 13);
@@ -2808,40 +2812,9 @@ static void bcmemac_dev_setup(struct net_device *dev, int devnum, int phy_id)
     pDevCtrl->devnum = devnum;
     dev->base_addr = devnum ? ENET_MAC_1_ADR_BASE : ENET_MAC_ADR_BASE;
 
-    /* figure out which chip we're running on */
-#if defined(CONFIG_MIPS_BCM7038)    || defined(CONFIG_MIPS_BCM7400) || \
-    defined(CONFIG_MIPS_BCM7401)    || defined(CONFIG_MIPS_BCM7402) || \
-    defined(CONFIG_MIPS_BCM7402S)   || defined(CONFIG_MIPS_BCM7440) || \
-    defined(CONFIG_MIPS_BCM7403)    || defined(CONFIG_MIPS_BCM7452) || \
-    defined(CONFIG_MIPS_BCM7405)    || defined(CONFIG_MIPS_BCM7325) || \
-    defined(CONFIG_MIPS_BCM7335)
+    pDevCtrl->chipId = BDEV_RD(BCHP_SUN_TOP_CTRL_PROD_REVISION) >> 16;
+    pDevCtrl->chipRev = BDEV_RD(BCHP_SUN_TOP_CTRL_PROD_REVISION) & 0xffff;
 
-    /* TBD : need to get the symbol for these. */
-    pDevCtrl->chipId  = (*((volatile unsigned long*)0xb0000200) & 0xFFFF0000) >> 16;
-    pDevCtrl->chipRev = (*((volatile unsigned long*)0xb0000208) & 0xFF);
-#elif defined(CONFIG_MIPS_BCM7318) 
-    pDevCtrl->chipId  = (INTC->RevID & 0xFFFF0000) >> 16;
-    pDevCtrl->chipRev = (INTC->RevID & 0xFF);
-#else
-    #error "Unsupported platform"
-#endif
-    switch (pDevCtrl->chipId) {
-    case 0x7110:
-    case 0x7038:
-    case 0x7318:
-    case 0x7401:
-    case 0x7400:
-    case 0x7440:
-    case 0x7438:
-    case 0x7403:
-    case 0x7405:
-    case 0x7325:
-    case 0x7335:
-        break;
-    default:
-        printk(KERN_DEBUG CARDNAME" not found\n");
-        return;
-    }
     /* print the ChipID and module version info */
     if(! devnum) {
         printk("Broadcom BCM%X P%X Ethernet Network Device ", pDevCtrl->chipId, pDevCtrl->chipRev + 0x10);
@@ -2861,7 +2834,7 @@ static void bcmemac_dev_setup(struct net_device *dev, int devnum, int phy_id)
 	
     memcpy(dev->dev_addr, g_flash_eaddr, ETH_ALEN);
     /* create a unique address for each interface */
-    dev->dev_addr[5] += devnum;
+    dev->dev_addr[4] += devnum;
 
     if ((ret = bcmemac_init_dev(pDevCtrl))) {
         bcmemac_uninit_dev(pDevCtrl);
@@ -2975,6 +2948,7 @@ static int __init bcmemac_net_probe(int devnum, int phy_id)
             return -ENODEV;
         }
         bcmemac_dev_setup(dev, devnum, phy_id);
+		pDevCtrl->next_dev = eth_root_dev;
 		eth_root_dev = dev;
     } else {
         /* device has already been initialized */
@@ -2982,7 +2956,6 @@ static int __init bcmemac_net_probe(int devnum, int phy_id)
     }
 
     pDevCtrl = (BcmEnet_devctrl *)netdev_priv(dev);
-	pDevCtrl->next_dev = eth_root_dev;
     if (0 != (ret = register_netdev(dev))) {
         bcmemac_uninit_dev(pDevCtrl);
         return ret;
@@ -3301,11 +3274,11 @@ static void __exit bcmemac_module_cleanup(void)
 	eth_root_dev = NULL;
     TRACE(("bcmemacenet: bcmemac_module_cleanup\n"));
 }
+
 int isEnetConnected(char *pn)
 {
 	return bcmIsEnetUp(bcmemac_get_device());
 }
-
 
 module_init(bcmemac_module_init);
 module_exit(bcmemac_module_cleanup);

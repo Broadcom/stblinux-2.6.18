@@ -61,7 +61,61 @@ _dl_runtime_resolve:
 	# Do a tail call to the original function
 	addiu	$29, 40
 	move	$25, $2
-	jr	$25
+	jr	$2
 .end	_dl_runtime_resolve
+
+	# On entry:
+	#
+	#	$14 points to the beginning of the .got.plt section
+	#	$15 points to _GLOBAL_OFFSET_TABLE_ + 8
+	#	$24 points to the function's .got.plt entry
+.align	2
+.globl	_dl_linux_resolve
+.type	_dl_linux_resolve,@function
+.ent	_dl_linux_resolve
+_dl_linux_resolve:
+	.frame	$29, 48, $31
+	.set noreorder
+
+	# Compute GP.
+	.set noreorder
+	.cpload $25
+	.set reorder
+
+	addiu	$29, -48
+
+	# Save slot call pc.
+	.cprestore 40
+
+	# Save the function arguments.  Also save $2 and $3, which are used
+	# as inputs to __mips16_ret_* functions.
+	sw	$2, 16($29)
+	sw	$3, 20($29)
+	sw	$4, 24($29)
+	sw	$5, 28($29)
+	sw	$6, 32($29)
+	sw	$7, 36($29)
+	sw	$31, 44($29)
+
+	# Setup functions args and call _dl_linux_resolver.
+	lw	$4, -4($15)
+	subu	$5, $24, $14
+	srl	$5, 2
+	jal	_dl_linux_resolver
+	move	$25, $2
+
+	# Restore the saved registers.
+	lw	$2, 16($29)
+	lw	$3, 20($29)
+	lw	$4, 24($29)
+	lw	$5, 28($29)
+	lw	$6, 32($29)
+	lw	$7, 36($29)
+	lw	$31, 44($29)
+
+	# Do a tail call to the original function.
+	addiu	$29, 48
+	jr	$25
+.end	_dl_linux_resolve
 .previous
 

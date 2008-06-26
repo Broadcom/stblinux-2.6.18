@@ -93,7 +93,7 @@ nomem_close_and_ret:
 		__set_errno(ENOMEM);
 		return NULL;
 	}
-	__pthread_mutex_init(&(ptr->dd_lock), NULL);
+	__PTHREAD_MUTEX_INIT(&(ptr->dd_lock), NULL);
 	return ptr;
 }
 libc_hidden_def(opendir)

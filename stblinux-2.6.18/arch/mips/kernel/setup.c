@@ -644,15 +644,6 @@ static inline void bootmem_init(void)
 		unsigned long tmp;
 		u32 *initrd_header;
 
-#if 1 //def CONFIG_MIPS_BRCM
-	extern void* __initramfs_start;
-	extern void* __initramfs_end;
-	
-	//ROOT_DEV = Root_RAM0;
-	initrd_start = (unsigned long) &__initramfs_start;
-	initrd_end = (unsigned long) &__initramfs_end;
-#endif
-
 		tmp = ((reserved_end + PAGE_SIZE-1) & PAGE_MASK) - sizeof(u32) * 2;
 		if (tmp < reserved_end)
 			tmp += PAGE_SIZE;
@@ -954,6 +945,9 @@ static inline void resource_init(void)
 
 #undef MAXMEM
 #undef MAXMEM_PFN
+
+extern void cpu_cache_init(void);
+extern void tlb_init(void);
 
 void __init setup_arch(char **cmdline_p)
 {

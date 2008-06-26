@@ -137,11 +137,14 @@ static void mipsxx_cpu_setup (void *args)
 		w_c0_perfcntr0(reg.counter[0]);
 	}
 }
+int performance_enabled = 0;
 
 /* Start all counters on current CPU */
 static void mipsxx_cpu_start(void *args)
 {
 	unsigned int counters = op_model_mipsxx_ops.num_counters;
+
+	performance_enabled = 1;
 
 	switch (counters) {
 	case 4:
@@ -159,6 +162,8 @@ static void mipsxx_cpu_start(void *args)
 static void mipsxx_cpu_stop(void *args)
 {
 	unsigned int counters = op_model_mipsxx_ops.num_counters;
+
+	performance_enabled = 0;
 
 	switch (counters) {
 	case 4:
@@ -301,6 +306,7 @@ static int __init mipsxx_init(void)
 
 static void mipsxx_exit(void)
 {
+	performance_enabled = 0;
 	reset_counters(op_model_mipsxx_ops.num_counters);
 
 	perf_irq = null_perf_irq;

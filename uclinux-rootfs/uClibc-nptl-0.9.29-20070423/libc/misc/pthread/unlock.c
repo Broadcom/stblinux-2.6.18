@@ -23,5 +23,5 @@
 void attribute_hidden __uclibc_mutex_unlock (void *arg)
 {
 	pthread_mutex_t *__mutex = (pthread_mutex_t *)arg;
-	__pthread_mutex_unlock(__mutex);
+	__PTHREAD_MUTEX_UNLOCK(__mutex);
 }

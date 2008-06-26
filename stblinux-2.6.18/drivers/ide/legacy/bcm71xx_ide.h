@@ -59,6 +59,10 @@
 #define IDE_BASE_7xxx		0xFFFB0000
 #elif defined (CONFIG_MIPS_BCM7320)
 #define IDE_BASE_7xxx		0xBAFB0000
+#elif defined(CONFIG_MIPS_BCM7440)
+#define IDE_BASE_7xxx		0xB1700000
+#undef GET_FIELD
+#undef SET_FIELD
 #else
 #error "unknown BCM STB chip!!!"
 #endif
@@ -127,6 +131,7 @@ extern void ReleaseRegion(ide_ioreg_t from, unsigned int extent);
 /*
  * m = memory, c = core, r = register, f = field, d = data.
  */
+ 
 #if !defined(GET_FIELD) && !defined(SET_FIELD)
 #define BRCM_ALIGN(c,r,f)   c##_##r##_##f##_ALIGN
 #define BRCM_BITS(c,r,f)    c##_##r##_##f##_BITS

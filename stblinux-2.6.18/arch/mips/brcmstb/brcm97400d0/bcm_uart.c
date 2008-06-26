@@ -135,16 +135,18 @@ if (chan == 1) {
 	/* UARTA has already been initialized by the bootloader */
 	if (chan > 0 ) {
 		// Write DLAB, and (8N1) = 0x83
-		writel(UART_LCR_DLAB|UART_LCR_WLEN8, uartBaseAddr + (UART_LCR << shift));
+		writel(UART_LCR_DLAB|UART_LCR_WLEN8,
+			(void *)(uartBaseAddr + (UART_LCR << shift)));
 		// Write DLL to 0xe
-		writel(DIVISOR, uartBaseAddr + (UART_DLL << shift));
-		writel(0, uartBaseAddr + (UART_DLM << shift));
+		writel(DIVISOR, (void *)(uartBaseAddr + (UART_DLL << shift)));
+		writel(0, (void *)(uartBaseAddr + (UART_DLM << shift)));
 
 		// Clear DLAB
-		writel(UART_LCR_WLEN8, uartBaseAddr + (UART_LCR << shift));
+		writel(UART_LCR_WLEN8,
+			(void *)(uartBaseAddr + (UART_LCR << shift)));
 
 		// Disable FIFO
-		writel(0, uartBaseAddr + (UART_FCR << shift));
+		writel(0, (void *)(uartBaseAddr + (UART_FCR << shift)));
 
 		if (chan == 1) {
 			uartB_puts("Done initializing UARTB\n");
@@ -153,42 +155,31 @@ if (chan == 1) {
 	return (uartBaseAddr);
 }
 
-#if 0
-
-unsigned long 
-my_readl(unsigned long addr)
-{
-	return *((volatile unsigned long*) addr);
-}
-
-void
-my_writel(unsigned char c, unsigned long addr)
-{
-	*((volatile unsigned long*) addr) = c;
-}
-
-#endif
-
 void
 serial_putc(unsigned long com_port, unsigned char c)
 {
-	while ((readl(com_port + (UART_LSR << shift)) & UART_LSR_THRE) == 0)
-		;
-	writel(c, com_port);
+	while ((readl((void *)(com_port + (UART_LSR << shift)))
+		& UART_LSR_THRE) == 0)
+	{
+	}
+	writel(c, (void *)com_port);
 }
 
 unsigned char
 serial_getc(unsigned long com_port)
 {
-	while ((readl(com_port + (UART_LSR << shift)) & UART_LSR_DR) == 0)
-		;
-	return readl(com_port);
+	while ((readl((void *)(com_port + (UART_LSR << shift)))
+		 & UART_LSR_DR) == 0)
+	{
+	}
+	return readl((void *)com_port);
 }
 
 int
 serial_tstc(unsigned long com_port)
 {
-	return ((readl(com_port + (UART_LSR << shift)) & UART_LSR_DR) != 0);
+	return ((readl((void *)(com_port + (UART_LSR << shift)))
+		& UART_LSR_DR) != 0);
 }
 
 /* Old interface, for compatibility */

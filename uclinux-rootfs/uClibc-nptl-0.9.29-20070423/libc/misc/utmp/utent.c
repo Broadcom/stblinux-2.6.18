@@ -38,8 +38,8 @@ libc_hidden_proto(setutent)
 # include <pthread.h>
 static pthread_mutex_t utmplock = PTHREAD_MUTEX_INITIALIZER;
 #endif
-#define LOCK	__pthread_mutex_lock(&utmplock)
-#define UNLOCK	__pthread_mutex_unlock(&utmplock)
+#define LOCK	__PTHREAD_MUTEX_LOCK(&utmplock)
+#define UNLOCK	__PTHREAD_MUTEX_UNLOCK(&utmplock)
 
 
 

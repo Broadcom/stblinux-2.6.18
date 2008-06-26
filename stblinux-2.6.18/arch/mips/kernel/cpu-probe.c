@@ -16,14 +16,12 @@
 #include <linux/ptrace.h>
 #include <linux/stddef.h>
 #include <linux/module.h>
+#include <linux/version.h>
 
 #include <asm/cpu.h>
 #include <asm/fpu.h>
 #include <asm/mipsregs.h>
 #include <asm/system.h>
-
-int bcm7118_boardtype = 0;
-EXPORT_SYMBOL(bcm7118_boardtype);
 
 /*
  * Not all of the MIPS CPUs have the "wait" instruction available. Moreover,
@@ -749,7 +747,6 @@ static inline void cpu_probe_philips(struct cpuinfo_mips *c)
 }
 
 #ifdef CONFIG_MIPS_BRCM97XXX
-#include <linux/version.h>
 
 static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
 {
@@ -760,188 +757,31 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
         clear_c0_cause(CAUSEF_IP);
 
         /* Set generic BRCM processor options */
-        c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX |
-                           MIPS_CPU_COUNTER | MIPS_CPU_DIVEC;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-        c->options |= MIPS_CPU_4KTLB;
-#else
-        c->options |= MIPS_CPU_4K_CACHE;
-#endif
+        c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX | MIPS_CPU_COUNTER |
+		MIPS_CPU_DIVEC | MIPS_CPU_4K_CACHE | MIPS_CPU_LLSC;
+
         /* Test for other generic proc options */
         config1 = read_c0_config1();
         if (config1 & (1 << 3))
                 c->options |= MIPS_CPU_WATCH;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
-         if (config1 & (1 << 2))
-                c->options |= MIPS_CPU_MIPS16;
-#endif
-#if defined(CONFIG_MIPS_BCM7400A0) && defined(CONFIG_CPU_LITTLE_ENDIAN)
-	// PR19559: Disable FPU on 7400A0 for LE
-		c->options &= ~MIPS_CPU_FPU;
-#else
+	if (config1 & (1 << 2))
+		c->ases |= MIPS_ASE_MIPS16;
         if (config1 & 1)
                 c->options |= MIPS_CPU_FPU;
-#endif
         c->scache.flags = MIPS_CACHE_NOT_PRESENT;
 
-        /* Now set implementations specific settings */
-        switch (c->processor_id & 0xff00)
-        {
-
-#ifdef CONFIG_MIPS_BCM3560
-	case PRID_IMP_BCM3560:
-                c->cputype = CPU_BCM3560;
-                c->tlbsize = 32;
-                printk("MIPs 3560 id = %x\n", c->processor_id);
-                break;
-#endif
-#ifdef CONFIG_MIPS_BCM7112
-        case PRID_IMP_BCM7112:
-                c->cputype = CPU_BCM7112;
-                c->tlbsize = 32;
-                printk("MIPs 7112 id = %x\n", c->processor_id);
-                break;
-#elif defined( CONFIG_MIPS_BCM7115 )
-        case PRID_IMP_BCM7115:
-                c->cputype = CPU_BCM7115;
-                c->tlbsize = 32;
-                printk("MIPs 7115 id = %x\n", c->processor_id);
-                break;
-#endif
-
-#ifdef CONFIG_MIPS_BCM7110
-	case PRID_IMP_BCM7110:
-                c->cputype = CPU_BCM7110;
-                c->tlbsize = 32;
-                printk("MIPs 7110 id = %x\n", c->processor_id);
-                break;
-#endif
-#ifdef CONFIG_MIPS_BCM7111
-	case PRID_IMP_BCM7111:
-                c->cputype = CPU_BCM7111;
-                c->tlbsize = 32;
-                printk("MIPs 7111 id = %x\n", c->processor_id);
-                break;
-#endif
-#ifdef CONFIG_MIPS_BCM7118
-	case 0:  /* Bug in BCM7118A0 chip */
-	case PRID_IMP_BCM7118:
-                c->cputype = CPU_BCM7118;
-                c->tlbsize = 32;
-		if( *((volatile unsigned long *)0xb0040000) == 0x1c )
-		{
-			printk("7118RNG board found\n");
-			bcm7118_boardtype = 1;
-		}
-		printk("MIPs 7118 id = %x\n", c->processor_id);
-                break;
-#endif
-#ifdef CONFIG_MIPS_BCM7312
-	case PRID_IMP_BCM7312:
-               c->cputype = CPU_BCM7312;
-               c->tlbsize = 32;
-               printk("MIPs 7312 id = %x\n", c->processor_id);
-               break;
-#endif
-#ifdef CONFIG_MIPS_BCM7315
-	case PRID_IMP_BCM7315:
-               c->cputype = CPU_BCM7315;
-               c->tlbsize = 32;
-               printk("MIPs 7315 id = %x\n", c->processor_id);
-               break;
-#endif
-#ifdef CONFIG_MIPS_BCM7314
-	case PRID_IMP_BCM7314:
-               c->cputype = CPU_BCM7314;
-               c->tlbsize = 32;
-               printk("MIPs 7314 id = %x\n", c->processor_id);
-               break;
-#endif
-#ifdef CONFIG_MIPS_BCM7317
-	case PRID_IMP_BCM7317:
-               c->cputype = CPU_BCM7317;
-               c->tlbsize = 32;
-               printk("MIPs 7317 id = %x\n", c->processor_id);
-               break;
-#endif
-#ifdef CONFIG_MIPS_BCM7318
-	case PRID_IMP_BCM7318:
-               c->cputype = CPU_BCM7318;
-               c->tlbsize = 32;
-               printk("MIPs 7318 id = %x\n", c->processor_id);
-               break;
-#endif
-#ifdef CONFIG_MIPS_BCM7327
-	case PRID_IMP_BCM7327:
-               c->cputype = CPU_BCM7327;
-               c->tlbsize = 32;
-               printk("MIPs 7327 id = %x\n", c->processor_id);
-               break;
-#endif
-#ifdef CONFIG_MIPS_BCM7329
-	case PRID_IMP_BCM7329:
-               c->cputype = CPU_BCM7329;
-               c->tlbsize = 32;
-               printk("MIPs 7329 id = %x\n", c->processor_id);
-               break;
-#endif
-#if defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 )
-	case PRID_IMP_BCM7401:
-                c->cputype = CPU_BCM7401;
-                c->tlbsize = 32;
-                printk("MIPs 7401 id = %x\n", c->processor_id);
-                break;
-#endif
-#if defined( CONFIG_MIPS_BCM7403 )
-	case PRID_IMP_BCM7403 :
-		c->cputype = CPU_BCM7403;
-		c->tlbsize = 32;
-		printk("MIPs 7403 id = %x\n", c->processor_id);
-		break;
-#endif
-
-#if defined( CONFIG_MIPS_BCM7405 )
-        case PRID_IMP_BCM7405 :
-                c->cputype = CPU_BMIPS4380;
-                c->tlbsize = 32;
-                printk("MIPs 7405 id = %x\n", c->processor_id);
-                break;
-#endif 
-
-#if defined( CONFIG_MIPS_BCM7335 )
-        case PRID_IMP_BCM7335 :
-                c->cputype = CPU_BMIPS4380;
-                c->tlbsize = 32;
-                printk("MIPs 7335 id = %x\n", c->processor_id);
-                break;
-#endif 
-
-#ifdef CONFIG_MIPS_BCM7400
-	case PRID_IMP_BCM7400:
-#ifdef CONFIG_MIPS_BCM7400D0
-                c->cputype = CPU_BMIPS4380;
-                printk("MIPs 7400D0 id = %x\n", c->processor_id);
+#if defined(CONFIG_BMIPS3300)
+	c->cputype = CPU_BMIPS3300;
+	c->tlbsize = 32;
+#elif defined(CONFIG_BMIPS4380)
+	c->cputype = CPU_BMIPS4380;
+	c->tlbsize = 32;
 #else
-                c->cputype = CPU_BCM7400;
-                printk("MIPs 7400 id = %x\n", c->processor_id);
+	c->cputype = CPU_BMIPS4380;
+	c->tlbsize = 32;
+	printk("WARNING: unknown processor 0x%x, assuming BMIPS4380\n",
+		c->processor_id);
 #endif
-                c->tlbsize = 32;
-                break;
-#endif
-#ifdef CONFIG_MIPS_BCM7440
-	case PRID_IMP_BCM7440:
-                c->cputype = CPU_BCM7440;
-                c->tlbsize = 32;
-                printk("MIPs 7440 id = %x\n", c->processor_id);
-                break;
-#endif
-/* No 7320 here */
-	default:
-               c->cputype = CPU_UNKNOWN;
-               printk("MIPs unknown id = %x\n", c->processor_id);
-               break;
-	}
-	
 }
 #endif
 
@@ -954,8 +794,6 @@ __init void cpu_probe(void)
 	c->cputype	= CPU_UNKNOWN;
 
 	c->processor_id = read_c0_prid();
-
-printk("c->processor_id == %08x\n", c->processor_id);
 
 	switch (c->processor_id & 0xff0000) {
 	case PRID_COMP_LEGACY:
@@ -972,9 +810,9 @@ printk("c->processor_id == %08x\n", c->processor_id);
 		cpu_probe_sibyte(c);
 		break;
 #ifdef CONFIG_MIPS_BRCM97XXX
-/* BRCM MIPS 3300 CPUs */
-       case PRID_COMP_BRCM:
-	   	cpu_probe_brcm(c);
+/* BRCM MIPS CPUs */
+	case PRID_COMP_BROADCOM:
+		cpu_probe_brcm(c);
 		break;
 #endif
 	case PRID_COMP_SANDCRAFT:

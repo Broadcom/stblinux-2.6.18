@@ -32,8 +32,8 @@ libc_hidden_proto(abort)
 # include <pthread.h>
 extern pthread_mutex_t __malloc_lock;
 #endif
-#define LOCK	__pthread_mutex_lock(&__malloc_lock)
-#define UNLOCK	__pthread_mutex_unlock(&__malloc_lock)
+#define LOCK	__PTHREAD_MUTEX_LOCK(&__malloc_lock)
+#define UNLOCK	__PTHREAD_MUTEX_UNLOCK(&__malloc_lock)
 
 
 

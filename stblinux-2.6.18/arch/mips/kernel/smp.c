@@ -185,6 +185,7 @@ int smp_call_function (void (*func) (void *info), void *info, int retry,
 	 * Can die spectacularly if this CPU isn't yet marked online
 	 */
 	BUG_ON(!cpu_online(cpu));
+	BUG_ON(in_interrupt());
 
 	if (!cpus)
 		return 0;
@@ -236,6 +237,11 @@ void smp_call_function_interrupt(void)
 	 * about to execute the function.
 	 */
 	mb();
+#ifdef CONFIG_MIPS_BRCM97XXX
+	/* clear the pending interrupt now so that we don't drop the next call */
+	clear_c0_cause(C_SW0);
+	mb();
+#endif
 	atomic_inc(&call_data->started);
 
 	/*

@@ -23,13 +23,13 @@
 #define __UCLIBC_MUTEX_EXTERN(M)			extern pthread_mutex_t M
 
 #define __UCLIBC_MUTEX_LOCK_CANCEL_UNSAFE(M)								\
-		__pthread_mutex_lock(&(M))
+		__PTHREAD_MUTEX_LOCK(&(M))
 
 #define __UCLIBC_MUTEX_UNLOCK_CANCEL_UNSAFE(M)								\
-		__pthread_mutex_unlock(&(M))
+		__PTHREAD_MUTEX_UNLOCK(&(M))
 
 #define __UCLIBC_MUTEX_TRYLOCK_CANCEL_UNSAFE(M)								\
-		__pthread_mutex_trylock(&(M))
+		__PTHREAD_MUTEX_TRYLOCK(&(M))
 
 #define __UCLIBC_MUTEX_CONDITIONAL_LOCK(M,C)								\
 	do {												\
@@ -38,7 +38,7 @@
 			_pthread_cleanup_push_defer(&__infunc_pthread_cleanup_buffer,			\
 										__uclibc_mutex_unlock,	\
 										&(M));			\
-			__pthread_mutex_lock(&(M));							\
+			__PTHREAD_MUTEX_LOCK(&(M));							\
 		}											\
 		((void)0)
 

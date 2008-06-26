@@ -120,8 +120,11 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	/*
 	 * For the first processor also print the system type
 	 */
-	if (n == 0)
+	if (n == 0) {
 		seq_printf(m, "system type\t\t: %s\n", get_system_type());
+		seq_printf(m, "build target\t\t: %s\n",
+			CONFIG_BRCM_BUILD_TARGET);
+	}
 
 	seq_printf(m, "processor\t\t: %ld\n", n);
 	sprintf(fmt, "cpu model\t\t: %%s V%%d.%%d%s\n",
@@ -181,18 +184,6 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 		}
 
 		seq_printf(m, "RAC setting\t\t: %s\n", rac_setting);
-
-#ifdef CONFIG_MIPS_BCM7400A0
-/* jipeng - PR22538 */
-#ifndef CONFIG_MIPS_BCM97456
-		seq_printf(m, "RAC Config Reg 0\t: %08lx\n", *((volatile unsigned long *)(rac_config0))); 
-		seq_printf(m, "RAC Config Reg 1\t: %08lx\n", *((volatile unsigned long *)(rac_config1))); 
-		seq_printf(m, "RAC Addr Range Reg\t: %08lx\n", *((volatile unsigned long *)(rac_address_range))); 
-		seq_printf(m, "BRCM Config-0 Reg\t: %08x\n", __read_32bit_c0_register($22, 0));
-		seq_printf(m, "BRCM Config-1 Reg\t: %08x\n", __read_32bit_c0_register($22, 5));
-		seq_printf(m, "Core Base Reg\t\t: %08x\n", __read_32bit_c0_register($22, 6));
-#endif
-#endif
 	}
 
 	if(n == 0) {

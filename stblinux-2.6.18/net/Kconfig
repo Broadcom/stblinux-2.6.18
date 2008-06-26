@@ -6,7 +6,7 @@ menu "Networking"
 
 config NET
 	bool "Networking support"
-	depends on !MIPS_BRCM_IKOS
+	depends on !MIPS_BRCM_SIM
 	---help---
 	  Unless you really know what you are doing, you should say Y here.
 	  The reason is that some programs need kernel networking support even

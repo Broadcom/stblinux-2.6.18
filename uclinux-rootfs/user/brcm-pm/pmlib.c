@@ -251,7 +251,7 @@ static int sata_rescan_hosts(void)
 	if(glob(SATA_RESCAN_GLOB, GLOB_NOSORT, NULL, &g) != 0)
 		return(-1);
 
-	for(i = 0; i < g.gl_pathc; i++)
+	for(i = 0; i < (int)g.gl_pathc; i++)
 		ret |= sysfs_set_string(g.gl_pathv[i], "0 - 0");
 	globfree(&g);
 
@@ -267,7 +267,7 @@ static int sata_spindown_devices(void)
 	if(glob(SATA_DEVICE_GLOB, GLOB_NOSORT, NULL, &g) != 0)
 		return(0);
 
-	for(i = 0; i < g.gl_pathc; i++)
+	for(i = 0; i < (int)g.gl_pathc; i++)
 	{
 		char *devname = rindex(g.gl_pathv[i], ':');
 		char buf[BUF_SIZE];
@@ -292,7 +292,7 @@ static int sata_delete_devices(void)
 	if(glob(SATA_DELETE_GLOB, GLOB_NOSORT, NULL, &g) != 0)
 		return(0);
 
-	for(i = 0; i < g.gl_pathc; i++)
+	for(i = 0; i < (int)g.gl_pathc; i++)
 		ret |= sysfs_set(g.gl_pathv[i], 1);
 	globfree(&g);
 

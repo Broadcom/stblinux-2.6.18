@@ -13,6 +13,7 @@
 
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/blktrans.h>
 

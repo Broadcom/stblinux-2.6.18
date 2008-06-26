@@ -388,10 +388,9 @@ void __init paging_init(void)
 {
 	unsigned long zones_size[] = { [0 ... MAX_NR_ZONES - 1] = 0 };
 	unsigned long max_dma, high, low;
-#ifndef CONFIG_FLATMEM
-	unsigned long zholes_size[] = { [0 ... MAX_NR_ZONES - 1] = 0 };
-	unsigned long i, j, pfn;
-#endif
+	unsigned long __attribute_unused__ zholes_size[] =
+		{ [0 ... MAX_NR_ZONES - 1] = 0 };
+	unsigned long __attribute_unused__ i, j, pfn;
 
 	pagetable_init();
 
@@ -427,7 +426,7 @@ void __init paging_init(void)
 #ifdef CONFIG_FLATMEM
 	free_area_init(zones_size);
 #elif defined(CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335) \
-	|| defined(CONFIG_MIPS_BCM7400D0)
+	|| defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM3548)
 	if(g_board_RAM_size <= LOWER_RAM_SIZE) {
 		zones_size[ZONE_DMA] = PFN_DOWN(g_board_RAM_size);
 		zones_size[ZONE_NORMAL] = 0;

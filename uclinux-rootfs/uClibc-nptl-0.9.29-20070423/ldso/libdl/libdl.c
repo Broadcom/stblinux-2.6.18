@@ -32,6 +32,12 @@
 
 #include <ldso.h>
 #include <stdio.h>
+
+#ifndef SHARED
+/* TLS currently not supported with static dlopen */
+#undef USE_TLS
+#endif
+
 #if USE_TLS
 # include <ldsodefs.h>
 #endif
@@ -572,6 +578,10 @@ oops:
 	do_dlclose(dyn_chain, 0);
 	return NULL;
 }
+
+#ifndef SHARED
+link_warning(dlopen, "libdl support is severely limited in static binaries");
+#endif
 
 void *dlsym(void *vhandle, const char *name)
 {

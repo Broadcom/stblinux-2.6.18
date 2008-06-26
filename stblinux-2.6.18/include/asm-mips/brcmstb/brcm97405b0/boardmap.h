@@ -32,6 +32,7 @@
 #define CPU_PHYS_FPGA_BASE          0x1A000000
 #define CPU_PHYS_1394_BASE          0x19000000
 #define CPU_PHYS_POD_BASE			0x19800000
+#define BRCM_FLASH_SIZE             0x04000000
 
 /*****************************************************************************/
 /*                   CPU to PCI Bridge Memory Map                            */
@@ -69,6 +70,9 @@
 
 #define PCI_1394_PHYS_MEM_WIN0_BASE   0xd0000000
 
+#ifdef CONFIG_MIPS_BCM97459B0
+#define PCI_DEVICE_ID_3255	0x07
+#endif
 #define PCI_DEVICE_ID_EXT       0x0d
 #define PCI_DEVICE_ID_1394      0x0e
 #define PCI_DEVICE_ID_MINI      0x04

@@ -68,9 +68,6 @@ extern void build_tlb_refill_handler(void);
 
 #ifdef CONFIG_MIPS_BRCM97XXX
 
-//#define PCI_MEM_WIN_BASE 0xd0000000
-//#define CPU2PCI_CPU_PHYS_MEM_WIN_BASE 0xd0000000
-
 /* 4MB page size */
 #define OFFSET_4MBYTES        0x00400000
 #define OFFSET_8MBYTES        0x00800000
@@ -97,21 +94,6 @@ extern void build_tlb_refill_handler(void);
 #define PCI_IO_ENABLE   BCHP_PCI_CFG_STATUS_COMMAND_MEMORY_SPACE_MASK
 #define PCI_MEM_ENABLE  BCHP_PCI_CFG_STATUS_COMMAND_IO_SPACE_MASK
 
-//#define PCI_DEVICE_ID_SATA      0x0e
-//#define PCI_DEVICE_ID_EXT       0x0d
-//#define PCI_DEVICE_ID_7041      0x04
-//#define PCI_DEVICE_ID_3250      0x01
-
-//#define PCI_IDSEL_EXT           (0x10000 << PCI_DEVICE_ID_EXT)
-//#define PCI_IDSEL_7041          (0x10000 << PCI_DEVICE_ID_7041)
-//#define PCI_IDSEL_3250          (0x10000 << PCI_DEVICE_ID_3250)
-//#define PCI_IDSEL_SATA          (0x10000 << PCI_DEVICE_ID_SATA)
-
-//#define PCI_DEV_NUM_EXT         (PCI_DEVICE_ID_EXT  << 11)
-//#define PCI_DEV_NUM_7041        (PCI_DEVICE_ID_7041 << 11)
-//#define PCI_DEV_NUM_3250        (PCI_DEVICE_ID_3250 << 11)
-//#define PCI_DEV_NUM_SATA        (PCI_DEVICE_ID_SATA << 11)
-
 #if	defined( CONFIG_MIPS_BRCM97XXX )
 #if	defined( CONFIG_CPU_BIG_ENDIAN )
 #define	CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN	2
@@ -120,24 +102,16 @@ extern void build_tlb_refill_handler(void);
 #endif
 #endif
 
-void local_init_tlb(void)
+static inline void brcm_setup_wired_discontig(void)
 {
+#ifdef CONFIG_DISCONTIGMEM	/* uses some DISCONTIG-only macros */
 	unsigned long flags;
 	unsigned long old_ctx;
 	unsigned long lo0, lo1, hi;
 	volatile int entry, wired;
 
-#ifdef DEBUG_TLB
-	printk("[tlball]");
-#endif
-
-
-#if defined(CONFIG_DISCONTIGMEM) && \
-	(defined(CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335) || \
-	 defined(CONFIG_MIPS_BCM7400D0))
-{
 	/*
-	 * 7405 with DISCONTIG:
+	 * 7400/7405/7335 with DISCONTIG:
 	 *
 	 * 0000_0000 - 7fff_ffff - USER
 	 * 8000_0000 - 8fff_ffff - kseg0 - DDR_0 (256MB @ 0000_0000)
@@ -209,11 +183,16 @@ void local_init_tlb(void)
 	write_c0_wired(entry);
 
 	local_irq_restore(flags);
+#endif
 }
-#elif defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7440 ) || \
-      defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325 ) || \
-      defined( CONFIG_MIPS_BCM7335 )
-/* Use 64MB page size mapping */
+
+static inline void brcm_setup_wired_64(void)
+{
+	unsigned long flags;
+	unsigned long old_ctx;
+	unsigned long lo0, lo1, hi;
+	volatile int entry, wired;
+
 	write_c0_pagemask(PM_64M);  /* The next best thing we can have since 256MB does not work */
 
 	local_irq_save(flags);
@@ -282,22 +261,50 @@ void local_init_tlb(void)
 	// THT: Write the wired entries here, before releasing the lock
 	write_c0_wired(entry); /* entry should be wired + 2 now */
 	
-#else
-/* Use 16MB page size mapping, un-modified original codes */
-	write_c0_pagemask(PM_16M); /*max we can get for BMIPS3300 */
+	write_c0_pagemask(PM_4K);
+	local_irq_restore(flags);
+}
+
+/* default: 16 entries * 16MB * 2 = 512MB = (0xf0000000 - 0xd0000000) */
+#define PCI_MEM_TLB_ENTRIES	16
+
+static inline void brcm_setup_wired_16(void)
+{
+	unsigned long flags;
+	unsigned long old_ctx;
+	unsigned long lo0, lo1, hi;
+	volatile int entry, wired;
+
+	/*
+	 * NOTE:
+	 *
+	 * BMIPS3300 only supports 16MB TLB entries (1 hi/lo pair = 32MB).
+	 *
+	 * The reference kernel will map:
+	 *
+	 * d000_0000 - efff_ffff - PCI MEM (512MB) - 16 TLB entries
+	 * f000_0000 - f1ff_ffff - PCI I/O ( 32MB) -  1 TLB entry
+	 *
+	 * It may be a good idea to shrink the PCI MEM region if your
+	 * application does not need this much space, to free up some
+	 * entries and help prevent TLB thrashing.
+	 */
+	write_c0_pagemask(PM_16M);
 
 	local_irq_save(flags);
 	/* Save old context and create impossible VPN2 value */
 	old_ctx = (read_c0_entryhi() & 0xff);
-	hi = (PCI_MEM_WIN_BASE&0xffffe000);
-	lo0 = (((CPU2PCI_CPU_PHYS_MEM_WIN_BASE>>(4+2))&0x3fffffc0)|0x17);
-	lo1 = ((((CPU2PCI_CPU_PHYS_MEM_WIN_BASE+OFFSET_16MBYTES)>>(4+2))&0x3fffffc0)|0x17);
 
 	// Save the start entry presumably starting at 0, but we never know
 	entry = wired = read_c0_wired();
 
+	/* write entries for PCI MEM */
+	hi = (PCI_MEM_WIN_BASE&0xffffe000);
+	lo0 = (((PCI_MEM_WIN_BASE>>(4+2))&0x3fffffc0)|0x17);
+	lo1 = ((((PCI_MEM_WIN_BASE+OFFSET_16MBYTES)>>(4+2))&0x3fffffc0)|0x17);
+
 	/* Blast 'em all away. */
-	while (entry < 17+wired) {
+	while (entry < (PCI_MEM_TLB_ENTRIES+wired)) {
 		/*
 		 * Make sure all entries differ.  If they're not different
 		 * MIPS32 will take revenge ...
@@ -316,6 +323,26 @@ void local_init_tlb(void)
 		entry++;
 	}
 
+	/* write entry for PCI I/O */
+	hi = (PCI_IO_WIN_BASE&0xffffe000);
+	lo0 = (((PCI_IO_WIN_BASE>>(4+2))&0x3fffffc0)|0x17);
+	lo1 = ((((PCI_IO_WIN_BASE+OFFSET_16MBYTES)>>(4+2))&0x3fffffc0)|0x17);
+
+	do {
+		write_c0_entrylo0(lo0);
+		write_c0_entrylo1(lo1);
+		BARRIER;
+		write_c0_entryhi(hi);
+		write_c0_index(entry);
+		BARRIER;
+		tlb_write_indexed();
+		BARRIER;
+		hi += OFFSET_32MBYTES;
+		lo0 += TLBLO_OFFSET_32MBYTES;
+		lo1 += TLBLO_OFFSET_32MBYTES;
+		entry++;
+	} while(0);
+
 	BARRIER;
 	write_c0_entryhi(old_ctx);
 	// THT: Write it the wired entries here, before releasing the lock
@@ -323,16 +350,152 @@ void local_init_tlb(void)
 	write_c0_random(0x0000001F);
 #endif
 
-	write_c0_wired(wired+17);
-
-#endif /* Use 16MB or 64MB page size */
+	write_c0_wired(entry);
 
 	write_c0_pagemask(PM_4K);
 	local_irq_restore(flags);
-
-//dump_tlb_wired();
 }
-#endif // All Broadcom STBs swith PCI address space
+
+static void brcm_setup_wired_entries(void)
+{
+#if defined(CONFIG_DISCONTIGMEM)
+
+	/* Use 64MB pages with memory map supporting >256MB RAM */
+
+	brcm_setup_wired_discontig();
+
+#elif defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_BMIPS4380)
+
+	/* Use 64MB pages with standard memory map */
+
+	brcm_setup_wired_64();
+
+#else
+
+	/* Use 16MB pages with standard memory map */
+	brcm_setup_wired_16();
+
+#endif
+}
+
+
+#define PCI_SATA_MEM_ENABLE			1
+#define PCI_SATA_BUS_MASTER_ENABLE		2
+#define PCI_SATA_PERR_ENABLE			0x10
+#define PCI_SATA_SERR_ENABLE			0x20
+#define CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE	0x10510000
+
+#define EXT_PCI_CONFIG_IDX			0xf0600004
+#define EXT_PCI_CONFIG_DATA			0xf0600008
+
+#if defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
+#define	HAS_SATA_SVW	
+#endif
+
+static void brcm_setup_sata_bridge(void)
+{
+//#if defined(BCHP_PCI_BRIDGE_PCI_CTRL) && defined(CONFIG_SATA_SVW)
+#if defined(BCHP_PCI_BRIDGE_PCI_CTRL) && defined(HAS_SATA_SVW)
+	/* Internal PCI SATA bridge setup for 7038, 7401, 7403, 7118, etc. */
+
+#ifdef CONFIG_MIPS_BCM7118
+	/* no SATA on 7118RNG */
+	if(bcm7118_boardtype == 1)
+		return;
+#endif
+
+	BDEV_SET(BCHP_PCI_BRIDGE_PCI_CTRL,
+		(PCI_SATA_MEM_ENABLE|PCI_SATA_BUS_MASTER_ENABLE|
+		 PCI_SATA_PERR_ENABLE|PCI_SATA_SERR_ENABLE));
+
+	/* PCI slave window (SATA access to MIPS memory) */
+	BDEV_WR(BCHP_PCI_BRIDGE_PCI_SLV_MEM_WIN_BASE,
+		0 | CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+
+	/* PCI master window (MIPS access to SATA BARs) */
+	BDEV_WR(BCHP_PCI_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE,
+		CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE |
+		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+	BDEV_WR(BCHP_PCI_BRIDGE_CPU_TO_SATA_IO_WIN_BASE,
+		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+
+	/* do a PCI config read */
+	BDEV_WR(BCHP_PCI_BRIDGE_SATA_CFG_INDEX, PCI_DEV_NUM_SATA);
+	if(BDEV_RD(BCHP_PCI_BRIDGE_SATA_CFG_DATA) == 0xffffffff)
+		printk(KERN_WARNING "Internal SATA is not responding\n");
+
+//#elif defined(BCHP_PCIX_BRIDGE_PCIX_CTRL) && defined(CONFIG_SATA_SVW)
+#elif defined(BCHP_PCIX_BRIDGE_PCIX_CTRL) && defined(HAS_SATA_SVW)
+
+	/* Internal PCI-X SATA bridge setup for 7400, 7405, 7335 */
+
+	BDEV_WR(BCHP_PCIX_BRIDGE_PCIX_CTRL,
+		(PCI_SATA_MEM_ENABLE|PCI_SATA_BUS_MASTER_ENABLE|
+		 PCI_SATA_PERR_ENABLE|PCI_SATA_SERR_ENABLE));
+	BDEV_WR(BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE, 1);
+
+	/* PCI slave window (SATA access to MIPS memory) */
+	BDEV_WR(BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE,
+		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+
+	/* PCI master window (MIPS access to SATA BARs) */
+	BDEV_WR(BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE,
+		CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE |
+		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+	BDEV_WR(BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE,
+		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+
+	/* do a PCI config read */
+	BDEV_WR(BCHP_PCIX_BRIDGE_SATA_CFG_INDEX, 0x80000000|PCI_DEV_NUM_SATA);
+	if(BDEV_RD(BCHP_PCIX_BRIDGE_SATA_CFG_DATA) == 0xffffffff)
+		printk(KERN_WARNING "Internal SATA is not responding\n");
+#endif
+}
+
+static void brcm_setup_pci_bridge(void)
+{
+#if defined(BCHP_PCI_CFG_STATUS_COMMAND) && ! defined(CONFIG_BRCM_PCI_SLAVE)
+
+	/* External PCI bridge setup (most chips) */
+
+	BDEV_SET(BCHP_PCI_CFG_STATUS_COMMAND,
+		PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
+
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0,
+		CPU2PCI_PCI_PHYS_MEM_WIN0_BASE);
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1,
+		CPU2PCI_PCI_PHYS_MEM_WIN1_BASE);
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2,
+		CPU2PCI_PCI_PHYS_MEM_WIN2_BASE);
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3,
+		CPU2PCI_PCI_PHYS_MEM_WIN3_BASE);
+
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0,
+		0x00000000 | CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1,
+		0x00200000 | CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2,
+		0x00400000 | CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+
+	BDEV_WR(BCHP_PCI_CFG_GISB_BASE_W, 0x10000000);
+	BDEV_WR(BCHP_PCI_CFG_MEMORY_BASE_W0, 0x00000000);
+	BDEV_WR(BCHP_PCI_CFG_MEMORY_BASE_W1, 0x08000000);
+
+#if ! defined(CONFIG_CPU_LITTLE_ENDIAN)
+	// TDT - Swap memory base w0 when running big endian
+	BDEV_UNSET(BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL,
+		BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_MASK);
+	BDEV_SET(BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL,
+		2<<BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_SHIFT);
+#endif
+
+	/* do a PCI config read */
+	DEV_WR(EXT_PCI_CONFIG_IDX, PCI_DEV_NUM_EXT);
+	DEV_RD(EXT_PCI_CONFIG_DATA);
+#endif
+}
+
+#endif // All Broadcom STBs
 
 
 void local_flush_tlb_all(void)
@@ -769,717 +932,14 @@ void __init tlb_init(void)
 	temp_tlb_entry = current_cpu_data.tlbsize - 1;
 	local_flush_tlb_all();
 
+#ifdef CONFIG_MIPS_BRCM97XXX
+	/* create wired entries in kseg2/kseg3 for PCI and discontig memory */
+	brcm_setup_wired_entries();
 
-#if defined( CONFIG_MIPS_BCM3560)
-	local_init_tlb();
-	// THT Done in local_init_tlb write_c0_wired(17);
-
-// QY & THT: 11/13/03 This is here because CFE does not do it
-	// first set up pci host.
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_STATUS_COMMAND)) |= (PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0)) = CPU2PCI_PCI_PHYS_MEM_WIN0_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1)) = CPU2PCI_PCI_PHYS_MEM_WIN1_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2)) = CPU2PCI_PCI_PHYS_MEM_WIN2_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3)) = CPU2PCI_PCI_PHYS_MEM_WIN3_BASE;
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400000;
-#else
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400002;
+	/* program the PCI bridge registers */
+	brcm_setup_pci_bridge();
+	brcm_setup_sata_bridge();
 #endif
 
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_GISB_BASE_W)) = 0x10000000;
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) = 0x00000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W1)) = 0x02000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W2)) = 0x04000000;
-
-#ifndef CONFIG_CPU_LITTLE_ENDIAN
-	// TDT - Swap memory base w0 when running big endian
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		&= ~BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_MASK;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		|= 2<<BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_SHIFT;
-#endif
-
-{
-#define PCI_ENABLE              0x80000000
-#define PCI_IDSEL(x)		(((x)&0x1f)<<11)
-#define PCI_FNCSEL(x)		(((x)&0x7)<<8)
-
-#ifdef CONFIG_MIPS_BCM3560A0
-	// do a pci config read for USB only on A0 chip.
-	*((volatile unsigned long *)0xf0600004) = PCI_ENABLE+PCI_IDSEL(PCI_DEVICE_ID_USB)+PCI_FNCSEL(0); 
-	printk("$$$$$$$$$$usb fn0 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_ENABLE+PCI_IDSEL(PCI_DEVICE_ID_USB)+PCI_FNCSEL(1); 
-	printk("$$$$$$$$$$usb fn1 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_ENABLE+PCI_IDSEL(PCI_DEVICE_ID_USB)+PCI_FNCSEL(2); 
-	printk("$$$$$$$$$$usb fn2 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-#endif
-	
-	*((volatile unsigned long *)0xf0600004) = PCI_ENABLE+PCI_IDSEL(PCI_DEVICE_ID_1394)+PCI_FNCSEL(0); 
-	printk("$$$$$$$$$$1394 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_ENABLE+PCI_IDSEL(PCI_DEVICE_ID_EXT)+PCI_FNCSEL(0);
-	printk("$$$$$$$$$$external dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-}
-
-#elif defined( CONFIG_MIPS_BCM7038A0 ) 
-	local_init_tlb();
-	// THT DOne in local_init_tlb write_c0_wired(17);
-
-// QY & THT: 11/13/03 This is here because CFE does not do it
-	// first set up pci host.
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_STATUS_COMMAND)) |= (PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2)) = 0xd0000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3)) = 0xd8000000;
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400000;
-#else
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400002;
-#endif
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_GISB_BASE_W)) = 0x10000000;
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) = 0x00000000;
-	// QY: PR10078 Enable only 1 window, and use board strapping to enable the entire 128MB range.
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W1)) = 0x02000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W2)) = 0x04000000;
-
-#ifndef CONFIG_CPU_LITTLE_ENDIAN
-	// TDT - Swap memory base w0 when running big endian
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL)) 
-		&= ~BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_MASK;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL)) 
-		|= 2<<BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_SHIFT;
-#endif
-
-	// do a pci config read.
-	*((volatile unsigned long *)0xe0600004) = PCI_DEV_NUM_7041;
-	printk("$$$$$$$$$$7041 dev id %08x\n", *((volatile unsigned long *)0xe0600008));
-	*((volatile unsigned long *)0xe0600004) = PCI_DEV_NUM_3250;
-	printk("$$$$$$$$$$3250 dev id %08x\n", *((volatile unsigned long *)0xe0600008));
-	*((volatile unsigned long *)0xe0600004) = PCI_DEV_NUM_SATA;
-	printk("$$$$$$$$$$SATA dev id %08x\n", *((volatile unsigned long *)0xe0600008));
-
-#elif defined( CONFIG_MIPS_BCM7038B0)
-	local_init_tlb();
-	// THT Done in local_init_tlb write_c0_wired(17);
-
-// QY & THT: 11/13/03 This is here because CFE does not do it
-	// first set up pci host.
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_STATUS_COMMAND)) |= (PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0)) = CPU2PCI_PCI_PHYS_MEM_WIN0_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1)) = CPU2PCI_PCI_PHYS_MEM_WIN1_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2)) = CPU2PCI_PCI_PHYS_MEM_WIN2_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3)) = CPU2PCI_PCI_PHYS_MEM_WIN3_BASE;
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400000;
-#else
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400002;
-#endif
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_GISB_BASE_W)) = 0x10000000;
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) = 0x00000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W1)) = 0x02000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W2)) = 0x04000000;
-
-#ifndef CONFIG_CPU_LITTLE_ENDIAN
-	// TDT - Swap memory base w0 when running big endian
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		&= ~BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_MASK;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		|= 2<<BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_SHIFT;
-#endif
-
-	// do a pci config read.
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_7041;
-	printk("$$$$$$$$$$7041 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_3250;
-	printk("$$$$$$$$$$3250 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_SATA;
-	printk("$$$$$$$$$$SATA dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
-	printk("$$$$$$$$$$external dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-
-#elif defined( CONFIG_MIPS_BCM7038C0)
-	local_init_tlb();
-	// THT Done in local_init_tlb write_c0_wired(17);
-    
-// QY & THT: 11/13/03 This is here because CFE does not do it
-	// first set up pci host.
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_STATUS_COMMAND)) |= (PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0)) = CPU2PCI_PCI_PHYS_MEM_WIN0_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1)) = CPU2PCI_PCI_PHYS_MEM_WIN1_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2)) = CPU2PCI_PCI_PHYS_MEM_WIN2_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3)) = CPU2PCI_PCI_PHYS_MEM_WIN3_BASE;
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400000;
-#else
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400002;
-#endif
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_GISB_BASE_W)) = 0x10000000;
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) = 0x00000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W1)) = 0x02000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W2)) = 0x04000000;
-
-#ifndef CONFIG_CPU_LITTLE_ENDIAN
-	// TDT - Swap memory base w0 when running big endian
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		&= ~BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_MASK;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		|= 2<<BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_SHIFT;
-#endif
-
-	// do a pci config read.
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_7041;
-	//printk("$$$$$$$$$$7041 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_3250;
-	//printk("$$$$$$$$$$3250 dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
-	//printk("$$$$$$$$$$external dev id %08x\n", *((volatile unsigned long *)0xf0600008));
-
-#if	defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
-
-#ifdef	CONFIG_MIPS_BCM7118
-	if( bcm7118_boardtype == 1)
-		goto done1;
-#endif	/* CONFIG_MIPS_BCM7118A0 */
-
-/* 2nd PCI Bridge for SATA on 7038C0 */
-/*
- * Set BCM7038 PCI Bus Bridge Command
- */
-
-//#define PCI_BUS_MASTER  BCHP_PCI_CFG_STATUS_COMMAND_BUS_MASTER_MASK
-//#define PCI_IO_ENABLE   BCHP_PCI_CFG_STATUS_COMMAND_MEMORY_SPACE_MASK
-//#define PCI_MEM_ENABLE  BCHP_PCI_CFG_STATUS_COMMAND_IO_SPACE_MASK
-
-#define BCHP_SATA_PHYSICAL_OFFSET	0x10500000
-#define BCHP_SATA_KSEG1_OFFSET		KSEG1ADDR(BCHP_SATA_PHYSICAL_OFFSET)
-
-#define BCHP_SATA_PCI_BRIDGE_PCI_CTRL	0x200
-#define PCI_SATA_MEM_ENABLE		1
-#define PCI_SATA_BUS_MASTER_ENABLE	2
-#define PCI_SATA_PERR_ENABLE		0x10
-#define PCI_SATA_SERR_ENABLE		0x20
-
-	// first set up pci host.
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_SATA_PCI_BRIDGE_PCI_CTRL)) |=
-		(PCI_SATA_MEM_ENABLE|PCI_SATA_BUS_MASTER_ENABLE|PCI_SATA_PERR_ENABLE|PCI_SATA_SERR_ENABLE);
-
-	 /************************************************
-	  * Configure 7038C0 PCI config registers
-	  ************************************************/
-
-#define  BCHP_PCI_SATA_CFG_SLV_MEMORY_BASE_W0 0x20c
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_SLV_MEMORY_BASE_W0)) 
-		= PCI_7038_PHYS_MEM_WIN0_BASE;
-#else
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_SLV_MEMORY_BASE_W0)) 
-		= PCI_7038_PHYS_MEM_WIN0_BASE | 2;
-#endif
-
-/************************************************
-* Configure MIPS to PCI bridge.  
-************************************************/
-#define BCHP_PCI_SATA_CFG_CPU_2_PCI_MEM_WIN0 0x210
-#define BCHP_PCI_SATA_CFG_CPU_2_PCI_IO_WIN0  0x214
-
-#define CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE  0x10510000
-#define CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE   0x10520000
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
- 	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_MEM_WIN0)) 
- 		= CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE;
- 	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_IO_WIN0)) 
- 		= 0;
-
-#else
-
-/* Using little endian byte order on disk */
-	*((volatile unsigned long *) (BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_MEM_WIN0))
-		= CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE | 0;
-	
-
-
- /* DW swap */
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_IO_WIN0))
-		= 2;
-
-#endif // ifdef Little Endian
-
-		// do a pci config read.
-	*((volatile unsigned long *)0xb0500204) = PCI_DEV_NUM_SATA;
-	//printk("$$$$$$$$$$SATA dev id %08x\n", *((volatile unsigned long *)0xb0500208));
-#endif /* CONFIG_SATA_SVW */
-
-#ifdef	CONFIG_MIPS_BCM7118
-done1:
-#endif
-
-#elif defined (CONFIG_MIPS_BCM7329)
-#define PCI_CFG_MEMORY_BASE_W 0xbafe9010
-#define PCI_CFG_STATUS_COMMAND 0xbafe9004
-#define PCI_CFG_CPU_2_PCI_MEM_WIN 0xbafe9050
-#define PCI_CFG_CPU_2_PCI_IO_WIN 0xbafe9060
-#define CPU2PCI_PCI_PHYS_IO_WIN0_BASE 0x1af90000
-#define CPU2PCI_PCI_PHYS_MEM_WIN0_BASE 0x1afa0000
-#define MIPS_PCI_XCFG_INDEX     0xbafe9100
-#define MIPS_PCI_XCFG_DATA      0xbafe9104
-#define PCI_REG_PCI_CTRL		0xbafe9110
-#define PCI_REG_PCI_INTR_STA_CLR 0xbafe910c
-
-
-#define MTN_RB_MMC_CLIENT_INDEX	0xbae0000c
-#define MTN_RB_MMC_INDX_DATA_WR	0xbae00010
-#define MTN_RB_MMC_INDX_DATA_RD	0xbae00014
-#define SATA_PCI_BRIDGE_CLIENT_ID	17
-	
-{
-	char msg[256];
-
-#if 1
-/* Attempt to give SATA higher memory bandwidth */
-	volatile unsigned long temp;
-/* Debugging Memory priority */
-
-#if 0
-	int i;
-
-	for (i=0; i <=31; i++) {
-		if (i == 2 || i == 28) continue; // Unused
-		*((volatile unsigned long *)MTN_RB_MMC_CLIENT_INDEX) = i;
-		printk("priority[%d] = %08x\n", i, *((volatile unsigned long *)MTN_RB_MMC_INDX_DATA_RD));
-	}
-
-#endif // if 2
-
-*((volatile unsigned long *)MTN_RB_MMC_CLIENT_INDEX) = SATA_PCI_BRIDGE_CLIENT_ID;
-temp = *((volatile unsigned long *)MTN_RB_MMC_INDX_DATA_RD);
-printk("SATA/PCI Memory cfg = %08x\n", temp);
-
-// Enable Round Robin bit
-
-// Old value of 0x40d0 yield a "hdparm -t" score of 8.5MB/s
-temp |= 0x20; /* Enable Round Robin bit 5, yield 13.9 MB/s */
-
-// Write it back
-*((volatile unsigned long *)MTN_RB_MMC_CLIENT_INDEX) = SATA_PCI_BRIDGE_CLIENT_ID;
-*((volatile unsigned long *)MTN_RB_MMC_INDX_DATA_WR) = temp;
-
-#endif
-
-//TM_SOFT_RESET_2 - Soft Reset Control 2 Register, reset everything except SATA
-*((volatile unsigned char *)0xbafe8026) &= 0xfb;
-//TM_SATA_CTRL - SATA CTRL Register
-*((volatile unsigned char *)0xbafe8044) |= 0x05;//0x01; 
-sprintf(msg, "$$$TM_SATA_CTRL after %02x\n", *((volatile unsigned char *)0xbafe8044));
-uart_puts(msg);
-// Now reset SATA
-*((volatile unsigned char *)0xbafe8026) |= 0x04;
-sprintf(msg, "$$$TM_reset_2 %02x\n", *((volatile unsigned char *)0xbafe8026));
-uart_puts(msg);
-}
-
-printk("$$$PBus stat %08x\n", *((volatile unsigned long *)0xbafe0900));
-*((volatile unsigned long *)0xbafe0900) |= 0x7fff;
-printk("$$$PBus stat after %08x\n", *((volatile unsigned long *)0xbafe0900));
-
-
-	*((volatile unsigned long *)PCI_CFG_STATUS_COMMAND) |= 0x07;
-	*((volatile unsigned long *)PCI_CFG_MEMORY_BASE_W) = 0x00000000;
-	*((volatile unsigned long *)PCI_CFG_CPU_2_PCI_MEM_WIN) = CPU2PCI_PCI_PHYS_MEM_WIN0_BASE;
-	*((volatile unsigned long *)PCI_CFG_CPU_2_PCI_IO_WIN) = 0x00000000;
-	//*((volatile unsigned long *)PCI_REG_PCI_CTRL) |= 0x04;
-
-#elif defined( CONFIG_MIPS_BCM7325A0)
-
-        local_init_tlb();
-
-#elif defined( CONFIG_MIPS_BCM7400D0) || defined( CONFIG_MIPS_BCM7405 ) \
-	|| defined(CONFIG_MIPS_BCM7335)
-
-	local_init_tlb();
-
-	// tht 3/01/07: The external PCI bus remains the same between 7400A0/7440A0-B0, 7400D0 and 7405A0.
-  
-#define MIPS_PCI_SATA_XCFG_INDEX     (0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)
-#define MIPS_PCI_SATA_XCFG_DATA      (0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)
-
-	// THT & Chanshine: Setup PCIX Bridge
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_REVISION)) = 0x100;     // 10500200H	
-
-DPRINTK("######### SUN_TOP_CTRL_SW_RESET @%08x = %08lx\n", 
-	0xb0000000+0x00404014, *((volatile unsigned long *)(0xb0000000+0x00404014)));
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_CTRL)) = 0x33;     // 10500204H=PERR|SERR|BM|MEM
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)) = 0x80000000|4; //10500208=4
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)) = 0x2100147;  //1050020c
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE)) = 1; //10500210
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE)) = 0; //10500214
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE)) = 0xb0510000; //10500218
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE)) = 0; //1050021c
-#else
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE)) = 2; //10500214
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE)) = 0xb0510002; //10500218
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE)) = 2; //1050021c
-#endif
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER)) = 0; //10500220
-
-
-DPRINTK("######### PCI-X Bridge RevID @%08x = %08lx\n", 
-	0xb0000000+BCHP_PCIX_BRIDGE_REVISION, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_REVISION)));
-DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_SATA_CFG_INDEX @%08x = %08lx\n", 
-	0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_INDEX)));
-DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_SATA_CFG_DATA @%08x = %08lx\n", 
-	0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_SATA_CFG_DATA)));
-DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE @%08x = %08lx\n", 
-	0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_BASE)));
-DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE @%08x = %08lx\n", 
-	0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_PCIX_SLV_MEM_WIN_MODE)));
-DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE @%08x = %08lx\n", 
-	0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE)));
-DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE @%08x = %08lx\n", 
-	0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE)));
-DPRINTK("######### PCI-X Bridge BCHP_PCIX_BRIDGE_RETRY_TIMER @%08x = %08lx\n", 
-	0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER, *((volatile unsigned long *)(0xb0000000+BCHP_PCIX_BRIDGE_RETRY_TIMER)));
-		
-
-
-		// do a pci config read.
-*((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX) = 0x80000000|PCI_DEV_NUM_SATA;
-	DPRINTK("$$$$$$$$$$SATA dev id @%08x = %08lx\n", MIPS_PCI_SATA_XCFG_DATA, *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_DATA));
-
-#if 0
-if (0) {
-	int i;
-	unsigned int addr;
-
-	for(i=0; i<16;i++) {
-	*((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX) = 0x80000000|i<<2; //PCI_DEV_NUM_SATA;
-	DPRINTK("$$$$$$$$$$SATA dev id[%d] @%08x = %08x\n", i, *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_INDEX), *((volatile unsigned long *)MIPS_PCI_SATA_XCFG_DATA));
-		}
-
-	for (addr=0xb0520000; addr<0xb052003c; addr+=4) {
-		DPRINTK("$$$$$$$$$$SATACFG[%08x] = %08x\n", addr, *((volatile unsigned long *) addr));
-	}
-}
-#endif	
-
-/**************************************************************************
- * External PCI, same as 7400A0
- ***************************************************************************/
-
-    
-// QY & THT: 11/13/03 This is here because CFE does not do it
-	// first set up pci host.
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_STATUS_COMMAND)) |= (PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0)) = CPU2PCI_PCI_PHYS_MEM_WIN0_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1)) = CPU2PCI_PCI_PHYS_MEM_WIN1_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2)) = CPU2PCI_PCI_PHYS_MEM_WIN2_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3)) = CPU2PCI_PCI_PHYS_MEM_WIN3_BASE;
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400000;
-#else
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400002;
-#endif
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_GISB_BASE_W)) = 0x10000000;
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W1)) = 0x08000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W2)) = 0x04000000;
-
-#ifndef CONFIG_CPU_LITTLE_ENDIAN
-	// TDT - Swap memory base w0 when running big endian
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		&= ~BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_MASK;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		|= 2<<BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_SHIFT;
-#endif
-
-	// do a pci config read.
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_1394;
-	DPRINTK("$$$$$$$$$$ 1394 dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_MINI;
-	DPRINTK("$$$$$$$$$$ mini slot dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
-	DPRINTK("$$$$$$$$$$ external dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
-
-#elif defined( CONFIG_MIPS_BCM7400A0) || defined( CONFIG_MIPS_BCM7440 )
-	local_init_tlb();
-	// THT Done in local_init_tlb write_c0_wired(17);
-    
-// QY & THT: 11/13/03 This is here because CFE does not do it
-	// first set up pci host.
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_STATUS_COMMAND)) |= (PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0)) = CPU2PCI_PCI_PHYS_MEM_WIN0_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1)) = CPU2PCI_PCI_PHYS_MEM_WIN1_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2)) = CPU2PCI_PCI_PHYS_MEM_WIN2_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3)) = CPU2PCI_PCI_PHYS_MEM_WIN3_BASE;
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400000;
-#else
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400002;
-#endif
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_GISB_BASE_W)) = 0x10000000;
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W1)) = 0x08000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W2)) = 0x04000000;
-
-#ifndef CONFIG_CPU_LITTLE_ENDIAN
-	// TDT - Swap memory base w0 when running big endian
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		&= ~BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_MASK;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		|= 2<<BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_SHIFT;
-#endif
-
-	// do a pci config read.
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_1394;
-	printk("$$$$$$$$$$ 1394 dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_MINI;
-	printk("$$$$$$$$$$ mini slot dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
-	printk("$$$$$$$$$$ external dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
-
-/* 2nd PCI Bridge for SATA on 7038C0 */
-/*
- * Set BCM7038 PCI Bus Bridge Command
- */
-#if	defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
-
-#ifdef	CONFIG_MIPS_BCM7118
-	if( bcm7118_boardtype == 1)
-	goto done2;
-#endif	/* CONFIG_MIPS_BCM7118A0 */
-
-//#define PCI_BUS_MASTER  BCHP_PCI_CFG_STATUS_COMMAND_BUS_MASTER_MASK
-//#define PCI_IO_ENABLE   BCHP_PCI_CFG_STATUS_COMMAND_MEMORY_SPACE_MASK
-//#define PCI_MEM_ENABLE  BCHP_PCI_CFG_STATUS_COMMAND_IO_SPACE_MASK
-
-#define BCHP_SATA_PHYSICAL_OFFSET         0x10500000
-#define BCHP_SATA_KSEG1_OFFSET			KSEG1ADDR(BCHP_SATA_PHYSICAL_OFFSET)
-
-#define BCHP_SATA_PCI_BRIDGE_PCI_CTRL     0x200
-#define PCI_SATA_MEM_ENABLE               1
-#define PCI_SATA_BUS_MASTER_ENABLE        2
-#define PCI_SATA_PERR_ENABLE              0x10
-#define PCI_SATA_SERR_ENABLE              0x20
-
-	// first set up pci host.
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_SATA_PCI_BRIDGE_PCI_CTRL)) |=
-		(PCI_SATA_MEM_ENABLE|PCI_SATA_BUS_MASTER_ENABLE|PCI_SATA_PERR_ENABLE|PCI_SATA_SERR_ENABLE);
-
-	 /************************************************
-	  * Configure 7038C0 PCI config registers
-	  ************************************************/
-
-#define  BCHP_PCI_SATA_CFG_SLV_MEMORY_BASE_W0 0x20c
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_SLV_MEMORY_BASE_W0)) 
-		= PCI_7401_PHYS_MEM_WIN0_BASE;
-#else
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_SLV_MEMORY_BASE_W0)) 
-		= PCI_7401_PHYS_MEM_WIN0_BASE | 2;
-#endif
-
-	/************************************************
-    * Configure MIPS to PCI bridge.  
-    ************************************************/
-#define BCHP_PCI_SATA_CFG_CPU_2_PCI_MEM_WIN0 0x210
-#define BCHP_PCI_SATA_CFG_CPU_2_PCI_IO_WIN0  0x214
-
-#define CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE  0x10510000
-
-// THT: For version 3 of the SATA bridge, the Win Base address must be the KSEG1 address.
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
- 	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_MEM_WIN0)) 
- 		= KSEG1ADDR(CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE);
- 	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_IO_WIN0)) 
- 		= 0;
-
-#else
-
-/* Using little endian byte order on disk */
-	*((volatile unsigned long *) (BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_MEM_WIN0))
-		= KSEG1ADDR(CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE | 0);
-	
-
-
- /* DW swap */
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_IO_WIN0))
-		= 2;
-
-#endif // ifdef Little Endian
-
-		// do a pci config read.
-	*((volatile unsigned long *)0xb0500204) = PCI_DEV_NUM_SATA;
-	printk("$$$$$$$$$$SATA dev id %08lx\n", *((volatile unsigned long *)0xb0500208));
-#endif /* CONFIG_SATA_SVW */
-	
-done2:
-
-#elif ((defined( CONFIG_MIPS_BCM7401) || defined( CONFIG_MIPS_BCM7402A0) \
-     || defined( CONFIG_MIPS_BCM7402C0 ) || defined(CONFIG_MIPS_BCM7118) \
-     || defined( CONFIG_MIPS_BCM7403)) && !defined( CONFIG_BRCM_PCI_SLAVE ))
-	local_init_tlb();
-	// THT Done in local_init_tlb write_c0_wired(17);
-    
-// QY & THT: 11/13/03 This is here because CFE does not do it
-	// first set up pci host.
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_STATUS_COMMAND)) |= (PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0)) = CPU2PCI_PCI_PHYS_MEM_WIN0_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1)) = CPU2PCI_PCI_PHYS_MEM_WIN1_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2)) = CPU2PCI_PCI_PHYS_MEM_WIN2_BASE;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3)) = CPU2PCI_PCI_PHYS_MEM_WIN3_BASE;
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400000;
-#else
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0)) = 0x00000002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1)) = 0x00200002;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2)) = 0x00400002;
-#endif
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_GISB_BASE_W)) = 0x10000000;
-
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W0)) = 0x00000000;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W1)) = 0x08000000;
-	//*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_MEMORY_BASE_W2)) = 0x04000000;
-
-#ifndef CONFIG_CPU_LITTLE_ENDIAN
-	// TDT - Swap memory base w0 when running big endian
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		&= ~BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_MASK;
-	*((volatile unsigned long *)(0xb0000000+BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL))
-		|= 2<<BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL_ENDIAN_MODE_MWIN0_SHIFT;
-#endif
-
-	// do a pci config read.
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_1394;
-	printk("$$$$$$$$$$ 1394 dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_MINI;
-	printk("$$$$$$$$$$ mini slot dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
-	*((volatile unsigned long *)0xf0600004) = PCI_DEV_NUM_EXT;
-	printk("$$$$$$$$$$ external dev id %08lx\n", *((volatile unsigned long *)0xf0600008));
-
-/* 2nd PCI Bridge for SATA on 7038C0 */
-/*
- * Set BCM7038 PCI Bus Bridge Command
- */
-
-#if	defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
-
-#ifdef	CONFIG_MIPS_BCM7118
-	if( bcm7118_boardtype == 1)
-	goto done3;
-#endif	/* CONFIG_MIPS_BCM7118A0 */
-
-//#define PCI_BUS_MASTER  BCHP_PCI_CFG_STATUS_COMMAND_BUS_MASTER_MASK
-//#define PCI_IO_ENABLE   BCHP_PCI_CFG_STATUS_COMMAND_MEMORY_SPACE_MASK
-//#define PCI_MEM_ENABLE  BCHP_PCI_CFG_STATUS_COMMAND_IO_SPACE_MASK
-
-#define BCHP_SATA_PHYSICAL_OFFSET         0x10500000
-#define BCHP_SATA_KSEG1_OFFSET			KSEG1ADDR(BCHP_SATA_PHYSICAL_OFFSET)
-
-#define BCHP_SATA_PCI_BRIDGE_PCI_CTRL     0x200
-#define PCI_SATA_MEM_ENABLE               1
-#define PCI_SATA_BUS_MASTER_ENABLE        2
-#define PCI_SATA_PERR_ENABLE              0x10
-#define PCI_SATA_SERR_ENABLE              0x20
-
-	// first set up pci host.
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_SATA_PCI_BRIDGE_PCI_CTRL)) |=
-		(PCI_SATA_MEM_ENABLE|PCI_SATA_BUS_MASTER_ENABLE|PCI_SATA_PERR_ENABLE|PCI_SATA_SERR_ENABLE);
-
-	 /************************************************
-	  * Configure 7038C0 PCI config registers
-	  ************************************************/
-
-#define  BCHP_PCI_SATA_CFG_SLV_MEMORY_BASE_W0 0x20c
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_SLV_MEMORY_BASE_W0)) 
-		= PCI_7401_PHYS_MEM_WIN0_BASE;
-#else
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_SLV_MEMORY_BASE_W0)) 
-		= PCI_7401_PHYS_MEM_WIN0_BASE | 2;
-#endif
-
-/************************************************
-* Configure MIPS to PCI bridge.  
-************************************************/
-#define BCHP_PCI_SATA_CFG_CPU_2_PCI_MEM_WIN0 0x210
-#define BCHP_PCI_SATA_CFG_CPU_2_PCI_IO_WIN0  0x214
-
-#define CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE  0x10510000
-
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
- 	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_MEM_WIN0)) 
- 		= CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE;
- 	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_IO_WIN0)) 
- 		= 0;
-
-#else
-	*((volatile unsigned long *) (BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_MEM_WIN0))
-		= CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE | CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN;
-
- /* DW swap */
-	*((volatile unsigned long *)(BCHP_SATA_KSEG1_OFFSET+BCHP_PCI_SATA_CFG_CPU_2_PCI_IO_WIN0))
-		= 2;
-
-#endif // ifdef Little Endian
-
-	// do a pci config read.
-	*((volatile unsigned long *)0xb0500204) = PCI_DEV_NUM_SATA;
-	printk("$$$$$$$$$$SATA dev id %08lx\n", *((volatile unsigned long *)0xb0500208));
-
-  #endif /* CONFIG_SATA_SVW */
-#endif /* 7401 */
-
-#ifdef	CONFIG_MIPS_BCM7118
-done3:
-#endif
 	build_tlb_refill_handler();
 }

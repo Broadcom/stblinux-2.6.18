@@ -41,20 +41,14 @@
 #include <linux/rtnetlink.h>	
 #endif	
 
-#undef DEV_RD
-#undef DEV_WR
-#define DEV_RD(x) (*((volatile uint32_t *)(KSEG1ADDR((x) + BCHP_PHYSICAL_OFFSET))))
-#define DEV_WR(x,y) do \
-	{ *((volatile uint32_t *)(KSEG1ADDR((x) + \
-		                  BCHP_PHYSICAL_OFFSET))) = (y); } while(0)
-
 /*---------------------------------------------------------------------*/
 /* specify number of BDs and buffers to use                            */
 /*---------------------------------------------------------------------*/
 #if defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7402C0 )  \
     || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400D0 ) \
     || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405 ) \
-    || defined( CONFIG_MIPS_BCM7325A0 ) || defined( CONFIG_MIPS_BCM7335 )
+    || defined( CONFIG_MIPS_BCM7325A0 ) || defined( CONFIG_MIPS_BCM7335 ) \
+    || defined( CONFIG_MIPS_BCM3548 )
 
 #define TOTAL_DESC				256		/* total number of Buffer Descriptors */
 #define RX_RATIO				1/2		/* ratio of RX descriptors number in total */
@@ -88,12 +82,13 @@
 	|| defined( CONFIG_MIPS_BCM7402S ) || defined( CONFIG_MIPS_BCM7440 ) \
         || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 ) \
 	|| defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7325A0 ) \
-	|| defined( CONFIG_MIPS_BCM7335 )
+	|| defined( CONFIG_MIPS_BCM7335 ) || defined( CONFIG_MIPS_BCM3548 )
 
 #if defined( CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7402C0 ) \
     || defined( CONFIG_MIPS_BCM7403A0 ) || defined( CONFIG_MIPS_BCM7400D0 ) \
     || defined( CONFIG_MIPS_BCM7452A0 ) || defined( CONFIG_MIPS_BCM7405 ) \
-    || defined( CONFIG_MIPS_BCM7325A0 ) || defined( CONFIG_MIPS_BCM7335 )
+    || defined( CONFIG_MIPS_BCM7325A0 ) || defined( CONFIG_MIPS_BCM7335 ) \
+    || defined( CONFIG_MIPS_BCM3548 )
  
 #define EMAC_RX_DESC_OFFSET   	0x2800	/* MAC DMA Rx Descriptor word */
 #else

@@ -47,6 +47,7 @@
 #define CONFIG_MTD_BRCMNAND_VERS_2_0		3
 #define CONFIG_MTD_BRCMNAND_VERS_2_1		4
 #define CONFIG_MTD_BRCMNAND_VERS_2_2		5
+#define CONFIG_MTD_BRCMNAND_VERS_3_0		6
 
 #define BRCMNAND_VERSION(major, minor)	((major<<8) | minor)
 

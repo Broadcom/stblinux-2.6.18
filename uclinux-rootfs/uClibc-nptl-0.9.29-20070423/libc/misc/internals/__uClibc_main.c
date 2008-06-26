@@ -52,6 +52,8 @@ extern __typeof(open) __libc_open;
 libc_hidden_proto(__libc_open)
 extern __typeof(fcntl) __libc_fcntl;
 libc_hidden_proto(__libc_fcntl)
+
+extern void internal_function _dl_aux_init(ElfW(auxv_t) *);
 #endif
 
 #ifndef SHARED
@@ -92,6 +94,7 @@ extern void weak_function _locale_init(void) attribute_hidden;
 #endif
 #ifdef __UCLIBC_HAS_THREADS__
 extern void weak_function __pthread_initialize_minimal(void);
+extern void ____pthread_initialize_minimal(void);
 #endif
 
 #ifdef __UCLIBC_CTOR_DTOR__
@@ -124,7 +127,7 @@ strong_alias (__progname_full, program_invocation_name)
  * environ symbol is also included.
  */
 char **__environ = 0;
-strong_alias(__environ,environ)
+weak_alias(__environ, environ)
 
 /* TODO: don't export __pagesize; we cant now because libpthread uses it */
 size_t __pagesize = 0;
@@ -210,7 +213,11 @@ void __uClibc_init(void)
      * whenever they are needed.
      */
     if (likely(__pthread_initialize_minimal!=NULL))
-	__pthread_initialize_minimal();
+	    __pthread_initialize_minimal();
+#ifndef SHARED
+    else
+	    ____pthread_initialize_minimal();
+#endif
 #endif
 
 #ifndef SHARED
@@ -317,6 +324,12 @@ void __uClibc_main(int (*main)(int, char **, char **), int argc,
 	aux_dat++;
     }
     aux_dat++;
+#ifndef SHARED
+	extern char *_dl_argv0;
+    _dl_aux_init((ElfW(auxv_t) *)aux_dat);
+	if(argc)
+		_dl_argv0 = argv[0];
+#endif
     while (*aux_dat) {
 	ElfW(auxv_t) *auxv_entry = (ElfW(auxv_t) *) aux_dat;
 	if (auxv_entry->a_type <= AT_EGID) {

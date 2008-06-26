@@ -115,6 +115,14 @@ SECTIONS
   .con_initcall.init : { *(.con_initcall.init) }
   __con_initcall_end = .;
   SECURITY_INIT
+    /* .exit.text is discarded at runtime, not link time, to deal with
+     references from .rodata */
+  .exit.text : { *(.exit.text) }
+  .exit.data : { *(.exit.data) }
+  . = ALIGN(_PAGE_SIZE);
+  __initramfs_start = .;
+  .init.ramfs : { *(.init.ramfs) }
+  __initramfs_end = .;
   . = ALIGN(32);
   __per_cpu_start = .;
   .data.percpu  : { *(.data.percpu) }
@@ -122,12 +130,6 @@ SECTIONS
   . = ALIGN(_PAGE_SIZE);
   __init_end = .;
   /* freed after init ends here */
-  /* THT Moved down here to avoid double free */
-    . = ALIGN(4096);
-  __initramfs_start = .;
-  .init.ramfs : { *(.init.ramfs) }
-    . = ALIGN(4096);
-  __initramfs_end = .;
 
   __bss_start = .;		/* BSS */
   .sbss      : {
@@ -144,8 +146,6 @@ SECTIONS
 
   /* Sections to be discarded */
   /DISCARD/ : {
-        *(.exit.text)
-        *(.exit.data)
         *(.exitcall.exit)
 
 	/* ABI crap starts here */

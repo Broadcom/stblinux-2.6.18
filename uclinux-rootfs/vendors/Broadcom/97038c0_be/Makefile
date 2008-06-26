@@ -83,7 +83,7 @@ ifdef CONFIG_SQUASHFS
 FSIMG += $(SQUASHFSIMG)
 endif
 ifdef CONFIG_OPROFILE
-BMIPS_DIR=mips/bcm7038
+BMIPS_DIR=mips/bcm3300
 TARGET_PREFIX=/usr/local/share/oprofile/
 BUILD_PREFIX=$(ROOTDIR)/romfs/$(TARGET_PREFIX)
 OPROFILE_DIR=$(ROOTDIR)/user/oprofile
@@ -177,7 +177,7 @@ ifdef CONFIG_USER_XFS_XFSPROGS
 endif
 	sed "s,@VERSION@,$(VERSION),g" usr/sbin/stbutil$(PLATSUF) | \
 		sed "s,@PLATFORM@,$(PLATFORM),g" | \
-	    sed "s,ENDIAN=,ENDIAN=_be,g" > $(ROMFSDIR)/usr/sbin/stbutil$(PLATSUF)
+	    sed "s,@ENDIAN@,_be,g" > $(ROMFSDIR)/usr/sbin/stbutil$(PLATSUF)
 	sed 's,###mount,mount,g' etc/init.d/rcS > $(ROMFSDIR)/var/tmp/rcS.hd
 	chmod +x $(ROMFSDIR)/usr/sbin/stbutil$(PLATSUF)
 	cp -f usr/sbin/usbhd* usr/sbin/cdrom* $(ROMFSDIR)/usr/sbin/

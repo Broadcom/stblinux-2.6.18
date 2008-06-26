@@ -43,6 +43,9 @@ when	who what
 #include <linux/mtd/brcmnand.h>
 #include "brcmnand_priv.h"
 
+#define PRINTK(...)
+//#define PRINTK printk
+
 #define DRIVER_NAME	"bcm7xxx-nand"
 #define DRIVER_INFO "Broadcom STB NAND controller"
 
@@ -60,37 +63,48 @@ when	who what
  *	1ff0_0000	1fff_ffff		1MB=8x128k 	BBT/or res	Linux RW -- if fsize <=512MB
  *	1fe0_0000	1fef_ffff		1MB=8x128k	nvm 		CFE, RO for Linux
  *	1fc0_0000	1fdf_ffff		2MB			CFE			CFE
+ *
+ *    [Optional] 1MB splash screen image partition carved out from the partition immediately 
+ *	preceding the CFE partition when bcmsplash=1
+ *    
  *	1f80_0000	1fbf_ffff		4MB			Linux Kernel	CFE
  *	start of flash	1f7f_ffff		flashSize-8MB	rootfs		Linux File System
  */
 #define SMALLEST_FLASH_SIZE	(16<<20)
-#define DEFAULT_RESERVED_SIZE (8<<20) 
+#define DEFAULT_RESERVED_SIZE 	(8<<20) 
+#define DEFAULT_SPLASH_SIZE 	(1<<20)
 
 #ifdef CONFIG_MTD_ECM_PARTITION
 #define DEFAULT_OCAP_SIZE	(6<<20)
 #define DEFAULT_AVAIL1_SIZE (32<<20)
 #define DEFAULT_ECM_SIZE (DEFAULT_OCAP_SIZE+DEFAULT_AVAIL1_SIZE)
+#define AVAIL1_PART	(1)
+#define OCAP_PART	(2)
 #else
 #define DEFAULT_ECM_SIZE	(0)
 #define DEFAULT_OCAP_SIZE	(0)
 #define DEFAULT_AVAIL1_SIZE	(0)
+#define AVAIL1_PART	(-1)
+#define OCAP_PART	(-1)
 #endif
 #define DEFAULT_ROOTFS_SIZE (SMALLEST_FLASH_SIZE - DEFAULT_RESERVED_SIZE - DEFAULT_ECM_SIZE)
 
 static struct mtd_partition bcm7XXX_nand_parts[] = 
 {
+#define ROOTFS_PART	(0)
 	{ name: "rootfs",		offset: 0,					size: DEFAULT_ROOTFS_SIZE },	
 #ifdef CONFIG_MTD_ECM_PARTITION
-#define AVAIL1_PART	(1)
-#define OCAP_PART	(2)
 	{ name: "avail1",		offset: DEFAULT_ROOTFS_SIZE,	size: DEFAULT_AVAIL1_SIZE },
-	{ name: "ocap",		offset: DEFAULT_ROOTFS_SIZE+DEFAULT_AVAIL1_SIZE,	size: DEFAULT_OCAP_SIZE },	
+	{ name: "ocap",		offset: DEFAULT_ROOTFS_SIZE+DEFAULT_AVAIL1_SIZE,	size: DEFAULT_OCAP_SIZE },
 #endif
 	{ name: "kernel",	offset: 0x00800000,			size: 4<<20 },
 	{ name: "cfe",		offset: 0x00C00000,			size: 2<<20 },
 	{ name: "nvm",		offset: 0x00E00000,			size: 1<<20 },
 	/* BBT 1MB not mountable by anyone */
 	{ name: "data", 	offset: 0x20000000,		size: 0 },
+/* Add 1 extra place-holder partition for splash, and a safety guard element */
+	{name: NULL, offset: 0, size: 0},
+	{name: NULL, offset: 0, size: 0}
 };
 
 struct brcmnand_info {
@@ -99,6 +113,8 @@ struct brcmnand_info {
 	struct brcmnand_chip	brcmnand;
 };
 static struct brcmnand_info *info;
+
+extern int gBcmSplash;
 
 void* get_brcmnand_handle(void)
 {
@@ -126,11 +142,12 @@ brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo, int *numParts)
 	if (mtd->size <= (512<<20)) {
 		size = mtd->size;	// mtd->size may be different than nandinfo->size
 						// Relies on this being called after brcmnand_scan
-		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts) - 1;
+		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts) - 3; /* take into account the extra 2 parts
+															and the data partition */
 	}
 	else {
 		size = 512 << 20;
-		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts);
+		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts) - 2; // take into account the extra 2 parts
 	}
 
 #ifdef CONFIG_MTD_ECM_PARTITION
@@ -152,10 +169,10 @@ brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo, int *numParts)
 	nandinfo->parts = bcm7XXX_nand_parts;
 	bcm7XXX_nand_parts[0].size = size - DEFAULT_RESERVED_SIZE - ecm_size;
 	bcm7XXX_nand_parts[0].ecclayout = mtd->ecclayout;
-printk("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm7XXX_nand_parts[0].name, 
+PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm7XXX_nand_parts[0].name, 
 bcm7XXX_nand_parts[0].size, bcm7XXX_nand_parts[0].offset);
 
-	for (i=1; i<ARRAY_SIZE(bcm7XXX_nand_parts) - 1; i++) {
+	for (i=1; i<(*numParts); i++) {
 #ifdef CONFIG_MTD_ECM_PARTITION
 		//if (0 == bcm7XXX_nand_parts[i].size)
 		//	continue;
@@ -165,10 +182,11 @@ bcm7XXX_nand_parts[0].size, bcm7XXX_nand_parts[0].offset);
 			continue;
 		}
 #endif
+
 		bcm7XXX_nand_parts[i].offset = bcm7XXX_nand_parts[i-1].size + bcm7XXX_nand_parts[i-1].offset;
 		// For now every partition uses the same oobinfo
 		bcm7XXX_nand_parts[i].ecclayout = mtd->ecclayout;
-printk("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm7XXX_nand_parts[i].name, 
+PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm7XXX_nand_parts[i].name, 
 bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
 	}
 
@@ -179,10 +197,10 @@ bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
 		bcm7XXX_nand_parts[i].size = mtd->size - (513 << 20);
 		bcm7XXX_nand_parts[i].ecclayout = &mtd->ecclayout;
 #ifdef CONFIG_MTD_ECM_PARTITION
-printk("Part[%d] name=%s, size=%x, offset=%x\n", avail1_size? i: i-1, bcm7XXX_nand_parts[i].name, 
+PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", avail1_size? i: i-1, bcm7XXX_nand_parts[i].name, 
 bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
 #else
-printk("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm7XXX_nand_parts[i].name, 
+PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm7XXX_nand_parts[i].name, 
 bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
 #endif
 
@@ -199,6 +217,78 @@ bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
 		bcm7XXX_nand_parts[*numParts].size = 0;
 	}
 #endif
+
+#if 0
+		/*
+		 * Carve out 1MB for splash partition from previous partition,
+		 * and inssert 1 partition of 1MB immediately above CFE.
+		 */
+		if (gBcmSplash && 0 == strcmp("cfe", bcm7XXX_nand_parts[i].name)) {
+			int j;
+
+			/* i now points to the CFE partition */
+			bcm7XXX_nand_parts[i-1].size -= DEFAULT_SPLASH_SIZE;
+			
+			/* Move CFE and any partition that follows one down */
+			for (j=ARRAY_SIZE(bcm7XXX_nand_parts) - 1; j >= i; j--) {
+				bcm7XXX_nand_parts[j+1] = bcm7XXX_nand_parts[j];
+			}	
+			(*numParts)++;
+
+			bcm7XXX_nand_parts[i].offset = bcm7XXX_nand_parts[i-1].size + bcm7XXX_nand_parts[i-1].offset;
+			bcm7XXX_nand_parts[i].size = DEFAULT_SPLASH_SIZE;
+			bcm7XXX_nand_parts[i].name = "splash";
+			bcm7XXX_nand_parts[i].ecclayout = mtd->ecclayout;
+			
+			i++;
+			/* i now points to the CFE partition which has been moved */
+		}
+#endif
+
+	if (gBcmSplash) {		
+PRINTK("In bcmSplash, numParts=%d\n", *numParts);
+		for (i=0; i<*numParts; i++) {
+	PRINTK("bcm7xxx-nand.c: i=%d\n", i);
+	PRINTK("B4 Part[%d] name=%s, size=%x, offset=%x\n",  i, 
+	bcm7XXX_nand_parts[i].name, bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
+			
+
+			/* we will carve out 512KB from avail1 partition if it exists, or rootfs otherwise */
+			if ((avail1_size && i == AVAIL1_PART) || (avail1_size == 0 && i == ROOTFS_PART)) {
+				int j;
+
+				/* i now points to the avail1 and/or rootfs partition */
+				bcm7XXX_nand_parts[i].size -= DEFAULT_SPLASH_SIZE;
+				if (i > 0) {
+					bcm7XXX_nand_parts[i].offset = bcm7XXX_nand_parts[i-1].size + bcm7XXX_nand_parts[i-1].offset;
+				}
+				else {
+					bcm7XXX_nand_parts[i].offset = 0;
+				}
+				
+				/* Move all partitions that follow one down */
+				for (j=*numParts - 1; j > i; j--) {
+					bcm7XXX_nand_parts[j+1] = bcm7XXX_nand_parts[j];
+	PRINTK("Moved partition[%d] down to [%d], name=%s\n", j, j+1, bcm7XXX_nand_parts[j+1].name);
+				}	
+				(*numParts)++;
+				
+	PRINTK("original: #parts=%d, Part[%d] name=%s, size=%x, offset=%x\n", *numParts,  i, 
+bcm7XXX_nand_parts[i].name, bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
+
+				i++;
+				/* i now points to the newly created splash partition */
+
+				bcm7XXX_nand_parts[i].offset = bcm7XXX_nand_parts[i-1].size + bcm7XXX_nand_parts[i-1].offset;
+				bcm7XXX_nand_parts[i].size = DEFAULT_SPLASH_SIZE;
+				bcm7XXX_nand_parts[i].name = "splash";
+	PRINTK("splash: #parts=%d, Part[%d] name=%s, size=%x, offset=%x\n", *numParts,  i, 
+bcm7XXX_nand_parts[i].name, bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
+			}
+
+		}
+	}
+
 }
 
 static int __devinit brcmnanddrv_probe(struct device *dev)
@@ -298,6 +388,11 @@ static int __init brcmnanddrv_init(void)
 	struct resource devRes[1];
 	struct platform_device* pdev;
 	unsigned long get_RAM_size(void);
+
+#ifdef CONFIG_MIPS_BCM3548
+	printk("brcmnand: not supported for 3548 in this release, exiting\n");
+	return(-ENODEV);
+#endif
 	
 	printk (DRIVER_INFO " (BrcmNand Controller)\n");
 

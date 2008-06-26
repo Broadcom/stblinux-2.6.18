@@ -353,11 +353,28 @@ int conf_read(const char *name)
 		if (!sym_is_choice(sym))
 			continue;
 		prop = sym_get_choice_prop(sym);
-		flags = sym->flags;
-		for (e = prop->expr; e; e = e->left.expr)
-			if (e->right.sym->visible != no)
-				flags &= e->right.sym->flags;
-		sym->flags &= flags | ~SYMBOL_DEF_USER;
+
+		/*
+		 * default behavior: if any of the choices is missing,
+		 * clear the SYMBOL_DEF_USER bit so that the user is prompted
+		 *
+		 * nonag behavior: if any of the choices is present,
+		 * set the SYMBOL_DEF_USER bit so that the user isn't prompted
+		 */
+		if(sym->flags & SYMBOL_NONAG) {
+			sym->flags &= ~SYMBOL_DEF_USER;
+			flags = sym->flags;
+			for (e = prop->expr; e; e = e->left.expr)
+				if (e->right.sym->visible != no)
+					flags |= e->right.sym->flags;
+			sym->flags |= flags & SYMBOL_DEF_USER;
+		} else {
+			flags = sym->flags;
+			for (e = prop->expr; e; e = e->left.expr)
+				if (e->right.sym->visible != no)
+					flags &= e->right.sym->flags;
+			sym->flags &= flags | ~SYMBOL_DEF_USER;
+		}
 	}
 
 	sym_change_count += conf_warnings || conf_unsaved;

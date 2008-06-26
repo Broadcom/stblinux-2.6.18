@@ -579,7 +579,7 @@ void __init arch_init_irq(void)
 #endif
 
 	/* Install all the 7xxx IRQs */
-	for (irq = 1; irq <= 96; irq++) 
+	for (irq = 1; irq <= L1_IRQS; irq++) 
 	{
 		irq_desc[irq].status = IRQ_DISABLED;
 		irq_desc[irq].action = 0;
@@ -603,9 +603,15 @@ void __init arch_init_irq(void)
 	set_c0_status(STATUSF_IP2);
 
 	/* enable L2 interrupts for UARTA, B, C */
+#ifdef CONFIG_MIPS_BCM3548
+        BDEV_SET(BCHP_IRQ0_UART_IRQEN, BCHP_IRQ0_UART_IRQEN_uarta_MASK |
+        BCHP_IRQ0_UART_IRQEN_uartb_MASK |
+        BCHP_IRQ0_UART_IRQEN_uartc_MASK);
+#else
 	BDEV_SET(BCHP_IRQ0_IRQEN, BCHP_IRQ0_IRQEN_uarta_irqen_MASK |
 		BCHP_IRQ0_IRQEN_uartb_irqen_MASK |
 		BCHP_IRQ0_IRQEN_uartc_irqen_MASK);
+#endif
 }
 
 asmlinkage void plat_irq_dispatch(struct pt_regs *regs)

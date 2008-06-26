@@ -296,8 +296,8 @@ static void brcm_pcibios_fixup_SATA(struct pci_dev *dev)
 	 * have no intention of using it
 	 */
 	size = PCI_SATA_PHYS_MEM_WIN5_SIZE;
-	//regData = (CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE + size -1) & ~(size-1); 
-	regData = KSEG1ADDR((CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE + size -1) & ~(size-1));
+	regData = (CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE + size -1) & ~(size-1); 
+	//regData = KSEG1ADDR((CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE + size -1) & ~(size-1));
 	dev->resource[5].start = regData;
 	dev->resource[5].end = regData +size-1;
 	//dev->resource[5].flags = IORESOURCE_MEM;

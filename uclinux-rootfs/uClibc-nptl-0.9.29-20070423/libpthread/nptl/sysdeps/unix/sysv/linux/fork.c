@@ -124,7 +124,7 @@ pid_t __libc_fork (void)
 #ifdef __USE_STDIO_FUTEXES__
   _IO_lock_lock (_stdio_openlist_lock);
 #else
-  __pthread_mutex_lock(&_stdio_openlist_lock);
+  __PTHREAD_MUTEX_LOCK(&_stdio_openlist_lock);
 #endif
 
 #ifndef NDEBUG
@@ -208,7 +208,7 @@ pid_t __libc_fork (void)
 #ifdef __USE_STDIO_FUTEXES__
       _IO_lock_unlock(_stdio_openlist_lock);
 #else
-      __pthread_mutex_unlock(&_stdio_openlist_lock);
+      __PTHREAD_MUTEX_UNLOCK(&_stdio_openlist_lock);
 #endif
 
       /* Run the handlers registered for the parent.  */

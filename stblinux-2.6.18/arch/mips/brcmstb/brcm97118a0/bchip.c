@@ -77,4 +77,6 @@ int rac_setting(int value)
 			*((volatile unsigned long *)RAC_ADDRESS_RANGE_REGISTER));
 
 	uart_puts(msg);
+
+	return(0);
 }

@@ -30,6 +30,7 @@
 #include "ldso.h"
 
 extern int _dl_runtime_resolve(void);
+extern int _dl_linux_resolve(void);
 
 #define OFFSET_GP_GOT 0x7ff0
 
@@ -83,6 +84,52 @@ unsigned long __dl_runtime_resolve(unsigned long sym_index,
 	return new_addr;
 }
 
+unsigned long
+_dl_linux_resolver(struct elf_resolve *tpnt, int reloc_entry)
+{
+	int reloc_type;
+	ELF_RELOC *this_reloc;
+	char *strtab;
+	ElfW(Sym) *symtab;
+	int symtab_index;
+	char *rel_addr;
+	char *new_addr;
+	char **got_addr;
+	unsigned long instr_addr;
+	char *symname;
+
+	rel_addr = (char *)tpnt->dynamic_info[DT_JMPREL];
+	this_reloc = (ELF_RELOC *)(rel_addr) + reloc_entry;
+	reloc_type = ELF_R_TYPE(this_reloc->r_info);
+	symtab_index = ELF_R_SYM(this_reloc->r_info);
+
+	reloc_type = ELF_R_TYPE(this_reloc->r_info);
+	symtab_index = ELF_R_SYM(this_reloc->r_info);
+
+	symtab = (ElfW(Sym) *)(intptr_t)tpnt->dynamic_info[DT_SYMTAB];
+	strtab = (char *)tpnt->dynamic_info[DT_STRTAB];
+	symname = strtab + symtab[symtab_index].st_name;
+
+	/* Address of the .got.plt entry to fix up. */
+	instr_addr = (unsigned long)this_reloc->r_offset;
+	got_addr = (char **)instr_addr;
+
+	/* Get the new value of the GOT entry. */
+	new_addr = _dl_find_hash(symname, tpnt->symbol_scope, tpnt, ELF_RTYPE_CLASS_PLT);
+	if (unlikely(!new_addr)) {
+		_dl_dprintf(2, "%s: can't resolve symbol '%s' in lib '%s'.\n", _dl_progname, symname, tpnt->libname);
+		_dl_exit(1);
+	}
+
+#if defined (__SUPPORT_LD_DEBUG__)
+#error "not implemented"
+#else
+	*got_addr = new_addr;
+#endif
+
+	return (unsigned long)new_addr;
+}
+
 void _dl_parse_lazy_relocation_information(struct dyn_elf *rpnt,
 	unsigned long rel_addr, unsigned long rel_size)
 {
@@ -119,7 +166,6 @@ int _dl_parse_relocation_information(struct dyn_elf *xpnt,
 			(unsigned long) rpnt->r_offset);
 		reloc_type = ELF32_R_TYPE(rpnt->r_info);
 		symtab_index = ELF32_R_SYM(rpnt->r_info);
-		symbol_addr = 0;
 
 		debug_sym(symtab,strtab,symtab_index);
 		debug_reloc(symtab,strtab,rpnt);
@@ -200,6 +246,35 @@ _dl_dprintf(2, "TLS_TPREL  : %s, %x, %x\n", (strtab + symtab[symtab_index].st_na
 			break;
 		case R_MIPS_NONE:
 			break;
+		case R_MIPS_JUMP_SLOT:
+			if (symtab_index) {
+				*reloc_addr = (unsigned long)_dl_find_hash(
+					strtab + symtab[symtab_index].st_name,
+					xpnt->dyn->symbol_scope, tpnt,
+					ELF_RTYPE_CLASS_PLT);
+			} else {
+				*reloc_addr = 0;
+			}
+			break;
+		case R_MIPS_COPY:
+			symbol_addr = (unsigned long)_dl_find_hash(
+					strtab + symtab[symtab_index].st_name,
+					xpnt->dyn->symbol_scope, tpnt,
+					ELF_RTYPE_CLASS_COPY);
+			if (symbol_addr) {
+#if defined (__SUPPORT_LD_DEBUG__)
+				if (_dl_debug_move)
+					_dl_dprintf(_dl_debug_file,
+						    "\n%s move %d bytes from %x to %x",
+						    strtab + symtab[symtab_index].st_name,
+						    symtab[symtab_index].st_size,
+						    symbol_addr, reloc_addr);
+#endif
+				_dl_memcpy((char *)reloc_addr,
+					   (char *)symbol_addr,
+					   symtab[symtab_index].st_size);
+			}
+			break;
 		default:
 			{
 				_dl_dprintf(2, "\n%s: ",_dl_progname);
@@ -254,21 +329,31 @@ void _dl_perform_mips_global_got_relocations(struct elf_resolve *tpnt, int lazy)
 		/* Relocate the global GOT entries for the object */
 		while (i--) {
 			if (sym->st_shndx == SHN_UNDEF) {
-				if (ELF32_ST_TYPE(sym->st_info) == STT_FUNC && sym->st_value && tmp_lazy) {
-					*got_entry = sym->st_value + (unsigned long) tpnt->loadaddr;
+				if (ELF32_ST_TYPE(sym->st_info) == STT_FUNC && sym->st_value) {
+					if (tmp_lazy)
+						*got_entry = sym->st_value + (unsigned long) tpnt->loadaddr;
+					else
+						*got_entry = (unsigned long) _dl_find_hash(strtab +
+							sym->st_name, tpnt->symbol_scope, tpnt,
+							ELF_RTYPE_CLASS_PLT);
 				}
 				else {
 					*got_entry = (unsigned long) _dl_find_hash(strtab +
-						sym->st_name, tpnt->symbol_scope, tpnt, ELF_RTYPE_CLASS_PLT);
+						sym->st_name, tpnt->symbol_scope, tpnt, 0);
 				}
 			}
 			else if (sym->st_shndx == SHN_COMMON) {
 				*got_entry = (unsigned long) _dl_find_hash(strtab +
-					sym->st_name, tpnt->symbol_scope, tpnt, ELF_RTYPE_CLASS_PLT);
+					sym->st_name, tpnt->symbol_scope, tpnt, 0);
 			}
 			else if (ELF32_ST_TYPE(sym->st_info) == STT_FUNC &&
-				*got_entry != sym->st_value && tmp_lazy) {
-				*got_entry += (unsigned long) tpnt->loadaddr;
+				*got_entry != sym->st_value) {
+				if (tmp_lazy)
+					*got_entry += (unsigned long) tpnt->loadaddr;
+				else
+					*got_entry = (unsigned long) _dl_find_hash(strtab +
+						sym->st_name, tpnt->symbol_scope, tpnt,
+						ELF_RTYPE_CLASS_PLT);
 			}
 			else if (ELF32_ST_TYPE(sym->st_info) == STT_SECTION) {
 				if (sym->st_other == 0)
@@ -276,7 +361,7 @@ void _dl_perform_mips_global_got_relocations(struct elf_resolve *tpnt, int lazy)
 			}
 			else {
 				*got_entry = (unsigned long) _dl_find_hash(strtab +
-					sym->st_name, tpnt->symbol_scope, tpnt, ELF_RTYPE_CLASS_PLT);
+					sym->st_name, tpnt->symbol_scope, tpnt, 0);
 			}
 
 			got_entry++;

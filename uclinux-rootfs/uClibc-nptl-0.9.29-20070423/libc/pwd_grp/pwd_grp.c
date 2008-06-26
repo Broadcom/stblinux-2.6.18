@@ -463,8 +463,8 @@ int getpw(uid_t uid, char *buf)
 # include <pthread.h>
 static pthread_mutex_t mylock = PTHREAD_MUTEX_INITIALIZER;
 #endif
-#define LOCK		__pthread_mutex_lock(&mylock)
-#define UNLOCK		__pthread_mutex_unlock(&mylock)
+#define LOCK		__PTHREAD_MUTEX_LOCK(&mylock)
+#define UNLOCK		__PTHREAD_MUTEX_UNLOCK(&mylock)
 #endif
 
 #ifdef L_getpwent_r

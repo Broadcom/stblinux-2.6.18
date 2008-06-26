@@ -524,7 +524,6 @@ static void __init free_initrd(void)
 
 void __init populate_rootfs(void)
 {
-#ifndef CONFIG_MIPS_BRCM_IKOS
 	char *err = unpack_to_rootfs(__initramfs_start,
 			 __initramfs_end - __initramfs_start, 0);
 	if (err)
@@ -561,12 +560,5 @@ void __init populate_rootfs(void)
 		free_initrd();
 #endif
 	}
-#endif
-#else
-// We know that IKOS runs on an initrd system, so no need to unpack_rootfs 3 times
-	unpack_to_rootfs((char *)initrd_start,
-		initrd_end - initrd_start, 0);
-	free_initrd_mem(initrd_start, initrd_end);
-	return;
 #endif
 }

@@ -49,6 +49,9 @@ init (void)
 }
 
 void
+#ifdef __mips
+__attribute__((__nomips16__))
+#endif
 _Unwind_Resume (struct _Unwind_Exception *exc)
 {
   if (__builtin_expect (libgcc_s_resume == NULL, 0))

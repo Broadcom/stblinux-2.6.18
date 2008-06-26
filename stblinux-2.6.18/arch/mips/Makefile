@@ -141,6 +141,10 @@ cflags-$(CONFIG_CPU_R8000)	+= -march=r8000 -Wa,--trap
 cflags-$(CONFIG_CPU_R10000)	+= $(call cc-option,-march=r10000,-march=r8000) \
 			-Wa,--trap
 
+ifndef CONFIG_WARN_UNINITIALIZED
+cflags-y			+= -Wno-uninitialized
+endif
+
 ifdef CONFIG_CPU_SB1
 ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
 MODFLAGS	+= -msb1-pass1-workarounds
@@ -621,6 +625,19 @@ core-$(CONFIG_TOSHIBA_RBTX4938) += arch/mips/tx4938/common/
 load-$(CONFIG_TOSHIBA_RBTX4938) += 0xffffffff80100000
 
 #
+# BCM93548A0
+#
+ifeq ($(CONFIG_MIPS_BCM3548),y)
+core-$(CONFIG_MIPS_BCM3548) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM3548) += arch/mips/brcmstb/brcm93548a0/
+cflags-$(CONFIG_MIPS_BCM3548) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM3548) := 0x80001000
+endif
+ifdef CONFIG_MIPS_BCM3548A0
+        UTS_MACHINE:=3548a0
+endif
+
+#
 #
 # BCM93563C0
 #
@@ -715,7 +732,11 @@ ifdef CONFIG_MIPS_BCM7405A0
         UTS_MACHINE:=7405a0
 endif
 ifdef CONFIG_MIPS_BCM7405B0
-        UTS_MACHINE:=7405b0
+ifdef CONFIG_MIPS_BCM97459B0
+	UTS_MACHINE:=97459b0
+else
+	UTS_MACHINE:=7405b0
+endif
 endif
 
 #
@@ -819,12 +840,6 @@ else
 UTS_MACHINE:=$(UTS_MACHINE)-smp
 endif
 endif
-
-ifdef CONFIG_DISCONTIGMEM
-UTS_MACHINE:=$(UTS_MACHINE)-discontig
-endif
-
-
 
 # PR10860 - Allow long long divide support for modules
 core-$(CONFIG_LONG_LONG_SUPPORT)       += arch/mips/brcmstb/lib/

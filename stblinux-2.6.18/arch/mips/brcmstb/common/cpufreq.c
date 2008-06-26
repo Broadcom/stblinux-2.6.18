@@ -38,6 +38,7 @@
 #include <asm/timex.h>
 #include <asm/io.h>
 #include <asm/mipsregs.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 /*
  * NOTE: To enable this module for a new platform:
@@ -47,14 +48,7 @@
  * 3) Update bcm*defconfig in arch/mips/kernel/configs/
  */
 
-#if defined(CONFIG_MIPS_BCM7401C0)
-#define MAX_FREQ 300000
-#elif defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM7405) \
-	|| defined(CONFIG_MIPS_BCM7335)
-#define MAX_FREQ 400000
-#else
-#error cpufreq is not supported on this platform.
-#endif
+#define MAX_FREQ (CPU_CLOCK_RATE / 1000)	/* from boardcfg.h */
 
 static struct cpufreq_frequency_table clock_tbl[] = {
 	{0, MAX_FREQ},
@@ -68,14 +62,15 @@ static int current_freq = MAX_FREQ;
 
 static void brcm_set_divisor (uint32_t new_div)
 {
-	uint32_t tmp0, tmp1, tmp2, tmp3;
-
 	/* see BMIPS datasheet, CP0 register $22 */
-#if defined(CONFIG_MIPS_BCM7401C0)
+
+#if defined(CONFIG_BMIPS3300)
 	write_c0_diag4((read_c0_diag4() & ~0x01c00000) |
 		(new_div << 23) | (0 << 22));
-#elif defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM7405) \
-	|| defined(CONFIG_MIPS_BCM7335)
+#elif defined(CONFIG_BMIPS4380)
+
+	uint32_t tmp0, tmp1, tmp2, tmp3;
+
 	__asm__ __volatile__(
 	"	.set	push			\n"
 	"	.set	noreorder		\n"

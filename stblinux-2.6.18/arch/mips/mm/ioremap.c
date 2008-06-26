@@ -138,31 +138,25 @@ void __iomem * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
 		return (void __iomem *) CKSEG1ADDR(phys_addr);
 
 #ifdef CONFIG_MIPS_BRCM97XXX
-  #if defined( CONFIG_MIPS_BCM7038A0 )
-	if (((phys_addr >= 0xd0000000) && (phys_addr <= 0xe060000b)))
-		
-  #elif defined( CONFIG_DISCONTIGMEM ) && \
-	(defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7335 ) || \
-	 defined( CONFIG_MIPS_BCM7400D0 ))
-	if (((phys_addr >= 0xb0510000) && (phys_addr <= 0xdfffffff)) ||
-	    ((phys_addr >= 0xf0000000) && (phys_addr <= 0xf060000b)))
 
-  #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 ) \
-  	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7405 ) \
-	|| defined( CONFIG_MIPS_BCM7335 )
-	if (((phys_addr >= 0xb0510000) && (phys_addr <= 0xd0b1000c)))
-		
-  #elif defined( CONFIG_MIPS_BCM3560 ) \
-  	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
-	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7403 )
-  	if (((((unsigned long) (phys_addr)) >= 0xd0000000) && (((unsigned long) (phys_addr)) <= 0xf060000b)) ||
-		(((unsigned long) (phys_addr)) >= 0xff400000))
-		
+  /* see memory maps in arch/mips/mm/tlb-r4k.c */
+
+  #if defined(CONFIG_DISCONTIGMEM)
+	/* exclude hole at e000_0000 where 256MB of DDR_0 is mapped */
+	if (((phys_addr >= 0xd0000000) && (phys_addr <= 0xdfffffff)) ||
+	    ((phys_addr >= 0xf0000000) && (phys_addr <= 0xf060000b)))
+		return (void *) (phys_addr);
+  #elif defined(CONFIG_BMIPS3300)
+	/* include core registers */
+  	if (((phys_addr >= 0xd0000000) && (phys_addr <= 0xf060000b)) ||
+	    (phys_addr >= 0xff400000))
+		return (void *) (phys_addr);
   #else
-	if (phys_addr >= 0xffe00000)
+	/* else, just include PCI MEM and I/O regions */
+	if (((phys_addr >= 0xd0000000) && (phys_addr <= 0xf060000b)))
+		return (void *) (phys_addr);
   #endif
   
-    	return (void *) (phys_addr);
 #endif
 
 	/*
@@ -207,37 +201,22 @@ void __iomem * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
 void __iounmap(const volatile void __iomem *addr)
 {
 	struct vm_struct *p;
+	unsigned long virt_addr = (unsigned long)addr;
 
 	if (IS_KSEG1(addr))
 		return;
 
 #ifdef CONFIG_MIPS_BRCM97XXX
-  #if defined( CONFIG_MIPS_BCM7038A0 )
-	if ( (((unsigned long)addr >= 0xd0000000) && ((unsigned long)addr <= 0xe060000b)))
+  #if defined(CONFIG_DISCONTIGMEM)
+	if (((virt_addr >= 0xd0000000) && (virt_addr <= 0xdfffffff)) ||
+	    ((virt_addr >= 0xf0000000) && (virt_addr <= 0xf060000b)))
 		return;
-	
-  #elif defined( CONFIG_DISCONTIGMEM ) && \
-	(defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7335 ) || \
-	 defined( CONFIG_MIPS_BCM7400D0 ))
-	if ((((unsigned long)addr >= 0xb0510000) && ((unsigned long)addr <= 0xdfffffff)) ||
-	    (((unsigned long)addr >= 0xf0000000) && ((unsigned long)addr <= 0xf060000b)))
+  #elif defined(CONFIG_BMIPS3300)
+  	if (((virt_addr >= 0xd0000000) && (virt_addr <= 0xf060000b)) ||
+	    (virt_addr >= 0xff400000))
 		return;
-
-  #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 ) \
-  	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7405 ) \
-	|| defined( CONFIG_MIPS_BCM7335 )
-	if ( (((unsigned long)addr >= 0xd0000000) && ((unsigned long)addr <= 0xf060000b)))
-		return;
-
-  #elif defined( CONFIG_MIPS_BCM3560 ) \
-  	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
- 	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7403 )
-  	if (((((unsigned long) (addr)) >= 0xd0000000) && (((unsigned long) (addr)) <= 0xf060000b)) ||
-		(((unsigned long) (addr)) >= 0xff400000))
-		return;
-	
   #else
-	if ((unsigned long)addr >= 0xffe00000)
+	if (((virt_addr >= 0xd0000000) && (virt_addr <= 0xf060000b)))
 		return;
   #endif
 #endif

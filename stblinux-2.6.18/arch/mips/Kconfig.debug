@@ -117,11 +117,39 @@ config VMALLOC_ACCOUNTING
 	  This option records vmalloc and vfree activity and reports it via
 	  /proc/vmalloc.
 
+config WARN_UNINITIALIZED
+	bool "Enable gcc uninitialized variable warnings"
+	depends on DEBUG_KERNEL
+	help
+	  Say Y here if you want gcc to complain about uninitialized
+	  variables during compilation.  This generates a lot of false
+	  positives on some versions of the compiler (e.g. gcc-4.2.0).
+
+choice
+	prompt "Simulation options"
+	default MIPS_BRCM_NOSIM
+	depends on DEBUG_KERNEL
+
+config MIPS_BRCM_NOSIM
+	bool "No simulation"
+	help
+	  Configure kernel to run on actual silicon (no simulation).
+
 config MIPS_BRCM_IKOS
 	bool "IKOS simulation"
-	depends on DEBUG_KERNEL
-	default n
 	help
 	  Configure kernel for IKOS simulation.
+
+config MIPS_BRCM_VELOCE
+	bool "Veloce simulation"
+	help
+	  Configure kernel for Veloce simulation.
+
+endchoice
+
+config MIPS_BRCM_SIM
+	bool
+	default y if MIPS_BRCM_IKOS || MIPS_BRCM_VELOCE
+	default n
 
 endmenu

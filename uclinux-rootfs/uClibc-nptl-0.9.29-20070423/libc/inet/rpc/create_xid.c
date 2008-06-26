@@ -35,8 +35,8 @@ libc_hidden_proto(gettimeofday)
 # include <pthread.h>
 static pthread_mutex_t createxid_lock = PTHREAD_MUTEX_INITIALIZER;
 #endif
-#define LOCK	__pthread_mutex_lock(&createxid_lock)
-#define UNLOCK	__pthread_mutex_unlock(&createxid_lock)
+#define LOCK	__PTHREAD_MUTEX_LOCK(&createxid_lock)
+#define UNLOCK	__PTHREAD_MUTEX_UNLOCK(&createxid_lock)
 
 static int is_initialized;
 static struct drand48_data __rpc_lrand48_data;

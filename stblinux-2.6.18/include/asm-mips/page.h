@@ -139,47 +139,26 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 static __inline__ unsigned long __pa(unsigned long x)
 {
-  #if defined( CONFIG_MIPS_BCM7038A0 )
-	if (((((unsigned long) (x)) >= 0xd0000000) && (((unsigned long) (x)) <= 0xe060000b)))
-  #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 )	\
-     || defined( CONFIG_MIPS_BCM7118 )
-	if (((((unsigned long) (x)) >= 0xd0000000) && (((unsigned long) (x)) <= 0xf060000b)))
-
-  #elif defined( CONFIG_MIPS_BCM3560 ) || defined( CONFIG_MIPS_BCM7401 ) \
-     || defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7403 ) 
-    /* 
-     * 0xff40_0000-0xff4f_ffff on 3560 & 7401 contains the (non-cacheable) core registers space
-     * (RAC is on it)
-     */
-  	if (((((unsigned long) (x)) >= 0xd0000000) && (((unsigned long) (x)) <= 0xf060000b)) ||
-		(((unsigned long) (x)) >= 0xff400000))
-  #else
-	if (((unsigned long) (x)) >= 0xffe00000)
-  #endif		
-    	return ((unsigned long) (x));
-	else
-		return (((unsigned long) (x)) - PAGE_OFFSET);
+	/* VA == PA for PCI MEM + PCI I/O */
+	if (((x >= 0xd0000000) && (x <= 0xf060000b)))
+		return x;
+#if defined(CONFIG_BMIPS3300)
+	/* same for BMIPS core registers */
+  	if (x >= 0xff400000)
+		return x;
+#endif
+	return (((unsigned long) (x)) - PAGE_OFFSET);
 }
 
 static __inline__ void* __va(unsigned long x)
 {
-  #if defined( CONFIG_MIPS_BCM7038A0 )
-	if ((( (x) >= 0xd0000000) && ( (x) <= 0xe060000b)))
-  #elif defined( CONFIG_MIPS_BCM7038B0 ) || defined( CONFIG_MIPS_BCM7038C0 )	\
-     || defined( CONFIG_MIPS_BCM7118 )
-	
-	if ((( (x) >= 0xd0000000) && ( (x) <= 0xf060000b)))
-		
-  #elif defined( CONFIG_MIPS_BCM3560 ) || defined( CONFIG_MIPS_BCM7401 ) \
-     || defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7403 )
-  	if (((((unsigned long) (x)) >= 0xd0000000) && (((unsigned long) (x)) <= 0xf060000b)) ||
-		(((unsigned long) (x)) >= 0xff400000))
-  #else
-	if ( (x) >= 0xffe00000)
-  #endif		
-    	return ((void *) (x));
-	else
-		return ((void *)( (x) + PAGE_OFFSET));
+	if (((x >= 0xd0000000) && (x <= 0xf060000b)))
+		return((void *)x);
+#if defined(CONFIG_BMIPS3300)
+  	if (x >= 0xff400000)
+		return((void *)x);
+#endif
+	return ((void *)((x) + PAGE_OFFSET));
 }
 
 #define virt_to_page(kaddr)		pfn_to_page((__pa((unsigned long) kaddr) >> PAGE_SHIFT) & 0x000fffff)

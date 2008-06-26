@@ -66,7 +66,8 @@ extern unsigned long rac_config0, rac_config1, rac_address_range;
 
 #if defined (CONFIG_SMP) && \
    (defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440A0) || \
-    defined (CONFIG_MIPS_BCM7405) || defined (CONFIG_MIPS_BCM7335))
+    defined (CONFIG_MIPS_BCM7405) || defined (CONFIG_MIPS_BCM7335) || \
+    defined (CONFIG_MIPS_BCM3548))
 /*
  * PR36773:
  * BRCM_CMT_CACHE_WAR_0 controls D$-only flush.  Should never be global.
@@ -204,7 +205,8 @@ void bcm_local_inv_rac_all(void)
 	}
 
 #elif defined (CONFIG_MIPS_BCM7400) || defined (CONFIG_MIPS_BCM7440) \
-	|| defined (CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335)
+	|| defined (CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335) \
+	|| defined (CONFIG_MIPS_BCM3548)
 #ifndef CONFIG_SMP
 	if (*((volatile unsigned long *)rac_config0) & 0x02)	/* check RAC_D bit in RAC Config Register for TP0 */
 #else
@@ -239,9 +241,12 @@ void bcm_local_inv_rac_all(void)
 
 void bcm_inv_rac_all(void)
 {
-#if defined(CONFIG_MIPS_BCM7325)
+#if defined(CONFIG_MIPS_BCM7325) || defined( CONFIG_MIPS_BCM7440B0 ) \
+	|| defined( CONFIG_MIPS_BCM7443 )
 	/* 7325 L2 supports prefetching */
+#ifdef CONFIG_MIPS_BRCM_SCACHE
 	r4k_blast_scache();
+#endif
 	__sync();
 #else
 	bcm_local_inv_rac_all();
@@ -251,7 +256,8 @@ EXPORT_SYMBOL(bcm_inv_rac_all);
 
 #define MIPS_24K_CACHEOP_WAR_IMPL       __sync()
 
-#if defined( CONFIG_MIPS_BCM7440B0 ) || defined( CONFIG_MIPS_BCM7325A0 )
+#if defined( CONFIG_MIPS_BCM7440B0 ) || defined( CONFIG_MIPS_BCM7325 ) \
+	|| defined( CONFIG_MIPS_BCM7443A0 ) 
 #define BCM_LOCAL_EXTRA_CACHEOP_WAR \
         MIPS_24K_CACHEOP_WAR_IMPL
 
@@ -677,7 +683,7 @@ void brcm_r4k_flush_cache_range(struct vm_area_struct *vma, unsigned long start,
 			local_irq_restore(flags);
 		}
 	}
-#if defined(CONFIG_MIPS_BCM7325)
+#if defined(CONFIG_MIPS_BRCM_SCACHE)
 	r4k_blast_scache();
 #endif
 	BCM_LOCAL_EXTRA_CACHEOP_WAR;
@@ -1654,8 +1660,11 @@ void __init r4k_cache_init(void)
     		extern void cacheALibInit(void);
 
 #if defined(CONFIG_MIPS_BCM7320) || defined(CONFIG_MIPS_BCM7328) \
-	|| defined(CONFIG_MIPS_BCM7319)
-		/* Do nothing for BRCM MIPS-5k*/
+	|| defined(CONFIG_MIPS_BCM7319) || defined(CONFIG_MIPS_BCM7440B0) \
+	|| defined (CONFIG_MIPS_BCM7443) ||  defined(CONFIG_MIPS_BCM7325) 
+		/* Do nothing for BRCM MIPS-5k, 24k */
+	printk("MTI Core cache probe\n");
+
 #else
 #define ICACHE_DCACHE_ENABLED 0xC0000000
 
@@ -1668,7 +1677,7 @@ void __init r4k_cache_init(void)
 		}
 
 #if ! (defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_MIPS_BCM7335) \
-	|| defined(CONFIG_MIPS_BCM7405))
+	|| defined(CONFIG_MIPS_BCM7405) || defined (CONFIG_MIPS_BCM3548))
 		{
 		unsigned int reg;
 

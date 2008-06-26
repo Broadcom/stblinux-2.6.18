@@ -65,7 +65,11 @@ pthread_cancel_init (void)
   libgcc_s_getcfa = getcfa;
 }
 
+#ifdef SHARED
 void
+#ifdef __mips
+__attribute__((__nomips16__))
+#endif
 _Unwind_Resume (struct _Unwind_Exception *exc)
 {
   if (__builtin_expect (libgcc_s_resume == NULL, 0))
@@ -86,6 +90,9 @@ __gcc_personality_v0 (int version, _Unwind_Action actions,
 }
 
 _Unwind_Reason_Code
+#ifdef __mips
+__attribute__((__nomips16__))
+#endif
 _Unwind_ForcedUnwind (struct _Unwind_Exception *exc, _Unwind_Stop_Fn stop,
 		      void *stop_argument)
 {
@@ -101,3 +108,4 @@ _Unwind_GetCFA (struct _Unwind_Context *context)
     pthread_cancel_init ();
   return libgcc_s_getcfa (context);
 }
+#endif

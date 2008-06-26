@@ -233,8 +233,8 @@ typedef struct {
 # include <pthread.h>
 extern pthread_mutex_t _time_tzlock attribute_hidden;
 #endif
-#define TZLOCK		__pthread_mutex_lock(&_time_tzlock)
-#define TZUNLOCK	__pthread_mutex_unlock(&_time_tzlock)
+#define TZLOCK		__PTHREAD_MUTEX_LOCK(&_time_tzlock)
+#define TZUNLOCK	__PTHREAD_MUTEX_UNLOCK(&_time_tzlock)
 
 extern rule_struct _time_tzinfo[2] attribute_hidden;
 

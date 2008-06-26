@@ -186,9 +186,9 @@ static struct random_data unsafe_state =
    for default usage relies on values produced by this routine.  */
 void srandom (unsigned int x)
 {
-    __pthread_mutex_lock(&lock);
+    __PTHREAD_MUTEX_LOCK(&lock);
     srandom_r (x, &unsafe_state);
-    __pthread_mutex_unlock(&lock);
+    __PTHREAD_MUTEX_UNLOCK(&lock);
 }
 strong_alias(srandom,srand)
 
@@ -207,10 +207,10 @@ char * initstate (unsigned int seed, char *arg_state, size_t n)
 {
     int32_t *ostate;
 
-    __pthread_mutex_lock(&lock);
+    __PTHREAD_MUTEX_LOCK(&lock);
     ostate = &unsafe_state.state[-1];
     initstate_r (seed, arg_state, n, &unsafe_state);
-    __pthread_mutex_unlock(&lock);
+    __PTHREAD_MUTEX_UNLOCK(&lock);
     return (char *) ostate;
 }
 
@@ -226,11 +226,11 @@ char * setstate (char *arg_state)
 {
     int32_t *ostate;
 
-    __pthread_mutex_lock(&lock);
+    __PTHREAD_MUTEX_LOCK(&lock);
     ostate = &unsafe_state.state[-1];
     if (setstate_r (arg_state, &unsafe_state) < 0)
 	ostate = NULL;
-    __pthread_mutex_unlock(&lock);
+    __PTHREAD_MUTEX_UNLOCK(&lock);
     return (char *) ostate;
 }
 
@@ -250,9 +250,9 @@ long int random (void)
 {
   int32_t retval;
 
-  __pthread_mutex_lock(&lock);
+  __PTHREAD_MUTEX_LOCK(&lock);
   random_r (&unsafe_state, &retval);
-  __pthread_mutex_unlock(&lock);
+  __PTHREAD_MUTEX_UNLOCK(&lock);
   return retval;
 }
 libc_hidden_def(random)

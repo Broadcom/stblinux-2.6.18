@@ -1,3 +1,5 @@
-gen_init_cpio.c was modified per PR29110 (build cramfs, jffs2 as nonroot).
+usr/gen_init_cpio.c was modified per PR29110 (build cramfs, jffs2 as nonroot).
 
 A patch against the original file may be found therein.
+
+scripts/kconfig/* were modified per PR41988 (add nonag keyword to Kconfig)

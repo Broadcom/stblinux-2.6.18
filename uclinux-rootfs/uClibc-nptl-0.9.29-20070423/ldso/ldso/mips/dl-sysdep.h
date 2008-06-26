@@ -30,6 +30,12 @@ else if (dpnt->d_tag == DT_MIPS_RLD_MAP) \
      *(Elf32_Addr *)(dpnt->d_un.d_ptr) =  (Elf32_Addr) debug_addr; \
 } while (0)
 
+#define ARCH_SKIP_RELOC(type_class, sym)				\
+	(((sym)->st_shndx == SHN_UNDEF)					\
+	 & ((type_class)						\
+	    | (((sym)->st_other & ~ELF_ST_VISIBILITY (-1))		\
+	       != STO_MIPS_PLT)))
+
 /* Initialization sequence for the application/library GOT.  */
 #define INIT_GOT(GOT_BASE,MODULE)						\
 do {										\
@@ -42,9 +48,11 @@ do {										\
 	/* Fill in first two GOT entries according to the ABI */		\
 	GOT_BASE[0] = (unsigned long) _dl_runtime_resolve;			\
 	GOT_BASE[1] = (unsigned long) MODULE;					\
+	idx = 2;								\
+	if (MODULE->dynamic_info[DT_JMPREL])					\
+		GOT_BASE[idx++] = (unsigned long) _dl_linux_resolve;		\
 										\
 	/* Add load address displacement to all local GOT entries */		\
-	idx = 2;									\
 	while (idx < MODULE->dynamic_info[DT_MIPS_LOCAL_GOTNO_IDX])		\
 		GOT_BASE[idx++] += (unsigned long) MODULE->loadaddr;		\
 										\
@@ -70,10 +78,6 @@ void _dl_perform_mips_global_got_relocations(struct elf_resolve *tpnt, int lazy)
 #define PAGE_ALIGN 0xfffff000
 #define ADDR_ALIGN 0xfff
 #define OFFS_ALIGN 0x7ffff000
-
-#define elf_machine_type_class(type)		ELF_RTYPE_CLASS_PLT
-/* MIPS does not have COPY relocs */
-#define DL_NO_COPY_RELOCS
 
 #define OFFSET_GP_GOT 0x7ff0
 

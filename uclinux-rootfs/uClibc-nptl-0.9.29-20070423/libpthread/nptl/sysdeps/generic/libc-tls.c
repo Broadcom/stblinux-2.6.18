@@ -244,8 +244,7 @@ _dl_tls_setup (void)
 /* This is the minimal initialization function used when libpthread is
    not used.  */
 void
-__attribute__ ((weak))
-__pthread_initialize_minimal (void)
+____pthread_initialize_minimal (void)
 {
   __libc_setup_tls (TLS_INIT_TCB_SIZE, TLS_INIT_TCB_ALIGN);
 }
@@ -262,3 +261,28 @@ __pthread_initialize_minimal (void)
 }
 
 #endif
+
+char *_dl_argv0;	/* executable name */
+
+extern __attribute__((weak)) int
+__dl_iterate_phdr (int (*callback) (struct dl_phdr_info *info,
+	size_t size, void *data), void *data);
+
+int
+dl_iterate_phdr (int (*callback) (struct dl_phdr_info *info, size_t size, void *data), void *data)
+{
+	struct dl_phdr_info info;
+	int ret = 0;
+
+	/* not NULL if libdl was linked in */
+	if(__dl_iterate_phdr)
+		return(__dl_iterate_phdr(callback, data));
+
+	info.dlpi_addr = 0;
+	info.dlpi_name = _dl_argv0;
+	info.dlpi_phdr = _dl_phdr;
+	info.dlpi_phnum = _dl_phnum;
+	ret = callback (&info, sizeof (struct dl_phdr_info), data);
+
+	return(ret);
+}

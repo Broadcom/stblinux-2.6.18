@@ -30,6 +30,11 @@
  * SUCH DAMAGE.
  */
 
+#ifndef ARCH_SKIP_RELOC
+#define ARCH_SKIP_RELOC(type_class, sym) \
+	((type_class) & ((sym)->st_shndx == SHN_UNDEF))
+#endif
+
 
 /* Various symbol table handling functions, including symbol lookup */
 
@@ -189,7 +194,7 @@ char *_dl_find_hash(const char *name, struct dyn_elf *rpnt, struct elf_resolve *
 				&& ELF_ST_TYPE(sym->st_info) != STT_TLS
 #endif
 				)
-				|| (type_class & (sym->st_shndx == SHN_UNDEF)))
+				|| ARCH_SKIP_RELOC (type_class, sym))
 				continue;
 
 			if (ELF_ST_TYPE(sym->st_info) > STT_FUNC
@@ -283,7 +288,7 @@ char *_dl_find_hash2(const char *name, struct dyn_elf *rpnt, struct elf_resolve 
 				&& ELF_ST_TYPE(sym->st_info) != STT_TLS
 #endif
 				)
-				|| (type_class & (sym->st_shndx == SHN_UNDEF)))
+				|| ARCH_SKIP_RELOC (type_class, sym))
 				continue;
 
 			if (ELF_ST_TYPE(sym->st_info) > STT_FUNC

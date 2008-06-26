@@ -135,8 +135,8 @@ extern void __heap_dump (struct heap *heap, const char *str);
 extern void __heap_check (struct heap *heap, const char *str);
 
 
-#define __heap_lock(heap)	__pthread_mutex_lock (&(heap)->lock)
-#define __heap_unlock(heap)	__pthread_mutex_unlock (&(heap)->lock)
+#define __heap_lock(heap)	__PTHREAD_MUTEX_LOCK (&(heap)->lock)
+#define __heap_unlock(heap)	__PTHREAD_MUTEX_UNLOCK (&(heap)->lock)
 
 
 /* Delete the free-area FA from HEAP.  */

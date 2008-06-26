@@ -27,6 +27,13 @@ ifeq ($(strip $(WHOAMI)),)
     WHOAMI=$(LOGNAME)
 endif
 
+# variables to preserve
+SAVEVARS = PATH SHELL HOME USER MFLAGS MAKEFLAGS MAKELEVEL MAKEOVERRIDES
+
+# scrub the environment (PR33041)
+unexport $(shell test -f config/cleanenv.pl && \
+	perl -w config/cleanenv.pl $(SAVEVARS))
+
 #BCM7XXX= 7400a0 7400a0-smp 7038 7038b0 7110 7110-docsis 7112 7115 7315 7317 7319 7320 7328 7329
 #VENOM=937xx
 # PLATFORMS=$(BCM7XXX) $(VENOM)
@@ -61,11 +68,6 @@ OPROF_INITRD_PLATFORMS := $(addprefix vmlinuz-initrd-,$(addsuffix -opf,$(ALL_PLA
 OPROFILE_PLATFORMS := $(addsuffix -opf,$(ALL_PLATFORMS))
 
 ROOTFS_PLATFORMS := $(addprefix rootfs-,$(ALL_PLATFORMS))
-JFFS2_IMAGES := $(addsuffix .img,$(JFFS2_PLATFORMS))
-CRAMFS_PLATFORMS := $(addprefix cramfs-,$(ALL_PLATFORMS))
-CRAMFS_IMAGES := $(addsuffix .img,$(CRAMFS_PLATFORMS))
-SQUASHFS_PLATFORMS := $(addprefix squashfs-,$(ALL_PLATFORMS))
-SQUASHFS_IMAGES := $(addsuffix .img,$(SQUASHFS_PLATFORMS))
 
 VERSION=$(shell cat version)-be
 TFTPBOOT=/tftpboot
@@ -88,7 +90,7 @@ ifneq ($(test),)
 	INITRD_DEFCONFIG:=$(test)
 	KERNEL_DEFCONFIG:=$(test)
 else
-	INITRD_DEFCONFIG:=vendors/$$CONFIG_VENDOR/$$CONFIG_PRODUCT/config.$$CONFIG_LINUXDIR
+	INITRD_DEFCONFIG:=$$CONFIG_LINUXDIR/.config.orig
 endif
 
 kernels: vercheck	
@@ -129,12 +131,13 @@ rootfs:
 			$(MAKE) -f build-be.mk rootfs-$$i || exit 1; \
 			case "$$i" in \
 			*-nand) \
-				cp -f images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
-				cp -f images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
-				cp -f images/$$i/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$$i.img; \
-				cp -f images/$$i/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$$i.img; \
-				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
-				cp -f images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
+				cp -f images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img || exit 1; \
+				cp -f images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img || exit 1; \
+				cp -f images/$$i/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$$i.img || exit 1; \
+				cp -f images/$$i/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$$i.img || exit 1; \
+				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img || exit 1; \
+				cp -f images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img || exit 1; \
+				cp -f images/$$i/modules.tar.bz2 $(TFTPDIR)/modules-$$i.tar.bz2 || exit 1; \
 				;;\
 			*) \
 				cp -f images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img || exit 1; \
@@ -143,15 +146,14 @@ rootfs:
 				fi; \
 				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img || exit 1; \
 				cp -f images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img || exit 1; \
+				cp -f images/$$i/modules.tar.bz2 $(TFTPDIR)/modules-$$i.tar.bz2 || exit 1; \
 				;;\
 			esac; \
 		fi; \
 	done
 
 .PHONY: $(ALL_PLATFORMS) $(BB_INITRD_PLATFORMS) $(BB_PLATFORMS) \
-	$(ROOTFS_PLATFORMS) $(ROOTFS_IMAGES) $(CRAMFS_PLATFORMS) \
-	 $(JFFS2_PLATFORMS)  $(SQUASHFS_PLATFORMS) \
-	$(OPROFILE_PLATFORMS)
+	$(ROOTFS_PLATFORMS) $(ROOTFS_IMAGES) $(OPROFILE_PLATFORMS)
 
 
 $(ALL_PLATFORMS) :
@@ -178,6 +180,7 @@ $(ROOTFS_PLATFORMS):
 		PLATFORM=$(subst rootfs-,,$@)\
 		ARCH_CONFIG=$(shell pwd)/vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config.arch\
 		images
+	tar -C images/$(subst rootfs-,,$@)/initramfs -jcf images/$(subst rootfs-,,$@)/modules.tar.bz2 lib/modules
 	case "$(subst rootfs-,,$@)" in \
 		*-nand) \
 			cp images/$(subst rootfs-,,$@)/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$(subst rootfs-,,$@).img ; \
@@ -186,6 +189,7 @@ $(ROOTFS_PLATFORMS):
 			cp images/$(subst rootfs-,,$@)/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$(subst rootfs-,,$@).img ; \
 			cp images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img ; \
 			cp images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img ; \
+			cp images/$(subst rootfs-,,$@)/modules.tar.bz2 $(TFTPDIR)/modules-$(subst rootfs-,,$@).tar.bz2 ; \
 			;;\
 		*) \
 			cp images/$(subst rootfs-,,$@)/jffs2.img $(TFTPDIR)/jffs2-$(subst rootfs-,,$@).img; \
@@ -194,25 +198,31 @@ $(ROOTFS_PLATFORMS):
 			fi; \
 			cp images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
 			cp images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img; \
+			cp images/$(subst rootfs-,,$@)/modules.tar.bz2 $(TFTPDIR)/modules-$(subst rootfs-,,$@).tar.bz2; \
 			;;\
 	esac
 
 # The echo Done at the end is to prevent make from reporting errors.
 $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
 	cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst vmlinuz-initrd-,,$@) .config
-	# Set CONFIG_INITRAMFS_ROOT_UID & GID accordingly
-	(. .config; test -f "$${CONFIG_LINUXDIR}"/.config && rm -f "$${CONFIG_LINUXDIR}"/.config; \
-		sed -e "s/CONFIG_INITRAMFS_ROOT_UID=0/CONFIG_INITRAMFS_ROOT_UID=$(MYUID)/"\
-			${INITRD_DEFCONFIG} \
-		| sed -e "s/CONFIG_INITRAMFS_ROOT_GID=0/CONFIG_INITRAMFS_ROOT_GID=$(MYGID)/" \
-			> $${CONFIG_LINUXDIR}/.config; \
+	rm -f $(KERNEL_DIR)/.config
+	(. .config; \
+		cp -f vendors/$${CONFIG_VENDOR}/$${CONFIG_PRODUCT}/config.linux-2.6.x $${CONFIG_LINUXDIR}/.config; \
+	)
+	# sets up .config files
+	$(MAKEARCH) defaultconfig
+	# Set CONFIG_INITRAMFS_ROOT_UID & GID, BRCM_BUILD_TARGET accordingly
+	(. .config; mv "$${CONFIG_LINUXDIR}"/.config "$${CONFIG_LINUXDIR}"/.config.orig; \
+		sed -e "s/^CONFIG_INITRAMFS_ROOT_UID=0/CONFIG_INITRAMFS_ROOT_UID=$(MYUID)/" \
+		    -e "s/^CONFIG_INITRAMFS_ROOT_GID=0/CONFIG_INITRAMFS_ROOT_GID=$(MYGID)/" \
+		    -e "s/^CONFIG_BRCM_BUILD_TARGET.*/CONFIG_BRCM_BUILD_TARGET=\"$(subst vmlinuz-initrd-,,$@)\"/" \
+			${INITRD_DEFCONFIG} > $${CONFIG_LINUXDIR}/.config; \
 		cp -f vendors/$${CONFIG_VENDOR}/$${CONFIG_PRODUCT}/config.uClibc uClibc/.config; \
 		cp -f vendors/$${CONFIG_VENDOR}/$${CONFIG_PRODUCT}/config.busybox user/busybox/.config; \
 		cp -f vendors/$${CONFIG_VENDOR}/$${CONFIG_PRODUCT}/config.vendor-2.6.x config/.config; \
 		printenv;	\
 		cd $${CONFIG_LINUXDIR} && $(MAKEARCH) silentoldconfig; \
 	)
-	$(MAKEARCH) defaultconfig
 # PR25899 - show targets - following make command should specific target all
 	$(MAKEARCH) BRCM_VERSION=$(VERSION) all
 	test -d $(TFTPDIR) || mkdir -p $(TFTPDIR)
@@ -226,15 +236,21 @@ $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
 
 $(BB_PLATFORMS) $(XFS_BB_PLATFORMS): prepare
 	if [ "x$(KERNEL_DEFCONFIG)" != "x" ]; then	\
-		test -f $(KERNEL_DEFCONFIG) && 	cp -f $(KERNEL_DEFCONFIG) $(KERNEL_DIR)/.config	\
+		test -f $(KERNEL_DEFCONFIG) && rm -f $(KERNEL_DIR)/.config	\
+		sed -e "s/^CONFIG_BRCM_BUILD_TARGET.*/CONFIG_BRCM_BUILD_TARGET=\"$(subst vmlinuz-,,$@)\"/" \
+			$(KERNEL_DEFCONFIG) > $(KERNEL_DIR)/.config \
 		|| exit 1;	\
 	else	\
 		if test -f $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$@)_defconfig; then	\
-			cp -f $(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$@)_defconfig $(KERNEL_DIR)/.config;	\
+			rm -f $(KERNEL_DIR)/.config; \
+			sed -e "s/^CONFIG_BRCM_BUILD_TARGET.*/CONFIG_BRCM_BUILD_TARGET=\"$(subst vmlinuz-,,$@)\"/" \
+				$(KERNEL_DIR)/arch/mips/configs/bcm9$(subst vmlinuz-,,$@)_defconfig > $(KERNEL_DIR)/.config \
+			|| exit 1; \
 		else	\
-			test -f $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$@)_defconfig	\
-			&& cp -f $(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$@)_defconfig $(KERNEL_DIR)/.config	\
-			|| exit 1;	\
+			rm -f $(KERNEL_DIR)/.config; \
+			sed -e "s/^CONFIG_BRCM_BUILD_TARGET.*/CONFIG_BRCM_BUILD_TARGET=\"$(subst vmlinuz-,,$@)\"/" \
+				$(KERNEL_DIR)/arch/mips/configs/bcm$(subst vmlinuz-,,$@)_defconfig > $(KERNEL_DIR)/.config \
+			|| exit 1; \
 		fi;	\
 	fi;	\
 	$(MAKEARCH) -C $(KERNEL_DIR) silentoldconfig
@@ -369,10 +385,3 @@ show_targets:
 	@for i in $(ALL_PLATFORMS); do \
 		echo "rootfs-"$$i; \
  	done
-	@for i in $(ALL_PLATFORMS); do \
-		echo "cramfs-"$$i; \
- 	done
-	@for i in $(ALL_PLATFORMS); do \
-		echo "squashfs-"$$i; \
-	done
- 

@@ -15,7 +15,7 @@ MISC_SYSLOG_OBJ := $(patsubst %.c,$(MISC_SYSLOG_OUT)/%.o,$(CSRC))
 
 libc-y += $(MISC_SYSLOG_OBJ)
 libc-a-y += $(MISC_SYSLOG_OBJ)
-libc-so-y += $(MISC_SYSLOG_OBJ)
+libc-so-y += $(MISC_SYSLOG_OBJ:.o=.os)
 
 objclean-y += misc_syslog_objclean
 

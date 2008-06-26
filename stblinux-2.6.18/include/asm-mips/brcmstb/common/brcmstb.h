@@ -34,7 +34,25 @@
 
 #include <linux/config.h>
 
-#if defined(CONFIG_MIPS_BCM3563C0)
+#if defined(CONFIG_MIPS_BCM3548A0)
+#include <asm/brcmstb/brcm93548a0/bcmuart.h>
+#include <asm/brcmstb/brcm93548a0/bcmtimer.h>
+#include <asm/brcmstb/brcm93548a0/bcmebi.h>
+#include <asm/brcmstb/brcm93548a0/int1.h>
+#include <asm/brcmstb/brcm93548a0/board.h>
+#include <asm/brcmstb/brcm93548a0/bchp_irq0.h>
+#include <asm/brcmstb/brcm93548a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm93548a0/bchp_nand.h>
+#include <asm/brcmstb/brcm93548a0/bchp_ebi.h>
+#include <asm/brcmstb/brcm93548a0/bchp_sun_top_ctrl.h>
+#include <asm/brcmstb/brcm93548a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm93548a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm93548a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm93548a0/bchp_clk.h>
+#include <asm/brcmstb/brcm93548a0/bchp_bmips4380.h>
+#include <asm/brcmstb/brcm93548a0/bchp_memc_0_ddr.h>
+
+#elif defined(CONFIG_MIPS_BCM3563C0)
 #include <asm/brcmstb/brcm93563c0/bcmuart.h>
 #include <asm/brcmstb/brcm93563c0/bcmtimer.h>
 #include <asm/brcmstb/brcm93563c0/bcmebi.h>
@@ -62,10 +80,12 @@
 #include <asm/brcmstb/brcm97038c0/board.h>
 #include <asm/brcmstb/brcm97038c0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97038c0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97038c0/bchp_sun_top_ctrl.h>
 #include <asm/brcmstb/brcm97038c0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97038c0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97038c0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97038c0/bchp_usb_ohci1.h>
+#include <asm/brcmstb/brcm97038c0/bchp_pci_bridge.h>
 
 #elif defined(CONFIG_MIPS_BCM7118A0)
 #include <asm/brcmstb/brcm97118a0/bcmuart.h>
@@ -83,6 +103,7 @@
 #include <asm/brcmstb/brcm97118a0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97118a0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97118a0/bchp_usb_ohci1.h>
+#include <asm/brcmstb/brcm97118a0/bchp_pci_bridge.h>
 
 #define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE)
 #define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_nand_flash_MASK
@@ -105,6 +126,7 @@
 #include <asm/brcmstb/brcm97118c0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97118c0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97118c0/bchp_usb_ohci1.h>
+#include <asm/brcmstb/brcm97118c0/bchp_pci_bridge.h>
 
 #else
 #include <asm/brcmstb/brcm97118c0/bcmtimer.h>
@@ -230,17 +252,6 @@
 #include <asm/brcmstb/brcm97325a0/bchp_sun_top_ctrl.h>
 #include <asm/brcmstb/brcm97325a0/bchp_memc_0_ddr.h>
 
-/* jipeng - 7325A0 have extra HW that mismatch with existing platforms, so redefine them here */
-#ifdef	BCM_LINUX_CPU_ENET_IRQ
-#undef	BCM_LINUX_CPU_ENET_IRQ
-#define   BCM_LINUX_CPU_ENET_IRQ        (1+BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_ENET_EMAC1_CPU_INTR_SHIFT)
-#endif
-
-#ifdef  BCM_LINUX_USB_EHCI_CPU_INTR
-#undef	BCM_LINUX_USB_EHCI_CPU_INTR
-#define BCM_LINUX_USB_EHCI_CPU_INTR 	(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_USB_EHCI_0_CPU_INTR_SHIFT)
-#endif
-
 #elif defined(CONFIG_MIPS_BCM7401C0) || defined(CONFIG_MIPS_BCM7402C0)
 #include <asm/brcmstb/brcm97401c0/bcmuart.h>
 #include <asm/brcmstb/brcm97401c0/bcmtimer.h>
@@ -257,6 +268,7 @@
 #include <asm/brcmstb/brcm97401c0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97401c0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97401c0/bchp_usb_ohci1.h>
+#include <asm/brcmstb/brcm97401c0/bchp_pci_bridge.h>
 #include <asm/brcmstb/brcm97401c0/bchp_memc_0_ddr.h>
 
 #define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE)
@@ -279,9 +291,50 @@
 #include <asm/brcmstb/brcm97403a0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97403a0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97403a0/bchp_usb_ohci1.h>
+#include <asm/brcmstb/brcm97403a0/bchp_pci_bridge.h>
 
 #define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE)
 #define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_nand_flash_MASK	
+
+#elif defined(CONFIG_MIPS_BCM7440B0)
+#include <asm/brcmstb/brcm97440b0/bcmuart.h>
+#include <asm/brcmstb/brcm97440b0/bcmtimer.h>
+#include <asm/brcmstb/brcm97440b0/bcmebi.h>
+#include <asm/brcmstb/brcm97440b0/int1.h>
+#include <asm/brcmstb/brcm97440b0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97440b0/board.h>
+#include <asm/brcmstb/brcm97440b0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97440b0/bchp_irq1.h>
+#include <asm/brcmstb/brcm97440b0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97440b0/bchp_nand.h>
+#include <asm/brcmstb/brcm97440b0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97440b0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97440b0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97440b0/bchp_sun_top_ctrl.h>
+
+#define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE)
+#define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_nand_flash_MASK	
+
+
+#elif defined(CONFIG_MIPS_BCM7443A0)
+#include <asm/brcmstb/brcm97443a0/bcmuart.h>
+#include <asm/brcmstb/brcm97443a0/bcmtimer.h>
+#include <asm/brcmstb/brcm97443a0/bcmebi.h>
+#include <asm/brcmstb/brcm97443a0/int1.h>
+#include <asm/brcmstb/brcm97443a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97443a0/board.h>
+#include <asm/brcmstb/brcm97443a0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97443a0/bchp_irq1.h>
+#include <asm/brcmstb/brcm97443a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97443a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97443a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97443a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97443a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97443a0/bchp_sun_top_ctrl.h>
+
+#define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE_0)
+#define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_nand_flash_MASK	
+
 
 #else
 #error "unknown BCM STB chip!!!"
@@ -306,6 +359,14 @@ typedef int (*walk_cb_t)(unsigned long paddr, unsigned long size, long type, voi
 extern int brcm_walk_boot_mem_map(void* cbdata, walk_cb_t walk_cb);
 extern unsigned long get_RAM_size(void);
 extern unsigned long get_RSVD_size(void);
+
+/*
+ * Sample usage:
+ *
+ * DEV_RD(0xb0404000)                       -> reads 0xb0404000
+ * BDEV_RD(0x404000)                        -> reads 0xb0404000
+ * BDEV_RD(BCHP_SUN_TOP_CTRL_PROD_REVISION) -> reads 0xb0404000
+ */
 
 #define DEV_RD(x) (*((volatile unsigned long *)(x)))
 #define DEV_WR(x, y) do { *((volatile unsigned long *)(x)) = (y); } while(0)

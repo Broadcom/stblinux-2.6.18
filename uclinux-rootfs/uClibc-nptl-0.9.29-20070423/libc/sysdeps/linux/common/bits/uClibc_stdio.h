@@ -164,24 +164,24 @@
 
 #define __STDIO_AUTO_THREADLOCK(__stream)								\
 	if ((__infunc_user_locking = (__stream)->__user_locking) == 0) {	\
-		__pthread_mutex_lock(&(__stream)->__lock);						\
+		__PTHREAD_MUTEX_LOCK(&(__stream)->__lock);						\
 	}
 
 #define __STDIO_AUTO_THREADUNLOCK(__stream)				\
 	if (__infunc_user_locking == 0) {					\
-		__pthread_mutex_unlock(&(__stream)->__lock);		\
+		__PTHREAD_MUTEX_UNLOCK(&(__stream)->__lock);		\
 	}
 
 #define __STDIO_SET_USER_LOCKING(__stream)	((__stream)->__user_locking = 1)
 
 #define __STDIO_ALWAYS_THREADLOCK(__stream)	\
-		__pthread_mutex_lock(&(__stream)->__lock)
+		__PTHREAD_MUTEX_LOCK(&(__stream)->__lock)
 
 #define __STDIO_ALWAYS_THREADTRYLOCK(__stream)	\
-		__pthread_mutex_trylock(&(__stream)->__lock)
+		__PTHREAD_MUTEX_TRYLOCK(&(__stream)->__lock)
 
 #define __STDIO_ALWAYS_THREADUNLOCK(__stream) \
-		__pthread_mutex_unlock(&(__stream)->__lock)
+		__PTHREAD_MUTEX_UNLOCK(&(__stream)->__lock)
 
 #endif
 

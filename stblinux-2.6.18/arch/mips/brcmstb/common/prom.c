@@ -30,7 +30,7 @@
 #include <linux/mm.h>
 #include <linux/module.h> // SYM EXPORT */
 #include <asm/bootinfo.h>
-#include "asm/brcmstb/common/brcmstb.h"
+#include <asm/brcmstb/common/brcmstb.h>
 
 /* RYH */
 unsigned int par_val = 0x00;	/* for RAC Mode setting, 0x00-Disabled, 0xD4-I&D Enabled, 0x94-I Only */
@@ -40,6 +40,10 @@ unsigned int par_val2 = 0x00;	/* for RAC Cacheable Space setting */
 int gSata2_3Gbps = 0;
 EXPORT_SYMBOL(gSata2_3Gbps);
 
+/* 97118 normal or RNG */
+int bcm7118_boardtype = 0;
+EXPORT_SYMBOL(bcm7118_boardtype);
+
 /* Customized flash size in MB */
 unsigned int gFlashSize = 0;	/* Default size on 97438 is 64 */
 unsigned int gFlashCode = 0; 	/* Special reset codes, 1 for writing 0xF0 to offset 55 for Spansion flash */
@@ -48,6 +52,13 @@ unsigned int gFlashCode = 0; 	/* Special reset codes, 1 for writing 0xF0 to offs
 int gClearBBT = 0;
 EXPORT_SYMBOL(gClearBBT);
 
+/* Enable Splash partition on flash */
+#ifdef CONFIG_MTD_SPLASH_PARTITION
+int gBcmSplash = 1;
+#else
+int gBcmSplash = 0;
+#endif
+EXPORT_SYMBOL(gBcmSplash);
 
 
 /* The Chip Select [0..7] for the NAND chips from gNumNand above, only applicable to v1.0+ NAND controller */
@@ -91,8 +102,6 @@ unsigned char* gHwAddrs[MAX_HWADDR];
 unsigned char** gHwAddrs = NULL;
 #endif // CONFIG_MTD_BRCMNAND
 EXPORT_SYMBOL(gHwAddrs);
-
-//#define TEST_ROUNDROBIN_DISABLE
 
 unsigned long get_RAM_size(void);
 unsigned long g_board_RAM_size = 0;	//Updated by get_RAM_size();;
@@ -199,8 +208,6 @@ isRootSpecified(char* cmdArg)
 	return 0;
 }
 
-#define  BCM_UPG_IRQ0_IRQEN   BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_IRQ0_IRQEN)
-
 void __init prom_init(void)
 {
 
@@ -212,148 +219,18 @@ void __init prom_init(void)
 #endif
 
 	uart_init(27000000);
-	uart_puts("HI WORLD!!!\n");
 
 	/* jipeng - mask out UPG L2 interrupt here */
-	*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) = 0x0;
-
-#ifdef CONFIG_MIPS_BCM7315_BBX
-	*(volatile unsigned long *)(0xfffe7008) = 0x1b800000;
-	*(volatile unsigned long *)(0xfffe700c) = 0x00000c91;
-#endif
-
-#if defined(CONFIG_MIPS_BCM7115) || defined(CONFIG_MIPS_BCM7112) || \
-     defined(CONFIG_MIPS_BCM7314) || defined( CONFIG_MIPS_BCM7315 ) || \
-     defined(CONFIG_MIPS_BCM7317) || defined( CONFIG_MIPS_BCM7318 ) || \
-     defined(CONFIG_MIPS_BCM7315_BBX) || defined(CONFIG_MIPS_BCM7110) ||\
-     defined(CONFIG_MIPS_BCM7111) || defined(CONFIG_MIPS_BCM7312)
-
-	*((volatile unsigned long *)0xfffe0900) = 0x7fff;
-
-#ifndef CONFIG_MIPS_BCM7312
-	*(volatile unsigned char *)(0xfffe8008) = 0x00;
-	*(volatile unsigned char *)(0xfffe009d) = 0x00;
-	*(volatile unsigned char *)(0xfffe0092) = 0x00;
-	*(volatile unsigned char *)(0xfffe0093) = 0x55;
-	*(volatile unsigned char *)(0xfffe0094) = 0x01;
-	*(volatile unsigned char *)(0xfffe0095) = 0xaa;
-	*(volatile unsigned char *)(0xfffe009a) = 0x80;
-#endif
-
-#if 0
-/* THT 7/28/03 Now done in CFE */
-#ifdef CONFIG_MIPS_BCM7110
-	*(volatile unsigned long *)(0xffe00028) = 0x10fa;
-#endif
-#if defined( CONFIG_MIPS_BCM7315 ) || defined ( CONFIG_MIPS_BCM7315_BBX )
-	*(volatile unsigned long *)(0xffe00028) = 0x30f8;
-#endif
-#if defined( CONFIG_MIPS_BCM7115 ) || defined ( CONFIG_MIPS_BCM7112 )
-	*(volatile unsigned long *)(0xffe00028) = 0x11f5;
-#endif
-#endif
-
-	//GPIO1 set to output and high to force the drive out of reset. 
-	// we need to move this into some borad specific dirs.
-	*((volatile unsigned char *)0xfffe0057) &= 0xfd;
-	*((volatile unsigned char *)0xfffe0053) |= 0x02;
-	// we need to move this into some borad specific dirs.
-
-	//InitEbi();
-	//uart_puts("init Ebi\n");
-#endif
+	BDEV_WR(BCHP_IRQ0_IRQEN, 0);
 
 	/* Fill in platform information */
 	mips_machgroup = MACH_GROUP_BRCM;
-#ifdef CONFIG_MIPS_BCM3560	
-	mips_machtype  = MACH_BRCM_3560;
-#endif
-#ifdef CONFIG_MIPS_BCM7115	
-	mips_machtype  = MACH_BRCM_7115;
-#endif
-#ifdef CONFIG_MIPS_BCM7112	
-	mips_machtype  = MACH_BRCM_7112;
-#endif
+	mips_machtype  = MACH_BRCM_STB;
 
-#ifdef CONFIG_MIPS_BCM7110	
-	mips_machtype  = MACH_BRCM_7110;
-#endif
-#ifdef CONFIG_MIPS_BCM7111
-	mips_machtype  = MACH_BRCM_7111;
-#endif
-#ifdef CONFIG_MIPS_BCM7320	
-	mips_machtype  = MACH_BRCM_7320;
-/*
-** Put this here until CFE does it,ISB bus timer
-*/
-        *((volatile unsigned long *)0xbafe0900) = 0x7fff;
-
-#endif
-#ifdef CONFIG_MIPS_BCM7314	
-	mips_machtype  = MACH_BRCM_7314;
-#endif
-#ifdef CONFIG_MIPS_BCM7315	
-	mips_machtype  = MACH_BRCM_7315;
-#endif
-#ifdef CONFIG_MIPS_BCM7317	
-	mips_machtype  = MACH_BRCM_7317;
-#endif
-#ifdef CONFIG_MIPS_BCM7318	
-	mips_machtype  = MACH_BRCM_7318;
-#endif
-#ifdef CONFIG_MIPS_BCM7319	
-		mips_machtype  = MACH_BRCM_7319;
-       *((volatile unsigned long *)0xbafe0900) = 0x7fff;
-#endif
-#ifdef CONFIG_MIPS_BCM7328	
-		mips_machtype  = MACH_BRCM_7328;
-       *((volatile unsigned long *)0xbafe0900) = 0x7fff;
-#endif
-#ifdef CONFIG_MIPS_BCM7038	
-		mips_machtype  = MACH_BRCM_7038;
-
-#ifdef TEST_ROUNDROBIN_DISABLE
-// TBD: Change this to be "if chip revision is C0 or later"
-		/*
-		 * Testing 1,2,3: PR11804: Disabling RoundRobin in 7038 to see
-		 * if it can withstand the transfer rate (bit 6)
-		 */
-		*((volatile unsigned long *)0xb01061b4) &= 0xffffffbf;
-#endif
-#endif
-#ifdef CONFIG_MIPS_BCM7327	
-	mips_machtype  = MACH_BRCM_7327;
-       *((volatile unsigned long *)0xbafe0900) = 0x7fff;
-#endif
-#ifdef CONFIG_MIPS_BCM7329	
-	mips_machtype  = MACH_BRCM_7329;
-       *((volatile unsigned long *)0xbafe0900) = 0x7fff;
-#endif
-#ifdef CONFIG_MIPS_BCM7402	
-		mips_machtype  = MACH_BRCM_7401;
-#elif defined( CONFIG_MIPS_BCM7401 )	
-		mips_machtype  = MACH_BRCM_7401;
-#elif defined( CONFIG_MIPS_BCM7403 )  
-                mips_machtype  = MACH_BRCM_7403;
-
-#endif
-#ifdef CONFIG_MIPS_BCM7400
-		mips_machtype  = MACH_BRCM_7400;
-#endif
-#ifdef CONFIG_MIPS_BCM7405
-		mips_machtype  = MACH_BRCM_7405;
-#endif
-#ifdef CONFIG_MIPS_BCM7335
-		mips_machtype  = MACH_BRCM_7335;
-#endif
 #ifdef CONFIG_MIPS_BCM7118
-		mips_machtype  = MACH_BRCM_7118;		
-#endif
-#ifdef CONFIG_MIPS_BCM7440
-		mips_machtype  = MACH_BRCM_7440;
-#endif
-#ifdef CONFIG_MIPS_BCM7325
-                mips_machtype  = MACH_BRCM_7325;
+	/* detect 7118RNG board */
+	if( BDEV_RD(BCHP_CLKGEN_REG_START) == 0x1c )
+		bcm7118_boardtype = 1;
 #endif
 
 #if defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7401C0 )	\
@@ -367,18 +244,11 @@ void __init prom_init(void)
 		sprintf(msg, "CP0 reg 22 sel 0 to 5: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", read_c0_diag(), read_c0_diag1(), read_c0_diag2(), read_c0_diag3(), read_c0_diag4(), read_c0_diag5());
 		uart_puts(msg);
 	}
-	
-	{
-		volatile unsigned long* pMemMap = (volatile unsigned long*) 0xb000040c;
-		volatile unsigned long* pSplit = (volatile unsigned long*) 0xb0000410;
-		
-		// Enable write gathering 
-		*pMemMap = 0x264;
-		// Enable Split Mode
-		*pSplit = 1;
-		sprintf(msg, "gathering mode: 0x%08x at 0x0xb000040c\nsplit mode: 0x%08x at 0xb0000410\n", *pMemMap, *pSplit);
-		uart_puts(msg);
-	}
+
+	// Enable write gathering (BCHP_MISB_BRIDGE_WG_MODE_N_TIMEOUT)
+	BDEV_WR(0x0000040c, 0x264);
+	// Enable Split Mode (BCHP_MISB_BRIDGE_MISB_SPLIT_MODE)
+	BDEV_WR(0x00000410, 0x1);
 #elif defined( CONFIG_MIPS_BCM7440A0 )
 	if(!(read_c0_diag4() & 0x400000))
 	{
@@ -388,14 +258,8 @@ void __init prom_init(void)
 		uart_puts(msg);
 	}
 	
-	{
-		volatile unsigned long* pMemMap = (volatile unsigned long*) 0xb000040c;
-		
-		// Enable write gathering 
-		*pMemMap = 0x2803;
-		sprintf(msg, "gathering mode: 0x%08x at 0x0xb000040c\n", *pMemMap);
-		uart_puts(msg);
-	}
+	// Enable write gathering (BCHP_MISB_BRIDGE_WG_MODE_N_TIMEOUT)
+	BDEV_WR(0x0000040c, 0x2803);
 #endif
 
 	/* Kernel arguments */
@@ -461,7 +325,7 @@ void __init prom_init(void)
 	  }
 	  else {
 #if defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM7405) \
-	|| defined(CONFIG_MIPS_BCM7335)
+    || defined(CONFIG_MIPS_BCM7335) || defined(CONFIG_MIPS_BCM3548)
 		par_val = 0xff;		/* default: keep CFE setting */
 #elif	!defined(CONFIG_MIPS_BCM7325A0)	/* no RAC in 7325A0 */
 		par_val = 0x03;		/* set default to I/D RAC on */
@@ -534,6 +398,24 @@ void __init prom_init(void)
 		for (;;) {
 			if (c == ' ' && !memcmp(from, "flashcode=", 10)) {
 				gFlashCode = memparse(from + 10, &from);
+				break;
+			}
+			c = *(from++);
+			if (!c)
+				break;
+			if (CL_SIZE <= ++len)
+				break;
+		}
+	}
+
+	/* bcmsplash=1 */
+	{
+		char c = ' ', *from = cfeBootParms;
+		int len = 0;
+
+		for (;;) {
+			if (c == ' ' && !memcmp(from, "bcmsplash=", 10)) {
+				gBcmSplash= memparse(from + 10, &from);
 				break;
 			}
 			c = *(from++);
@@ -697,7 +579,7 @@ void __init prom_init(void)
 			uart_puts("Defaulting to boot from HD\n");
 			/* Default is to boot from HD */
 			strcpy(arcs_cmdline,
-				"root=/dev/hda1" DEFAULT_KARGS);
+				"root=/dev/sda1" DEFAULT_KARGS);
 		}
 		else if (appendConsoleNeeded) {
 			/* Make sure that the boot params specify a console */
@@ -707,7 +589,7 @@ void __init prom_init(void)
 #else /* No CONFIG_CMDLINE, and not Initrd */
 	/* Default is to boot from HD */
 		strcpy(arcs_cmdline,
-			"root=/dev/hda1" DEFAULT_KARGS);
+			"root=/dev/sda1" DEFAULT_KARGS);
 #endif /* No CONFIG_CMDLINE */
 
 

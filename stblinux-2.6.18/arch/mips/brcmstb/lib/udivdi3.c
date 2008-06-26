@@ -29,9 +29,9 @@ Boston, MA 02111-1307, USA.  */
 /* support functions required by the kernel. based on code from gcc-2.95.3 */
 /* I Molton     29/07/01 */
 
+#include <linux/module.h>
 #include "gcclib.h"
 #include "longlong.h"
-#include <linux/module.h>
 
 const UQItype __clz_tab[] =
 {

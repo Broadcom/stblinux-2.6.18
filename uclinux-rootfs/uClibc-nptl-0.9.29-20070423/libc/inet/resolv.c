@@ -239,8 +239,8 @@ extern char * __searchdomain[MAX_SEARCH] attribute_hidden;
 # include <pthread.h>
 extern pthread_mutex_t __resolv_lock;
 #endif
-#define BIGLOCK	__pthread_mutex_lock(&__resolv_lock)
-#define BIGUNLOCK	__pthread_mutex_unlock(&__resolv_lock)
+#define BIGLOCK	__PTHREAD_MUTEX_LOCK(&__resolv_lock)
+#define BIGUNLOCK	__PTHREAD_MUTEX_UNLOCK(&__resolv_lock)
 
 
 
@@ -705,8 +705,8 @@ int __form_query(int id, const char *name, int type, unsigned char *packet,
 # include <pthread.h>
 static pthread_mutex_t mylock = PTHREAD_MUTEX_INITIALIZER;
 #endif
-#define LOCK	__pthread_mutex_lock(&mylock)
-#define UNLOCK	__pthread_mutex_unlock(&mylock)
+#define LOCK	__PTHREAD_MUTEX_LOCK(&mylock)
+#define UNLOCK	__PTHREAD_MUTEX_UNLOCK(&mylock)
 #endif
 
 #ifdef L_dnslookup

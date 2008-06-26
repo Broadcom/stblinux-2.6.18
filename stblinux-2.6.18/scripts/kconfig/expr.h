@@ -95,6 +95,7 @@ struct symbol {
 #define SYMBOL_CHANGED		0x0400
 #define SYMBOL_AUTO		0x1000
 #define SYMBOL_CHECKED		0x2000
+#define SYMBOL_NONAG		0x4000
 #define SYMBOL_WARNED		0x8000
 #define SYMBOL_DEF		0x10000
 #define SYMBOL_DEF_USER		0x10000

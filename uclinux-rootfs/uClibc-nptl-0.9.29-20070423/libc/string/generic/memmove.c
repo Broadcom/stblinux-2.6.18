@@ -24,6 +24,9 @@
 #include "memcopy.h"
 #include "pagecopy.h"
 
+libc_hidden_proto(memmove)
+libc_hidden_proto(memcpy)
+
 #define USE_MEMCPY 0	/* don't use memcpy for forward copies */
 
 static void _wordcopy_bwd_aligned (long int dstp, long int srcp, size_t len)
@@ -466,3 +469,4 @@ void *memmove (void *dest, const void *src, size_t len)
 
   return (dest);
 }
+libc_hidden_def(memmove)

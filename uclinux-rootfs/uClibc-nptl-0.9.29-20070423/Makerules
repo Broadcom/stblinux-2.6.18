@@ -168,6 +168,8 @@ define linkm.so
 	$(Q)$(LN) -sf $(1) $@
 endef
 
+# uncomment to use PIC for *.a
+# CFLAGS-.o+=$(PICFLAG)
 CFLAGS-.os+=$(PICFLAG)
 CFLAGS-.oS+=$(PICFLAG) -DSHARED
 

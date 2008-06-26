@@ -53,8 +53,8 @@ static int been_there_done_that = 0;
 # include <pthread.h>
 static pthread_mutex_t mylock = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 #endif
-#define LOCK	__pthread_mutex_lock(&mylock)
-#define UNLOCK	__pthread_mutex_unlock(&mylock)
+#define LOCK	__PTHREAD_MUTEX_LOCK(&mylock)
+#define UNLOCK	__PTHREAD_MUTEX_UNLOCK(&mylock)
 
 /* Cause an abnormal program termination with core-dump */
 void abort(void)

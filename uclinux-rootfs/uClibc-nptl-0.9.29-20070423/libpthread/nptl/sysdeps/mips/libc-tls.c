@@ -17,8 +17,10 @@
    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
    02111-1307 USA.  */
 
-#include <../generic/libc-tls.c>
+// NOTE: generic/libc-tls.c already gets built into libc.a
+// #include <../generic/libc-tls.c>
 #include <dl-tls.h>
+#include <tls.h>
 
 #if USE_TLS
 

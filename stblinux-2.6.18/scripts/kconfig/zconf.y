@@ -66,6 +66,7 @@ static struct menu *current_menu, *current_entry;
 %token <id>T_DEPENDS
 %token <id>T_REQUIRES
 %token <id>T_OPTIONAL
+%token <id>T_NONAG
 %token <id>T_PROMPT
 %token <id>T_TYPE
 %token <id>T_DEFAULT
@@ -295,6 +296,12 @@ choice_option: T_OPTIONAL T_EOL
 {
 	current_entry->sym->flags |= SYMBOL_OPTIONAL;
 	printd(DEBUG_PARSE, "%s:%d:optional\n", zconf_curname(), zconf_lineno());
+};
+
+choice_option: T_NONAG T_EOL
+{
+	current_entry->sym->flags |= SYMBOL_NONAG;
+	printd(DEBUG_PARSE, "%s:%d:nonag\n", zconf_curname(), zconf_lineno());
 };
 
 choice_option: T_DEFAULT T_WORD if_expr T_EOL

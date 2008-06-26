@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/config.h>
 #include <asm/delay.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 /*
  * The way the file bcm97xxx.h are defined, it would require a compile
@@ -36,106 +37,10 @@
 #define CODE_IN_FLASH
 #endif
 
-#ifdef CONFIG_MIPS_BCM3560
-#include <asm/brcmstb/common/brcmstb.h>
-#define WINDOW_ADDR 0x1f000000
-
-#elif defined( CONFIG_MIPS_BCM7319 )
-#include <asm/brcmstb/brcm97319/bcm97319.h>
-#define WINDOW_ADDR 0x1f000000
-
-#elif defined( CONFIG_MIPS_BCM7328 )
-#include <asm/brcmstb/brcm97328/bcm97328.h>
-#define WINDOW_ADDR 0x1f000000
-
-#elif defined(CONFIG_MIPS_BCM7320)
-#include <asm/brcmstb/brcm97320/bcm97320.h>
-/* Assume ROM daughter card present, 
- * will play with CS0 when it is not (boot from flash) 
- */
-#define WINDOW_ADDR PHYS_FLASH_CS0FLASH_BASE	/*0x1e800000*/
-
-#elif defined(CONFIG_MIPS_BCM7112) || defined(CONFIG_MIPS_BCM7115)
-/*
- * The 7115 never boots from flash, but its brother, the 7112 does.
- * so this is really for the 7112
- */
-#include <asm/brcmstb/brcm97115/bcm97115.h>
-#define WINDOW_ADDR 0x1f000000			/*0x1a000000 for 7115*/
-
-#elif defined(CONFIG_MIPS_BCM7110)
-#include <asm/brcmstb/brcm97110/bcm97110.h>
-#define WINDOW_ADDR PHYS_FLASH_BASE			/*0x1f000000*/
-
-#elif defined(CONFIG_MIPS_BCM7111)
-#include <asm/brcmstb/brcm97111/bcm97111.h>
-#define WINDOW_ADDR PHYS_FLASH_BASE			/*0x1f000000*/
-
-#elif defined(CONFIG_MIPS_BCM7118)
-#include <asm/brcmstb/common/brcmstb.h>
-#define WINDOW_ADDR 0x1e000000
-
-#elif defined(CONFIG_MIPS_BCM7325)
-#include <asm/brcmstb/common/brcmstb.h>
-#define WINDOW_ADDR 0x1e000000
-
-#elif defined(CONFIG_MIPS_BCM7312)
-#include <asm/brcmstb/brcm97312/bcm97312.h>
-#define WINDOW_ADDR PHYS_CS0_DEV_BASE			/*0x1f000000*/
-
-#elif defined(CONFIG_MIPS_BCM7315_BBX) 
-#include <asm/brcmstb/brcm97315bbx/bcm97315bbx.h>
-#define WINDOW_ADDR PHYS_FLASH_BASE			/* 0x1FC00000 */
-
-#elif defined(CONFIG_MIPS_BCM7314) 
-#include <asm/brcmstb/brcm97314/bcm97314.h>
-#define WINDOW_ADDR PHYS_FLASH1_BASE
-
-#elif defined(CONFIG_MIPS_BCM7315) 
-#include <asm/brcmstb/brcm97315/bcm97315.h>
-#define WINDOW_ADDR PHYS_FLASH1_BASE
-
-#elif defined(CONFIG_MIPS_BCM7317) 
-#include <asm/brcmstb/brcm97317/bcm97317.h>
-#define WINDOW_ADDR PHYS_FLASH1_BASE
-
-#elif defined(CONFIG_MIPS_BCM7318)
-#include <asm/brcmstb/brcm97318/bcm97318.h>
-#define WINDOW_ADDR PHYS_CS0_DEV_BASE			/*0x1f000000*/
-
-#elif defined(CONFIG_MIPS_BCM7038)
-/* Both A0 and B0 revs */
-#include <asm/brcmstb/common/brcmstb.h>
-#define WINDOW_ADDR 0x1e000000
-
-#elif defined(CONFIG_MIPS_BCM7327)
-#include <asm/brcmstb/common/brcmstb.h>
-#define WINDOW_ADDR PHYS_CS0_DEV_BASE			/* 0x1f000000 */
-
-#elif defined(CONFIG_MIPS_BCM7329)
-#include <asm/brcmstb/common/brcmstb.h>
-#define WINDOW_ADDR PHYS_CS0_DEV_BASE			/* 0x1f000000 */
-
-#elif defined(CONFIG_MIPS_BCM7400A0)
-#include <asm/brcmstb/common/brcmstb.h>
-#define WINDOW_ADDR 0x1e000000
-
-#elif defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7402) \
-                                   || defined(CONFIG_MIPS_BCM7403)
-#include <asm/brcmstb/common/brcmstb.h>
-#define WINDOW_ADDR 0x1e000000
-
-#elif defined(CONFIG_MIPS_BCM7440) || defined(CONFIG_MIPS_BCM7400D0) \
-				   || defined(CONFIG_MIPS_BCM7405) \
-				   || defined(CONFIG_MIPS_BCM7335)
-#include <asm/brcmstb/common/brcmstb.h>
-#define WINDOW_ADDR 0x1c000000		/* 2X 32MB flash */
-
-#endif
+#define WINDOW_ADDR (0x20000000 - BRCM_FLASH_SIZE)
 
 static const unsigned long FLASH_FLASH_BASE = WINDOW_ADDR;
 extern const unsigned long ROM_FLASH_BASE;
-
 
 static unsigned long RT_PHYS_FLASH_BASE = WINDOW_ADDR;
 

@@ -165,7 +165,7 @@ initrd: kinit
 	-test -d $(ROMFSDIR)/usr/sbin || mkdir $(ROMFSDIR)/usr/sbin
 	sed "s,@VERSION@,$(VERSION),g" usr/sbin/stbutil | \
 		sed "s,@PLATFORM@,$(PLATFORM),g" | \
-		sed "s,ENDIAN=,ENDIAN=_be,g" > $(ROMFSDIR)/usr/sbin/stbutil
+		sed "s,@ENDIAN@,_be,g" > $(ROMFSDIR)/usr/sbin/stbutil
 	sed 's,###mount,mount,g' etc/init.d/rcS > $(ROMFSDIR)/var/tmp/rcS.hd
 	chmod +x $(ROMFSDIR)/usr/sbin/stbutil
 	cp -f usr/sbin/usb* $(ROMFSDIR)/usr/sbin/

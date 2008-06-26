@@ -27,8 +27,8 @@ libc_hidden_proto(fprintf)
 # include <pthread.h>
 static pthread_mutex_t mylock = PTHREAD_MUTEX_INITIALIZER;
 #endif
-#define LOCK	__pthread_mutex_lock(&mylock)
-#define UNLOCK	__pthread_mutex_unlock(&mylock)
+#define LOCK	__PTHREAD_MUTEX_LOCK(&mylock)
+#define UNLOCK	__PTHREAD_MUTEX_UNLOCK(&mylock)
 
 /* Reentrant version of getmntent.  */
 struct mntent *getmntent_r (FILE *filep, 

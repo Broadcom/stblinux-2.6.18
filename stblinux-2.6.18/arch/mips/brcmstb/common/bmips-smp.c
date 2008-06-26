@@ -31,6 +31,7 @@ when	who what
 #include <linux/delay.h>
 #include <linux/smp.h>
 #include <linux/interrupt.h>
+#include <linux/spinlock.h>
 #include <asm/io.h>
 #include <asm/pgtable.h>
 #include <asm/processor.h>
@@ -100,28 +101,14 @@ void prom_init_secondary(void)
 // Handle interprocessor messages
 static irqreturn_t brcm_smp_call_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
-	/* SMP_CALL_FUNCTION */
+	/* this clears the interrupt right before acknowledging it */
 	smp_call_function_interrupt();
-
-    // we need to clear the interrupt...
-    {
-        register u32 temp;
-        temp = read_c0_cause();
-        temp &= ~CAUSEF_IP0;
-        write_c0_cause(temp);
-    }
-    
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t brcm_reschedule_call_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
-    // we need to clear the interrupt...
-	register u32 temp;
-	temp = read_c0_cause();
-	temp &= ~CAUSEF_IP1;
-	write_c0_cause(temp);
-    
+	clear_c0_cause(C_SW1);
 	return IRQ_HANDLED;
 }
 
@@ -196,29 +183,27 @@ void __init plat_prepare_cpus(unsigned int max_cpus)
 
 }
 
+static DEFINE_SPINLOCK(ipi_lock);
+
 void core_send_ipi(int cpu, unsigned int action)
 {
-    register unsigned long temp, value;
 	unsigned long flags;
 
-	local_irq_save (flags);
-	
-	switch (action) {
-	case SMP_CALL_FUNCTION:
-		value = C_SW0;
-		break;
-	case SMP_RESCHEDULE_YOURSELF:
-		value = C_SW1;
-		break;
-	default:
-		return;
-	}
-	// trigger interrupt on the other TP...
-	temp = read_c0_cause();
-	temp |= value;
-	write_c0_cause(temp);
+	spin_lock_irqsave(&ipi_lock, flags);
 
-	local_irq_restore(flags);
+	switch (action) {
+		case SMP_CALL_FUNCTION:
+			set_c0_cause(C_SW0);
+			break;
+		case SMP_RESCHEDULE_YOURSELF:
+			set_c0_cause(C_SW1);
+			break;
+		default:
+			BUG();
+			break;
+	}
+
+	spin_unlock_irqrestore(&ipi_lock, flags);
 }
 
 /*

@@ -34,33 +34,6 @@
 #define PRID_COMP_LSI		0x080000
 #define PRID_COMP_LEXRA		0x0b0000
 
-/* for BRCM's MIPS CPU. */
-#define PRID_COMP_BRCM         PRID_COMP_BROADCOM 
-/* for BRCM's 6352 MIPS CPU. */
-#define PRID_IMP_BCM6352        0x9000
-#define PRID_IMP_BCM3345        0x8000
-#define PRID_IMP_BCM7110        0x9000
-#define PRID_IMP_BCM7111        0x9000
-#define PRID_IMP_BCM7115        0x9000
-#define PRID_IMP_BCM7112        0x9000
-#define PRID_IMP_BCM7312        0x0000 /* Bug in 7318A0 SIlicon */
-#define PRID_IMP_BCM7314        0x9000
-#define PRID_IMP_BCM7315        0x9000
-#define PRID_IMP_BCM7317        0x9000
-#define PRID_IMP_BCM7318        0x0000 /* Bug in 7318A0 SIlicon */
-#define PRID_IMP_BCM7327        0x9000
-#define PRID_IMP_BCM7329        0x9000
-#define PRID_IMP_BCM3560        0x9000
-#define PRID_IMP_BCM7401A0      0x0000 /* Bug in 7401A0 SIlicon */
-#define PRID_IMP_BCM7401        0x0000 /* B0 still have same bug */
-#define PRID_IMP_BCM7403        0x0000 /* bug is still there with 7403 */
-#define PRID_IMP_BCM7400	0xa000
-#define PRID_IMP_BCM7405	0xa000
-#define PRID_IMP_BCM7118	0x9000
-#define PRID_IMP_BCM7440	0xa000
-#define PRID_IMP_BCM7335	0xa000
-
-
 /*
  * Assigned values for the product ID register.  In order to detect a
  * certain CPU type exactly eventually additional registers may need to
@@ -226,37 +199,11 @@
 #define CPU_SB1A		62
 #define CPU_74K			63
 #define CPU_R14000		64
-#define CPU_BMIPS3200	65
-#define CPU_BMIPS3300	66
-#define CPU_BMIPS4350	67
-#define CPU_BMIPS4500	68
-#define CPU_BMIPS5600	69
-#define CPU_BMIPS6800	70
-#define CPU_BMIPS4380	71
-#define CPU_LAST		71
-
-/* For backward Comp */
-#define	CPU_BCM3345		CPU_BMIPS3200 
-#define CPU_BCM6352		CPU_BMIPS3200 
-
-#define CPU_BCM3560		CPU_BMIPS3300
-#define CPU_BCM7110		CPU_BMIPS3300 
-#define CPU_BCM7115		CPU_BMIPS3300 
-#define CPU_BCM7112		CPU_BMIPS3300
-#define CPU_BCM7315		CPU_BMIPS3300
-#define CPU_BCM7314		CPU_BMIPS3300
-#define CPU_BCM7317		CPU_BMIPS3300
-#define CPU_BCM7327		CPU_BMIPS3300
-#define CPU_BCM7329		CPU_BMIPS3300
-#define CPU_BCM7111		CPU_BMIPS3300
-#define CPU_BCM7312		CPU_BMIPS3300
-#define CPU_BCM7318		CPU_BMIPS3300
-#define CPU_BCM7401		CPU_BMIPS3300
-#define CPU_BCM7403             CPU_BMIPS3300
-#define CPU_BCM7118		CPU_BMIPS3300
-#define CPU_BCM7400		CPU_BMIPS4350
-#define CPU_BCM7440		CPU_BMIPS4350
-
+#define CPU_BMIPS3200		65
+#define CPU_BMIPS3300		66
+#define CPU_BMIPS4350		67
+#define CPU_BMIPS4380		68
+#define CPU_LAST		68
 
 /*
  * ISA Level encodings

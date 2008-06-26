@@ -1539,6 +1539,7 @@ typedef struct
 #define STO_MIPS_INTERNAL		0x1
 #define STO_MIPS_HIDDEN			0x2
 #define STO_MIPS_PROTECTED		0x3
+#define STO_MIPS_PLT			0x10
 #define STO_MIPS_SC_ALIGN_UNUSED	0xff
 
 /* MIPS specific values for `st_info'.  */
@@ -1684,8 +1685,9 @@ typedef struct
 #define R_MIPS_TLS_TPREL64	48	/* TP-relative offset, 64 bit */
 #define R_MIPS_TLS_TPREL_HI16	49	/* TP-relative offset, high 16 bits */
 #define R_MIPS_TLS_TPREL_LO16	50	/* TP-relative offset, low 16 bits */
-/* Keep this the last entry.  */
-#define R_MIPS_NUM		51
+#define R_MIPS_COPY		126
+#define R_MIPS_JUMP_SLOT	127
+#define R_MIPS_NUM		128
 
 /* Legal values for p_type field of Elf32_Phdr.  */
 

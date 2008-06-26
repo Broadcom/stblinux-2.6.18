@@ -31,39 +31,28 @@
 #include <linux/mtd/partitions.h>
 #include <linux/config.h>
 #include <linux/init.h>
+#include <asm/brcmstb/common/brcmstb.h>
+
+#define PRINTK(...)
+//#define PRINTK printk
 
 extern int gFlashSize;
 
-#ifdef CONFIG_BCM93730
-#define WINDOW_ADDR 0x1e000000
-
-#elif defined(CONFIG_MIPS_BRCM97XXX)
 extern unsigned long getPhysFlashBase(void);
-
 #define WINDOW_ADDR getPhysFlashBase()
 
-#else
-#error ("bcm9xxxx-flash.c: Unsupported architecture\n")
-#endif
-
-#ifdef CONFIG_MIPS_BCM7315_BBX
-/* 
- * The 7315BBX only has a 4MB flash
- */
-#define WINDOW_SIZE 0x00400000	/* 4 MB flash */
-#else
 /* 
  * All other 97XXX boards.  May have 2 flash chips, but we only use 1.
  * and since they are of different sizes, no interleaving.
  */
 #define WINDOW_SIZE (0x20000000	 - WINDOW_ADDR)
 
-#endif
-
-
 #define BUSWIDTH 2
 
 static struct mtd_info *bcm9XXXX_mtd;
+
+/* Whether splash screen has been enabled on command line */
+extern int gBcmSplash;
 
 #ifdef CONFIG_MTD_COMPLEX_MAPPINGS
 extern int bcm7401Cx_rev;
@@ -173,7 +162,9 @@ struct map_info bcm9XXXX_map
  */
 
 #define SMALLEST_FLASH_SIZE	(16<<20)
-#define DEFAULT_RESERVED_SIZE (4<<20)  // CFE areas, from 1FC0_0000H to 2000_0000H
+#define DEFAULT_RESERVED_SIZE 	(4<<20)  // CFE areas, from 1FC0_0000H to 2000_0000H
+#define DEFAULT_SPLASH_SIZE 	(512<<10) // 512KB
+#define ROOTFS_PART				(0)
 
 #ifdef CONFIG_MTD_ECM_PARTITION
 #define DEFAULT_OCAP_SIZE		(6<<20)
@@ -185,60 +176,39 @@ struct map_info bcm9XXXX_map
 #define DEFAULT_ECM_SIZE		(0)
 #define DEFAULT_OCAP_SIZE		(0)
 #define DEFAULT_AVAIL1_SIZE		(0)
+#define AVAIL1_PART				(-1)
 #endif
 // DEFAULT_SIZE_MB will be defined later based on platforms.
 #define DEFAULT_ROOTFS_SIZE (DEFAULT_SIZE_MB - DEFAULT_RESERVED_SIZE - DEFAULT_ECM_SIZE)
 
 
 static struct mtd_partition bcm9XXXX_parts[] = {
-#ifdef CONFIG_BCM93730   /* BCM937xx STBs with PMON bootloader */
-//#define DEFAULT_SIZE_MB 16
-	{ name: "kernel",	offset: 0,		size: 2560*1024 }, 
-			/* This size is 20*128K blocks. Although PMON use 128K blocks and
-			 * will erase enough blocks to flash the kernel according to its size, 
-			  * we must start rootfs on 256K boundary for mtd to work correctly 
-			  */
-	{ name: "rootfs",	offset: 2560*1024, 	size: 13696*1024 },
-	{ name: "config",	offset: 16256*1024,	size: 128*1024 },
 
-#elif defined( CONFIG_MIPS_BCM3560_WO_MIPS_INIT_FIX )
-/* THT PR16701: 8/16/05 Obsoleted as the  MIPS init codes have been fixed.
- * This workaround is required for all 3560 CFE bootloaders built before this date:
- * Build Date: Mon Aug 15 14:34:08 PDT 2005 (rpereira@stb-irva-01)
- */
-/* Temporarily created a skip zone to circumvent bad addr in flash addr space */
-	{ name: "rootfs",	offset: 0,		    size: 10*1024*1024 },
-	{ name: "skip", 	offset: 0x00A00000, size: 2*1024*1024 },
-	{ name: "cfe",	    offset: 0x00C00000, size: 512*1024 },
+#if defined( CONFIG_MIPS_BCM7440 )
+
+#define DEFAULT_SIZE_MB 64 /* 64MB flash */
+
+	{ name: "rootfs",		offset: 0,		size: 60*1024*1024 },
+	{ name: "cfe",		offset: 0x03C00000, size: 512*1024 },
+	{ name: "vmlinux",      offset: 0x03C80000, size: 3454*1024 },
+	{ name: "drmregion",    offset: 0x03FDF800, size:  128*1024 },
+	{ name: "config",		offset: 0x03FFF800,	size: 144 },
+	{ name: "nvram",		offset: 0x03FFF890,	size: 1904 },
+
+#elif BRCM_FLASH_SIZE == 0x1000000
+
+/* 3563 */
+#define DEFAULT_SIZE_MB 16
+	{ name: "rootfs",	offset: 0,		    size: 12*1024*1024 },
+	{ name: "cfe",	        offset: 0x00C00000, size: 512*1024 },
 	{ name: "vmlinux",	offset: 0x00C80000, size: 3582*1024 },
 	{ name: "config",	offset: 0x00FFF800,	size: 144 },
 	{ name: "nvram",	offset: 0x00FFF890,	size: 1904 },
 
+#else
 
-#elif defined( CONFIG_MIPS_BCM7115 )  
-/* PR9931: On the 7115 CFE boot-address is hardwired at 0 offset. */
-//#define DEFAULT_SIZE_MB 16
+/* default for 32MB+ platforms */
 
-	{ name: "cfe",	offset: 0, 		       size: 512*1024 },
-	{ name: "rootfs",	offset: 0x00080000,     size: 12*1024*1024 },
-	{ name: "vmlinux",	offset: 0x00C80000, size: 3582*1024 },
-	{ name: "config",	offset: 0x00FFF800,	size: 144 },
-	{ name: "nvram",	offset: 0x00FFF890,	size: 1904 },
-
-
-#elif defined( CONFIG_MIPS_BCM7315_BBX )
-#define DEFAULT_SIZE_MB 4
-	{ name: "cfe",	    offset: 0, 			size: 512*1024 },
-	{ name: "vmlinux",	offset: 0x00080000, size: 3582*1024 },
-	{ name: "config",	offset: 0x003FF800,	size: 144 },
-	{ name: "nvram",	offset: 0x003FF890,	size: 1904 },
-
-#elif defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) || \
-      defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) || \
-      defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7118 ) || \
-      defined( CONFIG_MIPS_BCM7452 ) || defined( CONFIG_MIPS_BCM7405 ) || \
-      defined( CONFIG_MIPS_BCM7335 )
-	
 #define DEFAULT_SIZE_MB 32 /* 32MB flash */  
   #if defined( CONFIG_MTD_ECM_PARTITION)
 	{ name: "rootfs",		offset: 0,		    		size: DEFAULT_ROOTFS_SIZE },
@@ -253,54 +223,26 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 	{ name: "config",	offset: 0x01FFF800,	size: 144 },
 	{ name: "nvram",	offset: 0x01FFF890,	size: 1904 },
 
-#elif defined( CONFIG_MIPS_BCM7440 )
-
-#define DEFAULT_SIZE_MB 64 /* 64MB flash */
-
-	{ name: "rootfs",		offset: 0,		size: 60*1024*1024 },
-	{ name: "cfe",		offset: 0x03C00000, size: 512*1024 },
-    { name: "vmlinux",      offset: 0x03C80000, size: 3454*1024 },
-    { name: "drmregion",    offset: 0x03FDF800, size:  128*1024 },
-	{ name: "config",		offset: 0x03FFF800,	size: 144 },
-	{ name: "nvram",		offset: 0x03FFF890,	size: 1904 },
-
-#elif defined(CONFIG_DP522) || defined(CONFIG_DP322)
-        { name: "E*FlashFS",    offset: 0,              size:  2*1024*128},
-        { name: "Application",  offset: 2*1024*128,     size: 29*1024*128},
-        { name: "ATE",          offset: 31*1024*128,    size:  1*1024*128},
-        { name: "BootLoader",   offset: 32*1024*128,    size:  1*1024*128},
-        { name: "Kernel",       offset: 33*1024*128,    size:  7*1024*128},
-        { name: "RootFS",       offset: 40*1024*128,    size: 10*1024*128},
-        { name: "OpenTV",       offset: 50*1024*128,    size: 12*1024*128},
-        { name: "BootRecovery", offset: 62*1024*128,    size:  2*1024*128}
-
-
-#elif defined( CONFIG_MIPS_BRCM97XXX )
-#define DEFAULT_SIZE_MB 16
-	{ name: "rootfs",	offset: 0,		    size: 12*1024*1024 },
-	{ name: "cfe",	        offset: 0x00C00000, size: 512*1024 },
-	{ name: "vmlinux",	offset: 0x00C80000, size: 3582*1024 },
-	{ name: "config",	offset: 0x00FFF800,	size: 144 },
-	{ name: "nvram",	offset: 0x00FFF890,	size: 1904 },
-
-#else
-#error ("bcm7xxx-flash.c: Unknown/Unsupported platform\n")
 #endif
+/* Add 1 extra place-holder partition for splash, and a safety guard element */
+	{name: NULL, offset: 0, size: 0},
+	{name: NULL, offset: 0, size: 0}
 };
 
 
 int __init init_bcm9XXXX_map(void)
 {
+	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
+	int i, numparts;
+
 #ifdef CONFIG_MTD_ECM_PARTITION
 	unsigned int ecm_size = DEFAULT_ECM_SIZE;
 	unsigned int ocap_size = DEFAULT_OCAP_SIZE;
-	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
 #endif
-	int i, numparts;
 	
 	printk(KERN_NOTICE "BCM97XXX flash device: 0x%08lx @ 0x%08lx\n", WINDOW_SIZE, WINDOW_ADDR);
 	bcm9XXXX_map.size = WINDOW_SIZE;
-	numparts = ARRAY_SIZE(bcm9XXXX_parts);
+	numparts = ARRAY_SIZE(bcm9XXXX_parts) - 2; /* Minus the 2 extra place holders */
 	
 	/* Adjust partition table */
 #ifdef CONFIG_MTD_ECM_PARTITION
@@ -319,8 +261,9 @@ int __init init_bcm9XXXX_map(void)
 	}
 
 	bcm9XXXX_parts[0].size = WINDOW_SIZE - (DEFAULT_RESERVED_SIZE + ecm_size);
-printk("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
+PRINTK("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
 	for (i=1; i<ARRAY_SIZE(bcm9XXXX_parts); i++) {
+		
 		/* Skip avail1 if 0 size */
 		if (0 == bcm9XXXX_parts[i].size && i == AVAIL1_PART) {
 			bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i-1].size + bcm9XXXX_parts[i-1].offset;
@@ -329,7 +272,7 @@ printk("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX
 	
 		bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i-1].size + bcm9XXXX_parts[i-1].offset;
 		
-printk("Part[%d] name=%s, size=%x, offset=%x\n", avail1_size ? i : i-1, 
+PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", avail1_size ? i : i-1, 
 bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	}
 
@@ -348,13 +291,59 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	if (WINDOW_SIZE != (DEFAULT_SIZE_MB << 20)) {
 		
 		bcm9XXXX_parts[0].size += WINDOW_SIZE - (DEFAULT_SIZE_MB << 20);
-printk("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
+PRINTK("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
 		for (i=1; i<ARRAY_SIZE(bcm9XXXX_parts); i++) {
 			bcm9XXXX_parts[i].offset += WINDOW_SIZE - (DEFAULT_SIZE_MB << 20);
-printk("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
+PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 		}
 	}
 #endif
+
+	if (gBcmSplash) {		
+PRINTK("In bcmSplash, numParts=%d\n", numparts);
+		for (i=0; i<numparts; i++) {
+PRINTK("bcm9xxxx-flash.c: i=%d\n", i);
+PRINTK("B4 Part[%d] name=%s, size=%x, offset=%x\n",  i, 
+	bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
+			
+
+			/* we will carve out 512KB from avail1 partition if it exists, or rootfs otherwise */
+			if ((avail1_size && i == AVAIL1_PART) || (avail1_size == 0 && i == ROOTFS_PART)) {
+				int j;
+
+				/* i now points to the avail1 and/or rootfs partition */
+				bcm9XXXX_parts[i].size -= DEFAULT_SPLASH_SIZE;
+				if (i > 0) {
+					bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i-1].size + bcm9XXXX_parts[i-1].offset;
+				}
+				else {
+					bcm9XXXX_parts[i].offset = 0;
+				}
+				
+				/* Move all partitions that follow one down */
+				for (j=numparts - 1; j > i; j--) {
+					bcm9XXXX_parts[j+1] = bcm9XXXX_parts[j];
+	PRINTK("Moved partition[%d] down to [%d], name=%s\n", j, j+1, bcm9XXXX_parts[j+1].name);
+				}	
+				numparts++;
+				
+	PRINTK("original: #parts=%d, Part[%d] name=%s, size=%x, offset=%x\n", numparts,  i, 
+bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
+
+				i++;
+				/* i now points to the newly created splash partition */
+
+				bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i-1].size + bcm9XXXX_parts[i-1].offset;
+				bcm9XXXX_parts[i].size = DEFAULT_SPLASH_SIZE;
+				bcm9XXXX_parts[i].name = "splash";
+	PRINTK("splash: #parts=%d, Part[%d] name=%s, size=%x, offset=%x\n", numparts,  i, 
+bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
+			}
+
+		}
+	}
+
+	
 	bcm9XXXX_map.virt = ioremap((unsigned long)WINDOW_ADDR, WINDOW_SIZE);
 
 	if (!bcm9XXXX_map.virt) {

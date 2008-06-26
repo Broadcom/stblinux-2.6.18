@@ -417,11 +417,11 @@ static _INLINE_ unsigned int serial_in(struct async_struct *info, int offset)
 {
 /* PR12020 - Most non-pci systems are happy with no changes for endianess, Pci based Bcm97038 needs this though */
 #if !defined(CONFIG_CPU_LITTLE_ENDIAN) && defined(CONFIG_PCI)
-      return readb(((unsigned long) info->iomem_base +
-	     (offset<<info->iomem_reg_shift))^3);
+      return readb(((unsigned long *) ((unsigned long)info->iomem_base +
+	     ((offset<<info->iomem_reg_shift)^3))));
 #else
-      return readb(((unsigned long) info->iomem_base +
-	     (offset<<info->iomem_reg_shift)));
+      return readb(((unsigned long *) ((unsigned long)info->iomem_base +
+	     (offset<<info->iomem_reg_shift))));
 #endif
 }
 static _INLINE_ void serial_out(struct async_struct *info, int offset,
@@ -429,11 +429,11 @@ static _INLINE_ void serial_out(struct async_struct *info, int offset,
 {
 /* PR12020 - Most non-pci systems are happy with no changes for endianess, Pci based Bcm97038 needs this though */
 #if !defined(CONFIG_CPU_LITTLE_ENDIAN) && defined(CONFIG_PCI)
-	writeb(value, ((unsigned long) info->iomem_base +
-		(offset<<info->iomem_reg_shift))^3);
+	writeb(value, ((unsigned long *) ((unsigned long)info->iomem_base +
+		((offset<<info->iomem_reg_shift)^3))));
 #else
-	writeb(value, ((unsigned long) info->iomem_base +
-		(offset<<info->iomem_reg_shift)));
+	writeb(value, ((unsigned long *) ((unsigned long)info->iomem_base +
+		(offset<<info->iomem_reg_shift))));
 #endif
 }
 
@@ -805,22 +805,6 @@ static irqreturn_t rs_interrupt_single(int irq, void *dev_id, struct pt_regs * r
 #endif
 			{
 				//dump_softirq();
-#ifdef CONFIG_MIPS_BCM7038B0
-				dump_INTC_regs();
-
-#elif defined(CONFIG_MIPS_BCM7318)
-				printk("INTC->mask=%08x, status=%08x, polarity=%08x, enet_top_mask=%08x, enet_top_status=%08x\n",
-					*(volatile unsigned long*) 0xfffe060c,
-					*(volatile unsigned long*) 0xfffe0610,
-					*(volatile unsigned long*) 0xfffe0608,
-					*(volatile unsigned long*) 0xfffd641c,
-					*(volatile unsigned long*) 0xfffd6418);
-				printk("RX mask=%08x, RX status=%08x, TX mask=%08x,  TX status %08x\n",
-					*(volatile unsigned long*) 0xfffd6508,
-					*(volatile unsigned long*) 0xfffd6504,
-					*(volatile unsigned long*) 0xfffd6588,
-					*(volatile unsigned long*) 0xfffd6584);
-#endif
 				show_regs(regs);
 				// THT 4/05/06: Display stack to debug PR20442
 				show_stack(current, NULL);
@@ -828,17 +812,6 @@ static irqreturn_t rs_interrupt_single(int irq, void *dev_id, struct pt_regs * r
 				//printk(" ========== Dumping TLB\n");
 				//dump_tlb_all();
 				//dump_tlb_wired();
-#if defined( CONFIG_BCMINTEMAC ) || defined(CONFIG_BCMINTEMAC_7038)
-				printk(" ========== Dumping EMAC\n");
-				dump_emac();
-#endif
-
-#ifdef CONFIG_IDE
-				printk(" ========== Dumping IDE\n");
-				dump_ide();
-#endif
-
-
 				printk(" ========== Done with dump\n");
 				goto goout;
 
@@ -1644,7 +1617,6 @@ static void rs_put_char(struct tty_struct *tty, unsigned char ch)
 static void rs_flush_chars(struct tty_struct *tty)
 {
 	struct async_struct *info = (struct async_struct *)tty->driver_data;
-	unsigned long flags;
 				
 	if (serial_paranoia_check(info, tty->name, "rs_flush_chars"))
 		return;
@@ -1654,12 +1626,6 @@ static void rs_flush_chars(struct tty_struct *tty)
 	    || tty->hw_stopped
 	    || !info->xmit.buf)
 		return;
-
-	//local_irq_save(flags);
-	
-/*	(void) serial_inp(info, UART_RECV_DATA);*/
-
-	//local_irq_restore(flags);
 }
 
 static int rs_write(struct tty_struct * tty, const unsigned char *buf, int count)
@@ -1757,7 +1723,6 @@ static void rs_send_xchar(struct tty_struct *tty, char ch)
 static void rs_throttle(struct tty_struct * tty)
 {
 	struct async_struct *info = (struct async_struct *)tty->driver_data;
-	unsigned long flags;
 #ifdef SERIAL_DEBUG_THROTTLE
 	char	buf[64];
 	
@@ -1770,16 +1735,11 @@ static void rs_throttle(struct tty_struct * tty)
 
 	if (tty->termios->c_cflag & CRTSCTS)
 		info->MCR &= ~UART_MCR_RTS;
-
-	//local_irq_save(flags);
-	//rtsdtr_ctrl(info->MCR);
-	//local_irq_restore(flags);
 }
 
 static void rs_unthrottle(struct tty_struct * tty)
 {
 	struct async_struct *info = (struct async_struct *)tty->driver_data;
-	unsigned long flags;
 #ifdef SERIAL_DEBUG_THROTTLE
 	char	buf[64];
 	
@@ -1793,13 +1753,6 @@ static void rs_unthrottle(struct tty_struct * tty)
 		else
 			rs_send_xchar(tty, START_CHAR(tty));
 	}
-#if 0
-	if (tty->termios->c_cflag & CRTSCTS)
-		info->MCR |= SER_RTS;
-	local_irq_save(flags);
-	rtsdtr_ctrl(info->MCR);
-	local_irq_restore(flags);
-#endif
 }
 
 /*
@@ -2217,7 +2170,7 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 		return;
 	}
 	info->flags |= ASYNC_CLOSING;
-	restore_flags(flags);
+	local_irq_restore(flags);
 #if 0
 	/*
 	 * Save the termios structure, since this port may have

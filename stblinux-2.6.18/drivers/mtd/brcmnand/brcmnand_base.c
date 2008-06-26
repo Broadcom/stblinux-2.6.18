@@ -3826,14 +3826,19 @@ get_rom_size(unsigned long* outp_cs0Base)
 	volatile unsigned long strap_ebi_rom_size, sun_top_ctrl_strap_value;
 	uint32_t romSize = 0;
 
-#ifdef BCHP_SUN_TOP_CTRL_STRAP_VALUE_0
+#if defined(BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_ebi_rom_size_MASK)
 	sun_top_ctrl_strap_value = *(volatile unsigned long*) (0xb0000000|BCHP_SUN_TOP_CTRL_STRAP_VALUE_0);
 	strap_ebi_rom_size = sun_top_ctrl_strap_value & BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_ebi_rom_size_MASK;
 	strap_ebi_rom_size >>= BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_ebi_rom_size_SHIFT;
-#else
+#elif defined(BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_MASK)
 	sun_top_ctrl_strap_value = *(volatile unsigned long*) (0xb0000000|BCHP_SUN_TOP_CTRL_STRAP_VALUE);
 	strap_ebi_rom_size = sun_top_ctrl_strap_value & BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_MASK;
 	strap_ebi_rom_size >>= BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_SHIFT;
+#elif defined(CONFIG_MIPS_BCM3548)
+	printk("FIXME: no strap option for rom size on 3548\n");
+	BUG();
+#else
+#error Don't know how to find the ROM size
 #endif
 
 	// Here we expect these values to remain the same across platforms.

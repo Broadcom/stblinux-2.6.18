@@ -29,3 +29,7 @@ $(ARCH_DIR)/gmon-start.S: $(ARCH_OUT)/gmon-start.s
 	cat $< >> $@
 	rm -f $<
 endif
+
+CFLAGS-crt1.S := $(PICFLAG)
+CFLAGS-crti.S := $(PICFLAG)
+CFLAGS-crtn.S := $(PICFLAG)

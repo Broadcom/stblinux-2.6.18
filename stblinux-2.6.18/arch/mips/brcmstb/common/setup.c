@@ -58,12 +58,7 @@ extern struct kbd_ops brcm_kbd_ops;
 #endif
 
 #include <asm/io.h>
-
-#include "asm/brcmstb/common/brcmstb.h"
-
-//#if     defined(CONFIG_MTD_BRCMNAND) || defined(CONFIG_MTD_BRCMNAND_MODULE)
-//#include <linux/mtd/brcmnand.h>
-//#endif
+#include <asm/brcmstb/common/brcmstb.h>
 
 extern void uart_puts(const char*);
 extern void brcm_numa_init(void);
@@ -75,72 +70,34 @@ static void brcm_machine_restart(char *command)
 {
 	static void (*back_to_prom)(void) = (void (*)(void)) 0xbfc00000;
 
-
-#if defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7400 ) \
-	|| defined( CONFIG_MIPS_BCM3560 ) || defined( CONFIG_MIPS_BCM7038C0 ) \
-	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7402S ) \
-	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 )  \
-        || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7452 )
-#define SUN_TOP_CTRL_RESET_CTRL		0xb0404008
-#define MASTER_RESET_ENABLE 		(1<<3)
-  
-  /* NOTE: CONFIG_MIPS_BCM3563C0 implies CONFIG_MIPS_BCM3560 */
-  #if defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7401B0 ) \
-  	|| defined( CONFIG_MIPS_BCM7402 ) || defined( CONFIG_MIPS_BCM7440 ) \
-	|| defined(CONFIG_MIPS_BCM7401C0 ) || defined( CONFIG_MIPS_BCM7118 ) \
-	|| defined(CONFIG_MIPS_BCM7403A0) || defined( CONFIG_MIPS_BCM7452A0 ) \
-	|| defined( CONFIG_MIPS_BCM3563 ) || defined(CONFIG_MIPS_BCM3563C0)
-  #define SUN_TOP_CTRL_SW_RESET		0xb0404014
-
-  #elif defined( CONFIG_MIPS_BCM7401A0 ) || defined( CONFIG_MIPS_BCM3560 ) \
- 	|| defined( CONFIG_MIPS_BCM7038C0 ) || defined( CONFIG_MIPS_BCM7402S )
-  #define SUN_TOP_CTRL_SW_RESET		0xb0404010
-  
-  #endif
-#define CHIP_MASTER_RESET 			(1<<31)
-
-
-#elif defined( CONFIG_MIPS_BCM7405 ) || defined( CONFIG_MIPS_BCM7335 ) \
-	|| defined( CONFIG_MIPS_BCM7325 )
-
-#define SUN_TOP_CTRL_SW_RESET		(BCHP_SUN_TOP_CTRL_SW_RESET | 0xb0000000)
-#define SUN_TOP_CTRL_RESET_CTRL		(BCHP_SUN_TOP_CTRL_RESET_CTRL | 0xb0000000)
-#define CHIP_MASTER_RESET		(1 << BCHP_SUN_TOP_CTRL_SW_RESET_chip_master_reset_SHIFT)
-#define MASTER_RESET_ENABLE		(1 << BCHP_SUN_TOP_CTRL_RESET_CTRL_master_reset_en_SHIFT)
-
-#endif
-
-#ifdef SUN_TOP_CTRL_SW_RESET
-
-	volatile unsigned long* ulp;
-
 /* PR21527 - Fix SMP reboot problem */
 #ifdef CONFIG_SMP
 	smp_send_stop();
 	udelay(10);
 #endif
 
-#if 0 //def CONFIG_MTD_BRCMNAND 
-	// PR38914: 01-23-08 for 2.6.12-5.3 & 2.6.18-4.1: This is now called via the FS /MTD notifier.
-  	/*
-  	 * THT: For version 1.0+ of the NAND controller, must revert to Direct Access in order to
-  	 * do XIP from the flash
-  	 */
-  	brcmnand_prepare_reboot();
-#endif
+	/*
+	 * If NAND is on CS0, we need to revert to direct access in order to
+	 * re-enable XIP so CFE can boot.  This was once done through a
+	 * call to brcmnand_prepare_reboot() from this function, but is
+	 * now handled through the FS/MTD notifier.
+	 */
 
-	ulp = (volatile unsigned long*) SUN_TOP_CTRL_RESET_CTRL;
-	*ulp |= MASTER_RESET_ENABLE;
-	ulp = (volatile unsigned long*) SUN_TOP_CTRL_SW_RESET;
-	*ulp |= CHIP_MASTER_RESET;
+	/* enable chip reset, then do it */
+	BDEV_SET(BCHP_SUN_TOP_CTRL_RESET_CTRL,
+		BCHP_SUN_TOP_CTRL_RESET_CTRL_master_reset_en_MASK);
+	BDEV_RD(BCHP_SUN_TOP_CTRL_RESET_CTRL);
+
+	BDEV_SET(BCHP_SUN_TOP_CTRL_SW_RESET,
+		BCHP_SUN_TOP_CTRL_SW_RESET_chip_master_reset_MASK);
+	BDEV_RD(BCHP_SUN_TOP_CTRL_SW_RESET);
+
 	udelay(10);
 
 	/* NOTREACHED */
-#endif
 
 	/* Reboot */
 	back_to_prom();
-
 }
 
 static void brcm_machine_halt(void)
@@ -241,7 +198,8 @@ void __init plat_mem_setup(void)
 	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
 	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 ) \
         || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7405 ) \
-	|| defined( CONFIG_MIPS_BCM7335 ) || defined( CONFIG_MIPS_BCM7325 )
+	|| defined( CONFIG_MIPS_BCM7335 ) || defined( CONFIG_MIPS_BCM7325 ) \
+	|| defined( CONFIG_MIPS_BCM3548 )
 	
 	set_io_port_base(0xf0000000);  /* start of PCI IO space. */
 #elif defined( CONFIG_MIPS_BCM7329 )
@@ -268,6 +226,22 @@ void __init plat_mem_setup(void)
 #if defined( CONFIG_MIPS_BCM7400A0 )
 	rac_setting(1);
 #endif
+
+#if defined( CONFIG_MIPS_BCM7440B0 ) || defined( CONFIG_MIPS_BCM7325A0 ) \
+	|| defined( CONFIG_MIPS_BCM7443A0 ) 
+	
+    // Set externalize IO sync bit (CP0 $16, sel 7, bit 8)
+	{
+        uint32_t extIO = __read_32bit_c0_register($16, 7);
+
+	    printk("ES bit: CP0 $16 sel 7 B4 = %08x\n", extIO);
+        __write_32bit_c0_register($16, 7, extIO | 0x100);
+        extIO = __read_32bit_c0_register($16, 7);
+	    printk("ES bit: CP0 $16 sel 7 after = %08x\n", extIO);
+	}
+
+#endif
+
 
 #ifdef CONFIG_PC_KEYB
 	kbd_ops = &brcm_kbd_ops;
