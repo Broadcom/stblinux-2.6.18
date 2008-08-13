@@ -1,0 +1,1 @@
+../../../linux-2.6.x/arch/mips/configs/bcm97420a0-smp_initrd_defconfig

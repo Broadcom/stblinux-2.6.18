@@ -244,9 +244,7 @@ void bcm_inv_rac_all(void)
 #if defined(CONFIG_MIPS_BCM7325) || defined( CONFIG_MIPS_BCM7440B0 ) \
 	|| defined( CONFIG_MIPS_BCM7443 )
 	/* 7325 L2 supports prefetching */
-#ifdef CONFIG_MIPS_BRCM_SCACHE
 	r4k_blast_scache();
-#endif
 	__sync();
 #else
 	bcm_local_inv_rac_all();
@@ -683,9 +681,8 @@ void brcm_r4k_flush_cache_range(struct vm_area_struct *vma, unsigned long start,
 			local_irq_restore(flags);
 		}
 	}
-#if defined(CONFIG_MIPS_BRCM_SCACHE)
 	r4k_blast_scache();
-#endif
+
 	BCM_LOCAL_EXTRA_CACHEOP_WAR;
 	CACHE_EXIT(brange);
 }
@@ -1663,7 +1660,6 @@ void __init r4k_cache_init(void)
 	|| defined(CONFIG_MIPS_BCM7319) || defined(CONFIG_MIPS_BCM7440B0) \
 	|| defined (CONFIG_MIPS_BCM7443) ||  defined(CONFIG_MIPS_BCM7325) 
 		/* Do nothing for BRCM MIPS-5k, 24k */
-	printk("MTI Core cache probe\n");
 
 #else
 #define ICACHE_DCACHE_ENABLED 0xC0000000

@@ -189,7 +189,6 @@ uart_init(unsigned long uClock)
 	stUartB->uBaudRateLo = (uBaudRate & 0xFF);
 	stUartB->uBaudRateHi = ((uBaudRate >> 8) & 0xFF);
 
-	// Enable the UART, 8N1, Tx & Rx enabled
 	stUart->uControl = 0x16;
 	stUartB->uControl = 0x16;
 }

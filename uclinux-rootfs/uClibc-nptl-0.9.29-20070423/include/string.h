@@ -234,7 +234,9 @@ extern char *strncat (char *__restrict __dest, __const char *__restrict __src,
 		: "=&r" (ret),			    \
 		  "=&r" (tmp0), "=&r" (tmp1),	    \
 		  "=&r" (mask0), "=&r" (mask1),	    \
-		  "+r" (str0), "+r" (str1));	    \
+		  "+r" (str0), "+r" (str1)	    \
+		: /* no inputs */		    \
+		: "memory");			    \
 	ret; })
 
 #endif

@@ -30,7 +30,9 @@
 #include <linux/mm.h>
 #include <linux/module.h> // SYM EXPORT */
 #include <asm/bootinfo.h>
+//#include <asm/mmzone.h>
 #include <asm/brcmstb/common/brcmstb.h>
+
 
 /* RYH */
 unsigned int par_val = 0x00;	/* for RAC Mode setting, 0x00-Disabled, 0xD4-I&D Enabled, 0x94-I Only */
@@ -93,27 +95,33 @@ EXPORT_SYMBOL(bcm7403Ax_rev);
 int gNumHwAddrs = 0;
 EXPORT_SYMBOL(gNumHwAddrs);
 
-#ifdef CONFIG_MTD_BRCMNAND
 static unsigned char privHwAddrs[MAX_HWADDR][HW_ADDR_LEN];
 unsigned char* gHwAddrs[MAX_HWADDR];
-
-
-#else
-unsigned char** gHwAddrs = NULL;
-#endif // CONFIG_MTD_BRCMNAND
 EXPORT_SYMBOL(gHwAddrs);
 
-unsigned long get_RAM_size(void);
-unsigned long g_board_RAM_size = 0;	//Updated by get_RAM_size();;
+#define FLASH_MACADDR_ADDR 0xBFFFF824
 
-#if defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7325 )
+unsigned long g_board_RAM_size = 0;	//Updated by get_RAM_size();
+unsigned long g_board_discontig_RAM_size = 0; // updated by __get_discontig_RAM_size()
+
+static unsigned long 
+__default_get_discontig_RAM_size(void)
+{
+	return 0UL;
+}
+
+/*
+ * 
+ * By default will return 0.  It's up to individual boards to
+ * override the default, by overloading the function pointer.
+ * returns the amount of memory not accounted for by get_RAM_size();
+ */
+unsigned long (* __get_discontig_RAM_size) (void) = __default_get_discontig_RAM_size;
+EXPORT_SYMBOL(__get_discontig_RAM_size);
+
+#if defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7325 ) || \
+	defined( CONFIG_MIPS_BCM7440 )
 #define CONSOLE_KARGS " console=uart,mmio,0x10400b00,115200n8"
-
-#elif defined( CONFIG_MIPS_BCM7440 )
-#define CONSOLE_KARGS " console=uart,mmio,0x10400b40,115200n8"
-
-//#elif defined( CONFIG_MIPS_BCM7401B0 )
-//#define DEFAULT_KARGS " rw console=ttyS0,115200 console=uart,mmio,0x10400b00,115200n8"
 
 #else
 #define CONSOLE_KARGS " console=ttyS0,115200"
@@ -266,7 +274,6 @@ void __init prom_init(void)
 #ifdef CONFIG_MIPS_BRCM97XXX
 /* For the 97xxx series STB, process CFE boot parms */
 
-  #ifdef CONFIG_MTD_BRCMNAND
   	{	
   		int i;
 
@@ -274,9 +281,40 @@ void __init prom_init(void)
 			gHwAddrs[i] = &privHwAddrs[i][0];
 		}
   	}
-  #endif
   
 	res = get_cfe_boot_parms(cfeBootParms, &gNumHwAddrs, gHwAddrs);
+	if(gNumHwAddrs <= 0) {
+#if !defined(CONFIG_BRCM_PCI_SLAVE)
+		unsigned int i, mac = FLASH_MACADDR_ADDR, ok = 0;
+
+		for(i = 0; i < 3; i++) {
+			u16 word = readw((void *)mac);
+
+			if(word != 0x0000 && word != 0xffff)
+				ok = 1;
+
+			gHwAddrs[0][(i << 1)] = word & 0xff;
+			gHwAddrs[0][(i << 1) + 1] = word >> 8;
+			mac += 2;
+		}
+
+		/* display warning for all 00's, all ff's, or multicast */
+		if(! ok || (gHwAddrs[0][1] & 1)) {
+			printk(KERN_WARNING
+				"WARNING: read invalid MAC address "
+				"%02x:%02x:%02x:%02x:%02x:%02x from flash @ 0x%08x\n",
+				gHwAddrs[0][0], gHwAddrs[0][1], gHwAddrs[0][2],
+				gHwAddrs[0][3], gHwAddrs[0][4], gHwAddrs[0][5],
+				FLASH_MACADDR_ADDR);
+		}
+#else
+		/* PCI slave mode - no EBI/flash available */
+		u8 fixed_macaddr[] = { 0x00, 0xc0, 0xa8, 0x74, 0x3b, 0x51 };
+
+		memcpy(&gHwAddrs[0][0], fixed_macaddr, sizeof(fixed_macaddr));
+#endif
+		gNumHwAddrs = 1;
+	}
   //printk("get_cfe_boot_parms returns %d, strlen(cfeBootParms)=%d\n", res, strlen(cfeBootParms));
 	hasCfeParms = ((res == 0 ) || (res == -2));
 	// Make sure cfeBootParms is not empty or contains all white space
@@ -297,6 +335,16 @@ void __init prom_init(void)
 			}
 		}
 	}
+
+	/* Platform specific Init */
+#ifdef CONFIG_MIPS_BCM7440B0
+	{
+		extern int board_get_cfe_env(void);
+
+		(void) board_get_cfe_env();
+	}
+
+#endif
 
 	/* RYH - RAC */
 	{
@@ -603,6 +651,9 @@ void __init prom_init(void)
 	// THT: PR21410 Implement memory hole in init_bootmem, now just record the memory size.
 	{
 		unsigned int ramSizeMB;
+#ifdef CONFIG_DISCONTIGMEM
+		unsigned long startOfDiscontig = 512<<20; /* 2nd half of DDR0 starts here, physically */
+#endif
 
 		g_board_RAM_size = get_RAM_size();
 		ramSizeMB = g_board_RAM_size >> 20;
@@ -612,12 +663,57 @@ void __init prom_init(void)
 			add_memory_region(0, g_board_RAM_size, BOOT_MEM_RAM);
 		}
 		else {
+#if defined (CONFIG_MIPS_BCM7440B0)
+			/*
+			** On the 7440B0, Memory Region 0
+			** is split into a DMA region sized
+			** for IDE_WINDOW_END and a second
+			** non-DMA mode for the rest of the
+			** first memory controller range.
+			*/
+			add_memory_region(0x00000000, IDE_WINDOW_END, BOOT_MEM_RAM);
+			if (bcm_pdiscontig_memmap->memSize[0] > IDE_WINDOW_END)
+				add_memory_region(IDE_WINDOW_END, (bcm_pdiscontig_memmap->memSize[0] - IDE_WINDOW_END), BOOT_MEM_RAM);
+
+#else
+			/*
+			** Limit Zero-based Memory Region 0 to 256MB such
+			** that we do not overlap BCHP registers and EBI
+			** space (0x10000000 - 0x1fffffff).
+			*/
 			add_memory_region(0, 256<<20, BOOT_MEM_RAM);
-#ifdef CONFIG_DISCONTIGMEM
-			add_memory_region(512<<20, (ramSizeMB - 256)<<20, BOOT_MEM_RAM);
+#endif
+
+#if defined(CONFIG_DISCONTIGMEM)
+			{
+				int ddr = 0;
+				unsigned long size;
+
+				if(! bcm_pdiscontig_memmap) {
+					add_memory_region(startOfDiscontig,
+						(ramSizeMB - 256) << 20, BOOT_MEM_RAM);
+				} else {
+					/* ddr = 0 */
+					size = bcm_pdiscontig_memmap->memSize[0] - (256<<20);
+					if (size > 0) {
+						add_memory_region(startOfDiscontig, size, BOOT_MEM_RAM);
+						startOfDiscontig += size;
+					}
+
+					
+					/* ddr = 1 or higher */
+					for (ddr=1; ddr < bcm_pdiscontig_memmap->nDdrCtrls; ddr++) {
+						/* The 2nd half of DDR0 starts at 512MB offset, but some DDR1 starts at 0x60000000 */
+						startOfDiscontig = bcm_pdiscontig_memmap->physAddr[ddr];
+						size = bcm_pdiscontig_memmap->memSize[ddr];
+						add_memory_region(startOfDiscontig, size, BOOT_MEM_RAM);
+						startOfDiscontig += size;
+					}
+				}
+			}
 #endif
 		}
-	} 
+	}
 	
 
 #if defined (CONFIG_MIPS_BRCM97XXX) 

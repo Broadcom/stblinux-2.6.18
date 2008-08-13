@@ -42,6 +42,7 @@ obj-$(CONFIG_MIPS_BCM7335)  	+= pci-brcm97400d0.o ops-brcm97400d0.o fixup-brcm97
 obj-$(CONFIG_MIPS_BCM3560)  	+= pci-brcm93560.o ops-brcm93560.o fixup-brcm93560.o
 obj-$(CONFIG_MIPS_BCM7038C0)  	+= pci-brcm97038c0.o ops-brcm97038c0.o fixup-brcm97038c0.o
 obj-$(CONFIG_MIPS_BCM7440A0)    += pci-brcm97440.o ops-brcm97440.o fixup-brcm97440.o
+obj-$(CONFIG_MIPS_BCM7440B0)    += pci-brcm97440.o ops-brcm97440.o fixup-brcm97440.o
 obj-$(CONFIG_MIPS_BCM7402)  	+= pci-brcm97402.o ops-brcm97402.o fixup-brcm97402.o
 
 obj-$(CONFIG_MIPS_COBALT)	+= fixup-cobalt.o

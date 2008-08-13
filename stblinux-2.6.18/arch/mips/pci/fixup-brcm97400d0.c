@@ -187,10 +187,10 @@ Prefetchable */
 			if (savRegData & 0x1) {	/* IO address */
 				/* Calculate the next address that satisfies the boundary condition */
 				regData = (ioAddr + size - 1) & mask;
-				dev->resource[j].start = regData;
-				dev->resource[j].end = regData + size - 1;
-				if (insert_resource(&ioport_resource, &dev->resource[j])) {
-					printk("PnP: Cannot allocate IO resource[%d]=(%04x,%04x)\n", j, regData, regData + size - 1);
+				dev->resource[i].start = regData;
+				dev->resource[i].end = regData + size - 1;
+				if (insert_resource(&ioport_resource, &dev->resource[i])) {
+					printk("PnP: Cannot allocate IO resource[%d]=(%04x,%04x)\n", i, regData, regData + size - 1);
 				}
 				pci_write_config_dword(dev, PCI_BASE_ADDRESS_0+j, regData);
 				printk("PnP: Writing PCI_IO_BAR[%d]=%x, size=%d, mask=%x\n", i,
@@ -201,10 +201,10 @@ Prefetchable */
 			else { /* Mem address, tag on to the last one, the 7041 mem area */
 				/* Calculate the next address that satisfies the boundary condition */
 				regData = (memAddr + size - 1) & ~(size -1);
-				dev->resource[j].start = regData;
-				dev->resource[j].end = regData + size - 1;
-				if (insert_resource(&iomem_resource, &dev->resource[j])) {
-					printk("PnP: Cannot allocate MEM resource[%d]=(%08x,%08x)\n", j, regData, regData + size - 1);
+				dev->resource[i].start = regData;
+				dev->resource[i].end = regData + size - 1;
+				if (insert_resource(&iomem_resource, &dev->resource[i])) {
+					printk("PnP: Cannot allocate MEM resource[%d]=(%08x,%08x)\n", i, regData, regData + size - 1);
 				}
 				pci_write_config_dword(dev, PCI_BASE_ADDRESS_0+j, regData);
 				//printk("PnP: Writing PCI_MEM_BAR[%d]=%x, size=%d, mask=%x\n", i,

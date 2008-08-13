@@ -25,8 +25,11 @@
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <asm/bootinfo.h>
-#include "cfe_xiocb.h"
-#include "asm/brcmstb/common/cfe_call.h"
+
+#include "../common/cfe_xiocb.h"
+#include <asm/brcmstb/common/cfe_call.h>
+
+extern unsigned int cfe_seal;
 
 #define ETH_HWADDR_LEN 18	/* 12:45:78:ab:de:01\0 */
 
@@ -44,6 +47,54 @@ static inline int hex(unsigned char ch)
 	return -1;
 }
 
+int get_cfe_env_variable(cfe_xiocb_t *cfeparam,
+				void * name_ptr, int name_length,
+				void * val_ptr,  int val_length)
+{
+	int res = 0;
+
+	cfeparam->xiocb_fcode  = CFE_CMD_ENV_GET;
+	cfeparam->xiocb_status = 0;
+	cfeparam->xiocb_handle = 0;
+	cfeparam->xiocb_flags  = 0;
+	cfeparam->xiocb_psize  = sizeof(xiocb_envbuf_t);
+	cfeparam->plist.xiocb_envbuf.name_ptr    = (unsigned int)name_ptr;
+	cfeparam->plist.xiocb_envbuf.name_length = name_length;
+	cfeparam->plist.xiocb_envbuf.val_ptr     = (unsigned int)val_ptr;
+	cfeparam->plist.xiocb_envbuf.val_length  = val_length;
+
+	if (cfe_seal == CFE_SEAL) {
+		res = cfe_call(cfeparam);
+	}
+	else
+		res = -1;
+
+	return (res);
+}
+
+int get_cfe_hw_info(cfe_xiocb_t* cfe_boardinfo)
+{
+	int res = -1;
+	
+	/*
+	** Get CFE HW INFO
+	*/
+	memset(cfe_boardinfo, 0, sizeof(cfe_xiocb_t));
+	cfe_boardinfo->xiocb_fcode  = CFE_CMD_GET_BOARD_INFO;
+	cfe_boardinfo->xiocb_status = 0;
+	cfe_boardinfo->xiocb_handle = 0;
+	cfe_boardinfo->xiocb_flags  = 0;
+	cfe_boardinfo->xiocb_psize  = sizeof(xiocb_boardinfo_t);
+
+	if (cfe_seal == CFE_SEAL) {
+		res = cfe_call(cfe_boardinfo);
+	}
+	return res;
+}
+
+/* NOTE: do not put this on the stack.  It can exceed 3kB. */
+static cfe_xiocb_t cfeparam;
+
 /*
  * ethHwAddrs is an array of 16 uchar arrays, each of length 6, allocated by the caller
  * numAddrs are the actual number of HW addresses used by CFE.
@@ -59,52 +110,25 @@ int get_cfe_boot_parms( char bootParms[], int* numAddrs, unsigned char* ethHwAdd
 #ifdef CONFIG_MTD_BRCMNAND
 	const char* eth0HwAddr_env = "ETH0_HWADDR";
 #endif
-	cfe_xiocb_t cfeparam;
 	int res;
-	extern unsigned int firmhandl;
-	extern unsigned int firmentry;
-	extern unsigned int cfe_seal;
-	//extern unsigned int cfe_arg;
-char msg[CFE_CMDLINE_BUFLEN+12];
+	char msg[128];
 
-	cfeparam.xiocb_fcode  = CFE_CMD_ENV_GET;
-	cfeparam.xiocb_status = 0;
-	cfeparam.xiocb_handle = 0;
-	cfeparam.xiocb_flags  = 0;
-	cfeparam.xiocb_psize  = sizeof(xiocb_envbuf_t);
-	cfeparam.plist.xiocb_envbuf.name_ptr    = (unsigned int)cfe_env;
-	cfeparam.plist.xiocb_envbuf.name_length = strlen(cfe_env);
-	cfeparam.plist.xiocb_envbuf.val_ptr     = (unsigned int)bootParms;
-	cfeparam.plist.xiocb_envbuf.val_length  = CFE_CMDLINE_BUFLEN;
-
-	//cfe_arg = &cfeparam;
 {
 
-sprintf(msg, "Before: firmhandl=%08x, firmentry=%08x, seal=%08x,bootParmsAddr=%08x\n",
-firmhandl, firmentry, cfe_seal, (unsigned int) cfeparam.plist.xiocb_envbuf.val_ptr);
-uart_puts(msg);
-
-	if (cfe_seal == CFE_SEAL) {
-		res = cfe_call(&cfeparam);
-	}
-	else {
-		uart_puts("Not called from CFE\n");
-		res = -1;
-	}
+    res = get_cfe_env_variable(&cfeparam,
+				   (void *)cfe_env,   strlen(cfe_env),
+				   (void *)bootParms, CFE_CMDLINE_BUFLEN);
 
 	if (res){
 		uart_puts( "No arguments presented to boot command\n" );
-		//sprintf(msg,"get_cfe_boot_parms: Failed retrieving boot parameters, ret=%d\n", res);
-		//uart_puts(msg);
-		//sprintf(msg,"After: firmhandl=%08x, firmentry=%08x\n", firmhandl, firmentry);
-		//uart_puts(msg);
 		res = -1;
 	}
 	else{
 		/* The kernel only takes 256 bytes, but CFE buffer can get up to 1024 bytes */
 		if (strlen(bootParms) >= COMMAND_LINE_SIZE) {
 			int i;
-			sprintf(msg, "Warnings, CFE boot params truncated to %d\n", COMMAND_LINE_SIZE);
+			sprintf(msg, "Warnings, CFE boot params truncated to %d bytes\n",
+				COMMAND_LINE_SIZE);
 			uart_puts(msg);
 			for (i=COMMAND_LINE_SIZE-1; i>=0; i--) {
 				if (isspace(bootParms[i])) {
@@ -113,9 +137,6 @@ uart_puts(msg);
 				}
 			}
 		}	
-		uart_puts("The cmdline args were:\n");
-		sprintf(msg, "@%08x=%s\n", (unsigned int) bootParms,bootParms);
-		uart_puts(msg);
 		res = 0;
 	}
 }
@@ -124,31 +145,14 @@ uart_puts(msg);
 if (ethHwAddrs != NULL) {
 	unsigned char eth0HwAddr[ETH_HWADDR_LEN];
 	int i, j, k;
-sprintf(msg, "Before: firmhandl=%08x, firmentry=%08x, seal=%08x,bootParmsAddr=%08x\n",
-firmhandl, firmentry, cfe_seal, (unsigned int) cfeparam.plist.xiocb_envbuf.val_ptr);
-uart_puts(msg);
-
-
-
 
 	*numAddrs = 1;
-	cfeparam.xiocb_fcode  = CFE_CMD_ENV_GET;
-	cfeparam.xiocb_status = 0;
-	cfeparam.xiocb_handle = 0;
-	cfeparam.xiocb_flags  = 0;
-	cfeparam.xiocb_psize  = sizeof(xiocb_envbuf_t);
-	cfeparam.plist.xiocb_envbuf.name_ptr    = (unsigned int) eth0HwAddr_env;
-	cfeparam.plist.xiocb_envbuf.name_length = strlen(eth0HwAddr_env);
-	cfeparam.plist.xiocb_envbuf.val_ptr     = (unsigned int)eth0HwAddr;
-	cfeparam.plist.xiocb_envbuf.val_length  = ETH_HWADDR_LEN*(*numAddrs);
-
-
-	if (cfe_seal == CFE_SEAL) {
-		res = cfe_call(&cfeparam);
-	}
-	else {
-		uart_puts("Not called from CFE\n");
-		res = -2;
+	  res = get_cfe_env_variable(&cfeparam,
+					 (void *)eth0HwAddr_env, strlen(eth0HwAddr_env),
+					 (void *)eth0HwAddr,     ETH_HWADDR_LEN*(*numAddrs));
+	  if (res)
+		  res = -2;
+	  else {
 	}
 
 	if (res){
@@ -163,9 +167,6 @@ uart_puts(msg);
 			
 			eth0HwAddr[ETH_HWADDR_LEN-1] = '\0';
 		}	
-		uart_puts("ETH0_HWADDR:\n");
-		sprintf(msg, "@%08x=%s\n", (unsigned int) eth0HwAddr, eth0HwAddr);
-		uart_puts(msg);
 
 		/*
 		 * Convert to binary format
@@ -184,8 +185,8 @@ uart_puts(msg);
 					break;
 
 				default:
-					hwAddr[j] = (unsigned char) ((hex(eth0HwAddr[i]) << 4) | hex(eth0HwAddr[i+1]));
-printk("EMAC addr[%d] = %02x\n", j, hwAddr[j]);
+					hwAddr[j] = (unsigned char)
+						((hex(eth0HwAddr[i]) << 4) | hex(eth0HwAddr[i+1]));
 					j++;
 					i +=2;
 				}

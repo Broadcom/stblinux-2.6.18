@@ -14,7 +14,7 @@
 
 
 #if !defined _ASMLANGUAGE
-#if __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 #endif
@@ -96,7 +96,7 @@ typedef struct Timer {
 
 
 
-#if __cplusplus
+#ifdef __cplusplus
 }
 #endif
 #endif

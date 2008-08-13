@@ -46,15 +46,19 @@
 #include <asm/io.h>
 #include <asm/debug.h>
 
-#include <asm/brcmstb/brcm97440a0/boardmap.h>
-#include <asm/brcmstb/brcm97440a0/bchp_hif_cpu_intr1.h>
-#include <asm/brcmstb/brcm97440a0/bcmintrnum.h>
+#include <asm/brcmstb/common/brcmstb.h>
+
 
 
 
 /* Since the following is not defined in any of our header files. */
-#define MIPS_PCI_XCFG_INDEX     0xf0600004
-#define MIPS_PCI_XCFG_DATA      0xf0600008
+#if defined (CONFIG_MIPS_BCM7440)
+/* ADT - The PCI I/O base address for 97440A0 and 97440B0 is 0xF8000000       */
+#define MIPS_PCI_XCFG_INDEX     0xf8600004
+#define MIPS_PCI_XCFG_DATA      0xf8600008
+#else
+#error "Unsupported 7440 chip version"
+#endif
 
 #define MIPS_PCI_SATA_XCFG_INDEX     0xb0500204
 #define MIPS_PCI_SATA_XCFG_DATA      0xb0500208

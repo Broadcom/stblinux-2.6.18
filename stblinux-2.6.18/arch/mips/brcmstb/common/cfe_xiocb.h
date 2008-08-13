@@ -27,6 +27,8 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  *
+ * [07/10/2007]
+ *      mfi: corrected cfe_magic calculation and added cfe_min_rev_nand()
  ********************************************************************* */
 
 #ifndef _CFE_XIOCB_H
@@ -58,6 +60,8 @@
 #define CFE_CMD_ENV_GET		22
 #define CFE_CMD_ENV_SET		23
 #define CFE_CMD_ENV_DEL		24
+#define CFE_CMD_GET_BOARD_INFO  25
+
 
 #define CFE_CMD_MAX		32
 
@@ -165,6 +169,54 @@ typedef struct xiocb_fwinfo_s {
     cfe_xint_t fwi_reserved3;
 } xiocb_fwinfo_t;
 
+/*
+** Hardware Info
+*/
+#define CFE_HWINFO_MIN_REV             15       /* Derived from magic number = version, hex format */
+#define CFE_HWINFO_MIN_REV_NAND        16       /* Derived from magic number = version, hex format */ 
+
+#define CFE_FLASH_PARTITION_NAME_SIZE  64
+#define CFE_MAX_FLASH_PARTITIONS       32
+
+#define CFE_NUM_DDR_CONTROLLERS         2
+#define CFE_NUM_ENET_CONTROLLERS        2
+#define CFE_NUM_UART_CONTROLLERS        8
+#define CFE_MAC_ADDR_LENGTH             6
+
+typedef enum cfe_xflash_types_s {
+	FLASH_XTYPE_NOR,
+	FLASH_XTYPE_NAND
+} cfe_xflash_types_t;
+
+typedef struct cfe_xflash_partition_map_s {
+	char        part_name[CFE_FLASH_PARTITION_NAME_SIZE];
+	cfe_xptr_t  base;
+	cfe_xuint_t offset;
+	cfe_xuint_t size;
+} cfe_xflash_partition_map_t;
+
+typedef struct cfe_xuart_layout_s {
+	cfe_xint_t          channel;                                            /* uart number */
+	cfe_xptr_t          base_address;                                       /* BRCM_SERIALn_BASE */
+	cfe_xint_t          divisor;                                            /* UART_DLL setting */
+	cfe_xuint_t         baud_rate;                                         /* absolute baudrate  */
+	cfe_xuint_t         data_length;                                        /* data length in bits */
+	cfe_xuint_t         stopbits_flag;                                     /* stop flag 0/1 */
+} cfe_xuart_layout_t;
+
+typedef struct xiocb_boardinfo_s {
+	cfe_xuint_t                 bi_ver_magic;
+	cfe_xuint_t                 bi_chip_version;                            /* from SUN_TOP_CTRL_PROD_REVISION register */
+	cfe_xflash_types_t          bi_flash_type;                              /* NOR, NAND */
+	cfe_xuint_t                 bi_config_flash_numparts;              /* Actual number of partitions */
+	cfe_xflash_partition_map_t  bi_flash_partmap[CFE_MAX_FLASH_PARTITIONS]; /* flash partition layout */
+	cfe_xuint_t                 bi_config_numuarts;                         /* number of uarts confugered */ 
+	cfe_xuart_layout_t          bi_uarts[CFE_NUM_UART_CONTROLLERS];         /* console uart details */
+	cfe_xuint_t                 bi_ddr_bank_size[CFE_NUM_DDR_CONTROLLERS];  /* memory bank size, in MB, by controller */
+	cfe_xuint_t                 bi_config_numenetctrls;                     /* Actual number of enet controllers */
+	unsigned char               bi_mac_addr[CFE_NUM_ENET_CONTROLLERS][CFE_MAC_ADDR_LENGTH];   /* ethernet mac address per controller */
+} xiocb_boardinfo_t;
+
 typedef struct cfe_xiocb_s {
     cfe_xuint_t xiocb_fcode;		/* IOCB function code */
     cfe_xint_t  xiocb_status;		/* return status */
@@ -180,8 +232,71 @@ typedef struct cfe_xiocb_s {
 	xiocb_meminfo_t xiocb_meminfo;	/* memory arena info parameters */
 	xiocb_fwinfo_t  xiocb_fwinfo;	/* firmware information */
 	xiocb_exitstat_t xiocb_exitstat; /* Exit Status */
+	xiocb_boardinfo_t xiocb_boardinfo; /* Board information */
     } plist;
 } cfe_xiocb_t;
 
+/*
+** CFE externs
+*/
+extern char cfe_boardname[];
+
+/*
+** Standardize check for minimum CFE Rev for hwinfo support
+*/
+extern cfe_xiocb_t cfe_boardinfo;
+extern int cfe_hwinfo_called;
+extern int cfe_hwinfo_stat;
+
+
+static inline int cfe_min_rev(cfe_xuint_t magic_number) {
+	int cfe_magic;
+
+/*
+  If version is 1.5.7, magic_number is 0x10507, 
+  We shift it rigth 16,                       0x10507>>16         = 0x1
+  We multiply the value by 10 (upper digit)   0x1 * 10            = 0xA
+  We shift it rigth 8,                        0x10507>>8          = 0x105 
+  We remove the upper digit                   0x105 - (0x1 << 8)  = 0x5
+  We add the upper and lower digits           0xA+0x5             = 0xF (15). 
+*/
+	if (cfe_hwinfo_called && cfe_hwinfo_stat == 0) 
+	{
+		//printk("CFE magic_number: 0x%08X\n",(int)magic_number);
+
+		cfe_magic = (magic_number >> 16) * 10;
+		cfe_magic += (magic_number >> 8) - ((magic_number >> 16) << 8);
+
+		//printk("cfe_magic: 0x%08X\n", cfe_magic);
+		if (cfe_magic >= CFE_HWINFO_MIN_REV)
+			return 1;
+	}
+	return 0;
+}
+
+static inline int cfe_min_rev_nand(cfe_xuint_t magic_number) {
+	int cfe_magic;
+
+/*
+  If version is 1.5.7, magic_number is 0x10507, 
+  We shift it rigth 16,                       0x10507>>16         = 0x1
+  We multiply the value by 10 (upper digit)   0x1 * 10            = 0xA
+  We shift it rigth 8,                        0x10507>>8          = 0x105 
+  We remove the upper digit                   0x105 - (0x1 << 8)  = 0x5
+  We add the upper and lower digits           0xA+0x5             = 0xF (15). 
+*/
+	if (cfe_hwinfo_called && cfe_hwinfo_stat == 0) 
+	{
+		//printk("CFE magic_number: 0x%08X\n",(int)magic_number);
+
+		cfe_magic = (magic_number >> 16) * 10;
+		cfe_magic += (magic_number >> 8) - ((magic_number >> 16) << 8);
+
+		//printk("cfe_magic: 0x%08X\n", cfe_magic);
+		if (cfe_magic >= CFE_HWINFO_MIN_REV_NAND)
+			return 1;
+	}
+	return 0;
+}
 
 #endif

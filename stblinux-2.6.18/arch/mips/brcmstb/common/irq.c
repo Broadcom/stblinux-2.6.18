@@ -268,7 +268,9 @@ static void flip_tp(int irq)
 
 static void brcm_intc_dispatch(struct pt_regs *regs, volatile Int1Control *l1)
 {
-	unsigned int pendingIrqs0,pendingIrqs1,pendingIrqs2, shift,irq;
+	unsigned int __attribute_unused__
+		pendingIrqs0, pendingIrqs1, pendingIrqs2;
+	unsigned int shift,irq;
 
 	pendingIrqs0 = l1->IntrW0Status & ~(l1->IntrW0MaskStatus);
 	pendingIrqs1 = l1->IntrW1Status & ~(l1->IntrW1MaskStatus);

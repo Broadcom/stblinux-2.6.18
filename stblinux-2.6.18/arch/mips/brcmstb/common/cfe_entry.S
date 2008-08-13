@@ -22,6 +22,7 @@
 
 
 	.text
+	.set	push
 	.set	noreorder
 	.set	noat
 	.align	5
@@ -36,16 +37,8 @@ firmhandl:
 firmentry:
 		.word  0
 			
-		EXPORT(returnloc)
-returnloc:
-		.word  0
-			
 		EXPORT(cfe_seal)
 cfe_seal:
-		.word	0
-		#		EXPORT(ret_value)
-
-ret_value:
 		.word	0
 
 		.text
@@ -82,68 +75,47 @@ done:
 		END(cfe_start)
 ###################################################################################
 		NESTED(cfe_call, 64, sp)
-#		LEAF(cfe_call)	
-		#SAVE_TEMP
-		sw   	ra, returnloc
-#		move	v0,zero		#Always return success, since CFE ret is not trusted
-#		
-#if 1
-		addiu sp,sp,-32
-		sw	t0,4(sp)
-		sw	t1,8(sp)
-		sw	t2,12(sp)
-		sw	t3,16(sp)
-		sw	t4,20(sp)
-		sw	a2,24(sp)
-		sw	a3,28(sp)
-#endif
-		
-	
-#if 0		
-        /* force kseg1, at this point, cache is not necessarily initialized */
-        la      t0, 1f
-        or      t0, 0xa0000000
-        j       t0
-        nop
-1:
-#endif
-			
-		#lw   a1, a0
-		# lw   a1, cfeparam
-		move	a1,a0
-		lw   		a0, firmhandl
-		lw   		t0, firmentry
 
-#if 0
-		#Don't do it if not called from CFE
-		beq   t0,zero,not_from_CFE
-		nop
-#endif
+		addiu	sp, sp, -64
 
-		jal t0
-		nop
-#		sw	v0,ret_value
+		sw	s0, 16(sp)
+		sw	s1, 20(sp)
+		sw	s2, 24(sp)
+		sw	s3, 28(sp)
+		sw	s4, 32(sp)
+		sw	s5, 36(sp)
+		sw	s6, 40(sp)
+		sw	s7, 44(sp)
+		sw	s8, 48(sp)
+		sw	gp, 52(sp)
+		sw	ra, 56(sp)
+
+		move	a1, a0
+		lw   	a0, firmhandl
+		lw   	t0, firmentry
+
+		beqz	t0, 1f
+		li	v0, -1
+
+		jalr	t0
 		nop
 
-restore_all_and_ret:	#.set noat
-		addiu	sp,sp,32
-		lw	t0,4(sp)
-		lw	t1,8(sp)
-		lw	t2,12(sp)
-		lw	t3,16(sp)
-		lw	t4,20(sp)
-		lw	a2,24(sp)
-		lw	a3,28(sp)
-#		RESTORE_TEMP
-#		lw	v0,ret_value
-		lw	ra, returnloc
-		j	ra
-		nop
-		#.set at
+1:		lw	ra, 56(sp)
+		lw	gp, 52(sp)
+		lw	s8, 48(sp)
+		lw	s7, 44(sp)
+		lw	s6, 40(sp)
+		lw	s5, 36(sp)
+		lw	s4, 32(sp)
+		lw	s3, 28(sp)
+		lw	s2, 24(sp)
+		lw	s1, 20(sp)
+		lw	s0, 16(sp)
 
-not_from_CFE:
-		li	v0,-1
-		j	restore_all_and_ret
-		nop
+		jr	ra
+		addiu	sp, sp, 64
+
 		END(cfe_call)
+
+		.set	pop
 

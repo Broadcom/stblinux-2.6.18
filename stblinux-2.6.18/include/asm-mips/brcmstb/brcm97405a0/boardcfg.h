@@ -71,4 +71,10 @@
 #define uart_in				uarta_in
 #endif
 
+#define MII_PINMUX_SETUP	{ \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2, 0x3ffffff,  0x24000000 }, \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3, 0,          0x09249249 }, \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4, 0xfffc0000, 0x9249     }, \
+}
+
 #endif

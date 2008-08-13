@@ -26,14 +26,22 @@
 #ifndef __MACH_BRCMSTB_MMZONE_H
 #define __MACH_BRCMSTB_MMZONE_H
 
-#include <linux/mmzone.h>  
 
-#define NR_NODES	2
+#include <linux/mmzone.h>
+
+#if defined ( CONFIG_MIPS_BCM7440B0 )
+
+#include <asm/brcmstb/common/brcmstb.h>
+
+#define MAX_NR_NODES	3
+#else
+#define NR_NODES		2
 #define MAX_NR_NODES	2
+#endif
 
-extern pg_data_t discontig_node_data[];
-extern struct page* node_mem_maps[NR_NODES];
-extern int node_sizes[NR_NODES];
+extern pg_data_t discontig_node_data[MAX_NR_NODES];
+extern struct page* node_mem_maps[MAX_NR_NODES];
+extern int node_sizes[MAX_NR_NODES];
 extern int numnodes;
 
 /* PR30707: Picked up wrong NODE_DATA define */
@@ -47,18 +55,32 @@ extern int numnodes;
 #endif
 #define NODE_MEM_MAP(nid)	(NODE_DATA(nid)->node_mem_map)
 
+//#define node_start_pfn(nid)	(NODE_DATA(nid)->node_start_pfn)
+
 #ifdef HIGHMEM_START
 #undef HIGHMEM_START
 #endif
 #define HIGHMEM_START	0x80000000UL
 
-#if defined ( CONFIG_MIPS_BCM3563C0 )
+#if defined ( CONFIG_MIPS_BCM7440B0 )
+#define UPPER_RAM_BASE  0x20000000UL    // 512MB
+#define IDE_WINDOW_END  0x08000000UL    // 128MB
+extern volatile unsigned int  NR_NODES;
+extern volatile unsigned int  UPPER_RAM_NODE;
+extern volatile unsigned long UPPER_RAM_SIZE;
+extern volatile unsigned long LOWER_RAM_SIZE;
+extern volatile unsigned long LOWER_RAM_END;
+#define UPPER_RAM_END   (UPPER_RAM_BASE+UPPER_RAM_SIZE)
+
+#elif defined ( CONFIG_MIPS_BCM3563C0 )
 
 #define UPPER_RAM_BASE  0x60000000UL     // 1536MB
 #define UPPER_RAM_SIZE  0x02000000UL     // 32MB
 #define UPPER_RAM_END   (UPPER_RAM_BASE+UPPER_RAM_SIZE)
-#define LOWER_RAM_SIZE  0x08000000UL    // 128MB
-#define LOWER_RAM_END   0x08000000UL    // 128MB
+//#define LOWER_RAM_SIZE  0x08000000UL    // 128MB
+//#define LOWER_RAM_END   0x08000000UL    // 128MB
+extern volatile unsigned long LOWER_RAM_SIZE;
+extern volatile unsigned long LOWER_RAM_END;
 
 #else
 
@@ -86,6 +108,9 @@ extern int numnodes;
 				   (u32)kaddr < (LOWER_RAM_VBASE + LOWER_RAM_SIZE))
 #define IS_KADDR_UPPER_RAM(kaddr) ((u32)kaddr >= UPPER_RAM_VBASE && \
 				   (u32)kaddr < (UPPER_RAM_VBASE + UPPER_RAM_SIZE))
+#if defined (CONFIG_MIPS_BCM7440B0)
+#define IS_KADDR_IDE_WINDOW(kaddr) (kaddr >= LOWER_RAM_VBASE && kaddr < (LOWER_RAM_VBASE + IDE_WINDOW_END))
+#endif
 
 /* These functions fail for non-ram addresses */
 static __inline__ unsigned long 
@@ -118,13 +143,25 @@ __va(unsigned long x)
 		return ((void *)((unsigned long) (x) + PAGE_OFFSET));
 }
 
+//#define __DEBUG_DISCONTIGMEM
+
+
+#ifndef __DEBUG_DISCONTIGMEM
+/* Production Codes */
 #define virt_to_page(kaddr) \
-	((struct page*) (((IS_KADDR_LOWER_RAM(kaddr))  \
+	((struct page*) ((IS_KADDR_LOWER_RAM(kaddr))  \
 		? NODE_MEM_MAP(0) + (__pa((unsigned long )kaddr) >> PAGE_SHIFT) \
 		:  (IS_KADDR_UPPER_RAM((unsigned long)kaddr) \
 			? NODE_MEM_MAP(1) + ((__pa((unsigned long )kaddr) \
 			  - UPPER_RAM_BASE) >> PAGE_SHIFT) \
-			: 0))))
+			: 0)))
+
+#else
+/* Debugging codes */
+extern struct page* __virt_to_page(unsigned long kaddr);
+#define virt_to_page(kaddr) (__virt_to_page(kaddr))
+
+#endif
 
 #define VALID_PAGE(page) \
 	((unsigned long) (page) >= (unsigned long) NODE_MEM_MAP(0) && \
@@ -136,11 +173,14 @@ __va(unsigned long x)
 		                            NODE_DATA(1)->node_spanned_pages) \
 		   ? 1 : 0))
 
+#define pa_to_nid(pa) ((((u32)(pa) >= UPPER_RAM_BASE) && \
+		        ((u32)(pa) < UPPER_RAM_END)) ? 1 : 0)
+		        
+
 #define virt_addr_valid(kaddr) (pfn_valid(__pa((unsigned long)kaddr) >> PAGE_SHIFT))
 
 #define nth_page(page,n) pfn_to_page(page_to_pfn((page)) + (n))
 
-#define pa_to_nid(pa) ((((u32)(pa) >= UPPER_RAM_BASE) && \
-		        ((u32)(pa) < UPPER_RAM_END)) ? 1 : 0)
+
 
 #endif /* __MACH_BRCMSTB_MMZONE_H */

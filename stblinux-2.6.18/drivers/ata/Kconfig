@@ -8,7 +8,7 @@ config ATA
 	tristate "ATA device support"
 	depends on !(M32R || M68K) || BROKEN
 	depends on !SUN4 || BROKEN
-	depends on !MIPS_BRCM_IKOS
+	depends on !MIPS_BRCM_SIM
 	select SCSI
 	---help---
 	  If you want to use a ATA hard disk, ATA tape drive, ATA CD-ROM or

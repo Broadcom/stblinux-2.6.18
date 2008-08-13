@@ -32,6 +32,11 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/flash.h>
+#include <linux/mtd/partitions.h>
 #include <asm/addrspace.h>
 #include <asm/irq.h>
 #include <asm/reboot.h>
@@ -59,6 +64,8 @@ extern struct kbd_ops brcm_kbd_ops;
 
 #include <asm/io.h>
 #include <asm/brcmstb/common/brcmstb.h>
+
+bcm_discontigMem_t* bcm_pdiscontig_memmap = (bcm_discontigMem_t*) NULL;
 
 extern void uart_puts(const char*);
 extern void brcm_numa_init(void);
@@ -172,9 +179,6 @@ void __init  plat_timer_setup(struct irqaction *irq)
 	irq->dev_id = (void *) irq;
 	setup_irq(BCM_LINUX_SYSTIMER_IRQ, irq);
 
-	printk("plat_timer_setup: status %08x cause %08x\n",
-		read_c0_status(), read_c0_cause());
-
 #ifdef	CONFIG_MIPS_MT_SMTC 
 	irq->handler = smtc_timer_interrupt;
 	irq_desc[BCM_LINUX_SYSTIMER_IRQ].status &= ~IRQ_DISABLED;
@@ -234,10 +238,8 @@ void __init plat_mem_setup(void)
 	{
         uint32_t extIO = __read_32bit_c0_register($16, 7);
 
-	    printk("ES bit: CP0 $16 sel 7 B4 = %08x\n", extIO);
         __write_32bit_c0_register($16, 7, extIO | 0x100);
         extIO = __read_32bit_c0_register($16, 7);
-	    printk("ES bit: CP0 $16 sel 7 after = %08x\n", extIO);
 	}
 
 #endif
@@ -264,3 +266,106 @@ unsigned long get_upper_membase(void)
 EXPORT_SYMBOL(get_upper_membase);
 
 //early_initcall(brcm_setup);
+
+#if defined(CONFIG_SPI_BCM7XXX) || defined(CONFIG_SPI_BCM7XXX_MODULE)
+
+/*
+ * MTD support for serial flash on MSPI
+ */
+
+static struct resource bcmspi_resources[] = {
+	[0] = {
+		.start	= BCHP_PHYSICAL_OFFSET + BCHP_MSPI_REG_START,
+		.end	= BCHP_PHYSICAL_OFFSET + BCHP_MSPI_REG_END,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= BCM_LINUX_SPI_IRQ,
+		.end	= BCM_LINUX_SPI_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+#ifdef BCHP_BSPI_REG_START
+	[2] = {
+		.start	= BCHP_PHYSICAL_OFFSET + BCHP_BSPI_REG_START,
+		.end	= BCHP_PHYSICAL_OFFSET + BCHP_BSPI_REG_END,
+		.flags	= IORESOURCE_MEM,
+	},
+#endif
+};
+
+static struct platform_device bcmspi_dev = {
+	.name		= "bcm7xxx-spi",
+	.id		= 1,
+	.resource	= bcmspi_resources,
+	.num_resources	= ARRAY_SIZE(bcmspi_resources),
+};
+
+static struct spi_board_info spi_board_info[] __initdata = {
+{
+	.modalias	= "spidev",
+	.bus_num	= 1,
+	.chip_select	= 0,
+	.mode		= SPI_MODE_3,
+},
+{
+	.modalias	= "spidev",
+	.bus_num	= 1,
+	.chip_select	= 1,
+	.mode		= SPI_MODE_3,
+},
+{
+	.modalias	= "spidev",
+	.bus_num	= 1,
+	.chip_select	= 2,
+	.mode		= SPI_MODE_3,
+},
+{
+	.modalias	= "spidev",
+	.bus_num	= 1,
+	.chip_select	= 3,
+	.mode		= SPI_MODE_3,
+},
+};
+
+#ifdef BRCM_SPI_CHIP_SELECT
+/* 16MB map copied from drivers/mtd/maps/bcm9xxxx-flash.c */
+static struct mtd_partition spi_flash_map[] = {
+	{ name: "rootfs",	offset: 0,		size: 12*1024*1024 },
+	{ name: "cfe",	        offset: 0x00C00000,	size: 512*1024 },
+	{ name: "vmlinux",	offset: 0x00C80000,	size: 3582*1024 },
+	{ name: "config",	offset: 0x00FFF800,	size: 144 },
+	{ name: "nvram",	offset: 0x00FFF890,	size: 1904 },
+};
+
+static struct flash_platform_data spi_flash_data = {
+	.name		= NULL,
+	.parts		= spi_flash_map,
+	.nr_parts	= 5,
+};
+#endif
+
+static int __init bcmspi_initcall(void)
+{
+#ifdef BRCM_SPI_CHIP_SELECT
+	int i;
+
+	/*
+	 * by default, allow userland access through spidev to all devices
+	 * except the serial flash
+	 */
+	for(i = 0; i < ARRAY_SIZE(spi_board_info); i++) {
+		if(spi_board_info[i].chip_select == BRCM_SPI_CHIP_SELECT) {
+			strcpy(spi_board_info[i].modalias, "m25p80");
+			spi_board_info[i].platform_data = &spi_flash_data;
+		}
+	}
+#endif /* BRCM_SPI_CHIP_SELECT */
+	platform_device_register(&bcmspi_dev);
+	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
+
+	return(0);
+}
+
+device_initcall(bcmspi_initcall);
+
+#endif /* CONFIG_SPI_BCM7XXX || CONFIG_SPI_BCM7XXX_MODULE */

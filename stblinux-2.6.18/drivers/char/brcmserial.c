@@ -1133,7 +1133,7 @@ static int startup(struct async_struct * info)
 	if (!page)
 		return -ENOMEM;
 
-	local_irq_save(flags);
+//vincent	local_irq_save(flags);
 
 	if (info->flags & ASYNC_INITIALIZED) {
 		free_page(page);
@@ -1166,6 +1166,8 @@ static int startup(struct async_struct * info)
 	/*
 	 * Clear the interrupt registers.
 	 */
+	serial_out(info, UART_RECV_STATUS, 0x00);       /* disable all intrs */
+	serial_out(info, UART_XMIT_STATUS, 0x00);       /* disable all intrs */
 	
 	/*
 	 * Allocate the IRQ if necessary
@@ -1311,11 +1313,11 @@ static int startup(struct async_struct * info)
 	change_speed(info, 0);
 
 	info->flags |= ASYNC_INITIALIZED;
-	local_irq_restore(flags);
+//vincent	local_irq_restore(flags);
 	return 0;
 	
 errout:
-	local_irq_restore(flags);
+//vincent	local_irq_restore(flags);
 	return retval;
 }
 

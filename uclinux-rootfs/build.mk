@@ -39,7 +39,8 @@ unexport $(shell test -f config/cleanenv.pl && \
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.18-2.0 we only support a few platforms
-PLATFORMS=7325a0 7325a0-smtc 7401c0 97455c0 7400d0 7400d0-smp 7400d0-smp-discontig 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7118c0-nand 7405a0 7405a0-smp 7038c0 3563c0 7335a0 7335a0-smp 7405b0 7405b0-smp 7405b0-nand 7405b0-smp-nand 97459b0 97459b0-smp 97459b0-nand 97459b0-smp-nand 3548a0 3548a0-smp 3548a0-nand 3548a0-smp-nand # 7440b0-nand 7400d0-smp-nand 97456d0-smp-nand 
+# THT: Note there is no 7440b0 NOR flash build. 
+PLATFORMS=7325a0 7325a0-smtc 7401c0 97455c0 7400d0 7400d0-smp 7400d0-smp-discontig 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7118c0-nand 7405a0 7405a0-smp 7038c0 3563c0 3563c0-nand 3563c0-ddr1 7335a0 7335a0-smp 7405b0 7405b0-smp 7405b0-nand 7405b0-smp-nand 97459b0 97459b0-smp 97459b0-nand 97459b0-smp-nand 3548a0 3548a0-smp 3548a0-nand 3548a0-smp-nand 7440b0-nand # 3563c0-ddr1-nand (until CFE support it) 7400d0-smp-nand 97456d0-smp-nand 
     # Obsoleted
     # 7400a0 7400a0-smp 7440a0 97398 7402 7402c0 7403a0 3560b0 3563 97456
     # 7318 7400a0-nand  7401b0-nand
@@ -208,7 +209,7 @@ $(ROOTFS_PLATFORMS):
 $(NO_ROOTFS_PLATFORMS):
 	echo "No rootfs available for $@, skipping."
 
-# The echo Done at the end is to prevent make from reporting errors.
+# The echo Done at the end is to prevent make from rep orting errors.
 $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
 	cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst vmlinuz-initrd-,,$@) .config
 	rm -f $(KERNEL_DIR)/.config
@@ -218,7 +219,8 @@ $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
 	# sets up .config files
 	$(MAKEARCH) defaultconfig
 	# Set CONFIG_INITRAMFS_ROOT_UID & GID accordingly
-	(. .config; mv "$${CONFIG_LINUXDIR}"/.config "$${CONFIG_LINUXDIR}"/.config.orig; \
+	(. .config; cp -f "$${CONFIG_LINUXDIR}"/.config "$${CONFIG_LINUXDIR}"/.config.orig; \
+		rm -f "$${CONFIG_LINUXDIR}"/.config; \
 		sed -e "s/^CONFIG_INITRAMFS_ROOT_UID=0/CONFIG_INITRAMFS_ROOT_UID=$(MYUID)/" \
 		    -e "s/^CONFIG_INITRAMFS_ROOT_GID=0/CONFIG_INITRAMFS_ROOT_GID=$(MYGID)/" \
 		    -e "s/^CONFIG_BRCM_BUILD_TARGET.*/CONFIG_BRCM_BUILD_TARGET=\"$(subst vmlinuz-initrd-,,$@)\"/" \

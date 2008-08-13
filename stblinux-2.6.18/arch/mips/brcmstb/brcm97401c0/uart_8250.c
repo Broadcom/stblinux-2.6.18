@@ -200,7 +200,7 @@ uart_init(unsigned long ignored)
 {
 	void serial_bcm_init(unsigned long);
 	serial_bcm_init(27000000);		/* Uart B */
-#ifdef CONFIG_SERIAL_8250
+#ifdef CONFIG_SERIAL_8250  && !defined(CONFIG_MIPS_BCM97455CX) && !defined(CONFIG_MIPS_BCM97455CX_NAND)
 	serial_8250_init(1, NULL);				/* Uart C */
 #endif
 }

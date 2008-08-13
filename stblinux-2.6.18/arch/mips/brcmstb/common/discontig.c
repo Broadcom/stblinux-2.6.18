@@ -33,19 +33,22 @@ int numnodes = 1;
  * Our node_data structure for discontiguous memory.
  */
 
-static bootmem_data_t node_bootmem_data[NR_NODES];
+static bootmem_data_t node_bootmem_data[MAX_NR_NODES];
 
-pg_data_t discontig_node_data[NR_NODES] = {
+pg_data_t discontig_node_data[MAX_NR_NODES] = {
   { bdata: &node_bootmem_data[0] },
   { bdata: &node_bootmem_data[1] },
+#if MAX_NR_NODES >= 3
+  { bdata: &node_bootmem_data[2] },
+#endif
 };
 
-struct page  *node_mem_maps[NR_NODES];
+//struct page  *node_mem_maps[MAX_NR_NODES];
 
-int node_sizes[NR_NODES];
+int node_sizes[MAX_NR_NODES];
 
 EXPORT_SYMBOL(numnodes);
-EXPORT_SYMBOL(node_mem_maps);
+//EXPORT_SYMBOL(node_mem_maps);
 EXPORT_SYMBOL(node_sizes);
 EXPORT_SYMBOL(discontig_node_data);
 
@@ -68,6 +71,44 @@ void __init brcm_numa_init(void)
 		numnodes = 1;
 	else
 		numnodes = NR_NODES;
+
+#if defined (CONFIG_MIPS_BCM7440)
+	int i;
+	for (i = 0; i < MAX_NR_NODES; i++) {
+		if (i < numnodes)
+			discontig_node_data[i].bdata = &node_bootmem_data[i];
+		else
+			discontig_node_data[i].bdata = (pg_data_t *)0;
+	}
+#endif
 #endif
 }
+
+#ifdef __DEBUG_DISCONTIGMEM
+/* Enable this block for debugging */
+
+struct page* __virt_to_page(unsigned long kaddr) 
+{
+	
+	if (kaddr >= 0x10000000) printk("virt_to_page(kaddr=%08x)\n", kaddr);
+	if (IS_KADDR_LOWER_RAM(kaddr)) {
+		if (kaddr >= 0x10000000) printk("returning lower ram\n");
+		return (struct page*) (NODE_MEM_MAP(0) + (__pa((unsigned long )kaddr) >> PAGE_SHIFT));
+	} 
+	else if (IS_KADDR_UPPER_RAM((unsigned long)kaddr))
+	{
+		if (kaddr >= 0x10000000) printk("virt_to_page: returning Node 1, NODE_MEM_MAP(1)=%08x, pa=%08x, U_R_B=%08x\n", 
+			NODE_MEM_MAP(1), __pa((unsigned long )kaddr), UPPER_RAM_BASE);
+		return (struct page*) (NODE_MEM_MAP(1) + ((__pa((unsigned long )kaddr) \
+			  - UPPER_RAM_BASE) >> PAGE_SHIFT));
+	}
+	else {
+			printk("virt_to_page: Invalid address\n");
+			return (struct page*) 0;
+	}
+}
+
+
+EXPORT_SYMBOL(__virt_to_page);
+#endif
 

@@ -10,7 +10,7 @@
 #include "int1_api.h"
 
 
-#if __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -31,7 +31,7 @@ extern "C" {
 #define CPUINT1C_TP1 ((Int1Control * const)(CPUINT1C_TP1_ADR_BASE))
 #endif
 
-#if __cplusplus
+#ifdef __cplusplus
 }
 #endif
 

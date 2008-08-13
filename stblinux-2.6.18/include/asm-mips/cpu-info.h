@@ -87,7 +87,7 @@ struct cpuinfo_mips {
 } __attribute__((aligned(SMP_CACHE_BYTES)));
 
 extern struct cpuinfo_mips cpu_data[];
-#define current_cpu_data cpu_data[smp_processor_id()]
+#define current_cpu_data cpu_data[raw_smp_processor_id()]
 
 extern void cpu_probe(void);
 extern void cpu_report(void);

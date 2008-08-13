@@ -10,6 +10,7 @@ config MTD_BRCMNAND
 	default n
 	depends on MTD
 	select LONG_LONG_SUPPORT if MTD_BRCMNAND_VERSION >= 2
+	select BRCM_SKIP_CHECK_BOOTROM
 	help
 	  This enables support for accessing selected types of NAND flash
 	  devices through the Broadcom NAND controller.
@@ -52,4 +53,13 @@ config MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
 	  Refreshing implies a sequence of read->erase->write. Refreshing the block
 	  drastically reduces the probability of occurance of a similar (correctable)
 	  error.
+	  
+config MTD_BRCMNAND_EDU
+	bool "Enable Broadcom NAND EDU"
+	default n
+	depends on MTD_BRCMNAND && MIPS_BCM7440B0
+	help
+	   Enable DMA capability of the NAND controller.  
+	   Currently only present on the following chips:
+	   7440bx, 7440cx, 3548b0, 7443a0
 

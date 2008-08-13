@@ -389,7 +389,7 @@ static int __init brcmnanddrv_init(void)
 	struct platform_device* pdev;
 	unsigned long get_RAM_size(void);
 
-#ifdef CONFIG_MIPS_BCM3548
+#if 0 //def CONFIG_MIPS_BCM3548
 	printk("brcmnand: not supported for 3548 in this release, exiting\n");
 	return(-ENODEV);
 #endif

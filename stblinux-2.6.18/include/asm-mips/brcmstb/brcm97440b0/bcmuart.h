@@ -33,7 +33,7 @@
 #include "bchp_uartd.h"
 
 #if !defined _ASMLANGUAGE
-#if __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 #endif
@@ -116,7 +116,7 @@ typedef struct UartChannel {
 
 
 #if !defined _ASMLANGUAGE
-#if __cplusplus
+#ifdef __cplusplus
 }
 #endif
 #endif

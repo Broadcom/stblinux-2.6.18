@@ -53,4 +53,17 @@
 #define uart_in				uarta_in
 #endif
 
+#ifdef CONFIG_MIPS_BCM97401CX_SW
+
+#define MII_PINMUX_SETUP	{ \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_1,  ~0xe3fc3fc0,    0x42a82480 },    \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2,  ~07700707,      02200202 },      \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3,  ~(07 << 8),     (03 << 8) },     \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_5,  ~(07 << 28),    (04 << 28) },    \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_7,  ~(07777 << 18), (03433 << 18) }, \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10, ~(07 << 27),    0 },             \
+}
+
+#endif
+
 #endif

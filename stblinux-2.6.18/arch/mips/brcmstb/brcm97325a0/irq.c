@@ -233,10 +233,12 @@ static void brcm_intc_end(unsigned int irq)
 		brcm_intc_enable(irq);
 }
 
+#if 0
 static void brcm_intc_ack(unsigned int irq)
 {
 	/* Do nothing */
 }
+#endif
 
 /*
  * THT: These INTC disable the interrupt before calling the IRQ handler
@@ -253,6 +255,7 @@ static struct hw_interrupt_type brcm_intc_type = {
 };
 
 
+#if 0
 static void brcm_intc2_end(unsigned int irq)
 {
 	/* Do nothing */
@@ -277,6 +280,7 @@ static struct hw_interrupt_type brcm_intc2_type = {
 	end: brcm_intc2_end,
 	NULL
 };
+#endif
 
 
 /*
@@ -451,6 +455,7 @@ static void brcm_mips_int2_disable(unsigned int irq)
 	clear_c0_status(STATUSF_IP2);
 }
 
+#if 0
 static void brcm_mips_int2_ack(unsigned int irq)
 {
 	/* Already done in brcm_irq_dispatch */
@@ -479,13 +484,15 @@ static struct hw_interrupt_type brcm_mips_int2_type = {
 	end: brcm_mips_int2_end,
 	NULL
 };
+#endif
 
 static int g_brcm_intc_cnt[96];
-static int g_intcnt = 0;
+
+#ifdef	DEBUG_UARTA_INTR
+
 static int gDebugPendingIrq0, gDebugPendingIrq1, gDebugPendingIrq2;
 static int gDebugMaskW0, gDebugMaskW1, gDebugMaskW2;
 
-#ifdef	DEBUG_UARTA_INTR
 static void dump_INTC_regs(void)
 {
 	unsigned int pendingIrqs,pendingIrqs1, pendingIrqs2, mask0, mask1, mask2;
@@ -602,6 +609,7 @@ void brcm_mips_int3_dispatch(struct pt_regs *regs)
 	printk("brcm_mips_int3_dispatch: Placeholder only, should not be here \n");
 }
 
+#if 0
 /*
  * IRQ6 functions
  */
@@ -648,11 +656,13 @@ void brcm_mips_int6_dispatch(struct pt_regs *regs)
 {
 	brcm_mips_int6_disable(6);
 }
+#endif
 
 
 /*
  * IRQ0 functions
  */
+#if defined(CONFIG_SMP) && ! defined(CONFIG_MIPS_MT)
 static void brcm_mips_int0_enable(unsigned int irq)
 {
 	set_c0_status(STATUSF_IP0);
@@ -743,6 +753,7 @@ void brcm_mips_int1_dispatch(struct pt_regs *regs)
 {
 	do_IRQ(BCM_LINUX_IPC_1_IRQ,regs);
 }
+#endif
 
 
 /*

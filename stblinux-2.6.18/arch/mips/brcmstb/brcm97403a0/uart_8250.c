@@ -308,7 +308,7 @@ uart_init(unsigned long ignored)
 	handle_gpio_mux(1); // ttyS1 is mapped to UARTC
 	serial_bcm_init(0, 27000000);		/* Uart B */
 	serial_bcm_init(1, 27000000);		/* Uart A */
-#ifdef CONFIG_SERIAL_8250
+#ifdef CONFIG_SERIAL_8250  && !defined(CONFIG_MIPS_BCM97458AX)  && !defined(CONFIG_MIPS_BCM97458AX_NAND)
 	serial_8250_init(1, NULL);				/* Uart C */
 #endif
 }

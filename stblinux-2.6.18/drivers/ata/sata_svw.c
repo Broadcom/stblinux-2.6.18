@@ -1813,6 +1813,8 @@ static void k2_sata_remove_one(struct pci_dev *pdev)
 
 	K2_POWER_ON(host);
 	ata_pci_remove_one(pdev);
+
+	brcm_pm_unregister_sata();
 }
 
 #endif /* CONFIG_BRCM_PM */

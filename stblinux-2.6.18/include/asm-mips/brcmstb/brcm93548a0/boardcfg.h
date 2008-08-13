@@ -71,4 +71,6 @@
 #define uart_in				uarta_in
 #endif
 
+#define BRCM_SPI_CHIP_SELECT		2
+
 #endif

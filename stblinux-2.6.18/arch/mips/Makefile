@@ -814,6 +814,31 @@ endif
 
 #
 #
+# BCM97440B0
+#
+core-$(CONFIG_MIPS_BCM7440B0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7440B0) += arch/mips/brcmstb/brcm97440b0/
+cflags-$(CONFIG_MIPS_BCM7440B0)	+= -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7440B0) := 0x80001000
+ifdef CONFIG_MIPS_BCM7440B0
+UTS_MACHINE:=7440b0
+endif
+
+
+#
+#
+# BCM97443A0
+#
+core-$(CONFIG_MIPS_BCM7443A0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7443A0) += arch/mips/brcmstb/brcm97443a0/
+cflags-$(CONFIG_MIPS_BCM7443A0)	+= -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7443A0) := 0x80001000
+ifdef CONFIG_MIPS_BCM7443A0
+UTS_MACHINE:=7443a0
+endif
+
+#
+#
 # BCM97403A0
 #
 

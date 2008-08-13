@@ -101,10 +101,6 @@ romfs:
 #	$(MAKEARCH) -C $(ROOTDIR)/user/bash $(ROOTDIR)/romfs/lib/libtermcap.so
 #	-$(STRIP) $(ROOTDIR)/romfs/lib/libtermcap.so
 #endif
-	# THT: Copy libgcc_s.so to romfs dir
-	-$(RM) -f $(ROMFSDIR)/lib/libgcc_s.*
-	cp -af $(GCCLIB)/libgcc_s.* $(ROMFSDIR)/lib/
-	-$(STRIP) $(ROMFSDIR)/lib/*
 
 clean:
 ifeq ($(LIBCDIR),glibc/build)

@@ -103,6 +103,13 @@ config SPI_S3C24XX_GPIO
 	  GPIO lines to provide the SPI bus. This can be used where
 	  the inbuilt hardware cannot provide the transfer mode, or
 	  where the board is using non hardware connected pins.
+
+config SPI_BCM7XXX
+	tristate "Broadcom BCM7xxx/BCM35xx STB/DTV MSPI controller"
+	depends on MIPS_BRCM97XXX && SPI_MASTER && EXPERIMENTAL
+	help
+	  SPI driver for Broadcom BCM7xxx/BCM35xx STB/DTV SoCs.
+
 #
 # Add new SPI master controllers in alphabetical order above this line
 #
@@ -121,6 +128,14 @@ config SPI_S3C24XX
 comment "SPI Protocol Masters"
 	depends on SPI_MASTER
 
+config SPI_SPIDEV
+	tristate "User mode SPI device driver support"
+	depends on SPI_MASTER && EXPERIMENTAL
+	help
+	  This supports user mode SPI protocol drivers.
+
+	  Note that this application programming interface is EXPERIMENTAL
+	  and hence SUBJECT TO CHANGE WITHOUT NOTICE while it stabilizes.
 
 #
 # Add new SPI protocol masters in alphabetical order above this line

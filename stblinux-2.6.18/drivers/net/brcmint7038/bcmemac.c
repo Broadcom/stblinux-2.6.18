@@ -73,28 +73,6 @@
 #include <asm/brcmstb/common/brcmstb.h>
 #include <asm/brcmstb/common/brcm-pm.h>
 
-#if 1
-/* 5/24/06: Regardless of flash size, the offset of the MAC-addr is always the same */
-#define FLASH_MACADDR_ADDR 0xBFFFF824
-#else
-
-  #ifdef CONFIG_MIPS_BCM7318
-  /* 16MB Flash */
-  #define FLASH_MACADDR_OFFSET 0x00FFF824
-  
-  #elif defined(CONFIG_MIPS_BCM7038) || defined(CONFIG_MIPS_BCM7400) || \
-        defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7403) || \
-        defined(CONFIG_MIPS_BCM7452) || defined(CONFIG_MIPS_BCM7405) || \
-	defined(CONFIG_MIPS_BCM7335) || defined(CONFIG_MIPS_BCM3548)
-  /* 32MB Flash */
-  #define FLASH_MACADDR_OFFSET 0x01FFF824
-
-  #else
-  #error "Unknown platform, FLASH_MACADDR_OFFSET must be defined\n"
-  #endif
-
-#endif
-
 #include "bcmmii.h"
 #include "bcmemac.h"
 
@@ -108,49 +86,13 @@
 #endif
 
 #ifdef CONFIG_MIPS_BCM97401CX_SW
-#define BCHP_PHYSICAL_OFFSET                    0x10000000
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_1        0x00404098 /* Pin mux control register 1 */
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2        0x0040409c /* Pin mux control register 2 */
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3        0x004040a0 /* Pin mux control register 3 */
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_5        0x004040a8 /* Pin mux control register 5 */
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_7        0x004040b0 /* Pin mux control register 7 */
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10       0x004040bc /* Pin mux control register 10 */
 #define BCHP_GIO_DATA_HI                        0x00400724 /* GENERAL PURPOSE I/O DATA [63:32] */
 #define BCHP_GIO_IODIR_HI                       0x00400728 /* GENERAL PURPOSE I/O DIRECTION [63:32] */
+#define GPIO45_OFFSET				0x00002000
+#endif
 
-/* Pin mux control register 1 */
-#define ALT_MII_TX_EN	(0x2<<6)
-#define ALT_MII_TX_ERR	(0x2<<9)
-#define ALT_MII_MDC		(0x2<<12)
-#define ALT_MII_TXD_03	(0x2<<18)
-#define ALT_MII_TXD_02	(0x2<<20)
-#define ALT_MII_TXD_01	(0x2<<22)
-#define ALT_MII_TXD_00	(0x2<<24)
-#define ALT_MII_RXD_03	(0x2<<29)
-
-/* Pin mux control register 2 */
-#define ALT_MII_RXD_02	(0x2<<0)
-#define ALT_MII_MDIO	(0x2<<6)
-#define ALT_MII_RXD_01	(0x2<<15)
-#define ALT_MII_RX_CLK	(0x2<<18)
-
-/* Pin mux control register 3 */
-#define ALT_MII_RX_ERR	(0x3<<8)
-
-
-/* Pin mux control register 5 */
-#define ALT_MII_RXD_00	(0x4<<28)
-
-/* Pin mux control register 7*/
-#define ALT_MII_RX_EN	(0x3<<27)
-#define ALT_MII_CRS		(0x4<<24)
-#define ALT_MII_COL		(0x3<<21)
-#define ALT_MII_TX_CLK	(0x3<<18)
-
-/* Pin mux control register 10 */
-#define GPIO_45         (0xC7FFFFFF)
-
-#define GPIO45_OFFSET   (0x00002000)
+#if defined(BCHP_EMAC_1_REG_START) && ! defined(CONFIG_MIPS_BCM7405A0)
+#define HAS_EMAC_1
 #endif
 
 extern unsigned long getPhysFlashBase(void);
@@ -1443,7 +1385,11 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
         gLastDmaFlag = dmaFlag;
 
         skb_pull(skb, brcm_hdr_len);
-        skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len);
+		/* Remove 2 bytes trailer if in promiscous mode, for PR44081 */
+		if(pDevCtrl->emac->rxControl & EMAC_PROM)
+			skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len - 2);
+		else
+        	skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len);
 
 #ifdef DUMP_DATA
         printk("bcmemac_rx :");
@@ -1881,56 +1827,6 @@ static void clear_mib(volatile EmacRegisters *emac)
     }
 }
 
-static void __attribute_unused__ init_pinmux(void)
-{
-	/* set up pinmux for external MII */
-#if defined(CONFIG_MIPS_BCM7405)
-	BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2,
-	    (BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2) & 0x3ffffff) | 0x24000000);
-	BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3, 0x09249249);
-	BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4,
-	    (BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4) & 0xfffc0000) | 0x9249);
-        /* flush writes */
-        BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4);
-#elif defined(CONFIG_MIPS_BCM7335)
-        BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9, 03333333333);
-        BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10,
-            (BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10) & ~0777777770) | 0333333330);
-        /* flush writes */
-        BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10);
-#elif defined(CONFIG_MIPS_BCM97401CX_SW)
-	volatile uint32 *pin_mux_ctrl;
-	uint32 data;
-        pin_mux_ctrl = (volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_1);
-        *pin_mux_ctrl |= (uint32)(ALT_MII_TX_EN |
-                                ALT_MII_TX_ERR |
-                                ALT_MII_MDC |
-                                ALT_MII_TXD_03 |
-                                ALT_MII_TXD_02 |
-                                ALT_MII_TXD_01 |
-                                ALT_MII_TXD_00 |
-                                ALT_MII_RXD_03 );
-        pin_mux_ctrl = (volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_2);
-        *pin_mux_ctrl |= (uint32)(ALT_MII_RXD_02 |
-                                ALT_MII_MDIO |
-                                ALT_MII_RXD_01 |
-                                ALT_MII_RX_CLK );
-        pin_mux_ctrl = (volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_3);
-        *pin_mux_ctrl |= (uint32)ALT_MII_RX_ERR;
-        pin_mux_ctrl = (volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_5);
-        *pin_mux_ctrl |= (uint32)ALT_MII_RXD_00;
-        pin_mux_ctrl = (volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_7);
-        *pin_mux_ctrl |= (uint32)(ALT_MII_RX_EN |
-                                ALT_MII_CRS |
-                                ALT_MII_COL |
-                                ALT_MII_TX_CLK);
-        pin_mux_ctrl = (volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10);
-        data = *pin_mux_ctrl;
-        data &= GPIO_45; // mux setting for gpio45. clear bit 29, 28, 27
-        *pin_mux_ctrl = data;
-#endif
-}
-
 /*
  * init_emac: Initializes the Ethernet Switch control registers
  */
@@ -1945,23 +1841,19 @@ static int init_emac(BcmEnet_devctrl *pDevCtrl)
 
 #ifdef CONFIG_MIPS_BCM97401CX_SW
     if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH) {
-	volatile uint32 *pin_mux_ctrl;
-	uint32 data;
 
-        init_pinmux();
+	BDEV_WR_ARRAY(MII_PINMUX_SETUP);
 
         // reset the Ethernet Switch
-        data = *(volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_GIO_IODIR_HI);
-        data &= (uint32)(~GPIO45_OFFSET); // Force gpio45 to output direction (forcing bit 13 to 0)
-        *(volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_GIO_IODIR_HI) = data;
+	// Force gpio45 to output direction (forcing bit 13 to 0)
+	BDEV_UNSET(BCHP_GIO_IODIR_HI, GPIO45_OFFSET);
 
-        data = *(volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_GIO_DATA_HI);
         // pulse once on gpio45 to reset 5325
-        data &= (uint32)(~GPIO45_OFFSET); // set bit 13 to 0
-        *(volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_GIO_DATA_HI) = data;
+	BDEV_UNSET(BCHP_GIO_DATA_HI, GPIO45_OFFSET);
+	BDEV_RD(BCHP_GIO_DATA_HI);
         udelay(1000);
-        data |= (uint32)GPIO45_OFFSET; // set bit 13 to 1
-        *(volatile uint32 *)BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_GIO_DATA_HI) = data;
+	BDEV_SET(BCHP_GIO_DATA_HI, GPIO45_OFFSET);
+	BDEV_RD(BCHP_GIO_DATA_HI);
     }
 #endif
     if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_PHY) {
@@ -2026,7 +1918,7 @@ static void init_IUdma(BcmEnet_devctrl *pDevCtrl)
 #ifdef CONFIG_MIPS_BCM7405A0
     /* connect emac0->internal PHY (HW bug workaround) */
     pDevCtrl->dmaRegs->enet_iudma_tstctl |= (1 << 13);
-#elif defined(CONFIG_MIPS_BCM7335)
+#elif defined(HAS_EMAC_1)
     /* connect emac0->internal PHY, emac1->external MII pins */
     pDevCtrl->dmaRegs->enet_iudma_tstctl &= ~(1 << 13);
 #endif
@@ -2597,12 +2489,12 @@ static struct file_operations eth_proc_operations = {
 
 #define BUFFER_LEN PAGE_SIZE
 
+static char buffer[BUFFER_LEN];
 
 void bcmemac_dump(BcmEnet_devctrl *pDevCtrl)
 {
     // We may have to do dynamic allocation here, since this is run from
     // somebody else's stack
-    char buffer[BUFFER_LEN];
     int len, i;
 
     if (pDevCtrl == NULL) {
@@ -2660,81 +2552,16 @@ EXPORT_SYMBOL(bcmemac_dump);
 
 static void bcmemac_getMacAddr(void)
 {
-    uint8 flash_eaddr[ETH_ALEN];
-    int i;
-
-#if !defined( CONFIG_BRCM_PCI_SLAVE) && !defined( CONFIG_MTD_BRCMNAND )
-    uint16 word;
-    void *virtAddr;
-
-#if 1
-    virtAddr = (void *)FLASH_MACADDR_ADDR;
-#else
-    virtAddr = (void*) KSEG1ADDR(getPhysFlashBase() + FLASH_MACADDR_OFFSET); 
-#endif
-
-    /* It is a common problem that the flash and/or Chip Select are
-     * not initialized properly, so leave this printk on
-     */
-    printk("bcmemac: Reading MAC address from %08lX, FLASH_BASE=%08lx\n", 
-        (uint32) virtAddr, (unsigned long) 0xA0000000L|getPhysFlashBase());
-
-    word=0;
-    word=readw(virtAddr);
-    flash_eaddr[0]=(uint8) (word & 0x00FF);
-    flash_eaddr[1]=(uint8) ((word & 0xFF00) >> 8);
-    word=readw(virtAddr+2);
-    flash_eaddr[2]=(uint8) (word & 0x00FF);
-    flash_eaddr[3]=(uint8) ((word & 0xFF00) >> 8);
-    word=readw(virtAddr+4);
-    flash_eaddr[4]=(uint8) (word & 0x00FF);
-    flash_eaddr[5]=(uint8) ((word & 0xFF00) >> 8);
-
-    printk("bcmemac: EMAC_0 address %02X:%02X:%02X:%02X:%02X:%02X fetched from addr %lX\n",
-                flash_eaddr[0],flash_eaddr[1],flash_eaddr[2],
-                flash_eaddr[3],flash_eaddr[4],flash_eaddr[5],
-                (uint32) virtAddr);
-
-#elif defined( CONFIG_MTD_BRCMNAND )
-{
 	extern int gNumHwAddrs;
 	extern unsigned char* gHwAddrs[];
+	int i;
 	
    	if (gNumHwAddrs >= 1) {
-		for (i=0; i < 6; i++) {
-			flash_eaddr[i] = (uint8) gHwAddrs[0][i];
-		}
-
-		printk("bcmemac: MAC address %02X:%02X:%02X:%02X:%02X:%02X fetched from bootloader\n",
-			flash_eaddr[0],flash_eaddr[1],flash_eaddr[2],
-			flash_eaddr[3],flash_eaddr[4],flash_eaddr[5]
-			);
-   	}
-	else {
+		for (i=0; i < 6; i++)
+			g_flash_eaddr[i] = (uint8) gHwAddrs[0][i];
+   	} else {
 		printk(KERN_ERR "%s: No MAC addresses defined\n", __FUNCTION__);
 	}
-}
-
-#else 
-/* PCI slave cannot access the EBI bus, 
- * and for now, same for NAND flash, until CFE supports it
- */
-/* Use hard coded value if Flash not properly initialized */
-    {
-        flash_eaddr[0] = 0x00;
-        flash_eaddr[1] = 0xc0;
-        flash_eaddr[2] = 0xa8;
-        flash_eaddr[3] = 0x74;
-        flash_eaddr[4] = 0x3b;
-        flash_eaddr[5] = 0x51;
-        printk("bcmemac: Default MAC address %02X:%02X:%02X:%02X:%02X:%02X used\n",
-                    flash_eaddr[0],flash_eaddr[1],flash_eaddr[2],
-                    flash_eaddr[3],flash_eaddr[4],flash_eaddr[5]);
-    }
-#endif
-    /* fill in the MAC address */
-    for (i = 0; i < 6; i++)
-        g_flash_eaddr[i] = flash_eaddr[i];
 }
 
 #if defined(CONFIG_BRCM_PM)
@@ -2929,7 +2756,7 @@ static int __init bcmemac_net_probe(int devnum, int phy_id)
     BcmEnet_devctrl *pDevCtrl;
 
     if (probed == 0) {
-#if defined(CONFIG_MIPS_BCM7405B0) || defined(CONFIG_MIPS_BCM7335)
+#if defined(HAS_EMAC_1)
         /* on dual EMAC systems, EMAC_0 is internal and EMAC_1 is external */
         if (BpSetBoardId(devnum ? "EXT_PHY" : "INT_PHY") != BP_SUCCESS)
 #elif defined(CONFIG_BCM5325_SWITCH) && (CONFIG_BCM5325_SWITCH == 1)
@@ -2948,18 +2775,20 @@ static int __init bcmemac_net_probe(int devnum, int phy_id)
             return -ENODEV;
         }
         bcmemac_dev_setup(dev, devnum, phy_id);
-		pDevCtrl->next_dev = eth_root_dev;
-		eth_root_dev = dev;
     } else {
         /* device has already been initialized */
         return -ENXIO;
     }
 
     pDevCtrl = (BcmEnet_devctrl *)netdev_priv(dev);
+
     if (0 != (ret = register_netdev(dev))) {
         bcmemac_uninit_dev(pDevCtrl);
         return ret;
     }
+
+    pDevCtrl->next_dev = eth_root_dev;
+    eth_root_dev = dev;
 
 #ifdef CONFIG_BCMINTEMAC_NETLINK
 	INIT_WORK(&pDevCtrl->link_change_task, (void (*)(void *))bcmemac_link_change_task, pDevCtrl);
@@ -3219,7 +3048,7 @@ static int bcmemac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
 static int __init bcmemac_module_init(void)
 {
-    int status;
+    int status = 0, phy_id = BCMEMAC_NO_PHY_ID;
 
 #ifdef CONFIG_BRCM_PM
     brcm_pm_enet_add();
@@ -3227,16 +3056,26 @@ static int __init bcmemac_module_init(void)
 #endif
     bcmemac_getMacAddr();
 
-    TRACE(("bcmemacenet: bcmemac_module_init\n"));
-    status = bcmemac_net_probe(0, BCMEMAC_NO_PHY_ID);
+#if defined(CONFIG_BCMINTEMAC_7038_EXTMII)
+    /* set up pinmux (same code for EMAC_0 or EMAC_1) */
+    BDEV_WR_ARRAY(MII_PINMUX_SETUP);
+#if ! defined(HAS_EMAC_1)
+    /* if EMAC_0 is external, find the PHY first before creating the iface */
+    phy_id = mii_probe(ENET_MAC_ADR_BASE);
+    if(phy_id == BCMEMAC_NO_PHY_ID)
+        status = -ENODEV;
+#endif
+#endif
 
-#if defined(CONFIG_BCMINTEMAC_7038_EXTMII) && \
-    (defined(CONFIG_MIPS_BCM7405B0) || defined(CONFIG_MIPS_BCM7335))
+    TRACE(("bcmemacenet: bcmemac_module_init\n"));
+    if(! status)
+        status = bcmemac_net_probe(0, phy_id);
+
+#if defined(CONFIG_BCMINTEMAC_7038_EXTMII) && defined(HAS_EMAC_1)
     /* probe EMAC_1 (this might fail) */
     if(! status) {
         int phy_id;
 
-        init_pinmux();
         phy_id = mii_probe(ENET_MAC_1_ADR_BASE);
 
         if(phy_id != BCMEMAC_NO_PHY_ID) {

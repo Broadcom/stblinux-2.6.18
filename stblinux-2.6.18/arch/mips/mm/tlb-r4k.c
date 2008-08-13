@@ -14,6 +14,7 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/mmzone.h>
+#include <linux/module.h> // For export symbol
 
 #include <asm/cpu.h>
 #include <asm/bootinfo.h>
@@ -100,8 +101,12 @@ extern void build_tlb_refill_handler(void);
 #else
 #define	CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN	0
 #endif
-#endif
+#endif // defined( CONFIG_MIPS_BRCM97XXX )
 
+
+/*
+ * THT: For now, just use hard coded values.  Will clean up later
+ */
 static inline void brcm_setup_wired_discontig(void)
 {
 #ifdef CONFIG_DISCONTIGMEM	/* uses some DISCONTIG-only macros */
@@ -148,24 +153,62 @@ static inline void brcm_setup_wired_discontig(void)
 		entry++; \
 	} while(0)
 
-	write_c0_pagemask(PM_64M);	/* each entry has 2x 64MB mappings */
+	/*
+	 * THT: 6/27/08 for 2.6.18-5.1 PR43351
+	 * Only the 16MB map use the new data structure, the 64MB map is left unchanged
+	 */
+	if ((bcm_pmemmap->tlb_mask & PM_64M) == PM_64M) {
+		write_c0_pagemask(PM_64M);	/* each entry has 2x 64MB mappings */
 
-	WR_TLB(PCI_MEM_WIN_BASE,
-		CPU2PCI_CPU_PHYS_MEM_WIN_BASE,
-		CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_64MBYTES,
-		ATTR_UNCACHED);
-	WR_TLB(PCI_MEM_WIN_BASE + OFFSET_128MBYTES,
-		CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_128MBYTES,
-		CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_128MBYTES + OFFSET_64MBYTES,
-		ATTR_UNCACHED);
-	WR_TLB(UPPER_RAM_VBASE,
-		UPPER_RAM_BASE,
-		UPPER_RAM_BASE + OFFSET_64MBYTES,
-		ATTR_CACHED);
-	WR_TLB(UPPER_RAM_VBASE + OFFSET_128MBYTES,
-		UPPER_RAM_BASE + OFFSET_128MBYTES,
-		UPPER_RAM_BASE + OFFSET_128MBYTES + OFFSET_64MBYTES,
-		ATTR_CACHED);
+		WR_TLB(PCI_MEM_WIN_BASE,
+			CPU2PCI_CPU_PHYS_MEM_WIN_BASE,
+			CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_64MBYTES,
+			ATTR_UNCACHED);
+		WR_TLB(PCI_MEM_WIN_BASE + OFFSET_128MBYTES,
+			CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_128MBYTES,
+			CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_128MBYTES + OFFSET_64MBYTES,
+			ATTR_UNCACHED);
+		WR_TLB(UPPER_RAM_VBASE,
+			UPPER_RAM_BASE,
+			UPPER_RAM_BASE + OFFSET_64MBYTES,
+			ATTR_CACHED);
+		WR_TLB(UPPER_RAM_VBASE + OFFSET_128MBYTES,
+			UPPER_RAM_BASE + OFFSET_128MBYTES,
+			UPPER_RAM_BASE + OFFSET_128MBYTES + OFFSET_64MBYTES,
+			ATTR_CACHED);
+	}
+	else if ((bcm_pmemmap->tlb_mask & PM_16M) == PM_16M) {
+		unsigned long va, pa0, pa1;
+		
+		write_c0_pagemask(PM_16M);	/* each entry has 2x 64MB mappings */
+
+		/* Allocate 256MB PCI address space */
+		for (va = bcm_pmemmap->pci_vAddr,
+				pa0 = CPU2PCI_CPU_PHYS_MEM_WIN_BASE,
+				pa1 = CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_16MBYTES;
+			va < (bcm_pmemmap->pci_vAddr + bcm_pmemmap->pci_winSize);
+			va += OFFSET_32MBYTES, pa0 += OFFSET_32MBYTES, pa1 += OFFSET_32MBYTES
+			) 
+		{
+			WR_TLB(va, pa0, pa1, ATTR_UNCACHED);
+		}
+
+		/* Map VA to PA, PA and size given by bcm_pdiscontig_memmap */
+		for (va = bcm_pmemmap->mem_vAddr[1],
+				pa0 = bcm_pdiscontig_memmap->physAddr[1],
+				pa1 = pa0 + OFFSET_16MBYTES;
+			pa1 < (bcm_pdiscontig_memmap->physAddr[1] + bcm_pdiscontig_memmap->memSize[1]);
+			va += OFFSET_32MBYTES, pa0 += OFFSET_32MBYTES, pa1 += OFFSET_32MBYTES
+			) 
+		{
+			WR_TLB(va, pa0, pa1, ATTR_CACHED);
+		}
+	}
+	else {
+		/* TBD */
+		printk("TLB mapping for under 16MB needed\n");
+		BUG();
+	}
 
 	write_c0_pagemask(PM_4M);
 	WR_TLB(PCI_IO_WIN_BASE,
@@ -364,17 +407,16 @@ static void brcm_setup_wired_entries(void)
 
 	brcm_setup_wired_discontig();
 
-#elif defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_BMIPS4380)
-
-	/* Use 64MB pages with standard memory map */
-
-	brcm_setup_wired_64();
-
 #else
 
-	/* Use 16MB pages with standard memory map */
-	brcm_setup_wired_16();
-
+	if ((bcm_pmemmap->tlb_mask & PM_64M) == PM_64M) {
+		/* Use 64MB pages with standard memory map */
+		brcm_setup_wired_64();
+	}
+	else {
+		/* Use 16MB pages with standard memory map */
+		brcm_setup_wired_16();
+	}
 #endif
 }
 
@@ -394,6 +436,7 @@ static void brcm_setup_wired_entries(void)
 
 static void brcm_setup_sata_bridge(void)
 {
+
 //#if defined(BCHP_PCI_BRIDGE_PCI_CTRL) && defined(CONFIG_SATA_SVW)
 #if defined(BCHP_PCI_BRIDGE_PCI_CTRL) && defined(HAS_SATA_SVW)
 	/* Internal PCI SATA bridge setup for 7038, 7401, 7403, 7118, etc. */
@@ -416,6 +459,7 @@ static void brcm_setup_sata_bridge(void)
 	BDEV_WR(BCHP_PCI_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE,
 		CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE |
 		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+
 	BDEV_WR(BCHP_PCI_BRIDGE_CPU_TO_SATA_IO_WIN_BASE,
 		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
 
@@ -911,6 +955,31 @@ static int __init set_ntlb(char *str)
 
 __setup("ntlb=", set_ntlb);
 
+#ifdef CONFIG_MIPS_BRCM97XXX
+
+static bcm_memmap_t bcm_standard_memmap = {
+#if defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_BMIPS4380)
+		// || def(7440b0) but 7440b0 defines its own bcm_memmap
+	.tlb_mask =		PM_64M,
+#else
+	.tlb_mask =		PM_16M,
+#endif
+	.pci_vAddr =		PCI_MEM_WIN_BASE,	//0xd0000000, 						
+	.pci_winSize =		PCI_MEM_WIN_SIZE, 	/* 128MB for 7440, 3563, 256MB for everybody else */
+	.io_vAddr =		PCI_IO_WIN_BASE,		// 0xf0000000,			
+	.io_winSize =		PCI_IO_WIN_SIZE,		//0x0060000b, 3563c0 & 7440b0 have 0x20_0000
+	.nMemBanks =		1,
+	.mem_vAddr =		{0,0xe0000000,0},		// Match array defined by bcm_pdiscontigmem->pAddr[1]
+	.tlb_memmap = 	brcm_setup_wired_entries,
+	.tlb_pci_bridge =	brcm_setup_pci_bridge,
+	.tlb_sata_bridge =	brcm_setup_sata_bridge,
+};
+
+bcm_memmap_t* bcm_pmemmap = &bcm_standard_memmap;
+EXPORT_SYMBOL(bcm_pmemmap);
+
+#endif
+
 void __init tlb_init(void)
 {
 	unsigned int config = read_c0_config();
@@ -933,12 +1002,16 @@ void __init tlb_init(void)
 	local_flush_tlb_all();
 
 #ifdef CONFIG_MIPS_BRCM97XXX
-	/* create wired entries in kseg2/kseg3 for PCI and discontig memory */
-	brcm_setup_wired_entries();
+	if (bcm_pmemmap) {
+		/* create wired entries in kseg2/kseg3 for PCI and discontig memory */
+		bcm_pmemmap->tlb_memmap();
 
-	/* program the PCI bridge registers */
-	brcm_setup_pci_bridge();
-	brcm_setup_sata_bridge();
+		/* program the PCI bridge registers */
+		bcm_pmemmap->tlb_pci_bridge();
+	
+		if (bcm_pmemmap->tlb_sata_bridge)
+		bcm_pmemmap->tlb_sata_bridge();
+	}
 #endif
 
 	build_tlb_refill_handler();

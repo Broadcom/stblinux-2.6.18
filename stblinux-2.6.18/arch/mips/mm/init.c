@@ -38,6 +38,14 @@
 #include <asm/tlb.h>
 #include <asm/fixmap.h>
 
+#ifdef CONFIG_MIPS_BRCM97XXX
+#include <asm/brcmstb/common/brcmstb.h>
+
+  #ifdef CONFIG_DISCONTIGMEM
+  #include "mmzone.h"	/* include/asm-mips/mach-brcmstb/mmzone.h */
+  #endif
+#endif
+
 /* CP0 hazard avoidance. */
 #define BARRIER __asm__ __volatile__(".set noreorder\n\t" \
 				     "nop; nop; nop; nop; nop; nop;\n\t" \
@@ -400,6 +408,7 @@ void __init paging_init(void)
 	kmap_coherent_init();
 
 	max_dma = virt_to_phys((char *)MAX_DMA_ADDRESS) >> PAGE_SHIFT;
+
 	low = max_low_pfn;
 	high = highend_pfn;
 
@@ -425,8 +434,12 @@ void __init paging_init(void)
 
 #ifdef CONFIG_FLATMEM
 	free_area_init(zones_size);
-#elif defined(CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335) \
-	|| defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM3548)
+
+#elif defined(CONFIG_DISCONTIGMEM) && \
+	(defined(CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335) \
+	  || defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM3548) )
+
+	/* Old 2.6.12-5.0 API */
 	if(g_board_RAM_size <= LOWER_RAM_SIZE) {
 		zones_size[ZONE_DMA] = PFN_DOWN(g_board_RAM_size);
 		zones_size[ZONE_NORMAL] = 0;
@@ -447,6 +460,47 @@ void __init paging_init(void)
 			PFN_DOWN(UPPER_RAM_BASE), 0);
 		node_set_online(1);
 	}
+#elif defined(CONFIG_DISCONTIGMEM) && \
+	(defined(CONFIG_MIPS_BCM3563C0) || defined(CONFIG_MIPS_BCM7440))
+	/* New 2.6.12-5.1 API */
+	{
+		int node = 0;
+		int ddr=0;
+
+		/* Main memory ddr == 0 */
+		if (bcm_pdiscontig_memmap->memSize[0] <= (256<<20)) {
+			zones_size[ZONE_DMA] = PFN_DOWN(bcm_pdiscontig_memmap->memSize[0]);
+			zones_size[ZONE_NORMAL] = 0;
+			zones_size[ZONE_HIGHMEM] = 0;
+			free_area_init_node(0, NODE_DATA(0), zones_size, 0, 0);
+			node_set_online(0);
+			
+		} else { /* Node 0 and 1 are DMA'able */
+			zones_size[ZONE_DMA] = PFN_DOWN(256<<20);
+			zones_size[ZONE_NORMAL] = 0;
+			zones_size[ZONE_HIGHMEM] = 0;
+			free_area_init_node(0, NODE_DATA(0), zones_size, 0, 0);
+			node_set_online(0);
+
+			node = 1;
+			zones_size[ZONE_DMA] = PFN_DOWN(bcm_pdiscontig_memmap->memSize[0] - (256<<20));
+			zones_size[ZONE_NORMAL] = 0;
+			zones_size[ZONE_HIGHMEM] = 0;
+			free_area_init_node(1, NODE_DATA(1), zones_size, PFN_DOWN(0x20000000), 0);
+			node_set_online(1);	
+			
+		}
+		node++;
+		ddr++;
+
+		/* DDR1 node, not DMA-able */
+		zones_size[ZONE_DMA] = 0;
+		zones_size[ZONE_NORMAL] = PFN_DOWN(bcm_pdiscontig_memmap->memSize[ddr]);
+		zones_size[ZONE_HIGHMEM] = 0;
+		free_area_init_node(node, NODE_DATA(node), zones_size, PFN_DOWN(bcm_pdiscontig_memmap->physAddr[ddr]), 0);
+		node_set_online(node);
+	}
+
 #else
 	pfn = 0;
 	for (i = 0; i < MAX_NR_ZONES; i++)

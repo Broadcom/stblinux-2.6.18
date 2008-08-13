@@ -34,19 +34,32 @@
 #include <asm/bootinfo.h>
 #include <asm/brcmstb/common/brcmstb.h>
 
+static int  is_reserved_node(unsigned long addr, unsigned long size, long type, void* data)
+{
+	struct si_bm_rsvd* pdata = (struct si_bm_rsvd*) data;
+	
+	if (type == BOOT_MEM_RESERVED) {
+		pdata->addr = addr;
+		pdata->size = size;
+		return 1;
+	}
+	return 0;  // Next node please
+}
+
 int si_bootmem_reserved(int idx, phys_t *addr, phys_t *size)
 {
 #if defined (CONFIG_DISCONTIGMEM)
 	struct si_bm_rsvd data;
-	int retIdx;
+	
 
 	/* Find first reserved entry starting at idx */
-	retIdx = brcm_walk_boot_mem_map(idx, BOOT_MEM_RESERVED, &data);
+	(void) brcm_walk_boot_mem_map(&data, is_reserved_node);
 
 	*addr = data.addr;
 	*size = data.size;
 
-	return(retIdx);    
-
+	return 0;    
+#else
+	return 0;
 #endif
 }

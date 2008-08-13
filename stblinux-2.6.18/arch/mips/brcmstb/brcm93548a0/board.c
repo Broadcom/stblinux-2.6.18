@@ -192,7 +192,7 @@ board_init_once(void)
 #endif
 
 	printk("Detected %ld MB on MEMC0 (strap 0x%08lx), PCI window 0x%08lx\n",
-	        (memSize >>20), regval);
+	        (memSize >>20), regval, pci_memwin_size);
 	return memSize;
 }
 

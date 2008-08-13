@@ -36,12 +36,34 @@ config MIPS_BCM3548AX_NAND
 	select MTD_BLOCK_ROMBLOCK
 
 config MIPS_BCM3563CX
-        bool "Support for BCM93563Cx"
+        bool "Support for BCM93563Cx with NOR flash"
         select MIPS_BRCM97XXX
         select HW_HAS_PCI
 	select MIPS_BCM3563C0
         select MIPS_BCM3560
 	select BMIPS3300
+
+config MIPS_BCM3563CX_DDR1
+        bool "Support for BCM93563Cx with DDR1 and NOR flash"
+        select MIPS_BRCM97XXX
+        select HW_HAS_PCI
+	select MIPS_BCM3563C0
+        select MIPS_BCM3560
+	select BMIPS3300
+	help 
+		Support for BCM93563Cx with DDR1 and NOR flash.  
+		Requires presence of DDR1 and a bootloader that enables DDR1
+	
+config MIPS_BCM3563CX_NAND
+        bool "Support for BCM93563Cx with NAND flash"
+        select MIPS_BRCM97XXX
+        select HW_HAS_PCI
+	select MIPS_BCM3563C0
+        select MIPS_BCM3560
+	select BMIPS3300
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
 
 config MIPS_BCM7038CX
 	bool "Support for BCM97038Cx"
@@ -1365,7 +1387,7 @@ config MIPS_BCM3560
 
 config MIPS_BCM3563C0
        bool
-       depends MIPS_BCM3563CX
+       depends MIPS_BCM3563CX || MIPS_BCM3563CX_NAND || MIPS_BCM3563CX_DDR1
 
 config MIPS_BCM7038C0
 	bool
@@ -1535,6 +1557,7 @@ config MIPS_BRCM
 config BRCM_PCI_SLAVE
 	bool "Broadcom MIPS in PCI Slave Mode"
 	depends MIPS_BCM7402S
+	select BRCM_SKIP_CHECK_BOOTROM
 
 config BRCM_7XXX_SERIAL
 	select SERIAL_CORE_CONSOLE
@@ -1552,6 +1575,10 @@ config SERIAL
 	
 config SWAP_IO_SPACE_L
 	bool
+	
+config BRCM_SKIP_CHECK_BOOTROM
+	bool
+	default y
 	
 # end of Broadcom STB options
 
@@ -1720,7 +1747,7 @@ config SYS_SUPPORTS_PM
 config SYS_SUPPORTS_CPUFREQ
 	bool
 	depends on MIPS_BCM7401C0 || MIPS_BCM7400D0 || MIPS_BCM7405 || \
-		MIPS_BCM7335
+		MIPS_BCM7335 || MIPS_BCM3548
 	default y
 
 if SYS_SUPPORTS_PM || SYS_SUPPORTS_CPUFREQ
@@ -2363,7 +2390,7 @@ config ARCH_FLATMEM_ENABLE
 
 config ARCH_DISCONTIGMEM_ENABLE
 	bool
-	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0
+	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0 || MIPS_BCM3563C0 || MIPS_BCM7440B0
 	help
 	  Say Y to upport efficient handling of discontiguous physical memory,
 	  for architectures which are either NUMA (Non-Uniform Memory Access)

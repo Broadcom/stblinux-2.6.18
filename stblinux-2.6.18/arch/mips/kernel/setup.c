@@ -43,6 +43,7 @@
 #include <asm/sections.h>
 #include <asm/setup.h>
 #include <asm/system.h>
+#include <asm/types.h>
 
 #ifdef CONFIG_MIPS_BRCM97XXX
 #include <asm/brcmstb/common/brcmstb.h>
@@ -99,6 +100,27 @@ static struct resource code_resource = { .name = "Kernel code", };
 static struct resource data_resource = { .name = "Kernel data", };
 
 extern unsigned long g_board_RAM_size;
+//extern unsigned long memSize[];
+
+// THT: Already defined in pfn.h
+//#define PFN_UP(x)	(((x) + PAGE_SIZE - 1) >> PAGE_SHIFT)
+//#define PFN_DOWN(x)	((x) >> PAGE_SHIFT)
+//#define PFN_PHYS(x)	((x) << PAGE_SHIFT)
+
+#define MAXMEM		HIGHMEM_START
+#define MAXMEM_PFN	PFN_DOWN(MAXMEM)
+
+#ifndef CONFIG_DISCONTIGMEM
+#define LOWER_RAM_END 0x10000000 /* 256MB */
+#endif
+
+
+#define LINUX_MIN_MEM   32  // MB
+
+
+int linux_min_mem = 18;
+EXPORT_SYMBOL(linux_min_mem);
+
 
 void __init add_memory_region(phys_t start, phys_t size, long type)
 {
@@ -106,7 +128,6 @@ void __init add_memory_region(phys_t start, phys_t size, long type)
 
 /* Disable merging for BRCM boards */
 #ifndef CONFIG_MIPS_BRCM
-	{
 		struct boot_mem_map_entry *prev = boot_mem_map.map + x - 1;
 		/*
 		 * Try to merge with previous entry if any.  This is far less than
@@ -116,7 +137,6 @@ void __init add_memory_region(phys_t start, phys_t size, long type)
 			prev->size += size;
 			return;
 		}
-	}
 #endif
 
 	if (x == BOOT_MEM_MAP_MAX) {
@@ -171,18 +191,17 @@ static void __init print_memory_map(void)
  */
 //#define BOOT_MEM_HOLE	4  // Memory hole currently not implemented
 #define NILL (-1)
-struct brcm_boot_mem_map {
+typedef struct brcm_boot_mem_map {
 	int nr_map;
 	int head, tail;
 	int avail;			// Currently we don't support deletion, so this is just the next free node
-	struct {
-		phys_t addr;	/* start of memory segment */
-		phys_t size;	/* size of memory segment */
-		long type;		/* type of memory segment */
-		int next, prev;
-	} map[BOOT_MEM_MAP_MAX];
-};
-struct brcm_boot_mem_map brcm_mmap;
+	bcm_memnode_t map[BOOT_MEM_MAP_MAX];
+} bcm_boot_mem_map_t;
+static bcm_boot_mem_map_t brcm_mmap;
+bcm_memnode_t brcm_bm;
+EXPORT_SYMBOL(brcm_bm);
+
+
 
 /*
  * Standard Linked List Insert After op
@@ -236,6 +255,10 @@ static void brcm_init_memory_map(void)
 		brcm_insert_after(brcm_mmap.tail, 
 			boot_mem_map.map[i].addr, boot_mem_map.map[i].size, boot_mem_map.map[i].type);
 	}
+
+    brcm_bm.addr = 0;
+	brcm_bm.size = 0;
+	brcm_bm.type = 0;
 }
 
 static long inline flip_type(long old_type)
@@ -245,38 +268,48 @@ static long inline flip_type(long old_type)
 	else return BOOT_MEM_ROM_DATA;
 }
 
-static int brcm_insert_ram_node(phys_t start, phys_t size, long type)
+
+int brcm_insert_ram_node(phys_t start, phys_t size, long type, bcm_memnode_t* bm)
 {
 	int n;
 	int found = 0;
 	phys_t oldstart, oldsize;
 	long oldtype;
 
+	/*
+	** Initialize return results from this work to caller via bm structure.
+	*/
+	if (bm) {
+		bm->addr = 0;
+		bm->size = 0;
+		bm->type = 0;
+	}
+
 	for (n = brcm_mmap.head; n != NILL && !found; n = brcm_mmap.map[n].next) {
 		unsigned long end_node = brcm_mmap.map[n].addr + brcm_mmap.map[n].size;
 
-		if (start >= brcm_mmap.map[n].addr && start <= end_node ) {
+		if (start >= brcm_mmap.map[n].addr && start < end_node ) {
 			if ((start+size) <= end_node) {
 				found = 1;
 				break;
 			}
 			/* Some validation */
 			else { /* ((start+size) > (brcm_mmap.map[n].addr + brcm_mmap.map[n].size)) */
-				printk("Entry start=%dm: size=%dm overlaps with existing node(%dm:%dm), and is ignored\n", 
+				printk(KERN_WARNING "Entry start=%dm: size=%dm overlaps with existing node(%dm:%dm), and is ignored\n", 
 					(unsigned int)start>>20, (unsigned int)size>>20, 
 					(unsigned int)brcm_mmap.map[n].addr>>20, (unsigned int)brcm_mmap.map[n].size>>20);
 				return -1;
 			}
 		}
 		if (start < brcm_mmap.map[n].addr) {
-			printk("Entry start=%dm: size=%dm not found in memory map and is ignored\n", 
+			printk(KERN_WARNING "Entry start=%dm: size=%dm not found in memory map and is ignored\n", 
 				(unsigned int)start>>20, (unsigned int)size>>20);
 			return -2;
 		}
 		/* else start > node_start and start >= node_end, visit next node */
 	}
 	if (!found) {
-		printk("No node found in memory map\n");
+		printk(KERN_WARNING "No node found in memory map\n");
 		return -2;
 	}
 	
@@ -295,7 +328,9 @@ static int brcm_insert_ram_node(phys_t start, phys_t size, long type)
 		/*
 		 * Handle the first node: old_start, (new_start - old_start), type = opposite of new node type
 		 */
+
 		if (start > brcm_mmap.map[n].addr) {
+
 			//pstart = brcm_mmap.map[n].addr; Unchanged
 			brcm_mmap.map[n].size = start - brcm_mmap.map[n].addr;
 			brcm_mmap.map[n].type = flip_type(type);
@@ -304,6 +339,7 @@ static int brcm_insert_ram_node(phys_t start, phys_t size, long type)
 			n = brcm_insert_after(n, start, size, type);
 		}
 		else { // start == old_start, just set the type and size
+
 			brcm_mmap.map[n].size = size;
 			brcm_mmap.map[n].type = type;			
 		}
@@ -314,9 +350,51 @@ static int brcm_insert_ram_node(phys_t start, phys_t size, long type)
 			return n;
 		}
 	}
+	/*
+	** Return results from this work to caller via bm structure.
+	*/
+	if (bm && brcm_mmap.map[n].next != NILL && brcm_mmap.map[n].next != brcm_mmap.head) {
+		/* Pass back values from next node */
+		bm->addr = brcm_mmap.map[brcm_mmap.map[n].next].addr;
+		bm->size = brcm_mmap.map[brcm_mmap.map[n].next].size;
+		bm->type = (int)brcm_mmap.map[brcm_mmap.map[n].next].type;
+	}
 
 	return n;
 }
+EXPORT_SYMBOL(brcm_insert_ram_node);
+
+
+
+/*
+** Check to see if the node has already been provided.
+*/
+int brcm_test_ram_node(phys_t start, phys_t size, long type)
+{
+	int n;
+	int found = 0;
+	unsigned long node_end;
+	unsigned long request_end;
+
+	for (n = brcm_mmap.head; n != NILL && !found; n = brcm_mmap.map[n].next) {
+
+		node_end    = brcm_mmap.map[n].addr + brcm_mmap.map[n].size;
+		request_end = start + size;
+
+		if (((start       >= brcm_mmap.map[n].addr && start       < node_end) ||
+			 (request_end >  brcm_mmap.map[n].addr && request_end < node_end)) &&
+			 brcm_mmap.map[n].type == type) 
+		{
+			printk(KERN_WARNING "Physical Address 0x%08x Size 0x%08x Type %s: OVERLAPS EXISTING NODE - IGNORED!!\n",
+					start, size,
+					(type == BOOT_MEM_RESERVED ? "RESERVED" : "RAM"));
+			found = 1;
+			break;
+		}
+	}
+	return(found);
+}
+
 
 #if 0
 /*
@@ -359,21 +437,22 @@ static int  brcm_walk_print(unsigned long addr, unsigned long size, long type, v
 	return 0;  // Next node please
 }
 
-static void brcm_print_memory_map(void)
+void brcm_print_memory_map(void)
 {
 	char msg[80];
 
 	brcm_walk_boot_mem_map(msg, brcm_walk_print);
 }
+EXPORT_SYMBOL(brcm_print_memory_map);
 
 /*
  * By default, set the kernel to use 32MB if the user does not specify mem=nnM on the command line
  */
-static inline void brcm_default_boot_mem(void)
+static __init void __brcm_default_boot_mem(void)
 {
 	int ramSizeMB = get_RAM_size() >> 20;
-	int size;
-	char msg[40];
+	int size, total_size;
+	char msg[80];
 	
 	if (ramSizeMB <= 32) {
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -389,17 +468,19 @@ static inline void brcm_default_boot_mem(void)
 		/* 
 		  * Kernels on STBs with larger than 32MB, we only use 32MB RAM for the kernel
 		  */
-
-#if 0 // // PR41020: Removed since mem leak was fixed.    def CONFIG_MTD_BRCMNAND
-		size = 48; // FOr BBT tables
-#else
-		size = 32;
-#endif
+		size = linux_min_mem = LINUX_MIN_MEM;
 	}
-	sprintf(msg, "Using %dMB for memory, overwrite by passing mem=xx\n", size);
+
+	total_size = size;
+	sprintf(msg, "Using %dMB for memory, overwrite by passing mem=xx\n", total_size);
+
 	uart_puts(msg);
-	brcm_insert_ram_node(0, size<<20, BOOT_MEM_RAM);
+	brcm_insert_ram_node(0, size<<20, BOOT_MEM_RAM, &brcm_bm);
+
 }
+
+void (*brcm_default_boot_mem)(void) = &__brcm_default_boot_mem;
+EXPORT_SYMBOL(brcm_default_boot_mem);
 
 /*
  * Here we only check for the kernel starting memory.
@@ -423,10 +504,16 @@ static void inline brcm_reserve_bootmem_node(unsigned long firstUsableAddr)
 				(unsigned int) brcm_mmap.map[i].addr, firstUsableAddr);
 			continue;
 		}
-		if (brcm_mmap.map[i].addr < (256<<20)) {
+		if (brcm_mmap.map[i].addr < LOWER_RAM_END) {
+
+			if (upper_memory < brcm_mmap.map[i].addr) {
+				upper_memory = brcm_mmap.map[i].addr;
+			}
+
 #ifndef CONFIG_DISCONTIGMEM
 			reserve_bootmem(brcm_mmap.map[i].addr, 
 				brcm_mmap.map[i].size);
+
 #else
 			reserve_bootmem_node(NODE_DATA(0), brcm_mmap.map[i].addr, 
 				brcm_mmap.map[i].size);		
@@ -441,12 +528,33 @@ static void inline brcm_reserve_bootmem_node(unsigned long firstUsableAddr)
 		else {
 #ifndef CONFIG_DISCONTIGMEM
 			uart_puts("Error: Cannot reserve memory above 256MB.  for UMA platforms\n");
-#else
-			reserve_bootmem_node(NODE_DATA(1), brcm_mmap.map[i].addr, 
-				brcm_mmap.map[i].size);	
-			printk(KERN_NOTICE "Reserving %ld MB upper memory starting at %08x\n", 
-				brcm_mmap.map[i].size >> 20,
-				(unsigned int)brcm_mmap.map[i].addr);
+
+#else /* DISCONTIGMEM in general */
+			int node;
+			unsigned int pfn;
+			int found = 0;
+
+			/*
+			 * First find out which memory banks this node belongs to
+			 */
+
+			pfn = PFN_DOWN(brcm_mmap.map[i].addr);
+			for (node=0; node < NR_NODES; node++) {
+				if (pfn >= PFN_DOWN(NODE_DATA(node)->bdata->node_boot_start) &&
+					pfn <= NODE_DATA(node)->bdata->node_low_pfn)
+				{
+					found = 1;
+					reserve_bootmem_node(NODE_DATA(node), brcm_mmap.map[i].addr, 
+						brcm_mmap.map[i].size);	
+					printk(KERN_NOTICE "Reserving %ld MB upper memory starting at %08x from node %d\n", 
+						brcm_mmap.map[i].size >> 20,
+						(unsigned int)brcm_mmap.map[i].addr, node);
+				}
+			}
+			if (!found) {
+printk(KERN_WARNING "Requested mem node[%08x: %08x] not found or does not fit inside a memory bank\n",
+	(unsigned int)brcm_mmap.map[i].addr, brcm_mmap.map[i].size);
+			}
 #endif
 		}
 
@@ -473,7 +581,8 @@ EXPORT_SYMBOL(get_RSVD_size);
 #define brcm_default_boot_mem
 #define brcm_print_memory_map
 #define brcm_reserve_bootmem_node(firstUsableAddr)
-#endif // #define CONFIG_MIPS_BRCM97XXX
+#endif // #define CONFIG_MIPS_BRCM
+
 
 static inline void parse_cmdline_early(void)
 {
@@ -481,6 +590,24 @@ static inline void parse_cmdline_early(void)
 	unsigned long start_at, mem_size;
 	int len = 0;
 	int usermem = 0;
+#if defined (CONFIG_MIPS_BCM7440)
+	int retVal;
+	phys_t rsvdSize;
+	phys_t pgStructSize = sizeof(struct page);
+	/*
+	** lower_mem_ram_size specifies the zero-based
+	** memory footprint required to boot linux,
+	** found to require 18MB to allow for the ISA
+	** bounce pool. For 7440B0, set this default
+	** value to 98 MB.
+	*/
+	int i;
+	unsigned long lower_mem_ram_size = (linux_min_mem << 20);
+
+	unsigned long upper_mem_ram_size = 0;
+	static int    mmap_defaulted     = 0;
+	static int    mmap_manual        = 0;
+#endif
 
 	printk("Determined physical RAM map:\n");
 	print_memory_map();
@@ -517,19 +644,131 @@ static inline void parse_cmdline_early(void)
 				usermem = 1;
 			}
 			mem_size = memparse(from + 4, &from);
+#if defined (CONFIG_MIPS_BCM7440)
+			upper_mem_ram_size = 0;
+#endif
+
 			switch (*from) {
 			case '@':
 				start_at = memparse(from + 1, &from);
-				brcm_insert_ram_node(start_at, mem_size, BOOT_MEM_RAM);
+#if defined (CONFIG_MIPS_BCM7440)
+				if (mmap_defaulted) {
+					/*
+					** This combination of boot parameters will surely cause
+					** problems !
+					*/
+					printk("%s: ILLEGAL MEMORY SPECIFICATION ON BOOT COMMAND LINE - <size 0x%08lx, start 0x%08lx> IGNORED!!!\n",
+						__FUNCTION__, mem_size, start_at);
+					break;
+				}
+				mmap_manual = 1;
+				brcm_insert_ram_node(start_at, mem_size, BOOT_MEM_RAM, &brcm_bm);
+#else
+				brcm_insert_ram_node(start_at, mem_size, BOOT_MEM_RAM, &brcm_bm);
+#endif
 				break;
 			case '$':
 			case '#': /* CFE will interprete $, so non-conformant alternate syntax is supported */
 				start_at = memparse(from + 1, &from);
-				brcm_insert_ram_node(start_at, mem_size, BOOT_MEM_RESERVED);
+#if defined (CONFIG_MIPS_BCM7440)
+				{
+					if (mmap_defaulted) {
+						/*
+						** This combination of boot parameters will surely cause
+						** problems !
+						*/
+						printk("%s: ILLEGAL MEMORY SPECIFICATION ON BOOT COMMAND LINE - <size 0x%08lx, start 0x%08lx> IGNORED!!!\n",
+							__FUNCTION__, mem_size, start_at);
+						break;
+					}
+					mmap_manual = 1;
+
+					/*
+					** We must reserve memory at physical address 0
+					** for Linux boot. Linux needs at least 32MB total.
+					** Otherwise, this is an illegal command line.
+					*/
+					if (start_at < boot_mem_map.map[0].size) {
+
+						if (start_at < lower_mem_ram_size)
+							start_at = lower_mem_ram_size;
+						if (((start_at + mem_size) > boot_mem_map.map[0].size) || (start_at < linux_min_mem*1024*1024)) {
+							printk("%s: INVALID MEMORY SPECIFICATION ON BOOT COMMAND LINE - USE DEFAULTS!!!\n", __FUNCTION__);
+							printk(">>> start_at 0x%08x, mem_size 0x%08x, boot_mem_map.map[0].size 0x%08x, linux_min_mem 0x%08x\n",
+							       start_at, mem_size, boot_mem_map.map[0].size, linux_min_mem*1024*1024);
+							brcm_default_boot_mem();
+							break;
+						}
+
+						/*
+						** Allow for the Linux BOOT_MEM_RAM allocation in
+						** the first (zero-based) node.
+						*/
+						if ((start_at + mem_size) > boot_mem_map.map[0].size) {
+							/*
+							** This will extend into the next memory node
+							*/
+							upper_mem_ram_size = (start_at + mem_size) - boot_mem_map.map[0].size;
+							lower_mem_ram_size = mem_size - upper_mem_ram_size;
+							retVal = brcm_insert_ram_node(start_at, lower_mem_ram_size, BOOT_MEM_RESERVED, &brcm_bm);
+						}
+						else {
+							retVal = brcm_insert_ram_node(start_at, mem_size, BOOT_MEM_RESERVED, &brcm_bm);
+						}
+					}
+					else if (!brcm_test_ram_node(start_at, mem_size, BOOT_MEM_RESERVED)) {
+						retVal = brcm_insert_ram_node(start_at, mem_size, BOOT_MEM_RESERVED, &brcm_bm);
+						upper_mem_ram_size = 0;
+					}
+
+					i = 0;
+					while (upper_mem_ram_size) {
+
+						unsigned long next_size;
+						/*
+						** Reserve the remaining memory nodes.
+						** Carve off enough memory from the start of each
+						** discontiguous memory node to allow for storage
+						** of the page structs for the node. Also check if
+						** upper_mem_ram_size is GT the page struct storage
+						** allocation. If so, simply retain the larger of the
+						** two values for BOOT_MEM_RAM.
+						**
+						** If brcm_bm.size returned from brcm_insert_ram_node()
+						** is 1MB or less, don't bother performing the calculation.
+						** The reserved node size is rounded up to the nearest MB.
+						*/
+						rsvdSize = (((PFN_DOWN(brcm_bm.size) * pgStructSize) + 0xfffff) & ~0xfffff);
+						if ((brcm_bm.addr & (boot_mem_map.map[i].size - 1)) == 0) {
+							brcm_bm.addr += rsvdSize;
+							next_size = brcm_bm.size - rsvdSize;
+						}
+						else {
+							next_size = brcm_bm.size;
+						}
+						if (upper_mem_ram_size <= next_size) {
+							next_size = upper_mem_ram_size;
+							upper_mem_ram_size = 0;
+						}
+						else {
+							upper_mem_ram_size -= next_size;
+						}
+
+						retVal = brcm_insert_ram_node(brcm_bm.addr, next_size, BOOT_MEM_RESERVED, &brcm_bm);
+
+						if (!upper_mem_ram_size || retVal <= 0 || brcm_bm.size == 0) break;
+
+						i++;
+					}
+				}
+#else
+				brcm_insert_ram_node(start_at, mem_size, BOOT_MEM_RESERVED, &brcm_bm);
+#endif
 				break;
 			default:
+
 				start_at = 0;
-				brcm_insert_ram_node(start_at, mem_size, BOOT_MEM_RAM);
+				brcm_insert_ram_node(start_at, mem_size, BOOT_MEM_RAM, &brcm_bm);
 		}
 			
 		}
@@ -547,7 +786,7 @@ static inline void parse_cmdline_early(void)
 		brcm_default_boot_mem();
 	}
 
-		printk("User-defined physical RAM map:\n");
+	printk("User-defined physical RAM map:\n");
 	brcm_print_memory_map();
 
 }
@@ -615,9 +854,6 @@ static inline int parse_rd_cmdline(unsigned long* rd_start, unsigned long* rd_en
 	return 0;
 }
 
-#define MAXMEM		HIGHMEM_START
-#define MAXMEM_PFN	PFN_DOWN(MAXMEM)
-
 static inline void bootmem_init(void)
 {
 	unsigned long start_pfn;
@@ -629,7 +865,7 @@ static inline void bootmem_init(void)
 #else
 	unsigned long bootmap_size;
 #endif
-	int i;
+	int i, ddr, node;
 #endif
 	unsigned long firstUsableAddr;
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -720,7 +956,50 @@ static inline void bootmem_init(void)
 #ifndef CONFIG_DISCONTIGMEM
 	/* Initialize the boot-time allocator with low memory only.  */
 	bootmap_size = init_bootmem(first_usable_pfn, max_low_pfn);
+
+
+#elif defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0)
+	   min_low_pfn = first_usable_pfn;
+
+	   for (ddr = 0, node=0; ddr < NR_NODES; ddr++, node++) {
+	   	 if (ddr == 0) {
+		 	/* Only 1 node for DDR0 */
+		 	if (bcm_pdiscontig_memmap->memSize[0] <= (256 << 20)) {
+				bootmap_size[node] = init_bootmem_node(NODE_DATA(node),
+					first_usable_pfn,
+					PFN_UP(bcm_pdiscontig_memmap->physAddr[ddr]),
+					PFN_DOWN(bcm_pdiscontig_memmap->physAddr[ddr] + 
+						bcm_pdiscontig_memmap->memSize[ddr]));
+		 	}
+			else { /* DDR0 banks split into 2 nodes */
+				// Node = 0, ddr = 0
+				bootmap_size[node] = init_bootmem_node(NODE_DATA(node),
+					first_usable_pfn,
+					PFN_UP(bcm_pdiscontig_memmap->physAddr[ddr]),
+					PFN_DOWN(0x10000000));
+				node++; // Node = 1, ddr = 0
+
+				bootmap_size[node] = init_bootmem_node(NODE_DATA(node),
+					PFN_UP(0x10000000),
+					PFN_UP(0x10000000),
+					PFN_DOWN(bcm_pdiscontig_memmap->physAddr[ddr] + 
+						bcm_pdiscontig_memmap->memSize[ddr]));
+			}
+	       }
+	       else { /* ddr >= 1 */
+
+   			bootmap_size[node] = init_bootmem_node(NODE_DATA(node),
+				PFN_UP(bcm_pdiscontig_memmap->physAddr[ddr]),
+				PFN_UP(bcm_pdiscontig_memmap->physAddr[ddr]),
+				PFN_DOWN(bcm_pdiscontig_memmap->physAddr[ddr] + 
+					bcm_pdiscontig_memmap->memSize[ddr]));
+	     }
+	}
+
 #else
+/* Old codes, use the scheme for 7440b0 instead. 
+ * I leave it here for now, but it will break for 3563 or any platforms with DDR1
+ */
 	min_low_pfn = first_usable_pfn;
 	if(g_board_RAM_size <= LOWER_RAM_SIZE) {
 		bootmap_size[0] = init_bootmem_node(NODE_DATA(0),
@@ -738,6 +1017,7 @@ static inline void bootmem_init(void)
 			PFN_UP(UPPER_RAM_BASE),
 			PFN_DOWN(UPPER_RAM_BASE + g_board_RAM_size - LOWER_RAM_SIZE));
 	}
+
 #endif
 
 	/*
@@ -746,6 +1026,8 @@ static inline void bootmem_init(void)
 	for (i = 0; i < boot_mem_map.nr_map; i++) {
 		unsigned long curr_pfn, last_pfn, size;
 
+		//printk(KERN_WARNING "bootmem_init: map %d type %d\n",  i, (int)boot_mem_map.map[i].type);
+ 
 		/*
 		 * Reserve usable memory.
 		 */
@@ -766,6 +1048,8 @@ static inline void bootmem_init(void)
 		 */
 		last_pfn = PFN_DOWN(boot_mem_map.map[i].addr
 				    + boot_mem_map.map[i].size);
+
+		//printk(KERN_WARNING "bootmem_init: curr_pfn 0x%08lx last_pfn 0x%08lx max_low_pfn 0x%08lx\n", curr_pfn, last_pfn - 1, max_low_pfn); 
 
 		if (last_pfn > max_low_pfn)
 			last_pfn = max_low_pfn;
@@ -791,6 +1075,31 @@ static inline void bootmem_init(void)
 		/* Register lowmem ranges */
 #ifndef CONFIG_DISCONTIGMEM
 		free_bootmem(PFN_PHYS(curr_pfn), PFN_PHYS(size));
+
+#elif defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0)
+		{
+			unsigned long paddr = PFN_PHYS(curr_pfn);
+			int node;
+
+			//printk(KERN_WARNING "bootmem_init: curr_pfn 0x%08lx size 0x%08lx\n", curr_pfn, size);
+
+			/* Find the node  this memory map belongs to and free it */
+			for (node=0; node<numnodes; node++) {
+				//printk(KERN_WARNING "bootmem_init: node %d (start)\n", node);
+				bootmem_data_t *bdata = NODE_DATA(node)->bdata;
+						
+				if (bdata && paddr >= bdata->node_boot_start && 
+					PFN_UP(paddr + size) < bdata->node_low_pfn) {
+
+					free_bootmem_node(NODE_DATA(node), PFN_PHYS(curr_pfn), PFN_PHYS(size));
+					//printk(KERN_WARNING "bootmem_init: node %d (end)\n", node);
+					break;
+				}
+				else
+					//printk(KERN_WARNING "bootmem_init: node %d (end)\n", node);
+					;
+			}
+		}
 #else
 		free_bootmem_node(NODE_DATA(pa_to_nid(PFN_PHYS(curr_pfn))),
 			PFN_PHYS(curr_pfn), PFN_PHYS(size));
@@ -802,6 +1111,26 @@ static inline void bootmem_init(void)
 #ifndef CONFIG_DISCONTIGMEM
 	reserve_bootmem(PFN_PHYS(first_usable_pfn), bootmap_size);
 	firstUsableAddr = PFN_PHYS(first_usable_pfn) + bootmap_size;
+
+#elif defined(CONFIG_DISCONTIGMEM) && \
+	(defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0))
+	/*
+	 * reserve the memory bitmaps so they can't be allocated
+	 */
+
+	{
+		int node;
+
+		for (node=0; node < NR_NODES; node++) {
+			if (bootmap_size[node]) {
+
+				reserve_bootmem_node(NODE_DATA(node), 
+					virt_to_phys(NODE_DATA(node)->bdata->node_bootmem_map), bootmap_size[node]);
+			}
+		}
+	}
+	firstUsableAddr = PFN_PHYS(first_usable_pfn) + bootmap_size[0];
+
 #else
 	
 	reserve_bootmem_node(NODE_DATA(0), PFN_PHYS(first_usable_pfn), bootmap_size[0]);

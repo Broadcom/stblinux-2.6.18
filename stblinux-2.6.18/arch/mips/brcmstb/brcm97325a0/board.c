@@ -55,7 +55,6 @@
 
 static unsigned long board_init_once(void)
 {
-	int i;
 	unsigned long regval;
 	unsigned long memSize0, memSize1;
 	unsigned long ddr0, ddr1;
@@ -73,7 +72,7 @@ static unsigned long board_init_once(void)
 	ddr0 = (regval & STRAP_DDR2_0_CONFIGURATION_MASK) >> STRAP_DDR2_0_CONFIGURATION_SHIFT;
 	ddr1 = (regval & STRAP_DDR2_1_CONFIGURATION_MASK) >> STRAP_DDR2_1_CONFIGURATION_SHIFT;
 	pci_memwin_size = (regval & STRAP_PCI_MEMWIN_SIZE_MASK) >> STRAP_PCI_MEMWIN_SIZE_SHIFT;
-printk("board_init_once: regval=%08x, ddr0_strap=%x, , ddr1_strap=%x, pci_size=%x\n", regval, ddr0, ddr1, pci_memwin_size);
+printk("board_init_once: regval=%08lx, ddr0_strap=%lx, , ddr1_strap=%lx, pci_size=%lx\n", regval, ddr0, ddr1, pci_memwin_size);
 #ifdef CONFIG_MIPS_BRCM_IKOS
 	return 32 << 20;
 #else
@@ -107,7 +106,7 @@ printk("board_init_once: regval=%08x, ddr0_strap=%x, , ddr1_strap=%x, pci_size=%
 		break;
 	}
 	
-	printk("Detected %d & %d MB on board, total %d MB\n", memSize0 >> 20, memSize1 >> 20, memSize0 >> 20 + memSize1 >> 20);
+	printk("Detected %ld & %ld MB on board, total %ld MB\n", memSize0 >> 20, memSize1 >> 20, (memSize0 >> 20) + (memSize1 >> 20));
 	return memSize0 + memSize1;
 #endif
 }
@@ -123,7 +122,7 @@ get_RAM_size(void)
 		once++;
 		dramSize = board_init_once();
 		if (dramSize != DRAM_SIZE) {
-			printk("Board strapped at %d MB, default is %d MB\n", (dramSize>>20), (DRAM_SIZE>>20));
+			printk("Board strapped at %ld MB, default is %d MB\n", (dramSize>>20), (DRAM_SIZE>>20));
 		}
 	}
     if (dramSize)

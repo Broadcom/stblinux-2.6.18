@@ -33,6 +33,7 @@
 
 
 #include <linux/config.h>
+#include <asm/types.h>		/* For phys_t declaration */
 
 #if defined(CONFIG_MIPS_BCM3548A0)
 #include <asm/brcmstb/brcm93548a0/bcmuart.h>
@@ -48,9 +49,10 @@
 #include <asm/brcmstb/brcm93548a0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm93548a0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm93548a0/bchp_usb_ohci.h>
-#include <asm/brcmstb/brcm93548a0/bchp_clk.h>
 #include <asm/brcmstb/brcm93548a0/bchp_bmips4380.h>
 #include <asm/brcmstb/brcm93548a0/bchp_memc_0_ddr.h>
+#include <asm/brcmstb/brcm93548a0/bchp_mspi.h>
+#include <asm/brcmstb/brcm93548a0/bchp_bspi.h>
 
 #elif defined(CONFIG_MIPS_BCM3563C0)
 #include <asm/brcmstb/brcm93563c0/bcmuart.h>
@@ -305,6 +307,7 @@
 #include <asm/brcmstb/brcm97440b0/board.h>
 #include <asm/brcmstb/brcm97440b0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97440b0/bchp_irq1.h>
+#include <asm/brcmstb/brcm97440b0/bchp_hif_cpu_intr1.h>
 #include <asm/brcmstb/brcm97440b0/bcmintrnum.h>
 #include <asm/brcmstb/brcm97440b0/bchp_nand.h>
 #include <asm/brcmstb/brcm97440b0/bchp_usb_ctrl.h>
@@ -343,22 +346,95 @@
 
 //THT: PR41560, leave this one in.  In the case of bootrom=NOR, we will get the MAC_ADDR from NOR.
 #if defined(BOOT_ROM_TYPE_STRAP_ADDR) && defined(BOOT_ROM_TYPE_STRAP_ADDR)
-#define	is_bootrom_nand		\
+#define	is_bootrom_nand()		\
 	(((*(volatile unsigned long *)BOOT_ROM_TYPE_STRAP_ADDR) & BOOT_ROM_TYPE_STRAP_MASK) ==  BOOT_ROM_TYPE_STRAP_MASK)
+
+#elif defined(BRCM_SPI_CHIP_SELECT) && defined(BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_nand_flash_boot_MASK)
+/* SPI based STBs */
+#define	is_bootrom_nand()		\
+  	((BDEV_RD(BCHP_SUN_TOP_CTRL_STRAP_VALUE_0) & \
+                BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_nand_flash_boot_MASK) \
+                == BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_nand_flash_boot_MASK)
+
 #else
-#define	is_bootrom_nand		0	// default bootrom is NOR
+#define	is_bootrom_nand()		(0)	// default bootrom is NOR
 #endif
 
 
 #ifndef __ASSEMBLY__
+
+struct brcm_reg_array {
+	unsigned long		reg;
+	unsigned long		mask;
+	unsigned long		value;
+};
+
 extern void (*irq_setup)(void);
 extern void uart_puts(const char*);
 
+/* Only used for BCM7440B0 */
+typedef struct si_bm_rsvd {
+	phys_t addr;
+	phys_t size;
+	long type;
+	int next, prev;
+} bcm_memnode_t;
 
 typedef int (*walk_cb_t)(unsigned long paddr, unsigned long size, long type, void* cbdata);
 extern int brcm_walk_boot_mem_map(void* cbdata, walk_cb_t walk_cb);
-extern unsigned long get_RAM_size(void);
+
+/*
+ * Returns total main memory in KSEG0 address space.
+ */
+extern unsigned long get_RAM_size(void); 
+
+/*
+ * Returns the reserved memory (not used by the kernel)
+ */
 extern unsigned long get_RSVD_size(void);
+
+/*
+ * bcm_discontigMem_t
+ * Describes the physical memory layout of the chip/board
+ */
+#define BCM_MAX_MEM_REGION 8
+typedef struct bcm_discontigMem {
+	int nDdrCtrls;			/* Number of DDR controller or memory banks */
+	unsigned long physAddr[BCM_MAX_MEM_REGION];	/* Physical Address of memory banks */
+	unsigned long memSize[BCM_MAX_MEM_REGION];	/* Size of memory banks */
+} bcm_discontigMem_t;
+extern bcm_discontigMem_t* bcm_pdiscontig_memmap;
+
+/*
+ * Set up the TLB map
+ * Requires #include <asm/mipsregs.h> for TLB page masks
+ * Describe the Physical -> Virtual TLB mapping of the board.  
+ * Uses information from bcm_discontigMem_t.
+ * 
+ * The design is such that the standard layout can be overwritten by 
+ * board-specific layout defined in arch/mips/brcmstb/<platform>/board.c.
+ */
+typedef struct bcm_memmap {
+	unsigned int tlb_mask;			/* Largest size of TLB page map, typically 4K - 64MB */
+	unsigned long pci_vAddr;		/* Virtual Address for PCI mem address space */
+	unsigned long pci_winSize;		/* SIze of PCI window, typically 256MB */
+	unsigned long io_vAddr;		/* Virtual Address for PCI IO address space */
+	unsigned long io_winSize;		/* Standard 0x0060_000b for all platforms */
+	int nMemBanks;				/* How many virtual Address banks */
+	unsigned long mem_vAddr[BCM_MAX_MEM_REGION];
+	void (*tlb_memmap)(void);	/* Set up memory map */
+	void (*tlb_pci_bridge)(void);		/* Set up PCI & IO map */
+	void (*tlb_sata_bridge)(void);	/* Set up SATA bridge */
+} bcm_memmap_t;
+extern bcm_memmap_t* bcm_pmemmap;
+
+/*
+ * 
+ * By default will return 0.  It's up to individual boards to
+ * override the default, by overloading the function pointer.
+ * returns the amount of memory not accounted for by get_RAM_size();
+ */
+extern unsigned long (* __get_discontig_RAM_size) (void);
 
 /*
  * Sample usage:
@@ -378,7 +454,19 @@ extern unsigned long get_RSVD_size(void);
 #define BDEV_UNSET(x, y) do { BDEV_WR((x), BDEV_RD(x) & ~(y)); } while(0)
 #define BDEV_SET(x, y) do { BDEV_WR((x), BDEV_RD(x) | (y)); } while(0)
 
+/*
+ * use address/mask/value tuples to write several registers at once
+ * (mostly used to set up the pinmux)
+ */
+#define BDEV_WR_ARRAY(reg_array) do { \
+	struct brcm_reg_array ra[] = reg_array, *m = ra; \
+	int i = sizeof(ra) / sizeof(ra[0]); \
+	for(; i > 0; i--, m++) { \
+		BDEV_WR(m->reg, (BDEV_RD(m->reg) & m->mask) | m->value); \
+		BDEV_RD(m->reg); \
+	} \
+} while(0)
+
 #endif
 
 #endif /*__BRCMSTB_H */
-

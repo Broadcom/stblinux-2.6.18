@@ -30,7 +30,7 @@
 #include "bchp_ebi.h"
 
 #if !defined _ASMLANGUAGE
-#if __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 #endif
@@ -99,7 +99,7 @@ extern "C" {
 
 
 #if !defined _ASMLANGUAGE
-#if __cplusplus
+#ifdef __cplusplus
 }
 #endif
 #endif

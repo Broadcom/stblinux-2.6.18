@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 18
-EXTRAVERSION =-5.0
+EXTRAVERSION =-5.1
 NAME=Avast! A bilge rat!
 
 # *DOCUMENTATION*
@@ -1000,8 +1000,9 @@ clean: rm-files := $(CLEAN_FILES)
 clean-dirs      := $(addprefix _clean_,$(srctree) $(vmlinux-alldirs))
 
 PHONY += $(clean-dirs) clean archclean
+
 $(clean-dirs):
-	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
+	$(Q)(test -f $(patsubst _clean_%,%,$@)/Makefile && ($(MAKE) $(clean)=$(patsubst _clean_%,%,$@)) || (echo "missing $(patsubst _clean_%,%,$@)/Makefile, skip it"))
 
 clean: archclean $(clean-dirs)
 	$(call cmd,rmdirs)

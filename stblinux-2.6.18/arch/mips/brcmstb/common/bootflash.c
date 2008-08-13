@@ -54,25 +54,31 @@ EXPORT_SYMBOL(getPhysFlashBase);
 #define BOOT_LOADER_ENTRY 0xbfc00000
 
 
-
-#if defined (CONFIG_MIPS_BRCM97XXX)
 /*
  * Determine whether CFE was booted from Flash or ROM 
  */
-void 
-determineBootFromFlashOrRom(void)
+#if defined(CONFIG_BRCM_SKIP_CHECK_BOOTROM)
+void determineBootFromFlashOrRom(void)
 {
-#if defined( CONFIG_BRCM_PCI_SLAVE ) || defined( CONFIG_MTD_BRCMNAND )
+	char msg[64];
+	extern int gFlashSize;
+
+       	if (gFlashSize) 
+     	RT_PHYS_FLASH_BASE = (0x20000000 - (gFlashSize << 20));
+
+	sprintf(msg, "**********BOOTEDFROMFLASH, Base=%08lx\n", RT_PHYS_FLASH_BASE);
+	uart_puts(msg);
+
 	return;
-#else
+}
+#else	/* !CONFIG_BRCM_SKIP_CHECK_BOOTROM */
+void determineBootFromFlashOrRom(void)
+{
 	char msg[128];
-	
 	extern int gFlashSize;
 	extern int gFlashCode;
 	unsigned short   query[3];
-	//unsigned char cquery[3];
 	volatile unsigned short * queryaddr;
-	//volatile unsigned char * cqueryaddr;
 	int bootFromFlash = 0;
 
 	/* Reset for Spansion flash only */
@@ -83,10 +89,7 @@ determineBootFromFlashOrRom(void)
 	
 	/* Enter query mode x16 */
 	*(volatile unsigned short *)(BOOT_LOADER_ENTRY | (0x55 << 1)) = 0x98;
-	//udelay(1000);
-	
 	queryaddr = (volatile unsigned short *)(BOOT_LOADER_ENTRY | (0x10 << 1));
-
 
 	query[0] = *queryaddr++;
 	query[1] = *queryaddr++;
@@ -102,30 +105,7 @@ determineBootFromFlashOrRom(void)
 	{
 		bootFromFlash = 1;
 	}
-  #if 0
-/* THT: HW guarantees bus-width is always x16, but we may need this  for NAND flash */
-	else {
-		/* Enter query mode x8 */
-		*(volatile unsigned char *)(BOOT_LOADER_ENTRY | (0x55 << 1)) = 0x98;
-		cqueryaddr = (volatile unsigned char *)(BOOT_LOADER_ENTRY | (0x20));
-	   	cquery[0] = *cqueryaddr; cqueryaddr += 2;
-		cquery[1] = *cqueryaddr; cqueryaddr += 2;
-		cquery[2] = *cqueryaddr;
-
-		/* Go back to read-array mode */
-		*(volatile unsigned short *)(BOOT_LOADER_ENTRY | (0x55 << 1)) = 0xFFFF;
-sprintf(msg, "gFlashSize=%08x, cquery[0]=%04x, [1]=%04x, [2]=%04x\n", gFlashSize, cquery[0], cquery[1], cquery[2]);
-uart_puts(msg);
-		if ( cquery[0] == 0x51 &&     /* Q */
-		   	cquery[1] == 0x52 &&     /* R */
-		   	cquery[2] == 0x59  )    /* Y */	
-		{
-			bootFromFlash = 1;
-		}
-	}
-  #endif /* x8 codes */
 #else
-
 	/*
 	 * The 7110 (Not the 7110-DSG) has 2 8bit flash chips that are interleaved.  Rather than using the CFI_probe routine which
 	 * does this test taking interleave into account, for all instances and purposes, this should
@@ -153,14 +133,9 @@ uart_puts(msg);
 		uart_puts(msg);
 	
 	} else {
-
-		
 		RT_PHYS_FLASH_BASE = ROM_FLASH_BASE;
 		sprintf(msg, "**********BOOTEDFROMROM, Base=%08lx\n", RT_PHYS_FLASH_BASE);
 		uart_puts(msg);
 	}
-#endif // if PCI slave
-
 }
-
-#endif /* if BCM97xxx boards */
+#endif /* !CONFIG_BRCM_SKIP_CHECK_BOOTROM */

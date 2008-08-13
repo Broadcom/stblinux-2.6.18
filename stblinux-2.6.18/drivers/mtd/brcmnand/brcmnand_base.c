@@ -127,7 +127,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 				//| NAND_COMPLEX_OOB_WRITE	/* Write data together with OOB for write_oob */
 		.timing1 = 0, //00070000,
 		.timing2 = 0,
-		.ctrlVersion = 0,
+		.ctrlVersion = 0, /* THT Verified on data-sheet 7/10/08: Allows 4 on main and 4 on OOB */
 	},
 
 	{	/* 1 */
@@ -193,7 +193,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "Samsung K9F2G08U0A",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
-		.ctrlVersion = 0,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_2,
 	},
 
 	{	/* 6 */
@@ -202,7 +202,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.chipIdStr = "Samsung K9K8G08U0A",
 		.options = NAND_USE_FLASH_BBT,
 		.timing1 = 0, .timing2 = 0,
-		.ctrlVersion = 0,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_2,
 	},
 
 
@@ -2130,12 +2130,13 @@ comparison_failed:
  * Assumes that lock on.  Munges the internal data and OOB buffers.
  */
 //#define MYDEBUG
+static u_char data_buf[2048];
+
 static int brcmnand_verify_page(struct mtd_info *mtd, loff_t addr, const u_char *dbuf, int dlen, 
 		u_char* fsbuf, int fslen, struct nand_oobinfo* oobsel, int autoplace
 		)
 {
 	//struct brcmnand_chip * chip = mtd->priv;
-	u_char data_buf[2048];
 	u_char oob_buf [64];
 	int ret = 0;
 	int ooblen=0, datalen=0;
@@ -3838,7 +3839,7 @@ get_rom_size(unsigned long* outp_cs0Base)
 	printk("FIXME: no strap option for rom size on 3548\n");
 	BUG();
 #else
-#error Don't know how to find the ROM size
+#error "Don't know how to find the ROM size"
 #endif
 
 	// Here we expect these values to remain the same across platforms.
@@ -3889,7 +3890,7 @@ static void brcmnand_prepare_reboot_priv(struct mtd_info *mtd)
 	}
 
 	// PR41560: Handle boot from NOR but open NAND flash for access in Linux
-	if (!is_bootrom_nand) {
+	if (!is_bootrom_nand()) {
 		// Restore CS0 in order to allow boot from NOR.
 
 		int ret = -EFAULT;

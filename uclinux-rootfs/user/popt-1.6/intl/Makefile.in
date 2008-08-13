@@ -54,7 +54,7 @@ CPPFLAGS = @CPPFLAGS@
 CFLAGS = @CFLAGS@
 LDFLAGS = @LDFLAGS@
 
-COMPILE = $(CC) -c $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) $(XCFLAGS)
+COMPILE = $(CC) -c $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) $(XCFLAGS) -fPIC
 
 HEADERS = $(COMHDRS) libgettext.h loadinfo.h
 COMHDRS = gettext.h gettextP.h hash-string.h

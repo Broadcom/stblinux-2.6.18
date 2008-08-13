@@ -2,7 +2,7 @@
 #define _INT1_API_H
 
 
-#if __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -167,7 +167,7 @@ extern int  CPUINT1_ConnectIsr(unsigned long intId, FN_L1_ISR pfunc,
 
 #endif /* __ASSEMBLY__ */
 
-#if __cplusplus
+#ifdef __cplusplus
 }
 #endif
 

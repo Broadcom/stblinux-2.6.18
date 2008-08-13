@@ -46,6 +46,7 @@ static int shift = 2;
 #define SUN_TOP_CTRL_PIN_MUX_CTRL_10	0xb0404128
 #define SUN_TOP_CTRL_PIN_MUX_CTRL_11	0xb040412c
 
+#if 0
 static void
 turn_on_mux(int chan)
 {
@@ -63,6 +64,7 @@ turn_on_mux(int chan)
 		*pvul &= 0xfffffffc; // CLear it
 	}
 }
+#endif
 
 /*
  * At this point, the serial driver is not initialized yet, but we rely on the
@@ -84,16 +86,16 @@ unsigned long serial_init(int chan, void *ignored)
 		//turn_on_mux(chan);
 		
 		// Write DLAB, and (8N1) = 0x83
-		writel(UART_LCR_DLAB|UART_LCR_WLEN8, uartBaseAddr + (UART_LCR << shift));
+		writel(UART_LCR_DLAB|UART_LCR_WLEN8, (void *)(uartBaseAddr + (UART_LCR << shift)));
 		// Write DLL to 0xe
-		writel(DIVISOR, uartBaseAddr + (UART_DLL << shift));
-		writel(0, uartBaseAddr + (UART_DLM << shift));
+		writel(DIVISOR, (void *)(uartBaseAddr + (UART_DLL << shift)));
+		writel(0, (void *)(uartBaseAddr + (UART_DLM << shift)));
 
 		// Clear DLAB
-		writel(UART_LCR_WLEN8, uartBaseAddr + (UART_LCR << shift));
+		writel(UART_LCR_WLEN8, (void *)(uartBaseAddr + (UART_LCR << shift)));
 
 		// Disable FIFO
-		writel(0, uartBaseAddr + (UART_FCR << shift));
+		writel(0, (void *)(uartBaseAddr + (UART_FCR << shift)));
 
 		if (chan == 1) {
 			uartB_puts("Done initializing UARTB\n");
@@ -105,29 +107,29 @@ unsigned long serial_init(int chan, void *ignored)
 void
 serial_putc(unsigned long com_port, unsigned char c)
 {
-	while ((readl(com_port + (UART_LSR << shift)) & UART_LSR_THRE) == 0)
+	while ((readl((void *)(com_port + (UART_LSR << shift))) & UART_LSR_THRE) == 0)
 		;
-	writel(c, com_port);
+	writel(c, (void *)com_port);
 }
 
 unsigned char
 serial_getc(unsigned long com_port)
 {
-	while ((readl(com_port + (UART_LSR << shift)) & UART_LSR_DR) == 0)
+	while ((readl((void *)(com_port + (UART_LSR << shift))) & UART_LSR_DR) == 0)
 		;
-	return readl(com_port);
+	return readl((void *)com_port);
 }
 
 int
 serial_tstc(unsigned long com_port)
 {
-	return ((readl(com_port + (UART_LSR << shift)) & UART_LSR_DR) != 0);
+	return ((readl((void *)(com_port + (UART_LSR << shift))) & UART_LSR_DR) != 0);
 }
 
 /* Old interface, for compatibility */
 
 void
-uart_test_interrupt()
+uart_test_interrupt(void)
 {
 	*(volatile unsigned long *)(UARTA_ADR_BASE+(UART_FCR<<shift)) = 1;
 	*(volatile unsigned long *)(UARTA_ADR_BASE+(UART_IER<<shift)) = UART_IER_THRI;

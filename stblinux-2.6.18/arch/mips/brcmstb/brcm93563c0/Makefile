@@ -24,4 +24,9 @@
 # unless it's something special (ie not a .c file).
 #
 
-obj-y	 += irq.o bcmuart.o hw_init.o board.o bchip.o bcm93563c0.o
+obj-y	 += irq.o bcmuart.o hw_init.o bchip.o bcm93563c0.o
+ifdef CONFIG_DISCONTIGMEM
+obj-$(CONFIG_DISCONTIGMEM) += board-ddr1.o
+else
+obj-y	+= board.o
+endif

@@ -511,7 +511,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	static char printk_buf[1024];
 	static int log_level_unknown = 1;
 
-
 /************* THT: HACK HACK HACK Provide early printk *******************/
 	extern int brcm_console_initialized(void);
 	extern void uart_puts(const char *);
@@ -527,6 +526,8 @@ asmlinkage int vprintk(const char *fmt, va_list args)
     }
 
 /************* END HACK END HACK END HACK **********************************/
+
+	preempt_disable();
 
 	if (unlikely(oops_in_progress))
 		zap_locks();
