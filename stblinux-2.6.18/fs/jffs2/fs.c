@@ -24,6 +24,10 @@
 #include <linux/crc32.h>
 #include "nodelist.h"
 
+#ifdef MTD_LARGE
+#include <linux/mtd/mtd64.h>
+#endif
+
 static int jffs2_flash_setup(struct jffs2_sb_info *c);
 
 static int jffs2_do_setattr (struct inode *inode, struct iattr *iattr)
@@ -479,23 +483,41 @@ int jffs2_do_fill_super(struct super_block *sb, void *data, int silent)
 	}
 #endif
 
+#ifdef MTD_LARGE
+	c->flash_size = MTD_SIZE(c->mtd);
+	c->sector_size = c->mtd->erasesize;
+	blocks = mtd64_ll_low(mtd64_rshft32(c->flash_size, ffs(c->sector_size)-1));
+#else
 	c->flash_size = c->mtd->size;
 	c->sector_size = c->mtd->erasesize;
 	blocks = c->flash_size / c->sector_size;
+#endif
 
 	/*
 	 * Size alignment check
 	 */
 	if ((c->sector_size * blocks) != c->flash_size) {
 		c->flash_size = c->sector_size * blocks;
+#ifdef MTD_LARGE
+		printk(KERN_INFO "jffs2: Flash size not aligned to erasesize, reducing to %dKiB\n",
+			mtd64_ll_low(mtd64_rshft32(c->flash_size, (ffs(1024)-1))));
+#else
 		printk(KERN_INFO "jffs2: Flash size not aligned to erasesize, reducing to %dKiB\n",
 			c->flash_size / 1024);
+#endif
 	}
 
+#ifdef MTD_LARGE
+	if (c->flash_size < 5*c->sector_size) {
+		printk(KERN_ERR "jffs2: Too few erase blocks (%d)\n", mtd64_ll_low(mtd64_rshft32(c->flash_size, ffs(c->sector_size)-1)));
+		return -EINVAL;
+	}
+#else
 	if (c->flash_size < 5*c->sector_size) {
 		printk(KERN_ERR "jffs2: Too few erase blocks (%d)\n", c->flash_size / c->sector_size);
 		return -EINVAL;
 	}
+#endif
 
 	c->cleanmarker_size = sizeof(struct jffs2_unknown_node);
 
@@ -654,7 +676,11 @@ void jffs2_gc_release_page(struct jffs2_sb_info *c,
 static int jffs2_flash_setup(struct jffs2_sb_info *c) {
 	int ret = 0;
 
-	if (jffs2_cleanmarker_oob(c)) {
+// THT: MLC patch:	if (jffs2_cleanmarker_oob(c)) {
+	if (c->mtd->type == MTD_NANDFLASH) {
+		if (!(c->mtd->flags & MTD_OOB_WRITEABLE))
+			printk(KERN_INFO "JFFS2 doesn't use OOB.\n");
+
 		/* NAND flash... do setup accordingly */
 		ret = jffs2_nand_flash_setup(c);
 		if (ret)
@@ -680,7 +706,8 @@ static int jffs2_flash_setup(struct jffs2_sb_info *c) {
 
 void jffs2_flash_cleanup(struct jffs2_sb_info *c) {
 
-	if (jffs2_cleanmarker_oob(c)) {
+// THT: MLC patch:	if (jffs2_cleanmarker_oob(c)) {
+	if (c->mtd->type == MTD_NANDFLASH) {
 		jffs2_nand_flash_cleanup(c);
 	}
 

@@ -28,6 +28,10 @@ obj-$(CONFIG_DDB5477)		+= fixup-ddb5477.o pci-ddb5477.o ops-ddb5477.o
 obj-$(CONFIG_LASAT)		+= pci-lasat.o
 obj-$(CONFIG_MIPS_ATLAS)	+= fixup-atlas.o
 
+ifeq ($(CONFIG_BRCM_COMMON_PCI),y)
+obj-y				+= pci-brcmstb.o ops-brcmstb.o fixup-brcmstb.o
+else
+
 # 7401-like chips
 obj-$(CONFIG_MIPS_BCM7401)  	+= pci-brcm97401a0.o ops-brcm97401a0.o fixup-brcm97401a0.o
 obj-$(CONFIG_MIPS_BCM7118)  	+= pci-brcm97401a0.o ops-brcm97401a0.o fixup-brcm97401a0.o
@@ -45,6 +49,8 @@ obj-$(CONFIG_MIPS_BCM7038C0)  	+= pci-brcm97038c0.o ops-brcm97038c0.o fixup-brcm
 obj-$(CONFIG_MIPS_BCM7440A0)    += pci-brcm97440.o ops-brcm97440.o fixup-brcm97440.o
 obj-$(CONFIG_MIPS_BCM7440B0)    += pci-brcm97440.o ops-brcm97440.o fixup-brcm97440.o
 obj-$(CONFIG_MIPS_BCM7402)  	+= pci-brcm97402.o ops-brcm97402.o fixup-brcm97402.o
+
+endif
 
 obj-$(CONFIG_MIPS_COBALT)	+= fixup-cobalt.o
 obj-$(CONFIG_MIPS_EV64120)	+= pci-ev64120.o

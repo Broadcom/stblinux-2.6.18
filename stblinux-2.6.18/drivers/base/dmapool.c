@@ -165,10 +165,13 @@ pool_alloc_page (struct dma_pool *pool, gfp_t mem_flags)
 	mapsize = (mapsize + BITS_PER_LONG - 1) / BITS_PER_LONG;
 	mapsize *= sizeof (long);
 
+#if 0
+// No need actually, this is just the page struct allocation.
 	// THT: PR45403: Force GFP_DMA on all allocations
 	if ((mem_flags & SLAB_DMA) != SLAB_DMA) {
 		mem_flags |= SLAB_DMA;
 	}
+#endif
 
 	page = (struct dma_page *) kmalloc (mapsize + sizeof *page, mem_flags);
 	if (!page)

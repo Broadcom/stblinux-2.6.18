@@ -39,7 +39,12 @@ int main(int argc, char *argv[])
 	mtd_info_t meminfo;
 	//erase_info_t erase;
 	char isjffs2 = 1;
+#ifdef MTD_USER_LARGE
+	uint64_t seekPos;
+	unsigned long imgsize, blkno;
+#else
 	unsigned long imgsize, seekPos, blkno;
+#endif
 	char quiet = 1;
 	int fd, isNAND;
 	char *mtd_device;
@@ -79,16 +84,25 @@ int main(int argc, char *argv[])
 	}
 	blkno = ((imgsize + (meminfo.erasesize - 1))/meminfo.erasesize);
 	
+#ifdef MTD_USER_LARGE
+	seekPos = blkno << (ffs(meminfo.erasesize)-1);
+#else
 	seekPos = blkno * meminfo.erasesize;
+#endif
 	if (!quiet) {
 		printf("block to be written = %d\n", blkno);
 	}
 	for (; seekPos < meminfo.size; seekPos += meminfo.erasesize) {
 		if (!quiet) {
+#ifdef MTD_USER_LARGE
+			printf("Writing at %016llx: %04x %04x %08x %08x \n", seekPos, 
+				cleanmarker.magic, cleanmarker.nodetype, cleanmarker.totlen, cleanmarker.hdr_crc);
+#else
 			printf("Writing at %08x: %04x %04x %08x %08x \n", seekPos, 
 				cleanmarker.magic, cleanmarker.nodetype, cleanmarker.totlen, cleanmarker.hdr_crc);
+#endif
 		}
-		if (lseek (fd, seekPos, SEEK_SET) < 0) {
+		if (lseek (fd, (off_t) seekPos, SEEK_SET) < 0) {
 			perror("lseek failed");
 			//fprintf(stderr, "\n%s: %s: MTD lseek failure: %s\n", exe_name, mtd_device, strerror(errno));
 		}

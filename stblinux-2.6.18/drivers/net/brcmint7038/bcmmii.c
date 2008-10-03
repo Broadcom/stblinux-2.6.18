@@ -60,6 +60,9 @@ int mii_probe(unsigned long base_addr)
 	volatile EmacRegisters *emac = (volatile EmacRegisters *)base_addr;
 	int i, j;
 
+	if(brcm_enet_no_mdio)
+		return(BCMEMAC_FAKE_PHY_ID);
+
 	for(i = 0; i < 32; i++) {
 		emac->config |= EMAC_EXT_PHY;
 		emac->mdioFreq = EMAC_MII_PRE_EN | EMAC_MDC;
@@ -88,6 +91,9 @@ int mii_read(struct net_device *dev, int phy_id, int location)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     volatile EmacRegisters *emac = pDevCtrl->emac;
 
+    if(phy_id == BCMEMAC_FAKE_PHY_ID)
+        return(0x782d);	/* force link up, happy status if we have no MDIO */
+
     emac->mdioData = MDIO_RD | (phy_id << MDIO_PMD_SHIFT) | (location << MDIO_REG_SHIFT);
 
     while ( ! (emac->intStatus & EMAC_MDIO_INT) )
@@ -102,6 +108,9 @@ void mii_write(struct net_device *dev, int phy_id, int location, int val)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     volatile EmacRegisters *emac = pDevCtrl->emac;
     uint32 data;
+
+    if(phy_id == BCMEMAC_FAKE_PHY_ID)
+        return;
 
     data = MDIO_WR | (phy_id << MDIO_PMD_SHIFT) | (location << MDIO_REG_SHIFT) | val;
     emac->mdioData = data;
@@ -245,7 +254,11 @@ static void mii_setup(struct net_device *dev)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     MII_CONFIG eMiiConfig;
 
-    eMiiConfig = mii_autoconfigure(dev);
+    if(pDevCtrl->EnetInfo.ucPhyAddress != BCMEMAC_FAKE_PHY_ID) {
+        eMiiConfig = mii_autoconfigure(dev);
+    } else {
+        eMiiConfig = MII_100MBIT | MII_FULLDUPLEX | MII_AUTONEG;
+    }
 
     if (! (eMiiConfig & MII_AUTONEG)) {
         printk(": Auto-negotiation timed-out\n");

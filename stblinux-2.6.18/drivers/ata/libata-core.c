@@ -1275,6 +1275,7 @@ int ata_dev_read_id(struct ata_device *dev, unsigned int *p_class,
 	unsigned int err_mask = 0;
 	const char *reason;
 	int rc;
+	u16 *id_buf;
 
 	if (ata_msg_ctl(ap))
 		ata_dev_printk(dev, KERN_DEBUG, "%s: ENTER, host %u, dev %u\n",
@@ -1303,8 +1304,22 @@ int ata_dev_read_id(struct ata_device *dev, unsigned int *p_class,
 
 	tf.protocol = ATA_PROT_PIO;
 
+	/*
+	 * NOTE: the original code put the DMA buffer in the middle of a
+	 * heavily used struct, resulting in cache coherence issues
+	 * on ATA_FLAG_PIO_DMA=1 controllers on noncoherent systems.
+	 */
+	id_buf = kmalloc(ATA_ID_WORDS * sizeof(id[0]), GFP_KERNEL);
+	if(! id_buf) {
+		rc = -ENOMEM;
+		reason = "can't allocate id_buf";
+		goto err_out;
+	}
 	err_mask = ata_exec_internal(dev, &tf, NULL, DMA_FROM_DEVICE,
-				     id, sizeof(id[0]) * ATA_ID_WORDS);
+				     id_buf, sizeof(id[0]) * ATA_ID_WORDS);
+	memcpy(id, id_buf, ATA_ID_WORDS * sizeof(id[0]));
+	kfree(id_buf);
+
 	if (err_mask) {
 		rc = -EIO;
 		reason = "I/O error";

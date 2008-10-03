@@ -47,7 +47,10 @@
 #define CONFIG_MTD_BRCMNAND_VERS_2_0		3
 #define CONFIG_MTD_BRCMNAND_VERS_2_1		4
 #define CONFIG_MTD_BRCMNAND_VERS_2_2		5
+
+/* Supporting MLC NAND */
 #define CONFIG_MTD_BRCMNAND_VERS_3_0		6
+#define CONFIG_MTD_BRCMNAND_VERS_3_1		7
 
 #define BRCMNAND_VERSION(major, minor)	((major<<8) | minor)
 
@@ -117,7 +120,64 @@
 #define SAMSUNG_K9F1208B0B      0x76
 #define SAMSUNG_K9F1208U0B      0x76
 
+/*--------- Chip ID decoding for Samsung MLC NAND flashes -----------------------*/
+#define SAMSUNG_K9LBG08U0M	0xD7
 
+#define SAMSUNG_3RDID_INT_CHIPNO_MASK	NAND_CI_CHIPNR_MSK
+
+#define SAMSUNG_3RDID_CELLTYPE_MASK	NAND_CI_CELLTYPE_MSK
+#define SAMSUNG_3RDID_CELLTYPE_SLC	0x00
+#define SAMSUNG_3RDID_CELLTYPE_4LV	0x04
+#define SAMSUNG_3RDID_CELLTYPE_8LV	0x08
+#define SAMSUNG_3RDID_CELLTYPE_16LV	0x0C
+
+// Low level MLC test as compared to the high level test in mtd-abi.h
+#define NAND_IS_MLC(chip) ((chip)->cellinfo & NAND_CI_CELLTYPE_MSK)
+
+#define SAMSUNG_3RDID_MASK			0x30
+#define SAMSUNG_3RDID_NOP_1			0x00
+#define SAMSUNG_3RDID_NOP_2			0x10
+#define SAMSUNG_3RDID_NOP_4			0x20
+#define SAMSUNG_3RDID_NOP_8			0x30
+
+#define SAMSUNG_3RDID_INTERLEAVE		0x40
+
+#define SAMSUNG_3RDID_CACHE_PROG		0x80
+
+#define SAMSUNG_4THID_PAGESIZE_MASK	0x03
+#define SAMSUNG_4THID_PAGESIZE_1KB	0x00
+#define SAMSUNG_4THID_PAGESIZE_2KB	0x01
+#define SAMSUNG_4THID_PAGESIZE_4KB	0x02
+#define SAMSUNG_4THID_PAGESIZE_8KB	0x03
+
+#define SAMSUNG_4THID_BLKSIZE_MASK	0x30
+#define SAMSUNG_4THID_PAGESIZE_64KB	0x00
+#define SAMSUNG_4THID_PAGESIZE_128KB	0x10
+#define SAMSUNG_4THID_PAGESIZE_256KB	0x20
+#define SAMSUNG_4THID_PAGESIZE_512KB	0x30
+
+#define SAMSUNG_4THID_OOBSIZE_MASK	0x04
+#define SAMSUNG_4THID_OOBSIZE_8B		0x00
+#define SAMSUNG_4THID_OOBSIZE_16B	0x04
+
+#define SAMSUNG_5THID_NRPLANE_MASK	0x0C
+#define SAMSUNG_5THID_NRPLANE_1		0x00
+#define SAMSUNG_5THID_NRPLANE_2		0x04
+#define SAMSUNG_5THID_NRPLANE_4		0x08
+#define SAMSUNG_5THID_NRPLANE_8		0x0C
+
+#define SAMSUNG_5THID_PLANESZ_MASK	0x70
+#define SAMSUNG_5THID_PLANESZ_64Mb	0x00
+#define SAMSUNG_5THID_PLANESZ_128Mb	0x10
+#define SAMSUNG_5THID_PLANESZ_256Mb	0x20
+#define SAMSUNG_5THID_PLANESZ_512Mb	0x30
+#define SAMSUNG_5THID_PLANESZ_1Gb	0x40
+#define SAMSUNG_5THID_PLANESZ_2Gb	0x50
+#define SAMSUNG_5THID_PLANESZ_4Gb	0x60
+#define SAMSUNG_5THID_PLANESZ_8Gb	0x70
+
+
+/*--------- END Samsung MLC NAND flashes -----------------------*/
 
 //Hynix NAND flashes
 #define FLASHTYPE_HYNIX         0xAD
@@ -211,6 +271,53 @@ typedef enum {
 	BRCMNAND_FL_XIP,			// Exclusive access to XIP part of the flash
 } brcmnand_state_t;
 
+//#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_3_0
+/*
+ * ECC levels, corresponding to BCHP_NAND_ACC_CONTROL_ECC_LEVEL
+ */
+typedef enum {
+	BRCMNAND_ECC_DISABLE 	= 0u,
+	BRCMNAND_ECC_BCH_1		= 1u,
+	BRCMNAND_ECC_BCH_2		= 2u,
+	BRCMNAND_ECC_BCH_3		= 3u,
+	BRCMNAND_ECC_BCH_4		= 4u,
+	BRCMNAND_ECC_BCH_5		= 5u,
+	BRCMNAND_ECC_BCH_6		= 6u,
+	BRCMNAND_ECC_BCH_7		= 7u,
+	BRCMNAND_ECC_BCH_8		= 8u,
+	BRCMNAND_ECC_BCH_9		= 9u,
+	BRCMNAND_ECC_BCH_10		= 10u,
+	BRCMNAND_ECC_BCH_11		= 11u,
+	BRCMNAND_ECC_BCH_12		= 12u,
+	BRCMNAND_ECC_RESVD_1	= 13u,
+	BRCMNAND_ECC_RESVD_2	= 14u,
+	BRCMNAND_ECC_HAMMING	= 15u,
+} brcmnand_ecc_level_t;
+
+/*
+ * Number of required ECC bytes per 512B slice
+ */
+static const unsigned int brcmnand_eccbytes[16] = {
+	[BRCMNAND_ECC_DISABLE]	= 0,
+	[BRCMNAND_ECC_BCH_1]	= 2,
+	[BRCMNAND_ECC_BCH_2]	= 4,
+	[BRCMNAND_ECC_BCH_3]	= 5,
+	[BRCMNAND_ECC_BCH_4]	= 7,
+	[BRCMNAND_ECC_BCH_5]	= 9,
+	[BRCMNAND_ECC_BCH_6]	= 10,
+	[BRCMNAND_ECC_BCH_7]	= 12,
+	[BRCMNAND_ECC_BCH_8]	= 13,
+	[BRCMNAND_ECC_BCH_9]	= 15,
+	[BRCMNAND_ECC_BCH_10]	= 17,
+	[BRCMNAND_ECC_BCH_11]	= 18,
+	[BRCMNAND_ECC_BCH_12]	= 20,
+	[BRCMNAND_ECC_RESVD_1]	= 0,
+	[BRCMNAND_ECC_RESVD_2]	= 0,
+	[BRCMNAND_ECC_HAMMING]	= 3,
+};
+
+
+//#endif
 
 
 /**
@@ -224,6 +331,7 @@ typedef enum {
  * @param page_shift	[INTERN] number of address bits in a page
  * @param ppb_shift	[INTERN] number of address bits in a pages per block
  * @param page_mask	[INTERN] a page per block mask
+ * @cellinfo:			[INTERN] MLC/multichip data from chip ident
  * @param readw		[REPLACEABLE] hardware specific function for read short
  * @param writew	[REPLACEABLE] hardware specific function for write short
  * @param command	[REPLACEABLE] hardware specific function for writing commands to the chip
@@ -283,19 +391,33 @@ struct brcmnand_chip {
 	
 	int (*write_is_complete)(struct mtd_info *mtd, int* outp_needBBT);
 
+	/*
+	 * THT: Same as the mtd calls with same name, except that locks are 
+	 * expected to be already held by caller.  Mostly used by BBT codes
+	 */
+	int (*read_oob) (struct mtd_info *mtd, loff_t from,
+			 struct mtd_oob_ops *ops);
+	int (*write_oob) (struct mtd_info *mtd, loff_t to,
+			 struct mtd_oob_ops *ops);
+
+
 	spinlock_t			chip_lock;
 	//atomic_t			semCount; // Used to lock out NAND access for NOR, TBD
 	wait_queue_head_t	wq;
 	brcmnand_state_t	state;
 
+#ifdef MTD_LARGE
+	uint64_t		chipSize;
+#else
 	unsigned int		chipSize;
+#endif
 	unsigned int		numchips; // Always 1 in v0.0 and 0.1, up to 8 in v1.0+
 	int 				directAccess;		// For v1,0+, use directAccess or EBI address	
 	int 				CS[MAX_NAND_CS];	// Value of CS selected one per chip, in ascending order of chip Select (enforced)..
 										// Say, user uses CS0, CS2, and CS5 for NAND, then the first 3 entries
 										// have the values 0, 2 and 5, and numchips=3.
 	unsigned int		chip_shift; // How many bits shold be shifted.
-	UL_OFF_T			mtdSize;	// Total size of NAND flash, 64 bit integer for V1.0.  This supercedes mtd->size which is
+	UL_OFF_T		mtdSize;	// Total size of NAND flash, 64 bit integer for V1.0.  This supercedes mtd->size which is
 								// currently defined as a uint32_t.
 
 	/* THT Added */
@@ -307,6 +429,8 @@ struct brcmnand_chip {
 	int				bbt_erase_shift;
 	//unsigned int		ppb_shift;	/* Pages per block shift */
 	unsigned int		page_mask;
+	//int				subpagesize;
+	uint8_t			cellinfo;
 
 	//u_char*		data_buf;	// Replaced by buffers
 	//u_char*		oob_buf;
@@ -326,13 +450,15 @@ struct brcmnand_chip {
 	struct nand_ecclayout	*ecclayout;
 
 	// THT Used in lieu of struct nand_ecc_ctrl ecc;
+	brcmnand_ecc_level_t ecclevel;	// ECC scheme
 	int			ecctotal; // total number of ECC bytes, 3 for Small pages, 12 for large pages.
 	int			eccsize; // Size of the ECC block, always 512 for Brcm Nand Controller
 	int			eccbytes; // How many bytes are used for ECC per eccsize (3 for Brcm Nand Controller)
 	int			eccsteps; // How many ECC block per page (4 for 2K page, 1 for 512B page
 	int			eccOobSize; // # of oob byte per ECC steps, always 16
 	
-	struct nand_buffers buffers;
+	struct nand_buffers* buffers; // THT 2.6.18-5.3: Changed to pointer to accomodate EDU
+#define BRCMNAND_OOBBUF(buffers) (&buffers->databuf[NAND_MAX_PAGESIZE])
 	//struct nand_hw_control hwcontrol;
 
 	struct mtd_oob_ops ops;

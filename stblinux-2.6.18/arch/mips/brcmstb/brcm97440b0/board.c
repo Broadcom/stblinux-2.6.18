@@ -91,7 +91,7 @@ int cfe_hwinfo_stat    = -99;
 /*
  * Board Name from CFE
  */
-char cfe_boardname[CFE_BOARDNAME_MAX_LEN];
+static char local_cfe_boardname[CFE_BOARDNAME_MAX_LEN];
 
 
 
@@ -210,7 +210,8 @@ int __init board_get_cfe_env(void)
 	cfe_env = "CFE_BOARDNAME";
 	res = get_cfe_env_variable(&cfeparam,
 				   (void *)cfe_env,       strlen(cfe_env),
-				   (void *)cfe_boardname, CFE_BOARDNAME_MAX_LEN);
+				   (void *)local_cfe_boardname,
+				   CFE_BOARDNAME_MAX_LEN);
 	if (res)
 		res = -4;
 
@@ -241,7 +242,8 @@ board_init_once(void)
 
 	if (cfe_min_rev(boardinfo->bi_ver_magic)) {
 
-		printk("%s: CFE Board Name: %s\n", __FUNCTION__, cfe_boardname);
+		printk("%s: CFE Board Name: %s\n", __FUNCTION__,
+			local_cfe_boardname);
 		printk("%s: Take memory configuration from CFE HWinfo\n", __FUNCTION__);
 
 		if (CFE_NUM_DDR_CONTROLLERS > 4) {

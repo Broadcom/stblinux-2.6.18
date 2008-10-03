@@ -3,6 +3,9 @@
 
 #include <linux/config.h>
 
+#ifndef _GCCLIB_H_
+#define _GCCLIB_H_
+
 #define BITS_PER_UNIT  8
 #define SI_TYPE_SIZE (sizeof (SItype) * BITS_PER_UNIT)
 
@@ -25,3 +28,4 @@ typedef union
   DItype ll;
 } DIunion;
 
+#endif

@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Tue Jun 10 12:49:36 2008
- *                 MD5 Checksum         4f19f1f3a208e874e2a583f12a043545
+ * Date:           Generated on         Mon Jul 28 11:22:21 2008
+ *                 MD5 Checksum         fb86407f93bca40e048906386e215a30
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_pcie_intr2.h $
  * 
- * Hydra_Software_Devel/1   6/10/08 3:24p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   7/28/08 2:29p tdo
+ * PR42663: Sync up RDB header files
  *
  ***************************************************************************/
 
@@ -45,18 +45,18 @@
 /***************************************************************************
  *PCIE_INTR2 - PCI-E L2 Interrupt Controller Registers
  ***************************************************************************/
-#define BCHP_PCIE_INTR2_CPU_STATUS               0x00006300 /* CPU interrupt Status Register */
-#define BCHP_PCIE_INTR2_CPU_SET                  0x00006304 /* CPU interrupt Set Register */
-#define BCHP_PCIE_INTR2_CPU_CLEAR                0x00006308 /* CPU interrupt Clear Register */
-#define BCHP_PCIE_INTR2_CPU_MASK_STATUS          0x0000630c /* CPU interrupt Mask Status Register */
-#define BCHP_PCIE_INTR2_CPU_MASK_SET             0x00006310 /* CPU interrupt Mask Set Register */
-#define BCHP_PCIE_INTR2_CPU_MASK_CLEAR           0x00006314 /* CPU interrupt Mask Clear Register */
-#define BCHP_PCIE_INTR2_PCI_STATUS               0x00006318 /* PCI interrupt Status Register */
-#define BCHP_PCIE_INTR2_PCI_SET                  0x0000631c /* PCI interrupt Set Register */
-#define BCHP_PCIE_INTR2_PCI_CLEAR                0x00006320 /* PCI interrupt Clear Register */
-#define BCHP_PCIE_INTR2_PCI_MASK_STATUS          0x00006324 /* PCI interrupt Mask Status Register */
-#define BCHP_PCIE_INTR2_PCI_MASK_SET             0x00006328 /* PCI interrupt Mask Set Register */
-#define BCHP_PCIE_INTR2_PCI_MASK_CLEAR           0x0000632c /* PCI interrupt Mask Clear Register */
+#define BCHP_PCIE_INTR2_CPU_STATUS               0x00014300 /* CPU interrupt Status Register */
+#define BCHP_PCIE_INTR2_CPU_SET                  0x00014304 /* CPU interrupt Set Register */
+#define BCHP_PCIE_INTR2_CPU_CLEAR                0x00014308 /* CPU interrupt Clear Register */
+#define BCHP_PCIE_INTR2_CPU_MASK_STATUS          0x0001430c /* CPU interrupt Mask Status Register */
+#define BCHP_PCIE_INTR2_CPU_MASK_SET             0x00014310 /* CPU interrupt Mask Set Register */
+#define BCHP_PCIE_INTR2_CPU_MASK_CLEAR           0x00014314 /* CPU interrupt Mask Clear Register */
+#define BCHP_PCIE_INTR2_PCI_STATUS               0x00014318 /* PCI interrupt Status Register */
+#define BCHP_PCIE_INTR2_PCI_SET                  0x0001431c /* PCI interrupt Set Register */
+#define BCHP_PCIE_INTR2_PCI_CLEAR                0x00014320 /* PCI interrupt Clear Register */
+#define BCHP_PCIE_INTR2_PCI_MASK_STATUS          0x00014324 /* PCI interrupt Mask Status Register */
+#define BCHP_PCIE_INTR2_PCI_MASK_SET             0x00014328 /* PCI interrupt Mask Set Register */
+#define BCHP_PCIE_INTR2_PCI_MASK_CLEAR           0x0001432c /* PCI interrupt Mask Clear Register */
 
 /***************************************************************************
  *CPU_STATUS - CPU interrupt Status Register
@@ -93,9 +93,13 @@
 #define BCHP_PCIE_INTR2_CPU_STATUS_MSI_INTR00_MASK                 0x01000000
 #define BCHP_PCIE_INTR2_CPU_STATUS_MSI_INTR00_SHIFT                24
 
-/* PCIE_INTR2 :: CPU_STATUS :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_CPU_STATUS_reserved0_MASK                  0x00ff8000
-#define BCHP_PCIE_INTR2_CPU_STATUS_reserved0_SHIFT                 15
+/* PCIE_INTR2 :: CPU_STATUS :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_CPU_STATUS_reserved0_MASK                  0x00ff0000
+#define BCHP_PCIE_INTR2_CPU_STATUS_reserved0_SHIFT                 16
+
+/* PCIE_INTR2 :: CPU_STATUS :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_CPU_STATUS_PCIE_MSTR_FWD_ERR_MASK          0x00008000
+#define BCHP_PCIE_INTR2_CPU_STATUS_PCIE_MSTR_FWD_ERR_SHIFT         15
 
 /* PCIE_INTR2 :: CPU_STATUS :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_CPU_STATUS_PCIE_MSTR_RETRY_TIMEOUT_MASK    0x00004000
@@ -188,9 +192,13 @@
 #define BCHP_PCIE_INTR2_CPU_SET_MSI_INTR00_MASK                    0x01000000
 #define BCHP_PCIE_INTR2_CPU_SET_MSI_INTR00_SHIFT                   24
 
-/* PCIE_INTR2 :: CPU_SET :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_CPU_SET_reserved0_MASK                     0x00ff8000
-#define BCHP_PCIE_INTR2_CPU_SET_reserved0_SHIFT                    15
+/* PCIE_INTR2 :: CPU_SET :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_CPU_SET_reserved0_MASK                     0x00ff0000
+#define BCHP_PCIE_INTR2_CPU_SET_reserved0_SHIFT                    16
+
+/* PCIE_INTR2 :: CPU_SET :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_CPU_SET_PCIE_MSTR_FWD_ERR_MASK             0x00008000
+#define BCHP_PCIE_INTR2_CPU_SET_PCIE_MSTR_FWD_ERR_SHIFT            15
 
 /* PCIE_INTR2 :: CPU_SET :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_CPU_SET_PCIE_MSTR_RETRY_TIMEOUT_MASK       0x00004000
@@ -283,9 +291,13 @@
 #define BCHP_PCIE_INTR2_CPU_CLEAR_MSI_INTR00_MASK                  0x01000000
 #define BCHP_PCIE_INTR2_CPU_CLEAR_MSI_INTR00_SHIFT                 24
 
-/* PCIE_INTR2 :: CPU_CLEAR :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_CPU_CLEAR_reserved0_MASK                   0x00ff8000
-#define BCHP_PCIE_INTR2_CPU_CLEAR_reserved0_SHIFT                  15
+/* PCIE_INTR2 :: CPU_CLEAR :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_CPU_CLEAR_reserved0_MASK                   0x00ff0000
+#define BCHP_PCIE_INTR2_CPU_CLEAR_reserved0_SHIFT                  16
+
+/* PCIE_INTR2 :: CPU_CLEAR :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_CPU_CLEAR_PCIE_MSTR_FWD_ERR_MASK           0x00008000
+#define BCHP_PCIE_INTR2_CPU_CLEAR_PCIE_MSTR_FWD_ERR_SHIFT          15
 
 /* PCIE_INTR2 :: CPU_CLEAR :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_CPU_CLEAR_PCIE_MSTR_RETRY_TIMEOUT_MASK     0x00004000
@@ -378,9 +390,13 @@
 #define BCHP_PCIE_INTR2_CPU_MASK_STATUS_MSI_INTR00_MASK            0x01000000
 #define BCHP_PCIE_INTR2_CPU_MASK_STATUS_MSI_INTR00_SHIFT           24
 
-/* PCIE_INTR2 :: CPU_MASK_STATUS :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_CPU_MASK_STATUS_reserved0_MASK             0x00ff8000
-#define BCHP_PCIE_INTR2_CPU_MASK_STATUS_reserved0_SHIFT            15
+/* PCIE_INTR2 :: CPU_MASK_STATUS :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_CPU_MASK_STATUS_reserved0_MASK             0x00ff0000
+#define BCHP_PCIE_INTR2_CPU_MASK_STATUS_reserved0_SHIFT            16
+
+/* PCIE_INTR2 :: CPU_MASK_STATUS :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_CPU_MASK_STATUS_PCIE_MSTR_FWD_ERR_MASK     0x00008000
+#define BCHP_PCIE_INTR2_CPU_MASK_STATUS_PCIE_MSTR_FWD_ERR_SHIFT    15
 
 /* PCIE_INTR2 :: CPU_MASK_STATUS :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_CPU_MASK_STATUS_PCIE_MSTR_RETRY_TIMEOUT_MASK 0x00004000
@@ -473,9 +489,13 @@
 #define BCHP_PCIE_INTR2_CPU_MASK_SET_MSI_INTR00_MASK               0x01000000
 #define BCHP_PCIE_INTR2_CPU_MASK_SET_MSI_INTR00_SHIFT              24
 
-/* PCIE_INTR2 :: CPU_MASK_SET :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_CPU_MASK_SET_reserved0_MASK                0x00ff8000
-#define BCHP_PCIE_INTR2_CPU_MASK_SET_reserved0_SHIFT               15
+/* PCIE_INTR2 :: CPU_MASK_SET :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_CPU_MASK_SET_reserved0_MASK                0x00ff0000
+#define BCHP_PCIE_INTR2_CPU_MASK_SET_reserved0_SHIFT               16
+
+/* PCIE_INTR2 :: CPU_MASK_SET :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_CPU_MASK_SET_PCIE_MSTR_FWD_ERR_MASK        0x00008000
+#define BCHP_PCIE_INTR2_CPU_MASK_SET_PCIE_MSTR_FWD_ERR_SHIFT       15
 
 /* PCIE_INTR2 :: CPU_MASK_SET :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_CPU_MASK_SET_PCIE_MSTR_RETRY_TIMEOUT_MASK  0x00004000
@@ -568,9 +588,13 @@
 #define BCHP_PCIE_INTR2_CPU_MASK_CLEAR_MSI_INTR00_MASK             0x01000000
 #define BCHP_PCIE_INTR2_CPU_MASK_CLEAR_MSI_INTR00_SHIFT            24
 
-/* PCIE_INTR2 :: CPU_MASK_CLEAR :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_CPU_MASK_CLEAR_reserved0_MASK              0x00ff8000
-#define BCHP_PCIE_INTR2_CPU_MASK_CLEAR_reserved0_SHIFT             15
+/* PCIE_INTR2 :: CPU_MASK_CLEAR :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_CPU_MASK_CLEAR_reserved0_MASK              0x00ff0000
+#define BCHP_PCIE_INTR2_CPU_MASK_CLEAR_reserved0_SHIFT             16
+
+/* PCIE_INTR2 :: CPU_MASK_CLEAR :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_CPU_MASK_CLEAR_PCIE_MSTR_FWD_ERR_MASK      0x00008000
+#define BCHP_PCIE_INTR2_CPU_MASK_CLEAR_PCIE_MSTR_FWD_ERR_SHIFT     15
 
 /* PCIE_INTR2 :: CPU_MASK_CLEAR :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_CPU_MASK_CLEAR_PCIE_MSTR_RETRY_TIMEOUT_MASK 0x00004000
@@ -663,9 +687,13 @@
 #define BCHP_PCIE_INTR2_PCI_STATUS_MSI_INTR00_MASK                 0x01000000
 #define BCHP_PCIE_INTR2_PCI_STATUS_MSI_INTR00_SHIFT                24
 
-/* PCIE_INTR2 :: PCI_STATUS :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_PCI_STATUS_reserved0_MASK                  0x00ff8000
-#define BCHP_PCIE_INTR2_PCI_STATUS_reserved0_SHIFT                 15
+/* PCIE_INTR2 :: PCI_STATUS :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_PCI_STATUS_reserved0_MASK                  0x00ff0000
+#define BCHP_PCIE_INTR2_PCI_STATUS_reserved0_SHIFT                 16
+
+/* PCIE_INTR2 :: PCI_STATUS :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_PCI_STATUS_PCIE_MSTR_FWD_ERR_MASK          0x00008000
+#define BCHP_PCIE_INTR2_PCI_STATUS_PCIE_MSTR_FWD_ERR_SHIFT         15
 
 /* PCIE_INTR2 :: PCI_STATUS :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_PCI_STATUS_PCIE_MSTR_RETRY_TIMEOUT_MASK    0x00004000
@@ -758,9 +786,13 @@
 #define BCHP_PCIE_INTR2_PCI_SET_MSI_INTR00_MASK                    0x01000000
 #define BCHP_PCIE_INTR2_PCI_SET_MSI_INTR00_SHIFT                   24
 
-/* PCIE_INTR2 :: PCI_SET :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_PCI_SET_reserved0_MASK                     0x00ff8000
-#define BCHP_PCIE_INTR2_PCI_SET_reserved0_SHIFT                    15
+/* PCIE_INTR2 :: PCI_SET :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_PCI_SET_reserved0_MASK                     0x00ff0000
+#define BCHP_PCIE_INTR2_PCI_SET_reserved0_SHIFT                    16
+
+/* PCIE_INTR2 :: PCI_SET :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_PCI_SET_PCIE_MSTR_FWD_ERR_MASK             0x00008000
+#define BCHP_PCIE_INTR2_PCI_SET_PCIE_MSTR_FWD_ERR_SHIFT            15
 
 /* PCIE_INTR2 :: PCI_SET :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_PCI_SET_PCIE_MSTR_RETRY_TIMEOUT_MASK       0x00004000
@@ -853,9 +885,13 @@
 #define BCHP_PCIE_INTR2_PCI_CLEAR_MSI_INTR00_MASK                  0x01000000
 #define BCHP_PCIE_INTR2_PCI_CLEAR_MSI_INTR00_SHIFT                 24
 
-/* PCIE_INTR2 :: PCI_CLEAR :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_PCI_CLEAR_reserved0_MASK                   0x00ff8000
-#define BCHP_PCIE_INTR2_PCI_CLEAR_reserved0_SHIFT                  15
+/* PCIE_INTR2 :: PCI_CLEAR :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_PCI_CLEAR_reserved0_MASK                   0x00ff0000
+#define BCHP_PCIE_INTR2_PCI_CLEAR_reserved0_SHIFT                  16
+
+/* PCIE_INTR2 :: PCI_CLEAR :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_PCI_CLEAR_PCIE_MSTR_FWD_ERR_MASK           0x00008000
+#define BCHP_PCIE_INTR2_PCI_CLEAR_PCIE_MSTR_FWD_ERR_SHIFT          15
 
 /* PCIE_INTR2 :: PCI_CLEAR :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_PCI_CLEAR_PCIE_MSTR_RETRY_TIMEOUT_MASK     0x00004000
@@ -948,9 +984,13 @@
 #define BCHP_PCIE_INTR2_PCI_MASK_STATUS_MSI_INTR00_MASK            0x01000000
 #define BCHP_PCIE_INTR2_PCI_MASK_STATUS_MSI_INTR00_SHIFT           24
 
-/* PCIE_INTR2 :: PCI_MASK_STATUS :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_PCI_MASK_STATUS_reserved0_MASK             0x00ff8000
-#define BCHP_PCIE_INTR2_PCI_MASK_STATUS_reserved0_SHIFT            15
+/* PCIE_INTR2 :: PCI_MASK_STATUS :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_PCI_MASK_STATUS_reserved0_MASK             0x00ff0000
+#define BCHP_PCIE_INTR2_PCI_MASK_STATUS_reserved0_SHIFT            16
+
+/* PCIE_INTR2 :: PCI_MASK_STATUS :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_PCI_MASK_STATUS_PCIE_MSTR_FWD_ERR_MASK     0x00008000
+#define BCHP_PCIE_INTR2_PCI_MASK_STATUS_PCIE_MSTR_FWD_ERR_SHIFT    15
 
 /* PCIE_INTR2 :: PCI_MASK_STATUS :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_PCI_MASK_STATUS_PCIE_MSTR_RETRY_TIMEOUT_MASK 0x00004000
@@ -1043,9 +1083,13 @@
 #define BCHP_PCIE_INTR2_PCI_MASK_SET_MSI_INTR00_MASK               0x01000000
 #define BCHP_PCIE_INTR2_PCI_MASK_SET_MSI_INTR00_SHIFT              24
 
-/* PCIE_INTR2 :: PCI_MASK_SET :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_PCI_MASK_SET_reserved0_MASK                0x00ff8000
-#define BCHP_PCIE_INTR2_PCI_MASK_SET_reserved0_SHIFT               15
+/* PCIE_INTR2 :: PCI_MASK_SET :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_PCI_MASK_SET_reserved0_MASK                0x00ff0000
+#define BCHP_PCIE_INTR2_PCI_MASK_SET_reserved0_SHIFT               16
+
+/* PCIE_INTR2 :: PCI_MASK_SET :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_PCI_MASK_SET_PCIE_MSTR_FWD_ERR_MASK        0x00008000
+#define BCHP_PCIE_INTR2_PCI_MASK_SET_PCIE_MSTR_FWD_ERR_SHIFT       15
 
 /* PCIE_INTR2 :: PCI_MASK_SET :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_PCI_MASK_SET_PCIE_MSTR_RETRY_TIMEOUT_MASK  0x00004000
@@ -1138,9 +1182,13 @@
 #define BCHP_PCIE_INTR2_PCI_MASK_CLEAR_MSI_INTR00_MASK             0x01000000
 #define BCHP_PCIE_INTR2_PCI_MASK_CLEAR_MSI_INTR00_SHIFT            24
 
-/* PCIE_INTR2 :: PCI_MASK_CLEAR :: reserved0 [23:15] */
-#define BCHP_PCIE_INTR2_PCI_MASK_CLEAR_reserved0_MASK              0x00ff8000
-#define BCHP_PCIE_INTR2_PCI_MASK_CLEAR_reserved0_SHIFT             15
+/* PCIE_INTR2 :: PCI_MASK_CLEAR :: reserved0 [23:16] */
+#define BCHP_PCIE_INTR2_PCI_MASK_CLEAR_reserved0_MASK              0x00ff0000
+#define BCHP_PCIE_INTR2_PCI_MASK_CLEAR_reserved0_SHIFT             16
+
+/* PCIE_INTR2 :: PCI_MASK_CLEAR :: PCIE_MSTR_FWD_ERR [15:15] */
+#define BCHP_PCIE_INTR2_PCI_MASK_CLEAR_PCIE_MSTR_FWD_ERR_MASK      0x00008000
+#define BCHP_PCIE_INTR2_PCI_MASK_CLEAR_PCIE_MSTR_FWD_ERR_SHIFT     15
 
 /* PCIE_INTR2 :: PCI_MASK_CLEAR :: PCIE_MSTR_RETRY_TIMEOUT [14:14] */
 #define BCHP_PCIE_INTR2_PCI_MASK_CLEAR_PCIE_MSTR_RETRY_TIMEOUT_MASK 0x00004000

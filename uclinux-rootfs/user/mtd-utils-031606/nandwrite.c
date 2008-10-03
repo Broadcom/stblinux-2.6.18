@@ -40,8 +40,8 @@
 #define PROGRAM "nandwrite"
 #define VERSION "$Revision: 1.32 $"
 
-#define MAX_PAGE_SIZE	2048
-#define MAX_OOB_SIZE	64
+#define MAX_PAGE_SIZE	4096
+#define MAX_OOB_SIZE	128
 
 /*
  * Buffer array used for writing data
@@ -107,7 +107,7 @@ void display_version (void)
 }
 
 char 	*mtd_device, *img;
-int 	mtdoffset = 0;
+off_t 	mtdoffset = 0;
 int 	quiet = 0;
 int	writeoob = 0;
 int	autoplace = 0;
@@ -183,10 +183,14 @@ void process_options (int argc, char *argv[])
 			pad = 1;
 			break;
 		case 's':
-			mtdoffset = atoi (optarg);
+#ifdef __USE_FILE_OFFSET64
+			mtdoffset = atoll(optarg);
+#else
+			mtdoffset = atoi(optarg);
+#endif
 			break;
 		case 'b':
-			blockalign = atoi (optarg);
+			blockalign = atoi(optarg);
 			break;
 		case '?':
 			error = 1;
@@ -206,13 +210,14 @@ void process_options (int argc, char *argv[])
  */
 int main(int argc, char **argv)
 {
-	int cnt, fd, ifd, imglen = 0, pagelen, baderaseblock, blockstart = -1;
+	int cnt, fd, ifd, pagelen, baderaseblock;
 	struct mtd_info_user meminfo;
 	struct mtd_oob_buf oob;
 	loff_t offs;
 	int ret, readlen;
 	int oobinfochanged = 0;
 	struct nand_oobinfo old_oobinfo;
+	off_t imglen = 0, blockstart = -1;
 
 	process_options(argc, argv);
 
@@ -235,6 +240,14 @@ int main(int argc, char **argv)
 		close(fd);
 		exit(1);
 	}
+	if (MTD_IS_MLC(&meminfo)) {
+		if (autoplace)	printf("Warning autoplace ignored with MLC NAND\n");
+		if (noecc)	printf("Warning noecc ignored with MLC NAND\n");
+		if (writeoob)	printf("Warning writeoob ignored with MLC NAND\n");
+		if (forcelegacy)printf("Warning forcelegacy ignored with MLC NAND\n");
+		if (forcejffs2)	printf("Warning forcejffs2 ignored with MLC NAND\n");
+		if (forceyaffs)	printf("Warning forceyaffs ignored with MLC NAND\n");
+	}
 
         /* Set erasesize to specified number of blocks - to match jffs2 (virtual) block size */
         meminfo.erasesize *= blockalign;
@@ -242,45 +255,52 @@ int main(int argc, char **argv)
 	/* Make sure device page sizes are valid */
 	if (!(meminfo.oobsize == 16 && meminfo.writesize == 512) &&
 	    !(meminfo.oobsize == 8 && meminfo.writesize == 256) &&
-	    !(meminfo.oobsize == 64 && meminfo.writesize == 2048)) {
+	    !(meminfo.oobsize == 64 && meminfo.writesize == 2048) &&
+	    !(meminfo.oobsize == 128 && meminfo.writesize == 4096)) {
 		fprintf(stderr, "Unknown flash (not normal NAND)\n");
 		close(fd);
 		exit(1);
 	}
 
-	/* Read the current oob info */
-	if (ioctl (fd, MEMGETOOBSEL, &old_oobinfo) != 0) {
-		perror ("MEMGETOOBSEL");
-		close (fd);
-		exit (1);
-	}
-
-	// write without ecc ?
-	if (noecc) {
-		if (ioctl (fd, MEMSETOOBSEL, &none_oobinfo) != 0) {
-			perror ("MEMSETOOBSEL");
+	if (!MTD_IS_MLC(&meminfo)) {
+		/* Read the current oob info */
+		if (ioctl (fd, MEMGETOOBSEL, &old_oobinfo) != 0) {
+			perror ("MEMGETOOBSEL");
 			close (fd);
 			exit (1);
 		}
-		oobinfochanged = 1;
 	}
 
-	// autoplace ECC ?
-	if (autoplace && (old_oobinfo.useecc != MTD_NANDECC_AUTOPLACE)) {
-
-		if (ioctl (fd, MEMSETOOBSEL, &autoplace_oobinfo) != 0) {
-			perror ("MEMSETOOBSEL");
-			close (fd);
-			exit (1);
+	if (!MTD_IS_MLC(&meminfo)) {
+		// write without ecc ?
+		if (noecc) {
+			if (ioctl (fd, MEMSETOOBSEL, &none_oobinfo) != 0) {
+				perror ("MEMSETOOBSEL");
+				close (fd);
+				exit (1);
+			}
+			oobinfochanged = 1;
 		}
-		oobinfochanged = 1;
+	}
+
+	if (!MTD_IS_MLC(&meminfo)) {
+		// autoplace ECC ?
+		if (autoplace && (old_oobinfo.useecc != MTD_NANDECC_AUTOPLACE)) {
+
+			if (ioctl (fd, MEMSETOOBSEL, &autoplace_oobinfo) != 0) {
+				perror ("MEMSETOOBSEL");
+				close (fd);
+				exit (1);
+			}
+			oobinfochanged = 1;
+		}
 	}
 
 	/*
 	 * force oob layout for jffs2 or yaffs ?
 	 * Legacy support
 	 */
-	if (forcejffs2 || forceyaffs) {
+	if ((forcejffs2 || forceyaffs) && !MTD_IS_MLC(&meminfo)) {
 		struct nand_oobinfo *oobsel = forcejffs2 ? &jffs2_oobinfo : &yaffs_oobinfo;
 
 		if (autoplace) {
@@ -319,6 +339,9 @@ int main(int argc, char **argv)
    	imglen = lseek(ifd, 0, SEEK_END);
 	lseek (ifd, 0, SEEK_SET);
 
+	if (MTD_IS_MLC(&meminfo)) 
+		writeoob = 0;
+
 	pagelen = meminfo.writesize + ((writeoob == 1) ? meminfo.oobsize : 0);
 
 	// Check, if file is pagealigned
@@ -329,8 +352,13 @@ int main(int argc, char **argv)
 
 	// Check, if length fits into device
 	if ( ((imglen / pagelen) * meminfo.writesize) > (meminfo.size - mtdoffset)) {
+#ifdef __USE_FILE_OFFSET64
+		fprintf (stderr, "Image %d bytes, NAND page %d bytes, OOB area %u bytes, device size 0x%llx bytes\n",
+				imglen, pagelen, meminfo.writesize, meminfo.size);
+#else
 		fprintf (stderr, "Image %d bytes, NAND page %d bytes, OOB area %u bytes, device size %u bytes\n",
 				imglen, pagelen, meminfo.writesize, meminfo.size);
+#endif
 		perror ("Input file does not fit into device");
 		goto closeall;
 	}
@@ -373,7 +401,7 @@ int main(int argc, char **argv)
 		readlen = meminfo.writesize;
 		if (pad && (imglen < readlen))
 		{
-			readlen = imglen;
+			readlen = (int) imglen;
 			memset(writebuf + readlen, 0xff, meminfo.writesize - readlen);
 		}
 
@@ -440,6 +468,7 @@ int main(int argc, char **argv)
 	close(ifd);
 
  restoreoob:
+	/* oobinfochanged will be 0 for MLC */
 	if (oobinfochanged) {
 		if (ioctl (fd, MEMSETOOBSEL, &old_oobinfo) != 0) {
 			perror ("MEMSETOOBSEL");

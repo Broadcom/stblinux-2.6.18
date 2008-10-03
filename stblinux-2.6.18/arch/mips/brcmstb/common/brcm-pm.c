@@ -38,6 +38,7 @@
 #include <linux/sysfs.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+#include <asm/delay.h>
 #include <asm/brcmstb/common/brcmstb.h>
 #include <asm/brcmstb/common/brcm-pm.h>
 
@@ -73,7 +74,11 @@ static void *ohci_cb_arg;
 
 static void usb_enable(void)
 {
+	unsigned long flags;
+
 	printk(KERN_INFO "brcm-pm: enabling power to USB block\n");
+
+	spin_lock_irqsave(&g_magnum_spinlock, flags);
 
 #if defined(BCHP_CLK_PM_CTRL_2_DIS_USB_216M_CLK_MASK)
 	BDEV_UNSET(BCHP_CLK_PM_CTRL_2,
@@ -111,11 +116,17 @@ static void usb_enable(void)
 		BCHP_USB_CTRL_UTMI_CTL_1_UTMI_PWDNB_MASK |
 		BCHP_USB_CTRL_UTMI_CTL_1_UTMI1_PWDNB_MASK);
 	BDEV_RD(BCHP_USB_CTRL_PLL_CTL_1);
+
+	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
 }
 
 static void usb_disable(void)
 {
+	unsigned long flags;
+
 	printk(KERN_INFO "brcm-pm: disabling power to USB block\n");
+
+	spin_lock_irqsave(&g_magnum_spinlock, flags);
 
 	BDEV_UNSET(BCHP_USB_CTRL_UTMI_CTL_1,
 		BCHP_USB_CTRL_UTMI_CTL_1_UTMI_PWDNB_MASK |
@@ -154,11 +165,59 @@ static void usb_disable(void)
 		BCHP_CLK_PM_CTRL_2_DIS_USB_216M_CLK_MASK);
 	BDEV_RD(BCHP_CLK_PM_CTRL_2);
 #endif
+	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
+}
+
+#if defined(BCHP_ENET_TOP_REG_START)
+#define MII_S_C		(BCHP_ENET_TOP_REG_START + 0x10)
+#define MII_DATA	(BCHP_ENET_TOP_REG_START + 0x14)
+#define EMAC_INT	(BCHP_ENET_TOP_REG_START + 0x1c)
+#define CONTROL		(BCHP_ENET_TOP_REG_START + 0x2c)
+#elif defined(BCHP_EMAC_0_REG_START)
+#define MII_S_C		(BCHP_EMAC_0_REG_START + 0x10)
+#define MII_DATA	(BCHP_EMAC_0_REG_START + 0x14)
+#define EMAC_INT	(BCHP_EMAC_0_REG_START + 0x1c)
+#define CONTROL		(BCHP_EMAC_0_REG_START + 0x2c)
+#else
+#error EMAC base address not defined on this platform
+#endif
+
+#define MDIO_WR		0x50020000
+#define MDIO_PMD_SHIFT	23
+#define MDIO_REG_SHIFT	18
+#define EMAC_MDIO_INT	0x01
+
+/* write to the internal PHY's registers */
+static void brcm_mii_write(int addr, u16 data)
+{
+	int i;
+
+	BDEV_WR(EMAC_INT, EMAC_MDIO_INT);
+	BDEV_RD(EMAC_INT);
+
+	BDEV_WR(MII_DATA, MDIO_WR | (1 << MDIO_PMD_SHIFT) |
+		(addr << MDIO_REG_SHIFT) | data);
+	for(i = 0; i < 1000; i++) {
+		if(BDEV_RD(EMAC_INT) & EMAC_MDIO_INT)
+			return;
+		udelay(1);
+	}
+	printk(KERN_WARNING "brcm-pm: MII write timed out\n");
 }
 
 static void enet_enable(void)
 {
+	unsigned long flags;
+
 	printk(KERN_INFO "brcm-pm: enabling power to ENET block\n");
+
+	spin_lock_irqsave(&g_magnum_spinlock, flags);
+
+#if defined(BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK)
+	BDEV_UNSET(BCHP_VCXO_CTL_MISC_EREF_CTRL,
+		BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK);
+	BDEV_RD(BCHP_VCXO_CTL_MISC_EREF_CTRL);
+#endif
 
 #if defined(BCHP_CLK_PM_CTRL_2_DIS_ENET_216M_CLK_MASK)
 	BDEV_UNSET(BCHP_CLK_PM_CTRL_2,
@@ -189,21 +248,60 @@ static void enet_enable(void)
 	BDEV_RD(BCHP_CLK_PM_CTRL_1);
 #endif
 
+#if defined(BCHP_CLKGEN_PWRDN_CTRL_2_PWRDN_CLOCK_25_CG_ENET_MASK)
+	BDEV_UNSET(BCHP_CLKGEN_PWRDN_CTRL_2,
+		BCHP_CLKGEN_PWRDN_CTRL_2_PWRDN_CLOCK_25_CG_ENET_MASK);
+	BDEV_RD(BCHP_CLKGEN_PWRDN_CTRL_2);
+#endif
+
 #if defined(BCHP_CLKGEN_PWRDN_CTRL_3_PWRDN_CLOCK_25_CG_ENET_MASK)
 	BDEV_UNSET(BCHP_CLKGEN_PWRDN_CTRL_3,
 		BCHP_CLKGEN_PWRDN_CTRL_3_PWRDN_CLOCK_25_CG_ENET_MASK);
 	BDEV_RD(BCHP_CLKGEN_PWRDN_CTRL_3);
 #endif
+	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
+
+	/* exit PHY IDDQ mode */
+	if(! (BDEV_RD(CONTROL) & 0x08)) {
+		brcm_mii_write(0x1f, 0x008b);
+		brcm_mii_write(0x10, 0x0000);
+		brcm_mii_write(0x14, 0x0000);
+		brcm_mii_write(0x1f, 0x000f);
+		brcm_mii_write(0x10, 0x00d0);
+		brcm_mii_write(0x1f, 0x000b);
+	}
 }
 
 static void enet_disable(void)
 {
+	unsigned long flags;
+
 	printk(KERN_INFO "brcm-pm: disabling power to ENET block\n");
+
+	/* enter PHY IDDQ mode */
+	if(! (BDEV_RD(CONTROL) & 0x08)) {
+		if((BDEV_RD(MII_S_C) & 0x3f) == 0)
+			BDEV_WR(MII_S_C, 0x9f);
+		brcm_mii_write(0x1f, 0x008b);
+		brcm_mii_write(0x10, 0x01c0);
+		brcm_mii_write(0x14, 0x7000);
+		brcm_mii_write(0x1f, 0x000f);
+		brcm_mii_write(0x10, 0x20d0);
+		brcm_mii_write(0x1f, 0x000b);
+	}
+
+	spin_lock_irqsave(&g_magnum_spinlock, flags);
 
 #if defined(BCHP_CLKGEN_PWRDN_CTRL_3_PWRDN_CLOCK_25_CG_ENET_MASK)
 	BDEV_SET(BCHP_CLKGEN_PWRDN_CTRL_3,
 		BCHP_CLKGEN_PWRDN_CTRL_3_PWRDN_CLOCK_25_CG_ENET_MASK);
 	BDEV_RD(BCHP_CLKGEN_PWRDN_CTRL_3);
+#endif
+
+#if defined(BCHP_CLKGEN_PWRDN_CTRL_2_PWRDN_CLOCK_25_CG_ENET_MASK)
+	BDEV_SET(BCHP_CLKGEN_PWRDN_CTRL_2,
+		BCHP_CLKGEN_PWRDN_CTRL_2_PWRDN_CLOCK_25_CG_ENET_MASK);
+	BDEV_RD(BCHP_CLKGEN_PWRDN_CTRL_2);
 #endif
 
 #if defined(BCHP_CLK_PM_CTRL_1_DIS_ENET_25M_CLK_MASK)
@@ -235,12 +333,22 @@ static void enet_disable(void)
 	BDEV_RD(BCHP_CLK_PM_CTRL_2);
 #endif
 
+#if defined(BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK)
+	BDEV_SET(BCHP_VCXO_CTL_MISC_EREF_CTRL,
+		BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK);
+	BDEV_RD(BCHP_VCXO_CTL_MISC_EREF_CTRL);
+#endif
+	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
 }
 
 static void sata_enable(void)
 {
 #if defined(BRCM_SATA_SUPPORTED)
+	unsigned long flags;
+
 	printk(KERN_INFO "brcm-pm: enabling power to SATA block\n");
+
+	spin_lock_irqsave(&g_magnum_spinlock, flags);
 
 #if defined(BCHP_CLK_PM_CTRL_2_DIS_SATA_PCI_CLK_MASK)
 	BDEV_UNSET(BCHP_CLK_PM_CTRL_2,
@@ -264,13 +372,18 @@ static void sata_enable(void)
 		BCHP_SUN_TOP_CTRL_GENERAL_CTRL_1_sata_ana_pwrdn_MASK);
 	BDEV_RD(BCHP_SUN_TOP_CTRL_GENERAL_CTRL_1);
 #endif
-#endif
+	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
+#endif /* BRCM_SATA_SUPPORTED */
 }
 
 static void sata_disable(void)
 {
 #if defined(BRCM_SATA_SUPPORTED)
+	unsigned long flags;
+
 	printk(KERN_INFO "brcm-pm: disabling power to SATA block\n");
+
+	spin_lock_irqsave(&g_magnum_spinlock, flags);
 
 #if defined(BCHP_SUN_TOP_CTRL_GENERAL_CTRL_1_sata_ana_pwrdn_MASK)
 	BDEV_SET(BCHP_SUN_TOP_CTRL_GENERAL_CTRL_1,
@@ -294,7 +407,8 @@ static void sata_disable(void)
 		BCHP_CLK_PM_CTRL_2_DIS_SATA_216M_CLK_MASK);
 	BDEV_RD(BCHP_CLK_PM_CTRL_2);
 #endif
-#endif
+	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
+#endif /* BRCM_SATA_SUPPORTED */
 }
 
 /*

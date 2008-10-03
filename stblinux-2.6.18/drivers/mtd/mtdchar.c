@@ -18,6 +18,10 @@
 
 #include <asm/uaccess.h>
 
+#ifdef MTD_LARGE
+#include <linux/mtd/mtd64.h>
+#endif
+
 static struct class *mtd_class;
 
 static void mtd_notify_add(struct mtd_info* mtd)
@@ -68,14 +72,25 @@ static loff_t mtd_lseek (struct file *file, loff_t offset, int orig)
 		offset += file->f_pos;
 		break;
 	case SEEK_END:
+#ifdef MTD_LARGE
+		offset += MTD_SIZE(mtd);
+#else
 		offset += mtd->size;
+#endif
 		break;
 	default:
 		return -EINVAL;
 	}
 
+
+#ifdef MTD_LARGE
+	if (offset >= 0 && mtd64_is_lteq(offset, MTD_SIZE(mtd)))
+		return file->f_pos = offset;
+#else
 	if (offset >= 0 && offset <= mtd->size)
 		return file->f_pos = offset;
+#endif
+
 
 	return -EINVAL;
 }
@@ -161,8 +176,13 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 
 	DEBUG(MTD_DEBUG_LEVEL0,"MTD_read\n");
 
+#ifdef MTD_LARGE
+	if (mtd64_is_greater(*ppos + count, MTD_SIZE(mtd)))
+		count = MTD_SIZE(mtd) - *ppos;
+#else
 	if (*ppos + count > mtd->size)
 		count = mtd->size - *ppos;
+#endif
 
 	if (!count)
 		return 0;
@@ -252,12 +272,21 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 	int ret=0;
 	int len;
 
+	DEBUG(MTD_DEBUG_LEVEL0,"MTD_write\n");
 
+#ifdef MTD_LARGE
+	if (mtd64_equals(*ppos, MTD_SIZE(mtd)))
+		return -ENOSPC;
+
+	if (mtd64_is_greater(*ppos + count, MTD_SIZE(mtd)))
+		count = MTD_SIZE(mtd) - *ppos;
+#else
 	if (*ppos == mtd->size)
 		return -ENOSPC;
 
 	if (*ppos + count > mtd->size)
 		count = mtd->size - *ppos;
+#endif
 
 	if (!count)
 		return 0;
@@ -303,14 +332,12 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 			ops.oobbuf = NULL;
 			ops.len = len;
 
-	DEBUG(MTD_DEBUG_LEVEL0,"MTD_write_oob(%08x, len=%d)\n", *ppos, len);
 			ret = mtd->write_oob(mtd, *ppos, &ops);
 			retlen = ops.retlen;
 			break;
 		}
 
 		default:
-	DEBUG(MTD_DEBUG_LEVEL0,"MTD_write(%08x, len=%d)\n", *ppos, len);
 			ret = (*(mtd->write))(mtd, *ppos, len, &retlen, kbuf);
 		}
 		if (!ret) {
@@ -415,7 +442,11 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 	case MEMGETINFO:
 		info.type	= mtd->type;
 		info.flags	= mtd->flags;
+#ifdef MTD_LARGE
+		info.size	= MTD_SIZE(mtd);
+#else
 		info.size	= mtd->size;
+#endif
 		info.erasesize	= mtd->erasesize;
 		info.writesize	= mtd->writesize;
 		info.oobsize	= mtd->oobsize;
@@ -502,7 +533,11 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 
 		ops.len = buf.length;
 		ops.ooblen = buf.length;
+#ifdef MTD_LARGE
+		ops.ooboffs = mtd64_ll_low(buf.start) & (mtd->oobsize - 1);
+#else
 		ops.ooboffs = buf.start & (mtd->oobsize - 1);
+#endif
 		ops.datbuf = NULL;
 		ops.mode = MTD_OOB_PLACE;
 
@@ -518,12 +553,23 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 			return -EFAULT;
 		}
 
+#ifdef MTD_LARGE
+		buf.start = mtd64_and(buf.start, (uint64_t) (~(mtd->oobsize - 1)));
+#else
 		buf.start &= ~(mtd->oobsize - 1);
+#endif
 		ret = mtd->write_oob(mtd, buf.start, &ops);
 
+#ifdef MTD_LARGE
+		if (copy_to_user(argp + sizeof(uint64_t), &ops.retlen,
+				 sizeof(uint64_t)))
+#else
 		if (copy_to_user(argp + sizeof(uint32_t), &ops.retlen,
 				 sizeof(uint32_t)))
+#endif
+		{
 			ret = -EFAULT;
+		}
 
 		kfree(ops.oobbuf);
 		break;
@@ -549,27 +595,39 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 		if (ret)
 			return ret;
 
+
 		ops.len = buf.length;
 		ops.ooblen = buf.length;
+#ifdef MTD_LARGE
+		ops.ooboffs = mtd64_ll_low(buf.start) & (mtd->oobsize - 1);
+#else
 		ops.ooboffs = buf.start & (mtd->oobsize - 1);
+#endif
 		ops.datbuf = NULL;
 		ops.mode = MTD_OOB_PLACE;
 
 		if (ops.ooboffs && ops.len > (mtd->oobsize - ops.ooboffs))
 			return -EINVAL;
 
+
 		ops.oobbuf = kmalloc(buf.length, GFP_KERNEL);
 		if (!ops.oobbuf)
 			return -ENOMEM;
 
+#ifdef MTD_LARGE
+		buf.start = mtd64_and(buf.start, (uint64_t) (~(mtd->oobsize - 1)));
+#else
 		buf.start &= ~(mtd->oobsize - 1);
+#endif
 		ret = mtd->read_oob(mtd, buf.start, &ops);
 
-		if (put_user(ops.retlen, (uint32_t __user *)argp))
+		if (put_user(ops.retlen, (uint32_t __user *)argp)) {
 			ret = -EFAULT;
+		}
 		else if (ops.retlen && copy_to_user(buf.ptr, ops.oobbuf,
-						    ops.retlen))
+						    ops.retlen)) {
 			ret = -EFAULT;
+		}
 
 		kfree(ops.oobbuf);
 		break;

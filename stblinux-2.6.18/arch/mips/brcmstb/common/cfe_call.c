@@ -28,6 +28,7 @@
 
 #include "../common/cfe_xiocb.h"
 #include <asm/brcmstb/common/cfe_call.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 extern unsigned int cfe_seal;
 
@@ -94,6 +95,7 @@ int get_cfe_hw_info(cfe_xiocb_t* cfe_boardinfo)
 
 /* NOTE: do not put this on the stack.  It can exceed 3kB. */
 static cfe_xiocb_t cfeparam;
+char cfe_boardname[CFE_BOARDNAME_MAX_LEN];
 
 /*
  * ethHwAddrs is an array of 16 uchar arrays, each of length 6, allocated by the caller
@@ -106,30 +108,29 @@ int get_cfe_boot_parms( char bootParms[], int* numAddrs, unsigned char* ethHwAdd
 	 * This string can be whatever you want, as long
 	 * as it is * consistant both within CFE and here.
 	 */
-	const char* cfe_env = "BOOT_FLAGS";
+	const char *cfe_env = "BOOT_FLAGS";
 #ifdef CONFIG_MTD_BRCMNAND
-	const char* eth0HwAddr_env = "ETH0_HWADDR";
+	const char *eth0HwAddr_env = "ETH0_HWADDR";
 #endif
+	const char *boardname_env = "CFE_BOARDNAME";
 	int res;
-	char msg[128];
 
-{
+	res = get_cfe_env_variable(&cfeparam,
+		(void *)cfe_env,   strlen(cfe_env),
+		(void *)bootParms, CFE_CMDLINE_BUFLEN);
 
-    res = get_cfe_env_variable(&cfeparam,
-				   (void *)cfe_env,   strlen(cfe_env),
-				   (void *)bootParms, CFE_CMDLINE_BUFLEN);
-
-	if (res){
-		uart_puts( "No arguments presented to boot command\n" );
+	if (res) {
+		printk("No arguments presented to boot command\n");
 		res = -1;
-	}
-	else{
-		/* The kernel only takes 256 bytes, but CFE buffer can get up to 1024 bytes */
+	} else {
+		/*
+		 * The kernel only takes 256 bytes, but CFE buffer can
+		 * get up to 1024 bytes
+		 */
 		if (strlen(bootParms) >= COMMAND_LINE_SIZE) {
 			int i;
-			sprintf(msg, "Warnings, CFE boot params truncated to %d bytes\n",
-				COMMAND_LINE_SIZE);
-			uart_puts(msg);
+			printk("warning: kernel command line truncated to "
+				"%d bytes\n", COMMAND_LINE_SIZE);
 			for (i=COMMAND_LINE_SIZE-1; i>=0; i--) {
 				if (isspace(bootParms[i])) {
 					bootParms[i] = '\0';
@@ -139,7 +140,24 @@ int get_cfe_boot_parms( char bootParms[], int* numAddrs, unsigned char* ethHwAdd
 		}	
 		res = 0;
 	}
-}
+
+	res = get_cfe_env_variable(&cfeparam,
+		(void *)boardname_env, strlen(boardname_env),
+		(void *)cfe_boardname, CFE_BOARDNAME_MAX_LEN);
+	if(res == 0) {
+#if defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7400) || \
+	defined(CONFIG_MIPS_BCM7403) || defined(CONFIG_MIPS_BCM7405)
+		/* autodetect 97455, 97456, 97458, 97459 DOCSIS boards */
+		if(strncmp("BCM9745", cfe_boardname, 7) == 0)
+			brcm_docsis_platform = 1;
+#endif
+
+#if defined(CONFIG_MIPS_BCM7405)
+		/* autodetect 97405-MSG board (special MII configuration) */
+		if(strstr(cfe_boardname, "_MSG") != NULL)
+			brcm_enet_no_mdio = 1;
+#endif
+	}
 
 #ifdef CONFIG_MTD_BRCMNAND
 if (ethHwAddrs != NULL) {
@@ -162,8 +180,8 @@ if (ethHwAddrs != NULL) {
 	}
 	else {
 		if (strlen(eth0HwAddr) >= ETH_HWADDR_LEN*(*numAddrs)) {
-			sprintf(msg, "Warnings, CFE boot params truncated to %d\n", ETH_HWADDR_LEN);
-			uart_puts(msg);
+			printk("warning: CFE ETH0_HWADDR truncated to "
+				"%d bytes\n", ETH_HWADDR_LEN);
 			
 			eth0HwAddr[ETH_HWADDR_LEN-1] = '\0';
 		}	
@@ -199,6 +217,3 @@ if (ethHwAddrs != NULL) {
 
 	return res;
 }
-
-
-

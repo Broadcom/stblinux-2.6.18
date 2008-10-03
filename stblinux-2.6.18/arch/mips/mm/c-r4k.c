@@ -182,8 +182,8 @@ void cache_printstats(struct seq_file *m)
 
 #else
 
-#define CACHE_ENTER(x) do { } while(0)
-#define CACHE_EXIT(x)  do { } while(0)
+#define CACHE_ENTER(x)	 	do { } while(0)
+#define CACHE_EXIT(x)  		do { } while(0)
 #define CACHE_COUNT(x)  	do { } while(0)
 #endif
 
@@ -1526,6 +1526,14 @@ extern int r5k_sc_init(void);
 extern int rm7k_sc_init(void);
 extern int mips_sc_init(void);
 
+#if defined(CONFIG_BRCM_SCM_L2)
+static unsigned long read_scm_reg(unsigned long addr)
+{
+	cache_op(Index_Load_Tag_S, addr);
+	return(read_c0_staglo());
+}
+#endif
+
 static void __init setup_scache(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
@@ -1582,6 +1590,16 @@ static void __init setup_scache(void)
 				printk("MIPS secondary cache %ldkB, %s, linesize %d bytes.\n",
 				       scache_size >> 10,
 				       way_string[c->scache.ways], c->scache.linesz);
+#if defined(CONFIG_BRCM_SCM_L2)
+				printk("SCM configuration: %08lx %08lx %08lx "
+					"%08lx %08lx %08lx\n",
+					read_scm_reg(0x90000000),
+					read_scm_reg(0x90200000),
+					read_scm_reg(0x90400000),
+					read_scm_reg(0x90600000),
+					read_scm_reg(0x90800000),
+					read_scm_reg(0x90a00000));
+#endif
 			}
 #else
 			if (!(c->scache.flags & MIPS_CACHE_NOT_PRESENT))
@@ -1662,10 +1680,6 @@ static inline void coherency_setup(void)
 		break;
 	}
 }
-
-#if defined(CONFIG_BRCM_SCM_L2)
-unsigned int read_scm_reg(unsigned int reg);
-#endif
 
 void __init r4k_cache_init(void)
 {
@@ -1764,11 +1778,4 @@ void __init r4k_cache_init(void)
 	build_copy_page();
 	local_r4k___flush_cache_all(NULL);
 	coherency_setup();
-
-#if defined(CONFIG_BRCM_SCM_L2)
-	printk("SCM setting: 0x9000,0000: 0x%08lx\t0x9020,0000: 0x%08lx\t0x9040,0000: 0x%08lx\n", 
-									read_scm_reg(0x90000000), 
-									read_scm_reg(0x90200000),
-									read_scm_reg(0x90400000));
-#endif
 }

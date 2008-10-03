@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.18-5.2
-# Mon Jul 28 17:22:31 2008
+# Linux kernel version: 2.6.18-6.0
+# Thu Aug 21 12:49:46 2008
 #
 CONFIG_MIPS=y
 
@@ -103,6 +103,7 @@ CONFIG_MIPS_BCM7325AX=y
 # CONFIG_TOSHIBA_RBTX4938 is not set
 CONFIG_BRCM_BUILD_TARGET="unknown"
 CONFIG_LONG_LONG_SUPPORT=y
+CONFIG_BRCM_COMMON_PCI=y
 CONFIG_RWSEM_GENERIC_SPINLOCK=y
 CONFIG_GENERIC_FIND_NEXT_BIT=y
 CONFIG_GENERIC_HWEIGHT=y
@@ -129,7 +130,13 @@ CONFIG_MIPS_BRCM=y
 # CONFIG_BRCM_7XXX_SERIAL is not set
 CONFIG_SERIAL=y
 CONFIG_BRCM_SKIP_CHECK_BOOTROM=y
-CONFIG_MIPS_L1_CACHE_SHIFT=7
+CONFIG_MIPS_L1_CACHE_SHIFT=5
+CONFIG_SYS_SUPPORTS_PM=y
+
+#
+# Power management
+#
+CONFIG_BRCM_PM=y
 
 #
 # CPU selection
@@ -295,6 +302,8 @@ CONFIG_DEFAULT_IOSCHED="anticipatory"
 #
 # Bus options (PCI, PCMCIA, EISA, ISA, TC)
 #
+CONFIG_HW_HAS_PCI=y
+CONFIG_PCI=y
 CONFIG_MMU=y
 
 #
@@ -305,6 +314,7 @@ CONFIG_MMU=y
 #
 # PCI Hotplug Support
 #
+# CONFIG_HOTPLUG_PCI is not set
 
 #
 # Executable file formats
@@ -478,6 +488,7 @@ CONFIG_MTD_BCM7XXX=y
 #
 # Self-contained MTD device drivers
 #
+# CONFIG_MTD_PMC551 is not set
 # CONFIG_MTD_SLRAM is not set
 # CONFIG_MTD_PHRAM is not set
 # CONFIG_MTD_MTDRAM is not set
@@ -513,10 +524,15 @@ CONFIG_MTD_BCM7XXX=y
 #
 # Block devices
 #
+# CONFIG_BLK_CPQ_DA is not set
+# CONFIG_BLK_CPQ_CISS_DA is not set
+# CONFIG_BLK_DEV_DAC960 is not set
+# CONFIG_BLK_DEV_UMEM is not set
 # CONFIG_BLK_DEV_COW_COMMON is not set
 CONFIG_BLK_DEV_LOOP=y
 # CONFIG_BLK_DEV_CRYPTOLOOP is not set
 # CONFIG_BLK_DEV_NBD is not set
+# CONFIG_BLK_DEV_SX8 is not set
 # CONFIG_BLK_DEV_UB is not set
 CONFIG_BLK_DEV_RAM=y
 CONFIG_BLK_DEV_RAM_COUNT=16
@@ -525,11 +541,6 @@ CONFIG_BLK_DEV_RAM_BLOCKSIZE=1024
 CONFIG_BLK_DEV_INITRD=y
 # CONFIG_CDROM_PKTCDVD is not set
 # CONFIG_ATA_OVER_ETH is not set
-
-#
-# ATA/ATAPI/MFM/RLL support
-#
-# CONFIG_IDE is not set
 
 #
 # SCSI device support
@@ -568,6 +579,30 @@ CONFIG_CHR_DEV_SG=m
 # SCSI low-level drivers
 #
 # CONFIG_ISCSI_TCP is not set
+# CONFIG_BLK_DEV_3W_XXXX_RAID is not set
+# CONFIG_SCSI_3W_9XXX is not set
+# CONFIG_SCSI_ACARD is not set
+# CONFIG_SCSI_AACRAID is not set
+# CONFIG_SCSI_AIC7XXX is not set
+# CONFIG_SCSI_AIC7XXX_OLD is not set
+# CONFIG_SCSI_AIC79XX is not set
+# CONFIG_SCSI_DPT_I2O is not set
+# CONFIG_MEGARAID_NEWGEN is not set
+# CONFIG_MEGARAID_LEGACY is not set
+# CONFIG_MEGARAID_SAS is not set
+# CONFIG_SCSI_DMX3191D is not set
+# CONFIG_SCSI_FUTURE_DOMAIN is not set
+# CONFIG_SCSI_IPS is not set
+# CONFIG_SCSI_INITIO is not set
+# CONFIG_SCSI_INIA100 is not set
+# CONFIG_SCSI_SYM53C8XX_2 is not set
+# CONFIG_SCSI_IPR is not set
+# CONFIG_SCSI_QLOGIC_1280 is not set
+# CONFIG_SCSI_QLA_FC is not set
+# CONFIG_SCSI_LPFC is not set
+# CONFIG_SCSI_DC395x is not set
+# CONFIG_SCSI_DC390T is not set
+# CONFIG_SCSI_NSP32 is not set
 # CONFIG_SCSI_DEBUG is not set
 
 #
@@ -584,14 +619,19 @@ CONFIG_CHR_DEV_SG=m
 # Fusion MPT device support
 #
 # CONFIG_FUSION is not set
+# CONFIG_FUSION_SPI is not set
+# CONFIG_FUSION_FC is not set
+# CONFIG_FUSION_SAS is not set
 
 #
 # IEEE 1394 (FireWire) support
 #
+# CONFIG_IEEE1394 is not set
 
 #
 # I2O device support
 #
+# CONFIG_I2O is not set
 
 #
 # Network device support
@@ -602,6 +642,11 @@ CONFIG_NETIF_DMA=y
 # CONFIG_BONDING is not set
 # CONFIG_EQUALIZER is not set
 # CONFIG_TUN is not set
+
+#
+# ARCnet devices
+#
+# CONFIG_ARCNET is not set
 
 #
 # PHY device support
@@ -616,19 +661,48 @@ CONFIG_MII=y
 CONFIG_BCMINTEMAC_7038=y
 CONFIG_BCMINTEMAC_7038_STREAMING=y
 # CONFIG_BCMINTEMAC_7038_EXTMII is not set
+# CONFIG_HAPPYMEAL is not set
+# CONFIG_SUNGEM is not set
+# CONFIG_CASSINI is not set
+# CONFIG_NET_VENDOR_3COM is not set
 # CONFIG_DM9000 is not set
+
+#
+# Tulip family network device support
+#
+# CONFIG_NET_TULIP is not set
+# CONFIG_HP100 is not set
+# CONFIG_NET_PCI is not set
 
 #
 # Ethernet (1000 Mbit)
 #
+# CONFIG_ACENIC is not set
+# CONFIG_DL2K is not set
+# CONFIG_E1000 is not set
+# CONFIG_NS83820 is not set
+# CONFIG_HAMACHI is not set
+# CONFIG_YELLOWFIN is not set
+# CONFIG_R8169 is not set
+# CONFIG_SIS190 is not set
+# CONFIG_SKGE is not set
+# CONFIG_SKY2 is not set
+# CONFIG_SK98LIN is not set
+# CONFIG_TIGON3 is not set
+# CONFIG_BNX2 is not set
 
 #
 # Ethernet (10000 Mbit)
 #
+# CONFIG_CHELSIO_T1 is not set
+# CONFIG_IXGB is not set
+# CONFIG_S2IO is not set
+# CONFIG_MYRI10GE is not set
 
 #
 # Token Ring devices
 #
+# CONFIG_TR is not set
 
 #
 # Wireless LAN (non-hamradio)
@@ -639,8 +713,11 @@ CONFIG_BCMINTEMAC_7038_STREAMING=y
 # Wan interfaces
 #
 # CONFIG_WAN is not set
+# CONFIG_FDDI is not set
+# CONFIG_HIPPI is not set
 # CONFIG_PPP is not set
 # CONFIG_SLIP is not set
+# CONFIG_NET_FC is not set
 # CONFIG_SHAPER is not set
 # CONFIG_NETCONSOLE is not set
 # CONFIG_NETPOLL is not set
@@ -678,6 +755,7 @@ CONFIG_BCMINTEMAC_7038_STREAMING=y
 #
 CONFIG_SERIAL_8250=y
 CONFIG_SERIAL_8250_CONSOLE=y
+# CONFIG_SERIAL_8250_PCI is not set
 CONFIG_SERIAL_8250_NR_UARTS=0
 CONFIG_SERIAL_8250_RUNTIME_UARTS=0
 # CONFIG_SERIAL_8250_EXTENDED is not set
@@ -687,6 +765,7 @@ CONFIG_SERIAL_8250_RUNTIME_UARTS=0
 #
 CONFIG_SERIAL_CORE=y
 CONFIG_SERIAL_CORE_CONSOLE=y
+# CONFIG_SERIAL_JSM is not set
 CONFIG_UNIX98_PTYS=y
 # CONFIG_LEGACY_PTYS is not set
 
@@ -704,10 +783,12 @@ CONFIG_HW_RANDOM=y
 # CONFIG_GEN_RTC is not set
 # CONFIG_DTLK is not set
 # CONFIG_R3964 is not set
+# CONFIG_APPLICOM is not set
 
 #
 # Ftape, the floppy tape device driver
 #
+# CONFIG_DRM is not set
 # CONFIG_RAW_DRIVER is not set
 
 #
@@ -795,6 +876,7 @@ CONFIG_USB_EHCI_HCD=y
 CONFIG_USB_OHCI_HCD=y
 # CONFIG_USB_OHCI_BIG_ENDIAN is not set
 CONFIG_USB_OHCI_LITTLE_ENDIAN=y
+# CONFIG_USB_UHCI_HCD is not set
 # CONFIG_USB_SL811_HCD is not set
 CONFIG_USB_BRCM=y
 # CONFIG_USB_BRCM_PWR_CTL is not set
@@ -949,6 +1031,7 @@ CONFIG_USB_SERIAL_PL2303=m
 #
 # InfiniBand support
 #
+# CONFIG_INFINIBAND is not set
 
 #
 # EDAC - error detection and reporting (RAS) (EXPERIMENTAL)

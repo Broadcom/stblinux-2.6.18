@@ -55,9 +55,6 @@ static struct mtd_info *bcm9XXXX_mtd;
 extern int gBcmSplash;
 
 #ifdef CONFIG_MTD_COMPLEX_MAPPINGS
-extern int bcm7401Cx_rev;
-extern int bcm7118Ax_rev;
-extern int bcm7403Ax_rev;
 
 static DEFINE_SPINLOCK(bcm9XXXX_lock);
 
@@ -81,9 +78,8 @@ static inline void bcm9XXXX_map_copy_from_16bytes(void *to, unsigned long from, 
 static map_word bcm9XXXX_map_read(struct map_info *map, unsigned long ofs)
 {
 	/* if it is 7401C0, then we need this workaround */
-	if(bcm7401Cx_rev == 0x20 || bcm7118Ax_rev == 0x0 
-                                 || bcm7403Ax_rev == 0x20)
-	{	
+	if(brcm_ebi_war)
+	{
 		map_word r;
 		unsigned long flags;
 	
@@ -107,8 +103,7 @@ static map_word bcm9XXXX_map_read(struct map_info *map, unsigned long ofs)
 static void bcm9XXXX_map_copy_from(struct map_info *map, void *to, unsigned long from, ssize_t len)
 {
 	/* if it is 7401C0, then we need this workaround */
-	if(bcm7401Cx_rev == 0x20 || bcm7118Ax_rev == 0x0
-                                 || bcm7403Ax_rev == 0x20)
+	if(brcm_ebi_war)
 	{
 		if(len > 16)
 		{

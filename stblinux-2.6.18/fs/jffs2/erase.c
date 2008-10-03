@@ -199,7 +199,11 @@ static void jffs2_erase_callback(struct erase_info *instr)
 	struct erase_priv_struct *priv = (void *)instr->priv;
 
 	if(instr->state != MTD_ERASE_DONE) {
+#ifdef MTD_LARGE
+		printk(KERN_WARNING "Erase at 0x%016llx finished, but state != MTD_ERASE_DONE. State is 0x%x instead.\n", instr->addr, instr->state);
+#else
 		printk(KERN_WARNING "Erase at 0x%08x finished, but state != MTD_ERASE_DONE. State is 0x%x instead.\n", instr->addr, instr->state);
+#endif
 		jffs2_erase_failed(priv->c, priv->jeb, instr->fail_addr);
 	} else {
 		jffs2_erase_succeeded(priv->c, priv->jeb);
@@ -378,6 +382,7 @@ static void jffs2_mark_erased_block(struct jffs2_sb_info *c, struct jffs2_eraseb
 	/* Cleanmarker in oob area or no cleanmarker at all ? */
 	if (jffs2_cleanmarker_oob(c) || c->cleanmarker_size == 0) {
 
+		/* We only write cleanmarker in case of SLC NAND */
 		if (jffs2_cleanmarker_oob(c)) {
 			if (jffs2_write_nand_cleanmarker(c, jeb))
 				goto filebad;

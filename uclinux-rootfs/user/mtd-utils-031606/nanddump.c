@@ -13,6 +13,9 @@
  *  Overview:
  *   This utility dumps the contents of raw NAND chips or NAND
  *   chips contained in DoC devices.
+ *   
+ * sidc - Changes for 4GB+ NAND flash support. Compiled with -DLFS
+ *        to make sizeof(off_t) 64bit.
  */
 
 #define _GNU_SOURCE
@@ -68,8 +71,12 @@ void display_version (void)
 int 	ignoreerrors;		// ignore errors
 int 	pretty_print;		// print nice in ascii
 int 	omitoob;		// omit oob data
-unsigned long	start_addr;	// start address
+off_t 	start_addr;		// start address
+#ifdef __USE_FILE_OFFSET64
+unsigned long long	length;		// dump length
+#else
 unsigned long	length;		// dump length
+#endif
 char    *mtddev;		// mtd device name
 char    *dumpfile;		// dump file name
 int	omitbad;
@@ -114,7 +121,11 @@ void process_options (int argc, char *argv[])
 			omitbad = 1;
 			break;
 		case 's':
+#ifdef __USE_FILE_OFFSET64
+			start_addr = atoll(optarg);
+#else
 			start_addr = atol(optarg);
+#endif
 			break;
 		case 'f':
 			if (!(dumpfile = strdup(optarg))) {
@@ -126,7 +137,11 @@ void process_options (int argc, char *argv[])
 			ignoreerrors = 1;
 			break;
 		case 'l':
+#ifdef __USE_FILE_OFFSET64
+			length = atoll(optarg);
+#else
 			length = atol(optarg);
+#endif
 			break;
 		case 'o':
 			omitoob = 1;
@@ -149,15 +164,15 @@ void process_options (int argc, char *argv[])
 /*
  * Buffers for reading data from flash
  */
-unsigned char readbuf[2048];
-unsigned char oobbuf[64];
+unsigned char readbuf[4096];
+unsigned char oobbuf[128];
 
 /*
  * Main program
  */
 int main(int argc, char **argv)
 {
-	unsigned long ofs, end_addr = 0;
+	off_t ofs, end_addr = 0;
 	unsigned long long blockstart = 1;
 	int i, fd, ofd, bs, badblock = 0;
 	struct mtd_oob_buf oob = {0, 16, oobbuf};
@@ -180,7 +195,8 @@ int main(int argc, char **argv)
 	}
 
 	/* Make sure device page sizes are valid */
-	if (!(meminfo.oobsize == 64 && meminfo.writesize == 2048) &&
+	if (!(meminfo.oobsize == 128 && meminfo.writesize == 4096) &&
+	    !(meminfo.oobsize == 64 && meminfo.writesize == 2048) &&
 	    !(meminfo.oobsize == 16 && meminfo.writesize == 512) &&
 	    !(meminfo.oobsize == 8 && meminfo.writesize == 256)) {
 		fprintf(stderr, "Unknown flash (not normal NAND)\n");
@@ -209,15 +225,20 @@ int main(int argc, char **argv)
 
 	/* Print informative message */
 	fprintf(stderr, "Block size %u, page size %u, OOB size %u\n", meminfo.erasesize, meminfo.writesize, meminfo.oobsize);
+#ifdef __USE_FILE_OFFSET64
+	fprintf(stderr, "Dumping data starting at 0x%llx and ending at 0x%llx...\n",
+	         start_addr, end_addr);
+#else
 	fprintf(stderr, "Dumping data starting at 0x%08x and ending at 0x%08x...\n",
 	        (unsigned int) start_addr, (unsigned int) end_addr);
+#endif
 
 	/* Dump the flash contents */
 	for (ofs = start_addr; ofs < end_addr ; ofs+=bs) {
 
 		// new eraseblock , check for bad block
-		if (blockstart != (ofs & (~meminfo.erasesize + 1))) {
-			blockstart = ofs & (~meminfo.erasesize + 1);
+		if (blockstart != (ofs & ((uint64_t)(~meminfo.erasesize + 1)))) {
+			blockstart = ofs & ((uint64_t)(~meminfo.erasesize + 1));
 			if ((badblock = ioctl(fd, MEMGETBADBLOCK, &blockstart)) < 0) {
 				perror("ioctl(MEMGETBADBLOCK)");
 				goto closeall;
@@ -230,7 +251,7 @@ int main(int argc, char **argv)
 			memset (readbuf, 0xff, bs);
 		} else {
 			/* Read page data and exit on failure */
-			if (pread(fd, readbuf, bs, ofs) != bs) {
+			if (pread(fd, readbuf, bs, (off_t) ofs) != bs) {
 				perror("pread");
 				goto closeall;
 			}

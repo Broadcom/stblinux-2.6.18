@@ -12,11 +12,14 @@ ifeq ($(CONFIG_CPU_LITTLE_ENDIAN),y)
 else
 	TARGET_ENDIAN = __MIPSEB__
 endif
-MY_CFLAGS = -I. -I$(ROOTDIR)/$(LINUXDIR)/include -D $(TARGET_ENDIAN)
+# THT Add support for 64bit offset for flash devices
+LFS_FLAGS= -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 -D__USE_LARGEFILE64 -D__USE_UNIX98
+MY_CFLAGS = -I. -I$(ROOTDIR)/$(LINUXDIR)/include -D $(TARGET_ENDIAN) $(LFS_FLAGS)
 BUILD_CFLAGS += $(MY_CFLAGS)
 BUILD_CC = gcc
 #CFLAGS += -I. -I$(ROOTDIR)/$(LINUXDIR)/include $(INCZ) -D__USE_BSD
-CFLAGS += -I. $(INCZ) -D__USE_BSD
+# THT: Keep -D__USE_BSD for endian macros.  This should not conflict with __USE_UNIX98
+CFLAGS += -I. $(INCZ) $(LFS_FLAGS) -D__USE_BSD
 LDPATH += -L$(ROOTDIR)/lib/zlib
 
 TARGETS = flash_erase flash_eraseall flash_lock flash_unlock flash_info mtd_debug flashcp \
@@ -30,6 +33,7 @@ TARGETS += nftl_format nftldump
 endif
 ifneq ($(CONFIG_MTD_BRCMNAND),)
 TARGETS +=  nandwrite
+TARGETS +=  nanddump
 HOST_TARGETS += nanddump
 endif
 ifneq ($(CONFIG_JFFS_FS),)

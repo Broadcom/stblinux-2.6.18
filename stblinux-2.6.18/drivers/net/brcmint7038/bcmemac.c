@@ -1842,7 +1842,9 @@ static int init_emac(BcmEnet_devctrl *pDevCtrl)
 #ifdef CONFIG_MIPS_BCM97401CX_SW
     if (pDevCtrl->EnetInfo.ucPhyType == BP_ENET_EXTERNAL_SWITCH) {
 
+	spin_lock_irq(&g_magnum_spinlock);
 	BDEV_WR_ARRAY(MII_PINMUX_SETUP);
+	spin_unlock_irq(&g_magnum_spinlock);
 
         // reset the Ethernet Switch
 	// Force gpio45 to output direction (forcing bit 13 to 0)
@@ -3050,6 +3052,9 @@ static int __init bcmemac_module_init(void)
 {
     int status = 0, phy_id = BCMEMAC_NO_PHY_ID;
 
+    if(brcm_enet_enabled == 0)
+        return(-ENODEV);
+
 #ifdef CONFIG_BRCM_PM
     brcm_pm_enet_add();
     brcm_pm_register_enet(bcmemac_power_off, bcmemac_power_on, NULL);
@@ -3058,7 +3063,9 @@ static int __init bcmemac_module_init(void)
 
 #if defined(CONFIG_BCMINTEMAC_7038_EXTMII)
     /* set up pinmux (same code for EMAC_0 or EMAC_1) */
+    spin_lock_irq(&g_magnum_spinlock);
     BDEV_WR_ARRAY(MII_PINMUX_SETUP);
+    spin_unlock_irq(&g_magnum_spinlock);
 #if ! defined(HAS_EMAC_1)
     /* if EMAC_0 is external, find the PHY first before creating the iface */
     phy_id = mii_probe(ENET_MAC_ADR_BASE);

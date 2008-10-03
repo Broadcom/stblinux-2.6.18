@@ -28,6 +28,7 @@
 #include <linux/ctype.h>
 #include <linux/init.h>
 #include <linux/mm.h>
+#include <linux/spinlock.h>
 #include <linux/module.h> // SYM EXPORT */
 #include <asm/bootinfo.h>
 //#include <asm/mmzone.h>
@@ -38,13 +39,30 @@
 unsigned int par_val = 0x00;	/* for RAC Mode setting, 0x00-Disabled, 0xD4-I&D Enabled, 0x94-I Only */
 unsigned int par_val2 = 0x00;	/* for RAC Cacheable Space setting */
 
+/* to protect accesses to shared registers, e.g. CLKGEN, PIN_MUX */
+DEFINE_SPINLOCK(g_magnum_spinlock);
+EXPORT_SYMBOL(g_magnum_spinlock);
+
 /* Enable SATA2 3Gbps, only works on 65nm chips (7400d0, 7405, 7335) no-op otherwise */
 int gSata2_3Gbps = 0;
 EXPORT_SYMBOL(gSata2_3Gbps);
 
-/* 97118 normal or RNG */
+/* SATA/ENET can be disabled through bond options */
 int brcm_sata_enabled = 0;
 EXPORT_SYMBOL(brcm_sata_enabled);
+
+int brcm_enet_enabled = 0;
+int brcm_enet_no_mdio = 0;
+EXPORT_SYMBOL(brcm_enet_enabled);
+EXPORT_SYMBOL(brcm_enet_no_mdio);
+
+/* DOCSIS platform (e.g. 97455) */
+int brcm_docsis_platform = 0;
+EXPORT_SYMBOL(brcm_docsis_platform);
+
+/* EBI bug workaround */
+int brcm_ebi_war = 0;
+EXPORT_SYMBOL(brcm_ebi_war);
 
 /* Customized flash size in MB */
 unsigned int gFlashSize = 0;	/* Default size on 97438 is 64 */
@@ -81,19 +99,6 @@ EXPORT_SYMBOL(gNumNand);
 /* SATA interpolation */
 int gSataInterpolation = 0;
 EXPORT_SYMBOL(gSataInterpolation);
-
-/* 7401Cx revision to decide whether C0 workaround is needed or not */
-int bcm7401Cx_rev = 0xFF;
-EXPORT_SYMBOL(bcm7401Cx_rev);
-
-/* 7118Ax revision to decide whether A0 workaround is needed or not */
-int bcm7118Ax_rev = 0xFF;
-EXPORT_SYMBOL(bcm7118Ax_rev);
-
-
-/* 7403Ax revision to decide whether A0 workaround is needed or not */
-int bcm7403Ax_rev = 0xFF;
-EXPORT_SYMBOL(bcm7403Ax_rev);
 
 #define MAX_HWADDR	16
 #define HW_ADDR_LEN	6
@@ -245,10 +250,16 @@ void __init prom_init(void)
 	brcm_sata_enabled = 1;
 #endif
 
+#ifdef BRCM_ENET_SUPPORTED
+	brcm_enet_enabled = 1;
+#endif
+
 #ifdef CONFIG_MIPS_BCM7118
 	/* detect 7118RNG board */
 	if( BDEV_RD(BCHP_CLKGEN_REG_START) == 0x1c )
 		brcm_sata_enabled = 0;
+	/* onchip DOCSIS owns the ENET */
+	brcm_enet_enabled = 0;
 #endif
 
 #ifdef CONFIG_MIPS_BCM7405
@@ -257,7 +268,7 @@ void __init prom_init(void)
 		BCHP_SUN_TOP_CTRL_OTP_OPTION_STATUS_otp_option_sata_disable_MASK)
 		brcm_sata_enabled = 0;
 #endif
-
+	
 #if defined(CONFIG_BMIPS3300)
 	// Set BIU to async mode
 	set_c0_brcm_bus_pll(1 << 22);
@@ -740,31 +751,18 @@ void __init prom_init(void)
 	clear_c0_brcm_config_0(1 << 21);
 #endif
 
-	if(bcm7401Cx_rev == 0xFF)
-	{
-		volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-        	unsigned long chipId = (*pSundryRev) >> 16;		
-		
-		if(chipId == 0x7401)
-		{
-			bcm7401Cx_rev = (*pSundryRev) & 0xFF;
-			sprintf(msg, "Sundry 0x%08x, chipId 0x%08lx, bcm7401Cx 0x%02x\n",  (int)pSundryRev, chipId, bcm7401Cx_rev);
-			uart_puts(msg);
-		}
-		else if(chipId == 0x7118)
-		{
-			bcm7118Ax_rev = (*pSundryRev) & 0xFF;
-			sprintf(msg, "Sundry 0x%08x, chipId 0x%08lx, bcm7118Ax 0x%02x\n",  (int)pSundryRev, chipId, bcm7118Ax_rev);
-			uart_puts(msg);
-		}
-		else if(chipId == 0x7403)
-		{
-			bcm7403Ax_rev = (*pSundryRev) & 0xFF;
-			sprintf(msg, "Sundry 0x%08x, chipId 0x%08lx, bcm7403Ax %02x\n",  (int)pSundryRev, chipId, bcm7403Ax_rev);
-			uart_puts(msg);
-		}
+	/* detect chips with EBI bug */
+#if defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7403)
+	if((BDEV_RD(BCHP_SUN_TOP_CTRL_PROD_REVISION) & 0xffff) == 0x20)
+		brcm_ebi_war = 1;
+#elif defined(CONFIG_MIPS_BCM7118)
+	if((BDEV_RD(BCHP_SUN_TOP_CTRL_PROD_REVISION) & 0xffff) == 0x00)
+		brcm_ebi_war = 1;
+#endif
 
-	}
+	printk("Options: sata=%d enet=%d no_mdio=%d docsis=%d ebi_war=%d\n",
+		brcm_sata_enabled, brcm_enet_enabled, brcm_enet_no_mdio,
+		brcm_docsis_platform, brcm_ebi_war);
 }
 
 const char *get_system_type(void)

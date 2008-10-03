@@ -13,13 +13,25 @@
 #define __user
 #endif
 
+#ifndef MTD_USER_LARGE
+#define MTD_USER_LARGE 1
+#endif
+
 struct erase_info_user {
+#ifdef MTD_USER_LARGE
+	uint64_t start;
+#else
 	uint32_t start;
+#endif
 	uint32_t length;
 };
 
 struct mtd_oob_buf {
+#ifdef MTD_USER_LARGE
+	uint64_t start;
+#else
 	uint32_t start;
+#endif
 	uint32_t length;
 	unsigned char __user *ptr;
 };
@@ -34,12 +46,20 @@ struct mtd_oob_buf {
 #define MTD_WRITEABLE		0x400	/* Device is writeable */
 #define MTD_BIT_WRITEABLE	0x800	/* Single bits can be flipped */
 #define MTD_NO_ERASE		0x1000	/* No erase necessary */
+#define MTD_STUPID_LOCK	0x2000	/* Always locked after reset */
+#define MTD_OOB_WRITEABLE	0x4000	/* Use Out-Of-Band area */
+
 
 // Some common devices / combinations of capabilities
 #define MTD_CAP_ROM		0
 #define MTD_CAP_RAM		(MTD_WRITEABLE | MTD_BIT_WRITEABLE | MTD_NO_ERASE)
 #define MTD_CAP_NORFLASH	(MTD_WRITEABLE | MTD_BIT_WRITEABLE)
-#define MTD_CAP_NANDFLASH	(MTD_WRITEABLE)
+#define MTD_CAP_NANDFLASH	(MTD_WRITEABLE | MTD_OOB_WRITEABLE)
+#define MTD_CAP_MLC_NANDFLASH (MTD_WRITEABLE)
+
+// High level MLC test, compared to low level defined in brcmnand.h
+#define MTD_IS_MLC(mtd) ((((mtd)->flags & MTD_CAP_MLC_NANDFLASH) == MTD_CAP_MLC_NANDFLASH) &&\
+			(((mtd)->flags & MTD_OOB_WRITEABLE) != MTD_OOB_WRITEABLE))
 
 
 // Types of automatic ECC/Checksum available
@@ -62,7 +82,11 @@ struct mtd_oob_buf {
 struct mtd_info_user {
 	uint8_t type;
 	uint32_t flags;
+#ifdef MTD_USER_LARGE
+	uint64_t size;  // Total blocks in MTD
+#else
 	uint32_t size;	 // Total size of the MTD
+#endif
 	uint32_t erasesize;
 	uint32_t writesize;
 	uint32_t oobsize;   // Amount of OOB data per block (e.g. 16)
@@ -71,8 +95,13 @@ struct mtd_info_user {
 };
 
 struct region_info_user {
+#ifdef MTD_USER_LARGE
+	uint64_t offset;		/* At which this region starts,
+					 * from the beginning of the MTD */
+#else
 	uint32_t offset;		/* At which this region starts,
 					 * from the beginning of the MTD */
+#endif
 	uint32_t erasesize;		/* For this region */
 	uint32_t numblocks;		/* Number of blocks in this region */
 	uint32_t regionindex;
@@ -112,7 +141,7 @@ struct nand_oobinfo {
 	uint32_t useecc;
 	uint32_t eccbytes;
 	uint32_t oobfree[8][2];
-	uint32_t eccpos[32];
+	uint32_t eccpos[64];
 };
 
 struct nand_oobfree {
@@ -120,14 +149,15 @@ struct nand_oobfree {
 	uint32_t length;
 };
 
-#define MTD_MAX_OOBFREE_ENTRIES	8
+#define MTD_MAX_OOBFREE_ENTRIES	9
+#define MTD_MAX_ECCPOS_ENTRIES	80	// Was 64 for SLC
 /*
  * ECC layout control structure. Exported to userspace for
  * diagnosis and to allow creation of raw images
  */
 struct nand_ecclayout {
 	uint32_t eccbytes;
-	uint32_t eccpos[64];
+	uint32_t eccpos[MTD_MAX_ECCPOS_ENTRIES];
 	uint32_t oobavail;
 	struct nand_oobfree oobfree[MTD_MAX_OOBFREE_ENTRIES];
 };

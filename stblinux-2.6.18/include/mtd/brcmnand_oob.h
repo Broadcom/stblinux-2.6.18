@@ -81,7 +81,60 @@ static struct nand_ecclayout brcmnand_oob_16 = {
 
 
 };
+
+/*
+ * 4K page MLC with BCH-4 ECC, uses 7 ECC bytes per 512B ECC step
+ */
+static struct nand_ecclayout brcmnand_oob_bch4_4k = {
+	.eccbytes	= 7*8,  /* 7*8 = 56 bytes */
+	.eccpos		= { 
+		9,10,11,12,13,14,15,
+		25,26,27,28,29,30,31,
+		41,42,43,44,45,46,47,
+		57,58,59,60,61,62,63,
+		73,74,75,76,77,78,79,
+		89,90,91,92,93,94,95,
+		105,106,107,108,109,110,111,
+		121,122,123,124,125,126,127
+		},
+	.oobfree	= { /* 0  used for BBT and/or manufacturer bad block marker, 
+	                    * first slice loses 1 byte for BBT */
+				{.offset=1, .length=8}, 		/* 1st slice loses byte 0 */
+				{.offset=16,.length=9}, 		/* 2nd slice  */
+				{.offset=32, .length=9},		/* 3rd slice  */
+				{.offset=48, .length=9},		/* 4th slice */
+				{.offset=64, .length=9},		/* 5th slice */
+				{.offset=80, .length=9},		/* 6th slice */
+				{.offset=96, .length=9},		/* 7th slice */
+				{.offset=112, .length=9},		/* 8th slice */
+	            		{.offset=0, .length=0}			/* End marker */
+			}
+};
+
+/*
+ * 2K page MLC with BCH-4 ECC, uses 7 ECC bytes per 512B ECC step
+ */
+static struct nand_ecclayout brcmnand_oob_bch4_2k = {
+	.eccbytes	= 7*8,  /* 7*8 = 56 bytes */
+	.eccpos		= { 
+		9,10,11,12,13,14,15,
+		25,26,27,28,29,30,31,
+		41,42,43,44,45,46,47,
+		57,58,59,60,61,62,63
+		},
+	.oobfree	= { /* 0  used for BBT and/or manufacturer bad block marker, 
+	                    * first slice loses 1 byte for BBT */
+				{.offset=1, .length=8}, 		/* 1st slice loses byte 0 */
+				{.offset=16,.length=9}, 		/* 2nd slice  */
+				{.offset=32, .length=9},		/* 3rd slice  */
+				{.offset=48, .length=9},		/* 4th slice */
+	            		{.offset=0, .length=0}			/* End marker */
+			}
+};
+
 #else
+/* MLC not supported in 2.6.12 */
+
 static struct nand_oobinfo brcmnand_oob_64 = {
 	.useecc		= MTD_NANDECC_AUTOPLACE,
 	.eccbytes	= 12,

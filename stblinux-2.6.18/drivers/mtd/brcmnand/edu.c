@@ -7,7 +7,11 @@
  * @author Jean Roberge
  *
  * @brief Prototypes for EDU Support Software
+ *
+ * LOG
+ * 7/30/08 tht Add handling of VM allocated buffers.
  */
+#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/module.h>
@@ -18,6 +22,14 @@
 
 #include <linux/byteorder/generic.h>
 
+/* THT: Needed for VM addresses */
+
+
+#include <linux/mm.h>
+#include <asm/page.h>
+
+
+
 #include <asm/brcmstb/brcm97440b0/bchp_nand.h>
 #include <asm/brcmstb/brcm97440b0/bchp_common.h>
 #include <asm/brcmstb/brcm97440b0/bchp_hif_intr2.h>
@@ -26,19 +38,103 @@
 #include <asm/bug.h>
 
 #include "edu.h"
+#include "eduproto.h"
 
 #include <linux/mtd/brcmnand.h> 
 #include "brcmnand_priv.h"
 
-/*************************************** Internal Prototypes ******************************************/
-uint32 EDU_poll(uint32_t, uint32_t, uint32_t);
-void EDU_issue_command(uint32_t, uint32_t,uint8);
-void get_edu_status(void);
-uint32_t EDU_volatileRead(uint32_t);
-void EDU_volatileWrite(uint32_t, uint32_t);
-void EDU_init(void);
-int EDU_write(uint32, uint32);
-int EDU_read(uint32, uint32);
+
+
+/*
+ * THT: Just calling virt_to_phys() will not work on VM allocated addresses (0xC000_0000-0xCFFF_FFFF)
+ * On the other hand, we cannot call kmalloc to allocate the BBT, because of its size.
+ */
+
+static unsigned long EDU_virt_to_phys(volatile void* vaddr)
+{
+	unsigned long addr = (unsigned long) vaddr;
+	
+	if (!(addr & KSEG0)) { 
+		printk(KERN_ERR "brcmnand EDU: User Space buffers %08lx are not currently supported\n", addr);
+		/* THT: Note to self: http://lwn.net/Articles/28548/ */
+		BUG();
+		goto error_out;
+	}
+	
+	/* If not VM addresses, use the regular function */
+	else if (addr < VMALLOC_START || addr > VMALLOC_END) {
+		return virt_to_phys(vaddr);
+	}
+	
+	// Buffers allocated by vmalloc(): We have to find the physical page */
+	else {
+		unsigned long start; // Page start address
+		unsigned long pa = 0UL;
+		unsigned long pageOffset; // Offset from page start address
+		struct vm_area_struct* vma;
+		pgd_t *pgd;
+		pud_t *pud;
+		pmd_t *pmd;
+		pte_t *pte;
+		struct page *page;
+		unsigned long pfn;
+		
+		//unsigned long flags;
+
+		start = (addr & PAGE_MASK);
+		pageOffset = addr - start;
+//printk("Calling find_extend_vma, start=%08lx\n", start);
+//		vma = find_vma(current->mm, start);
+		//local_irq_save(flags);
+//printk("find_vma returns %p\n", vma);
+
+//printk("Calling pgd_offset, current-=%p\n", current);
+//printk("Calling pgd_offset, current->mm=%p\n", current->mm);
+		if (current->mm) {
+			pgd = pgd_offset(current->mm, start);
+		}
+		else {
+			// If not find it in the kernel page table
+			pgd = pgd_offset_k(start);
+		}
+//printk("pgd=%08x\n", pgd->pgd);
+		pud = pud_offset(pgd, start);
+//printk("pud=%08x\n", pud->pgd);
+		pmd = pmd_offset(pud, start);
+//printk("pnd=%08x\n", pmd->pud.pgd);
+		pte = pte_offset(pmd, start);
+
+#if 0
+printk("Calling vm_normal_page, pte=%08lx\n", pte->pte);
+		page = vm_normal_page(vma, start, *pte);
+
+printk("page=%p\n", page);
+		if (page) {
+			// get_page(page);
+			pa = page_to_phys(page);
+printk("PA=%08lx\n", pa);
+		}
+		else {
+			printk(KERN_ERR "brcmnand EDU: Unable to find page mapped to %08lx\n", addr);
+			goto error_out;
+		}
+#else
+//printk("Calling pte_pfn(pte=%08lx)\n", pte->pte);
+		pfn = pte_pfn(*pte);
+//printk("pfn=%08lx\n", pfn);
+		pa = pfn << PAGE_SHIFT;
+#endif
+
+		//local_irq_restore(flags);
+
+		return (pa + pageOffset);
+	}
+
+error_out:
+	return 0UL;
+}
+
+
 
 /*************************************** Internals *******************************************/
 
@@ -79,7 +175,7 @@ void EDU_get_status(void)
 
 void EDU_poll_for_done()
 {
-        uint32 rd_data=0, i=0; 
+        uint32_t rd_data=0, i=0; 
         unsigned long timeout;
         
         __sync();
@@ -104,7 +200,7 @@ void EDU_poll_for_done()
 
 void EDU_waitForNoPendingAndActiveBit()
 {
-        uint32 rd_data=0, i=0; 
+        uint32_t rd_data=0, i=0; 
         unsigned long timeout;
         
         //printk("Start Polling!\n");
@@ -127,9 +223,9 @@ void EDU_waitForNoPendingAndActiveBit()
         return;
 }
 
-void EDU_checkRegistersValidity(uint32 external_physical_device_address)
+void EDU_checkRegistersValidity(uint32_t external_physical_device_address)
 {
-       uint32 result;
+       uint32_t result;
 
         result = EDU_volatileRead(EDU_BASE_ADDRESS + BCHP_NAND_INTFC_STATUS);
         
@@ -163,11 +259,11 @@ void EDU_checkRegistersValidity(uint32 external_physical_device_address)
         }
 }
 
-uint16_t EDU_checkNandCacheAndBuffer(uint32 buffer, int length)
+uint16_t EDU_checkNandCacheAndBuffer(uint32_t buffer, int length)
 {
-    uint32  k;
+    uint32_t  k;
     uint16_t    error = 0; /* no error */    
-    uint32  rd_addr, exp_data, act_data;
+    uint32_t  rd_addr, exp_data, act_data;
 
        for (k=0; k < length; k=k+4) {
                 rd_addr = buffer + k;
@@ -198,9 +294,9 @@ uint16_t EDU_checkNandCacheAndBuffer(uint32 buffer, int length)
 // a timeout read count. The value reflects how many reads
 // the routine check the register before is gives up.
 
-uint32 EDU_poll(uint32_t address, uint32_t expect, uint32_t mask)
+uint32_t EDU_poll(uint32_t address, uint32_t expect, uint32_t mask)
 {
-        uint32 rd_data=0, i=0; 
+        uint32_t rd_data=0, i=0; 
         unsigned long timeout;
         
         //printk("Start Polling!\n");
@@ -286,6 +382,8 @@ uint32_t EDU_get_error_status_register(void)
 
 void EDU_init(void)
 {
+	
+printk("-->%s:\n", __FUNCTION__);
 
         EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_CONFIG, EDU_CONFIG_VALUE);
 
@@ -298,40 +396,63 @@ void EDU_init(void)
 
         // Clear the interrupt for next time
         EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, BCHP_HIF_INTR2_CPU_CLEAR_NAND_UNC_INTR_MASK); 
+
+	//external_physical_device_address = EDU_volatileRead(EDU_BASE_ADDRESS + BCHP_NAND_CMD_ADDRESS);
+	//return external_physical_device_address;
 }
 
-int EDU_write(uint32 virtual_addr_buffer, uint32 external_physical_device_address)
+/*
+ * THT: 07/31/08: This does not work.  One has to write the 512B Array from the NAND controller into 
+ * the EXT registers for it to work.  Will fix it when I come back.
+ */
+int EDU_write(volatile const void* virtual_addr_buffer, uint32_t external_physical_device_address)
 {
-        uint32  phys_mem;
-        // uint32  rd_data;
+	uint32_t  phys_mem;
+	// uint32_t  rd_data;
 
-//printk("EDU_write: vBuff: %08x physDev: %08x\n", virtual_addr_buffer, external_physical_device_address);
+	phys_mem = EDU_virt_to_phys((void *)virtual_addr_buffer);
+	if (!phys_mem) {
+		return (-1);
+	}
+	
+//printk("EDU_write: vBuff: %p physDev: %08x, PA=%08x\n", 
+//virtual_addr_buffer, external_physical_device_address, phys_mem);
 
 
-        EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR);
+	EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR);
 
-        EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000); 
-        EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_ERR_STATUS, 0x00000000); 
-
-        phys_mem = virt_to_phys((void *)virtual_addr_buffer);
-        dma_cache_wback(virtual_addr_buffer, 512);
-        EDU_issue_command(phys_mem, external_physical_device_address, 0); /* 1: Is a Read, 0 Is a Write */
+	EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000); 
+	EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_ERR_STATUS, 0x00000000); 
+	
+	dma_cache_wback_inv((unsigned long) virtual_addr_buffer, 512);
+	EDU_issue_command(phys_mem, external_physical_device_address, 0); /* 1: Is a Read, 0 Is a Write */
 
 //      rd_data = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, HIF_INTR2_EDU_DONE, HIF_INTR2_EDU_DONE);
 //      EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
 
-        return 0;
+	return 0;
 }
 
 
-int EDU_read(uint32 virtual_addr_buffer, uint32 external_physical_device_address)
+/*
+ * THT: 07/31/08: This does not work.  One has to write the 512B Array from the NAND controller into 
+ * the EXT registers for it to work.  Will fix it when I come back.
+ */
+int EDU_read(volatile void* virtual_addr_buffer, uint32_t external_physical_device_address)
 {
-        uint32  phys_mem;
-        // uint32  rd_data;
+        uint32_t  phys_mem;
+        // uint32_t  rd_data;
+
+	phys_mem = EDU_virt_to_phys((void *)virtual_addr_buffer);
+	if (!phys_mem) {
+		return (-1);
+	}
+
+//printk("EDU_read: vBuff: %p physDev: %08x, PA=%08x\n", 
+//virtual_addr_buffer, external_physical_device_address, phys_mem);
 
         EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR);
 
-        phys_mem = virt_to_phys((void *)virtual_addr_buffer);
 #if 0
 
         if( (EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE) && 0x00000003) > 1)
@@ -355,7 +476,7 @@ int EDU_read(uint32 virtual_addr_buffer, uint32 external_physical_device_address
         }
 
 #endif
-        dma_cache_inv(virtual_addr_buffer, 512);
+        dma_cache_inv((unsigned long) virtual_addr_buffer, 512);
 
         EDU_issue_command(phys_mem, external_physical_device_address, 1); /* 1: Is a Read, 0 Is a Write */
 

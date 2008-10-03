@@ -20,6 +20,10 @@
 #include <linux/mtd/nand.h>
 #include <linux/jiffies.h>
 
+#ifdef MTD_LARGE
+#include <linux/mtd/mtd64.h>
+#endif
+
 #include "nodelist.h"
 
 /* For testing write failures */
@@ -1003,8 +1007,6 @@ int jffs2_check_oob_empty(struct jffs2_sb_info *c,
 			  "failed %d for block at %08x\n", ret, jeb->offset));
 		return ret;
 	}
-//printk("read_oob() returns\n");
-//print_oobbuf(c->oobbuf, oobsize);
 
 	if (ops.retlen < ops.len) {
 		D1(printk(KERN_WARNING "jffs2_check_oob_empty(): Read OOB "
@@ -1291,6 +1293,10 @@ void jffs2_nand_flash_cleanup(struct jffs2_sb_info *c)
 }
 
 int jffs2_dataflash_setup(struct jffs2_sb_info *c) {
+#ifdef MTD_LARGE
+	int rem;
+	uint64_t tmpdiv;
+#endif
 	c->cleanmarker_size = 0;		/* No cleanmarkers needed */
 
 	/* Initialize write buffer */
@@ -1314,12 +1320,23 @@ int jffs2_dataflash_setup(struct jffs2_sb_info *c) {
 	}
 
 	/* It may be necessary to adjust the flash size */
+#ifdef MTD_LARGE
+	tmpdiv = (uint64_t) c->flash_size;
+	rem = do_div(tmpdiv, c->sector_size);
+
+	if (rem != 0) {
+		c->flash_size = mtd64_sub32(c->flash_size, rem);
+		//TODO sidc check if c->flash_size rounding is ok
+		printk(KERN_WARNING "JFFS2 flash size adjusted to %dKiB\n", mtd64_ll_low(c->flash_size));
+	}
+#else
 	c->flash_size = c->mtd->size;
 
 	if ((c->flash_size % c->sector_size) != 0) {
 		c->flash_size = (c->flash_size / c->sector_size) * c->sector_size;
 		printk(KERN_WARNING "JFFS2 flash size adjusted to %dKiB\n", c->flash_size);
-	};
+	}
+#endif
 
 	c->wbuf_ofs = 0xFFFFFFFF;
 	c->wbuf = kmalloc(c->wbuf_pagesize, GFP_KERNEL);

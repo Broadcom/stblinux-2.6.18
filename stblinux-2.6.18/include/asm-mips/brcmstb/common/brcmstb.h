@@ -54,6 +54,7 @@
 #include <asm/brcmstb/brcm93548a0/bchp_memc_0_ddr.h>
 #include <asm/brcmstb/brcm93548a0/bchp_mspi.h>
 #include <asm/brcmstb/brcm93548a0/bchp_bspi.h>
+#include <asm/brcmstb/brcm93548a0/bchp_vcxo_ctl_misc.h>
 
 #elif defined(CONFIG_MIPS_BCM3563C0)
 #include <asm/brcmstb/brcm93563c0/bcmuart.h>
@@ -235,6 +236,7 @@
 #include <asm/brcmstb/brcm97335a0/bchp_clk.h>
 #include <asm/brcmstb/brcm97335a0/bchp_bmips4380.h>
 #include <asm/brcmstb/brcm97335a0/bchp_memc_0_ddr.h>
+#include <asm/brcmstb/brcm97335a0/bchp_vcxo_ctl_misc.h>
 
 #elif defined(CONFIG_MIPS_BCM7420A0)
 #include <asm/brcmstb/brcm97420a0/bcmuart.h>
@@ -256,11 +258,11 @@
 #include <asm/brcmstb/brcm97420a0/bchp_pcix_bridge.h>
 #include <asm/brcmstb/brcm97420a0/bchp_clk.h>
 #include <asm/brcmstb/brcm97420a0/bchp_memc_0_ddr.h>
-#include <asm/brcmstb/brcm97420a0/bchp_pcie_cfg.h>
 #include <asm/brcmstb/brcm97420a0/bchp_pcie_dma.h>
 #include <asm/brcmstb/brcm97420a0/bchp_pcie_intr2.h>
 #include <asm/brcmstb/brcm97420a0/bchp_pcie_misc.h>
 #include <asm/brcmstb/brcm97420a0/bchp_pcie_misc_perst.h>
+#include <asm/brcmstb/brcm97420a0/bchp_hif_rgr1.h>
 #include <asm/brcmstb/brcm97420a0/bchp_mips_biu.h>
 
 #elif defined(CONFIG_MIPS_BCM7325A0)
@@ -281,6 +283,8 @@
 #include <asm/brcmstb/brcm97325a0/bchp_usb_ohci1.h>
 #include <asm/brcmstb/brcm97325a0/bchp_sun_top_ctrl.h>
 #include <asm/brcmstb/brcm97325a0/bchp_memc_0_ddr.h>
+#include <asm/brcmstb/brcm97325a0/bchp_clkgen.h>
+#include <asm/brcmstb/brcm97325a0/bchp_vcxo_ctl_misc.h>
 
 #elif defined(CONFIG_MIPS_BCM7401C0) || defined(CONFIG_MIPS_BCM7402C0)
 #include <asm/brcmstb/brcm97401c0/bcmuart.h>
@@ -342,7 +346,7 @@
 #include <asm/brcmstb/brcm97440b0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97440b0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97440b0/bchp_sun_top_ctrl.h>
-
+#include <asm/brcmstb/brcm97440b0/bchp_pci_bridge.h>
 #include <asm/brcmstb/brcm97440b0/boardmap.h>		/* BCM7440b0 address space is special */
 
 #define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE)
@@ -395,6 +399,8 @@
 
 
 #ifndef __ASSEMBLY__
+
+#include <linux/spinlock.h>
 
 struct brcm_reg_array {
 	unsigned long		reg;
@@ -474,15 +480,105 @@ extern unsigned long (* __get_discontig_RAM_size) (void);
  * be defined on platforms that lack the SATA registers entirely (e.g. 3548).
  */
 
-#if defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
+#if defined(BCHP_PCI_BRIDGE_PCI_CTRL) || defined(BCHP_PCIX_BRIDGE_PCIX_CTRL)
 #define BRCM_SATA_SUPPORTED	1
 #endif
+
+/* NOTE: 7118 special case is handled in prom.c */
+
+#if defined(BCHP_ENET_TOP_REG_START) || defined(BCHP_EMAC_0_REG_START) || \
+	defined(CONFIG_MIPS_BCM7038)
+#define BRCM_ENET_SUPPORTED	1
+#endif
+
+#if defined(BCHP_PCI_CFG_STATUS_COMMAND) && ! defined(CONFIG_BRCM_PCI_SLAVE)
+#define BRCM_PCI_SUPPORTED	1
+#endif
+
+#if defined(BCHP_PCIE_MISC_MISC_CTRL) && ! defined(CONFIG_BRCM_PCI_SLAVE)
+#define BRCM_PCIE_SUPPORTED	1
+#endif
+
+/* e.g. BCM9745x */
+extern int brcm_docsis_platform;
+
+/*
+ * If WIRED_PCI_MAPPING is defined, TLB entries are permanently dedicated to
+ * mapping the PCI memory region into upper memory.  Side effects of this
+ * include:
+ *  - Accesses to PCI memory will never cause a page fault
+ *  - ioremap() is essentially a no-op for this range
+ *  - Fewer TLB entries are available for general use, possibly causing
+ *    thrashing
+ *  - Only 256MB (sometimes 128MB) of PCI space can be supported in the
+ *    discontiguous memory model, because the kernel virtual address space
+ *    at e000_0000 is needed to map upper memory
+ *  - Not compatible with PCI Express, since PCIe adds a separate 512MB
+ *    PCI memory region of its own
+ *
+ * If WIRED_PCI_MAPPING is not defined, ioremap() will map the PCI space into
+ * the vmalloc region on an as-needed basis.  The vmalloc region in this
+ * configuration will cover the former PCI region (e.g. d000_0000 to
+ * efff_ffff or dfff_ffff).
+ *
+ * Note that BMIPS3300 and MIPS R5k do not support the 64MB page mask, so
+ * a large number of 16MB TLB entries will be required to map the entire range.
+ *
+ * The PCI I/O region always has a wired mapping, regardless of this setting.
+ */
+
+#if defined(CONFIG_BRCM_COMMON_PCI)
+#if (defined(CONFIG_BMIPS4380) || defined(CONFIG_MTI_R34K)) && \
+	! (defined(CONFIG_DISCONTIGMEM) || defined(BRCM_PCIE_SUPPORTED))
+#define WIRED_PCI_MAPPING	1
+#endif
+#else /* CONFIG_BRCM_COMMON_PCI */
+#define WIRED_PCI_MAPPING	1
+#endif
+
+/* NOTE: all PHYSICAL addresses */
+#define PCI_MEM_START		0xd0000000
+#define PCI_MEM_SIZE		0x20000000
+#define PCI_MEM_END		(PCI_MEM_START + PCI_MEM_SIZE - 1)
+
+#define PCI_IO_START		0xf0000000
+#define PCI_IO_SIZE		0x00600000
+#define PCI_IO_END		(PCI_IO_START + PCI_IO_SIZE - 1)
+
+#define PCI_SATA_MEM_START	0x10510000
+#define PCI_SATA_MEM_SIZE	0x00010000
+
+#define PCI_SATA_IO_START	0x10520000
+#define PCI_SATA_IO_SIZE	0x00000200
+
+#define MIPS_PCI_XCFG_INDEX	0xf0600004
+#define MIPS_PCI_XCFG_DATA	0xf0600008
+
+#define PCIE_MEM_START		0xa0000000
+#define PCIE_MEM_SIZE		0x20000000
+#define PCIE_MEM_END		(PCIE_MEM_START + PCIE_MEM_SIZE - 1)
+
+#define PCIE_IO_START		0xf1000000
+#define MIPS_PCIE_XCFG_INDEX	(PCIE_IO_START + 0x00)
+#define MIPS_PCIE_XCFG_DATA	(PCIE_IO_START + 0x04)
+#define MIPS_PCIE_ENDIAN_MODE	0xb0450188	/* VA: RC_CFG vendor REG1 */
 
 /*
  * brcm_sata_enabled can be 0 on platforms that have a non-SATA variant:
  * 7406, 7118RNG, 7402, 7404/7452, etc.  This is detected at runtime.
+ * Same basic idea for brcm_enet_enabled (7454 and others).
  */
 extern int brcm_sata_enabled;
+extern int brcm_enet_enabled;
+
+/* external PHY does not support MDIO (e.g. 97405-MSG) */
+extern int brcm_enet_no_mdio;
+
+/* 97455, 97456, 97458, 97459, etc. */
+extern int brcm_docsis_platform;
+
+/* EBI bug workaround */
+extern int brcm_ebi_war;
 
 /*
  * Sample usage:
@@ -515,6 +611,13 @@ extern int brcm_sata_enabled;
 	} \
 } while(0)
 
-#endif
+/*
+ * g_magnum_spinlock must be used to protect accesses to CLKGEN, SW_RESET,
+ * PIN_MUX, or GPIO registers
+ */
+extern spinlock_t g_magnum_spinlock;
+#define BRCM_MAGNUM_SPINLOCK	1
+
+#endif /* __ASSEMBLY__ */
 
 #endif /*__BRCMSTB_H */

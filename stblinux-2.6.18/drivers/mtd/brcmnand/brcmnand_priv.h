@@ -27,12 +27,23 @@
 #define _BRCMNAND_PRIV_H_
 
 #include <linux/config.h>
+#include <linux/vmalloc.h>
+
 #include <asm/brcmstb/common/bcmtypes.h>
 #include <linux/mtd/brcmnand.h> 
 #include <asm/brcmstb/common/brcmstb.h>
 
+#if 0 //def CONFIG_MTD_BRCMNAND_EDU
+#define BRCMNAND_malloc(size) kmalloc(size, GFP_KERNEL)
+#define BRCMNAND_free(addr) kfree(addr)
+#else
+#define BRCMNAND_malloc(size) vmalloc(size)
+#define BRCMNAND_free(addr) vfree(addr)
+#endif
+
 
 #if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
+
 
 /*
  * 64 bit arithmetics 
@@ -41,7 +52,11 @@
 #include "longlong.h"
 #include <linux/bitmap.h>
 
+#include <linux/mtd/mtd64.h> // To Suppress redefinition warnings
+
+#ifndef LONGLONG_TO_BITS
 #define LONGLONG_TO_BITS (sizeof(L_OFF_T)*BITS_PER_UNIT)
+#endif
 
 
 
@@ -269,6 +284,19 @@ __ll_high(L_OFF_T ll)
 	return (int32_t) ull.s.high;
 }
 
+static inline int __ll_ffs(L_OFF_T ll)
+{
+	DIunion ull;
+	int res;
+
+	ull.ll = ll;
+	res = ffs(ull.s.low);
+	if (res)
+		return res;
+	res = ffs(ull.s.high);
+	return (32 + res);
+}
+
 
 #else
 /* Stubs for 32-bit arithmetics */
@@ -293,6 +321,7 @@ __ll_high(L_OFF_T ll)
 #define __ll_low(l)	(l)
 #define __ll_high(l)	(0)
 #define __ll_constructor(h,l)	(l)
+#define __ll_ffs(l)	(ffs(l))
 #endif
 
 
@@ -321,9 +350,17 @@ extern void brcmnand_release(struct mtd_info *mtd);
 extern int brcmnand_scan_bbt(struct mtd_info *mtd, struct nand_bbt_descr *bd);
 extern int brcmnand_default_bbt(struct mtd_info *mtd);
 
+extern int brcmnand_update_bbt (struct mtd_info *mtd, loff_t offs);
+
 extern void* get_brcmnand_handle(void);
 
 extern void print_oobbuf(const unsigned char* buf, int len);
 extern void print_databuf(const unsigned char* buf, int len);
+
+extern int brcmnand_cet_update(struct mtd_info *mtd, loff_t from, int *status);
+
+extern int brcmnand_cet_erasecallback(struct mtd_info *mtd, u_int32_t addr);
+
+extern int brcmnand_create_cet(struct mtd_info *mtd);
 
 #endif

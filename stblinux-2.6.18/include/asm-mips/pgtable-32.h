@@ -17,6 +17,7 @@
 #include <asm/fixmap.h>
 
 #include <asm-generic/pgtable-nopmd.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 /*
  * - add_wired_entry() add a fixed TLB entry, and move wired register
@@ -75,11 +76,22 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 
 #define VMALLOC_START     MAP_BASE
 
+#ifdef CONFIG_MIPS_BRCM97XXX
+#ifdef WIRED_PCI_MAPPING
+#define VMALLOC_END	(PCI_MEM_START - 2*PAGE_SIZE)
+#else
+#define VMALLOC_END	(PCI_IO_START - 2*PAGE_SIZE)
+#endif
+
+#else /* CONFIG_MIPS_BRCM97XXX */
+
 #ifdef CONFIG_HIGHMEM
 # define VMALLOC_END	(PKMAP_BASE-2*PAGE_SIZE)
 #else
 # define VMALLOC_END	(FIXADDR_START-2*PAGE_SIZE)
 #endif
+
+#endif /* CONFIG_MIPS_BRCM97XXX */
 
 #ifdef CONFIG_64BIT_PHYS_ADDR
 #define pte_ERROR(e) \

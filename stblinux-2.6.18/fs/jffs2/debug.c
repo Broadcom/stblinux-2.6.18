@@ -38,9 +38,15 @@ __jffs2_dbg_acct_sanity_check_nolock(struct jffs2_sb_info *c,
 	if (unlikely(c->used_size + c->dirty_size + c->free_size + c->erasing_size + c->bad_size
 				+ c->wasted_size + c->unchecked_size != c->flash_size)) {
 		JFFS2_ERROR("eeep, space accounting superblock info is screwed.\n");
+#ifdef MTD_LARGE
+		JFFS2_ERROR("free %#016llx + dirty %#016llx + used %#016llx + erasing %#016llx + bad %#016llx + wasted %#016llx + unchecked %#016llx != total %#016llx.\n",
+			c->free_size, c->dirty_size, c->used_size, c->erasing_size, c->bad_size,
+			c->wasted_size, c->unchecked_size, c->flash_size);
+#else
 		JFFS2_ERROR("free %#08x + dirty %#08x + used %#08x + erasing %#08x + bad %#08x + wasted %#08x + unchecked %#08x != total %#08x.\n",
 			c->free_size, c->dirty_size, c->used_size, c->erasing_size, c->bad_size,
 			c->wasted_size, c->unchecked_size, c->flash_size);
+#endif
 		BUG();
 	}
 }

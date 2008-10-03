@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.18-5.2
-# Mon Jul 28 17:22:41 2008
+# Linux kernel version: 2.6.18-6.0
+# Thu Aug 21 20:07:21 2008
 #
 CONFIG_MIPS=y
 
@@ -103,6 +103,7 @@ CONFIG_MIPS_BCM7420AX=y
 # CONFIG_TOSHIBA_RBTX4938 is not set
 CONFIG_BRCM_BUILD_TARGET="unknown"
 # CONFIG_LONG_LONG_SUPPORT is not set
+CONFIG_BRCM_COMMON_PCI=y
 CONFIG_RWSEM_GENERIC_SPINLOCK=y
 CONFIG_GENERIC_FIND_NEXT_BIT=y
 CONFIG_GENERIC_HWEIGHT=y
@@ -389,9 +390,10 @@ CONFIG_TCP_CONG_BIC=y
 #
 # CONFIG_TIPC is not set
 # CONFIG_ATM is not set
-# CONFIG_BRIDGE is not set
+CONFIG_BRIDGE=y
 # CONFIG_VLAN_8021Q is not set
 # CONFIG_DECNET is not set
+CONFIG_LLC=y
 # CONFIG_LLC2 is not set
 # CONFIG_IPX is not set
 # CONFIG_ATALK is not set
@@ -547,11 +549,6 @@ CONFIG_BLK_DEV_RAM_BLOCKSIZE=1024
 CONFIG_BLK_DEV_INITRD=y
 # CONFIG_CDROM_PKTCDVD is not set
 # CONFIG_ATA_OVER_ETH is not set
-
-#
-# ATA/ATAPI/MFM/RLL support
-#
-# CONFIG_IDE is not set
 
 #
 # SCSI device support

@@ -14,6 +14,7 @@
 #include <asm/cacheflush.h>
 #include <asm/io.h>
 #include <asm/tlbflush.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 static inline void remap_area_pte(pte_t * pte, unsigned long address,
 	phys_t size, phys_t phys_addr, unsigned long flags)
@@ -137,23 +138,27 @@ void __iomem * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
 	    flags == _CACHE_UNCACHED)
 		return (void __iomem *) CKSEG1ADDR(phys_addr);
 
-#ifdef CONFIG_MIPS_BRCM97XXX
+#ifdef WIRED_PCI_MAPPING
 
   /* see memory maps in arch/mips/mm/tlb-r4k.c */
 
   #if defined(CONFIG_DISCONTIGMEM)
 	/* exclude hole at e000_0000 where 256MB of DDR_0 is mapped */
-	if (((phys_addr >= 0xd0000000) && (phys_addr <= 0xdfffffff)) ||
-	    ((phys_addr >= 0xf0000000) && (phys_addr <= 0xf060000b)))
+	if (((phys_addr >= PCI_MEM_START) && (phys_addr < UPPER_RAM_VBASE)) ||
+	    ((phys_addr >= PCI_IO_START) && (phys_addr <= PCI_IO_END)))
 		return (void *) (phys_addr);
   #elif defined(CONFIG_BMIPS3300)
-	/* include core registers */
-  	if (((phys_addr >= 0xd0000000) && (phys_addr <= 0xf060000b)) ||
-	    (phys_addr >= 0xff400000))
+	/* PCI MEM + PCI IO + BMIPS core registers */
+  	if ((phys_addr >= PCI_MEM_START) && (phys_addr <= PCI_IO_END))
 		return (void *) (phys_addr);
+	if (phys_addr >= 0xff400000) {
+		printk("warning: use of ioremap() on BMIPS core registers is "
+			"deprecated\n");
+		return (void *) (phys_addr);
+	}
   #else
 	/* else, just include PCI MEM and I/O regions */
-	if (((phys_addr >= 0xd0000000) && (phys_addr <= 0xf060000b)))
+	if (((phys_addr >= PCI_MEM_START) && (phys_addr <= PCI_IO_END)))
 		return (void *) (phys_addr);
   #endif
   
@@ -201,22 +206,24 @@ void __iomem * __ioremap(phys_t phys_addr, phys_t size, unsigned long flags)
 void __iounmap(const volatile void __iomem *addr)
 {
 	struct vm_struct *p;
+#ifdef WIRED_PCI_MAPPING
 	unsigned long virt_addr = (unsigned long)addr;
+#endif
 
 	if (IS_KSEG1(addr))
 		return;
 
-#ifdef CONFIG_MIPS_BRCM97XXX
+#ifdef WIRED_PCI_MAPPING
   #if defined(CONFIG_DISCONTIGMEM)
-	if (((virt_addr >= 0xd0000000) && (virt_addr <= 0xdfffffff)) ||
-	    ((virt_addr >= 0xf0000000) && (virt_addr <= 0xf060000b)))
+	if (((virt_addr >= PCI_MEM_START) && (virt_addr < UPPER_RAM_VBASE)) ||
+	    ((virt_addr >= PCI_IO_START) && (virt_addr <= PCI_IO_END)))
 		return;
   #elif defined(CONFIG_BMIPS3300)
-  	if (((virt_addr >= 0xd0000000) && (virt_addr <= 0xf060000b)) ||
+  	if (((virt_addr >= PCI_MEM_START) && (virt_addr <= PCI_IO_END)) ||
 	    (virt_addr >= 0xff400000))
 		return;
   #else
-	if (((virt_addr >= 0xd0000000) && (virt_addr <= 0xf060000b)))
+	if (((virt_addr >= PCI_MEM_START) && (virt_addr <= PCI_IO_END)))
 		return;
   #endif
 #endif

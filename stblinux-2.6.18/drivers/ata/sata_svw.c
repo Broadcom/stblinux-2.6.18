@@ -572,7 +572,7 @@ retry_brcm_initsata2:
                 goto retry_brcm_initsata2;
         }
 
-
+	
 	new_speed_mask = 0;
 #endif
 }
@@ -582,13 +582,18 @@ static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_
 	unsigned int reg;
 	void __iomem *mmio_base = probe_ent->mmio_base;
 	
+	/* minimum grant, to avoid Latency being reset to lower value */
+	pci_write_config_byte(dev, PCI_MIN_GNT, 0x0f);
+
+	/* SATA master latency timer */
+	pci_write_config_byte(dev, PCI_LATENCY_TIMER, 0xff);
+
 	if(dev->device == PCI_DEVICE_ID_SERVERWORKS_BCM7400D0)
 	{
 		brcm_initsata2(mmio_base, probe_ent->n_ports);
 		return; /* Skip all workarounds.  Those have been fixed with 65nm */
 	}
 	
-	// For the BCM7038, let the PCI configuration in brcmpci_fixups.c hold.
 	if (dev->device != PCI_DEVICE_ID_SERVERWORKS_BCM7038) 
 	{
 		/* force Master Latency Timer value to 64 PCICLKs */
@@ -608,8 +613,8 @@ static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000
 static volatile unsigned long* pSundryRev = NULL;
 #endif
 
-	/* "WD workaround" - only available on FIXED chips */
-        if (! FIXED_REV || (*pSundryRev >= FIXED_REV)) {
+		/* "WD workaround" - only available on FIXED chips */
+		if (! FIXED_REV || (*pSundryRev >= FIXED_REV)) {
 			/*
 			* Before accessing the MDIO registers through pci space disable external MDIO access.
 			* write MDIO register at offset 0x07 with (1 << port number) where port number starts at 0.
@@ -1397,12 +1402,6 @@ static void k2_qdma_error_handler(struct ata_port *ap)
 		ata_std_postreset);
 }
 
-static void k2_qdma_post_internal_cmd(struct ata_queued_cmd *qc)
-{
-	/* FIXME: this should not be necessary.  Something is wrong here. */
-	flush_cache_all();
-}
-
 static void k2_qdma_error_intr(struct ata_port *ap, uint32_t irq_stat)
 {
 	void __iomem *port_mmio = PORT_MMIO(ap);
@@ -1877,7 +1876,6 @@ static const struct ata_port_operations k2_sata_ops = {
 	.freeze			= k2_qdma_freeze,
 	.thaw			= k2_qdma_thaw,
 	.error_handler		= k2_qdma_error_handler,
-	.post_internal_cmd	= k2_qdma_post_internal_cmd,
 	.irq_handler		= k2_qdma_interrupt,
 	.irq_clear		= k2_qdma_irq_clear,
 	.qc_prep		= k2_qdma_qc_prep,
@@ -1982,7 +1980,11 @@ static int k2_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 	probe_ent->dev = pci_dev_to_dev(pdev);
 	INIT_LIST_HEAD(&probe_ent->node);
 
+#ifdef	CONFIG_MIPS_BCM7440	
+	mmio_base = (void __iomem *)pci_resource_start(pdev, 5);
+#else
 	mmio_base = pci_iomap(pdev, 5, 0);
+#endif
 	if (mmio_base == NULL) {
 		rc = -ENOMEM;
 		goto err_out_free_ent;

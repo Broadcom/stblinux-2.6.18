@@ -137,34 +137,15 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #elif defined(CONFIG_MIPS_BRCM97XXX)
 
-static __inline__ unsigned long __pa(unsigned long x)
-{
-	/* VA == PA for PCI MEM + PCI I/O */
-	if (((x >= 0xd0000000) && (x <= 0xf060000b)))
-		return x;
-#if defined(CONFIG_BMIPS3300)
-	/* same for BMIPS core registers */
-  	if (x >= 0xff400000)
-		return x;
-#endif
-	return (((unsigned long) (x)) - PAGE_OFFSET);
-}
+#define __pa(x)			(((unsigned long) (x)) - PAGE_OFFSET)
+#define __va(x)			((void *)(((unsigned long) (x)) + PAGE_OFFSET))
 
-static __inline__ void* __va(unsigned long x)
-{
-	if (((x >= 0xd0000000) && (x <= 0xf060000b)))
-		return((void *)x);
-#if defined(CONFIG_BMIPS3300)
-  	if (x >= 0xff400000)
-		return((void *)x);
-#endif
-	return ((void *)((x) + PAGE_OFFSET));
-}
-
+/* avoid sign extension during shift */
 #define virt_to_page(kaddr)		pfn_to_page((__pa((unsigned long) kaddr) >> PAGE_SHIFT) & 0x000fffff)
 #define virt_addr_valid(kaddr)	pfn_valid((__pa((unsigned long) kaddr) >> PAGE_SHIFT) & 0x000fffff)
 
 #else /* Non Broadcom STB codes */
+
 #define __pa(x)			(((unsigned long) (x)) - PAGE_OFFSET)
 #define __va(x)			((void *)(((unsigned long) (x)) + PAGE_OFFSET))
 

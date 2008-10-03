@@ -212,7 +212,8 @@ $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
 	# sets up .config files
 	$(MAKEARCH) defaultconfig
 	# Set CONFIG_INITRAMFS_ROOT_UID & GID, BRCM_BUILD_TARGET accordingly
-	(. .config; mv "$${CONFIG_LINUXDIR}"/.config "$${CONFIG_LINUXDIR}"/.config.orig; \
+	(. .config; cp -f "$${CONFIG_LINUXDIR}"/.config "$${CONFIG_LINUXDIR}"/.config.orig; \
+		rm -f "$${CONFIG_LINUXDIR}"/.config; \
 		sed -e "s/^CONFIG_INITRAMFS_ROOT_UID=0/CONFIG_INITRAMFS_ROOT_UID=$(MYUID)/" \
 		    -e "s/^CONFIG_INITRAMFS_ROOT_GID=0/CONFIG_INITRAMFS_ROOT_GID=$(MYGID)/" \
 		    -e "s/^CONFIG_BRCM_BUILD_TARGET.*/CONFIG_BRCM_BUILD_TARGET=\"$(subst vmlinuz-initrd-,,$@)\"/" \

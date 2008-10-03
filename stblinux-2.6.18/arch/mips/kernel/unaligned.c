@@ -85,6 +85,8 @@
 #include <asm/inst.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
+#include <asm/fpu.h>
+#include <asm/asm-offsets.h>
 
 #define STR(x)  __STR(x)
 #define __STR(x)  #x
@@ -437,10 +439,112 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 	case ldc1_op:
 	case swc1_op:
 	case sdc1_op:
+#if defined(CONFIG_MIPS_BRCM97XXX)
+	{
+		unsigned int op = insn.i_format.opcode;
+		unsigned int rt = insn.i_format.rt;
+		int wordlen = 8;
+
+		/* on r4k, only the even slots ($f0, $f2, ...) are used */
+		u8 *fprptr = (u8 *)current + THREAD_FPR0 + (rt >> 1) *
+			(THREAD_FPR2 - THREAD_FPR0);
+
+		if(op == lwc1_op || op == swc1_op) {
+			wordlen = 4;
+#ifdef __LITTLE_ENDIAN
+			/* LE: LSW ($f0) precedes MSW ($f1) */
+			fprptr += (rt & 1) ? 4 : 0;
+#else
+			/* BE: MSW ($f1) precedes LSW ($f0) */
+			fprptr += (rt & 1) ? 0 : 4;
+#endif
+		}
+
+		preempt_disable();
+		if(is_fpu_owner()) {
+			save_fp(current);
+		} else {
+			own_fpu();
+			BUG_ON(! used_math());
+			restore_fp(current);
+		}
+
+		if(op == lwc1_op || op == ldc1_op) {
+			if (!access_ok(VERIFY_READ, addr, wordlen)) {
+				preempt_enable();
+				goto sigbus;
+			}
+			/*
+			 * FPR load: copy from user struct to kernel saved
+			 * register struct, then restore all FPRs
+			 */
+			__asm__ __volatile__ (
+			"1:	lb	%0, 0(%3)\n"
+			"	sb	%0, 0(%2)\n"
+			"	addiu	%2, 1\n"
+			"	addiu	%3, 1\n"
+			"	addiu	%1, -1\n"
+			"	bnez	%1, 1b\n"
+			"	li	%0, 0\n"
+			"3:\n"
+			"	.section .fixup,\"ax\"\n"
+			"4:	li	%0, %4\n"
+			"	j	3b\n"
+			"	.previous\n"
+			"	.section __ex_table,\"a\"\n"
+			STR(PTR)" 1b,4b\n"
+			"	.previous\n"
+				: "=&r" (res), "+r" (wordlen),
+				  "+r" (fprptr), "+r" (addr)
+				: "i" (-EFAULT));
+			if (res) {
+				preempt_enable();
+				goto fault;
+			}
+
+			restore_fp(current);
+		} else {
+			if (!access_ok(VERIFY_WRITE, addr, wordlen)) {
+				preempt_enable();
+				goto sigbus;
+			}
+			/*
+			 * FPR store: copy from kernel saved register struct
+			 * to user struct
+			 */
+			__asm__ __volatile__ (
+			"2:	lb	%0, 0(%2)\n"
+			"1:	sb	%0, 0(%3)\n"
+			"	addiu	%2, 1\n"
+			"	addiu	%3, 1\n"
+			"	addiu	%1, -1\n"
+			"	bnez	%1, 2b\n"
+			"	li	%0, 0\n"
+			"3:\n"
+			"	.section .fixup,\"ax\"\n"
+			"4:	li	%0, %4\n"
+			"	j	3b\n"
+			"	.previous\n"
+			"	.section __ex_table,\"a\"\n"
+			STR(PTR)" 1b,4b\n"
+			"	.previous\n"
+				: "=&r" (res), "+r" (wordlen),
+				  "+r" (fprptr), "+r" (addr)
+				: "i" (-EFAULT));
+			if (res) {
+				preempt_enable();
+				goto fault;
+			}
+		}
+		preempt_enable();
+		break;
+	}
+#else
 		/*
 		 * I herewith declare: this does not happen.  So send SIGBUS.
 		 */
 		goto sigbus;
+#endif
 
 	case lwc2_op:
 	case ldc2_op:

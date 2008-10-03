@@ -76,9 +76,10 @@ int main (int argc, char *argv[])
 	mtd_info_t meminfo;
 	int fd, ebhpos = 0, ebhlen = 0;
 	erase_info_t erase;
-	int isNAND, bbtest = 1;
+	int isNAND, isNandMLC, bbtest = 1;
 	uint32_t pages_per_eraseblock, available_oob_space;
 	struct nand_oobinfo oobinfo;
+int gdebug = 0;
 
 	process_options(argc, argv);
 
@@ -96,8 +97,13 @@ int main (int argc, char *argv[])
 
 	erase.length = meminfo.erasesize;
 	isNAND = meminfo.type == MTD_NANDFLASH ? 1 : 0;
+	isNandMLC = MTD_IS_MLC(&meminfo);
 
 	if (jffs2) {
+		if (isNandMLC) {
+			fprintf(stderr, "%s:%s: -j flag ignored for MLC NAND\n", exe_name, mtd_device);
+		}
+				
 static count=0;
 		memset(&ebh, 0, sizeof(ebh));
 		ebh.magic = cpu_to_je16 (JFFS2_MAGIC_BITMASK);
@@ -124,7 +130,7 @@ printf("USR: EBH(len=%d)=\n", sizeof(ebh));
 print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 }
 
-		if (isNAND) {
+		if (isNAND && !isNandMLC) {
 			int i;
 			extern int brcmnand_get_oobavail(struct nand_oobinfo * oobinfo);
 
@@ -178,13 +184,14 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 //printf("*****  THT: About to erase, meminfo.erasesize=%d\n", meminfo.erasesize);
 
 	for (erase.start = 0; erase.start < meminfo.size; erase.start += meminfo.erasesize) {
+//printf("Erasing start=0x%llx\r", erase.start);
 		if (bbtest) {
 			loff_t offset = erase.start;
 			int ret = ioctl(fd, MEMGETBADBLOCK, &offset);
 //printf("***** THT: ioctl(fd, MEMGETBADBLOCK, offset=%08x) returns %d, sizeof(offset)=%d\n", erase.start, ret, sizeof(offset));
 			if (ret > 0) {
 				if (!quiet)
-					printf ("\nSkipping bad block at 0x%08x\n", erase.start);
+					printf ("\nSkipping bad block at 0x%llx\n", erase.start);
 				continue;
 			} else if (ret < 0) {
 				if (errno == EOPNOTSUPP) {
@@ -202,15 +209,16 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 
 		if (!quiet) {
 			printf
-                           ("\rErasing %d Kibyte @ %x -- %2llu %% complete.",
-			     meminfo.erasesize / 1024, erase.start,
-			     (unsigned long long)
-			     erase.start * 100 / meminfo.size);
+                           ("\rErasing %d KiByte @ %llx -- %2llu %% complete.",
+				     meminfo.erasesize / 1024, erase.start,
+				     (unsigned long long)
+				     erase.start * 100 / meminfo.size);
 		}
 		fflush(stdout);
 
 		if (ioctl(fd, MEMERASE, &erase) != 0) {
 			fprintf(stderr, "\n%s: %s: MTD Erase failure: %s\n", exe_name, mtd_device, strerror(errno));
+gdebug = 1;
 			continue;
 		}
 
@@ -219,11 +227,11 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 			continue;
 
 		/* write cleanmarker */
-		if (isNAND) {
+		if (isNAND && !isNandMLC) {
 			struct mtd_oob_buf oob;
 			uint32_t i = 0, written = 0;
 			int ooblen = 0, retlen = 0;
-			unsigned char oobbuf[64];
+			unsigned char oobbuf[128];
 			unsigned char* fsbuf;
 			int fslen;
 			extern int brcmnand_prepare_oobbuf(
@@ -253,14 +261,24 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 
 /* safety check */
 				if (oob.length <= 0) {
-fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%d\n", 
-	written, sizeof(struct jffs2_raw_ebh), oob.start);
+#ifdef __USE_FILE_OFFSET64
+					fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%llx\n", 
+							written, sizeof(struct jffs2_raw_ebh), oob.start);
+#else
+					fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%d\n", 
+							written, sizeof(struct jffs2_raw_ebh), oob.start);
+#endif
 					break;
 				}
-				if (ioctl (fd, MEMWRITEOOB, &oob) != 0) {
+				if (ioctl(fd, MEMWRITEOOB, &oob) != 0) {
 					fprintf(stderr, "\n%s: %s: MTD writeoobfree failure: %s\n", exe_name, mtd_device, strerror(errno));
-fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%08x, len=%d\n", 
-	written, sizeof(struct jffs2_raw_ebh), oob.start, oob.length);
+#ifdef __USE_FILE_OFFSET64
+					fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%llx, len=%d\n", 
+							written, sizeof(struct jffs2_raw_ebh), oob.start, oob.length);
+#else
+					fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%08x, len=%d\n", 
+							written, sizeof(struct jffs2_raw_ebh), oob.start, oob.length);
+#endif
 					break;
 				}
 				i++;
@@ -281,7 +299,7 @@ fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%08x, len=%d\n",
 			}
 		}
 		if (!quiet)
-			printf (" Cleanmarker written at %x.", erase.start);
+			printf (" Cleanmarker written at 0x%llx.", erase.start);
 	}
 	if (!quiet)
 		printf("\n");

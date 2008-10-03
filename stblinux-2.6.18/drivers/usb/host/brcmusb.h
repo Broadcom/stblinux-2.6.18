@@ -134,6 +134,11 @@ static void brcm_usb_init(void)
 		printk( " - USB h/w setup mode <%c>\n"
 				" - USB power enable set for active %s mode\n", 
 				mode, ((val & IPP) ? "LOW" : "HIGH") );
+
+		/* PR45703 - for OHCI->SCB bridge lockup */
+		BDEV_UNSET(BCHP_USB_CTRL_OBRIDGE,
+			BCHP_USB_CTRL_OBRIDGE_OBR_SEQ_EN_MASK);
+
 		done = 1;
 	}
 }

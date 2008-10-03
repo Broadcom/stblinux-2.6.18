@@ -164,6 +164,9 @@ pcibios_select_root(struct pci_dev *pdev, struct resource *res)
 	return root;
 }
 
+#define pci_io_map_base(bus) \
+	(((struct pci_controller *)(bus)->sysdata)->io_map_base)
+
 #ifdef CONFIG_PCI_DOMAINS
 
 #define pci_domain_nr(bus) ((struct pci_controller *)(bus)->sysdata)->index

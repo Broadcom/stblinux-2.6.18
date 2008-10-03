@@ -345,7 +345,7 @@ config MIPS_BCM7325AX
 	select MIPS_BRCM97XXX
 	select MIPS_BCM7325A0
 	select MIPS_BCM7325
-	# select HW_HAS_PCI
+	select HW_HAS_PCI
 	select MTI_R34K
 	select BRCM_SCM_L2
 
@@ -1224,6 +1224,19 @@ config LONG_LONG_SUPPORT
 	depends MIPS_BRCM
 	default n
 
+config BRCM_COMMON_PCI
+	bool "Use common Broadcom STB PCI code"
+	default n
+	depends on EXPERIMENTAL && (MIPS_BCM7405B0 || MIPS_BCM7420 || \
+		MIPS_BCM7325)
+	help
+	  Enable the new, but sparsely tested, PCI code for Broadcom STB
+	  platforms.
+
+	  This replaces arch/mips/pci/*-brcm9*.c .
+
+	  If unsure, say N.
+
 endmenu
 
 config RWSEM_GENERIC_SPINLOCK
@@ -1780,7 +1793,7 @@ config TOSHIBA_BOARDS
 config SYS_SUPPORTS_PM
 	bool
 	depends on MIPS_BCM7400D0 || MIPS_BCM7405 || MIPS_BCM7335 || \
-		MIPS_BCM3548
+		MIPS_BCM3548 || MIPS_BCM7325
 	default y
 
 config SYS_SUPPORTS_CPUFREQ

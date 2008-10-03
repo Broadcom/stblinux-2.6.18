@@ -209,7 +209,12 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 #endif
 		}
 	}
+#ifdef CONFIG_MIPS_BRCM97XXX
+	/* suppress warning for SATA expansion ROM */
+	if (0) {
+#else
 	if (rom) {
+#endif
 		dev->rom_base_reg = rom;
 		res = &dev->resource[PCI_ROM_RESOURCE];
 		res->name = pci_name(dev);

@@ -351,8 +351,8 @@ do
      NAND*)
         pgsize=`flash_info "$FDEV" | grep Page | awk '{print $3}'`
 	if [ $pgsize -eq 512 ]; then
-	  echo "YAFFS2 not supported on small page NAND"
-	  exit 0
+	   echo "YAFFS2 not supported on small page NAND"
+	   exit 0
 	fi
      	break  # OK to proceed
         ;;
@@ -415,6 +415,7 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 ]; then
    echo ""
    FSTYPE="jffs2"
    ERASE_FLAG='-j'
+
 fi
 
 if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
@@ -436,7 +437,23 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
    fi
 
    FLASH_TYPE=`flash_info "$FDEV" |grep Type|cut -f2 -d ':' | cut -f2 -d' ' `
-   ERASE_SIZE=`flash_info "$FDEV" |grep Erase|cut -f2 -d ':' | cut -f2 -d' ' `
+   ERASE_SIZE=`flash_info "$FDEV" |grep "Erase block" |cut -f2 -d ':' | cut -f2 -d' ' `
+   
+   # For NOR NAND_TECH is empty
+   NAND_TECH=""
+   case "$FLASH_TYPE" in
+   NAND*)
+      case "$FLASH_TYPE" in
+      "NAND_MLC")
+         NAND_TECH="MLC"
+	 ERASE_FLAG=""	# Clear erase flag for MLC, if set for JFFS2 above
+         ;;
+      NAND_SLC*)
+         NAND_TECH="SLC"
+         ;;
+      esac
+      ;;
+   esac
 
    if [[ $FLASH_TYPE = SPI* ]]; then
       echo "SPI flash not supported.  Please flash through CFE."
@@ -459,8 +476,15 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
       fi
    else
       if [ "$FSTYPE" == "jffs2" ]; then
-         # jffs2 for NAND always specifies the block size
-         BLOCKSIZE="-${ERASE_SIZE}k"
+         case "$NAND_TECH" in
+	 SLC)
+            # jffs2 for NAND always specifies the block size
+            BLOCKSIZE="-${ERASE_SIZE}k"
+	    ;;
+	 MLC)
+	    BLOCKSIZE="-mlc-${ERASE_SIZE}k"
+	    ;;
+	 esac
       fi
       # NOR kernel, NAND flash
       if [[ $PLATFORM != *-nand ]]; then
@@ -485,7 +509,14 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
    	case "$RESPONSE" in
 	1|2)  # JFFS2
                 echo "Writing flash image..."
-      		nandwrite -p ${FDEV} /tmp/${IMAGE}
+		case "$NAND_TECH" in
+		SLC)
+      			nandwrite -p ${FDEV} /tmp/${IMAGE}
+			;;
+		MLC)	# Pad to pagesize, but no OOB writes.
+			nandwrite -p ${FDEV} /tmp/${IMAGE} 
+			;;
+		esac
 		;;
 
 	4|5)  # CRAMFS and SQUASHFS

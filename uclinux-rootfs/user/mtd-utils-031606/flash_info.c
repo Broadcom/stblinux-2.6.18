@@ -81,8 +81,17 @@ int main(int argc,char *argv[])
 
 	erase_length = meminfo.erasesize;
 
-	printf("Type: %s\nErase block size: %d kB\n", meminfo.type == MTD_NANDFLASH ? "NAND": "NOR", erase_length >> 10);
+	if (meminfo.type == MTD_NANDFLASH) 
+		printf("Type: %s\nErase block size: %d kB\n", MTD_IS_MLC(&meminfo) ? "NAND_MLC": "NAND_SLC", erase_length >> 10);
+	else
+		printf("Type: %s\nErase block size: %d kB\n", "NOR", erase_length >> 10);
 	printf("Page size: %d bytes\n", meminfo.writesize);
+	
+#ifdef __USE_FILE_OFFSET64
+	printf("Flash size: 0x%llx\n", meminfo.size);
+#else
+	printf("Flash size: 0x%x\n", meminfo.size);
+#endif
 
 	close(fd);
 

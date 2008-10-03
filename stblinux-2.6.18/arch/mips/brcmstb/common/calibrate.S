@@ -107,14 +107,3 @@ getstart:
 		.set reorder
 
 END(GetMIPSFreq)
-
-#if defined(CONFIG_BRCM_SCM_L2)
-LEAF(read_scm_reg)
-		.set noreorder
-		.word   0xbc870000
-		.word   0x4002e004
-		j   		ra
-		nop
-		.set reorder
-END(read_scm_reg)
-#endif	/* CONFIG_BRCM_SCM_L2 */	

@@ -160,14 +160,16 @@ static inline void brcm_setup_wired_discontig(void)
 	if ((bcm_pmemmap->tlb_mask & PM_64M) == PM_64M) {
 		write_c0_pagemask(PM_64M);	/* each entry has 2x 64MB mappings */
 
+#ifdef WIRED_PCI_MAPPING
 		WR_TLB(PCI_MEM_WIN_BASE,
-			CPU2PCI_CPU_PHYS_MEM_WIN_BASE,
-			CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_64MBYTES,
+			PCI_MEM_START,
+			PCI_MEM_START + OFFSET_64MBYTES,
 			ATTR_UNCACHED);
 		WR_TLB(PCI_MEM_WIN_BASE + OFFSET_128MBYTES,
-			CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_128MBYTES,
-			CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_128MBYTES + OFFSET_64MBYTES,
+			PCI_MEM_START + OFFSET_128MBYTES,
+			PCI_MEM_START + OFFSET_128MBYTES + OFFSET_64MBYTES,
 			ATTR_UNCACHED);
+#endif
 		WR_TLB(UPPER_RAM_VBASE,
 			UPPER_RAM_BASE,
 			UPPER_RAM_BASE + OFFSET_64MBYTES,
@@ -182,16 +184,18 @@ static inline void brcm_setup_wired_discontig(void)
 		
 		write_c0_pagemask(PM_16M);	/* each entry has 2x 64MB mappings */
 
+#ifdef WIRED_PCI_MAPPING
 		/* Allocate 256MB PCI address space */
 		for (va = bcm_pmemmap->pci_vAddr,
-				pa0 = CPU2PCI_CPU_PHYS_MEM_WIN_BASE,
-				pa1 = CPU2PCI_CPU_PHYS_MEM_WIN_BASE + OFFSET_16MBYTES;
+				pa0 = PCI_MEM_START,
+				pa1 = PCI_MEM_START + OFFSET_16MBYTES;
 			va < (bcm_pmemmap->pci_vAddr + bcm_pmemmap->pci_winSize);
 			va += OFFSET_32MBYTES, pa0 += OFFSET_32MBYTES, pa1 += OFFSET_32MBYTES
 			) 
 		{
 			WR_TLB(va, pa0, pa1, ATTR_UNCACHED);
 		}
+#endif
 
 		/* Map VA to PA, PA and size given by bcm_pdiscontig_memmap */
 		for (va = bcm_pmemmap->mem_vAddr[1],
@@ -242,12 +246,13 @@ static inline void brcm_setup_wired_64(void)
 	/* Save old context and create impossible VPN2 value */
 	old_ctx = (read_c0_entryhi() & 0xff);
 	hi = (PCI_MEM_WIN_BASE&0xffffe000);
-	lo0 = (((CPU2PCI_CPU_PHYS_MEM_WIN_BASE>>(4+2))&0x3fffffc0)|0x17);
-	lo1 = ((((CPU2PCI_CPU_PHYS_MEM_WIN_BASE+OFFSET_64MBYTES)>>(4+2))&0x3fffffc0)|0x17);
+	lo0 = (((PCI_MEM_START>>(4+2))&0x3fffffc0)|0x17);
+	lo1 = ((((PCI_MEM_START+OFFSET_64MBYTES)>>(4+2))&0x3fffffc0)|0x17);
 
 	// Save the start entry presumably starting at 0, but we never know
 	entry = wired = read_c0_wired();
 
+#ifdef WIRED_PCI_MAPPING
 //printk("Write first entry: hi=%08x, lo0=%08x, lo1=%08x, wired=%d\n", hi, lo0, lo1, entry);
 	/* Blast 'em all away. */
 	do {
@@ -268,6 +273,7 @@ static inline void brcm_setup_wired_64(void)
 		lo1 += TLBLO_OFFSET_128MBYTES;
 		entry++;
 	} while(hi < PCI_IO_WIN_BASE);
+#endif
 
 //printk("Write end of first entry: hi=%08x, lo0=%08x, lo1=%08x, wired=%d\n", hi, lo0, lo1, entry);
 
@@ -346,6 +352,7 @@ static inline void brcm_setup_wired_16(void)
 	lo0 = (((PCI_MEM_WIN_BASE>>(4+2))&0x3fffffc0)|0x17);
 	lo1 = ((((PCI_MEM_WIN_BASE+OFFSET_16MBYTES)>>(4+2))&0x3fffffc0)|0x17);
 
+#ifdef WIRED_PCI_MAPPING
 	/* Blast 'em all away. */
 	while (entry < (PCI_MEM_TLB_ENTRIES+wired)) {
 		/*
@@ -365,6 +372,7 @@ static inline void brcm_setup_wired_16(void)
 		lo1 += TLBLO_OFFSET_32MBYTES;
 		entry++;
 	}
+#endif
 
 	/* write entry for PCI I/O */
 	hi = (PCI_IO_WIN_BASE&0xffffe000);
@@ -417,18 +425,15 @@ static void brcm_setup_wired_entries(void)
 #endif
 }
 
-
 #define PCI_SATA_MEM_ENABLE			1
 #define PCI_SATA_BUS_MASTER_ENABLE		2
 #define PCI_SATA_PERR_ENABLE			0x10
 #define PCI_SATA_SERR_ENABLE			0x20
-#define CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE	0x10510000
-
-#define EXT_PCI_CONFIG_IDX			0xf0600004
-#define EXT_PCI_CONFIG_DATA			0xf0600008
 
 static void brcm_setup_sata_bridge(void)
 {
+#if ! defined(CONFIG_BRCM_COMMON_PCI)
+	/* For COMMON_PCI platforms, this moves into pci-brcmstb.c */
 	if(brcm_sata_enabled == 0)
 		return;
 
@@ -444,7 +449,7 @@ static void brcm_setup_sata_bridge(void)
 
 	/* PCI master window (MIPS access to SATA BARs) */
 	BDEV_WR(BCHP_PCI_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE,
-		CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE |
+		PCI_SATA_MEM_START |
 		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
 
 	BDEV_WR(BCHP_PCI_BRIDGE_CPU_TO_SATA_IO_WIN_BASE,
@@ -470,7 +475,7 @@ static void brcm_setup_sata_bridge(void)
 
 	/* PCI master window (MIPS access to SATA BARs) */
 	BDEV_WR(BCHP_PCIX_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE,
-		CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE |
+		PCI_SATA_MEM_START |
 		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
 	BDEV_WR(BCHP_PCIX_BRIDGE_CPU_TO_SATA_IO_WIN_BASE,
 		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
@@ -480,10 +485,13 @@ static void brcm_setup_sata_bridge(void)
 	if(BDEV_RD(BCHP_PCIX_BRIDGE_SATA_CFG_DATA) == 0xffffffff)
 		printk(KERN_WARNING "Internal SATA is not responding\n");
 #endif
+#endif
 }
 
 static void brcm_setup_pci_bridge(void)
 {
+#if ! defined(CONFIG_BRCM_COMMON_PCI)
+	/* For COMMON_PCI platforms, this moves into pci-brcmstb.c */
 #if defined(BCHP_PCI_CFG_STATUS_COMMAND) && ! defined(CONFIG_BRCM_PCI_SLAVE)
 
 	/* External PCI bridge setup (most chips) */
@@ -491,14 +499,10 @@ static void brcm_setup_pci_bridge(void)
 	BDEV_SET(BCHP_PCI_CFG_STATUS_COMMAND,
 		PCI_BUS_MASTER|PCI_IO_ENABLE|PCI_MEM_ENABLE);
 
-	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0,
-		CPU2PCI_PCI_PHYS_MEM_WIN0_BASE);
-	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1,
-		CPU2PCI_PCI_PHYS_MEM_WIN1_BASE);
-	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2,
-		CPU2PCI_PCI_PHYS_MEM_WIN2_BASE);
-	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3,
-		CPU2PCI_PCI_PHYS_MEM_WIN3_BASE);
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0, PCI_MEM_START);
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1, PCI_MEM_START + 0x08000000);
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2, PCI_MEM_START + 0x10000000);
+	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3, PCI_MEM_START + 0x18000000);
 
 	BDEV_WR(BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0,
 		0x00000000 | CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
@@ -520,8 +524,9 @@ static void brcm_setup_pci_bridge(void)
 #endif
 
 	/* do a PCI config read */
-	DEV_WR(EXT_PCI_CONFIG_IDX, PCI_DEV_NUM_EXT);
-	DEV_RD(EXT_PCI_CONFIG_DATA);
+	DEV_WR(MIPS_PCI_XCFG_INDEX, PCI_DEV_NUM_EXT);
+	DEV_RD(MIPS_PCI_XCFG_DATA);
+#endif
 #endif
 }
 

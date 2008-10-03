@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Tue Jun 10 13:04:12 2008
- *                 MD5 Checksum         4f19f1f3a208e874e2a583f12a043545
+ * Date:           Generated on         Mon Jul 28 11:47:59 2008
+ *                 MD5 Checksum         fb86407f93bca40e048906386e215a30
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_pcie_misc_perst.h $
  * 
- * Hydra_Software_Devel/1   6/10/08 3:25p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   7/28/08 2:30p tdo
+ * PR42663: Sync up RDB header files
  *
  ***************************************************************************/
 
@@ -45,10 +45,8 @@
 /***************************************************************************
  *PCIE_MISC_PERST - PCI-E Miscellaneous Registers (Fundamental reset)
  ***************************************************************************/
-#define BCHP_PCIE_MISC_PERST_ECO_CTRL_PERST      0x00006100 /* ECO PCIE Reset Control Register */
-#define BCHP_PCIE_MISC_PERST_CCE_STATUS          0x00006108 /* Config Copy Engine Status */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG          0x0000610c /* PCIE Debug Control Register */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS   0x00006110 /* PCIE Debug Status Register */
+#define BCHP_PCIE_MISC_PERST_ECO_CTRL_PERST      0x00014100 /* ECO PCIE Reset Control Register */
+#define BCHP_PCIE_MISC_PERST_CCE_STATUS          0x00014104 /* Config Copy Engine Status */
 
 /***************************************************************************
  *ECO_CTRL_PERST - ECO PCIE Reset Control Register
@@ -83,48 +81,6 @@
 /* PCIE_MISC_PERST :: CCE_STATUS :: CCE_BAD_SECTION_ID [00:00] */
 #define BCHP_PCIE_MISC_PERST_CCE_STATUS_CCE_BAD_SECTION_ID_MASK    0x00000001
 #define BCHP_PCIE_MISC_PERST_CCE_STATUS_CCE_BAD_SECTION_ID_SHIFT   0
-
-/***************************************************************************
- *PCIE_DEBUG - PCIE Debug Control Register
- ***************************************************************************/
-/* PCIE_MISC_PERST :: PCIE_DEBUG :: reserved0 [31:09] */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_reserved0_MASK             0xfffffe00
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_reserved0_SHIFT            9
-
-/* PCIE_MISC_PERST :: PCIE_DEBUG :: CORE_CLOCK_OVR [08:08] */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_CORE_CLOCK_OVR_MASK        0x00000100
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_CORE_CLOCK_OVR_SHIFT       8
-
-/* PCIE_MISC_PERST :: PCIE_DEBUG :: PCIE_TMUX_SEL [07:00] */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_PCIE_TMUX_SEL_MASK         0x000000ff
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_PCIE_TMUX_SEL_SHIFT        0
-
-/***************************************************************************
- *PCIE_DEBUG_STATUS - PCIE Debug Status Register
- ***************************************************************************/
-/* PCIE_MISC_PERST :: PCIE_DEBUG_STATUS :: reserved0 [31:06] */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_reserved0_MASK      0xffffffc0
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_reserved0_SHIFT     6
-
-/* PCIE_MISC_PERST :: PCIE_DEBUG_STATUS :: DATALINKATTN [05:05] */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_DATALINKATTN_MASK   0x00000020
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_DATALINKATTN_SHIFT  5
-
-/* PCIE_MISC_PERST :: PCIE_DEBUG_STATUS :: PHYLINKATTN [04:04] */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_PHYLINKATTN_MASK    0x00000010
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_PHYLINKATTN_SHIFT   4
-
-/* PCIE_MISC_PERST :: PCIE_DEBUG_STATUS :: reserved1 [03:02] */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_reserved1_MASK      0x0000000c
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_reserved1_SHIFT     2
-
-/* PCIE_MISC_PERST :: PCIE_DEBUG_STATUS :: DATA_LINKUP [01:01] */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_DATA_LINKUP_MASK    0x00000002
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_DATA_LINKUP_SHIFT   1
-
-/* PCIE_MISC_PERST :: PCIE_DEBUG_STATUS :: PHY_LINKUP [00:00] */
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_PHY_LINKUP_MASK     0x00000001
-#define BCHP_PCIE_MISC_PERST_PCIE_DEBUG_STATUS_PHY_LINKUP_SHIFT    0
 
 #endif /* #ifndef BCHP_PCIE_MISC_PERST_H__ */
 

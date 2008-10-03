@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu May 29 19:04:33 2008
- *                 MD5 Checksum         820227b279d06813a6bca9e3c5b6cb55
+ * Date:           Generated on         Thu Jun 26 06:32:48 2008
+ *                 MD5 Checksum         52178fc14c8be01c43fdd40e1ffa6ada
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_memc_0_ddr.h $
  * 
- * Hydra_Software_Devel/1   5/29/08 11:20p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   6/26/08 10:47a tdo
+ * PR42663: Sync up RDB header files
  *
  ***************************************************************************/
 
@@ -45,16 +45,16 @@
 /***************************************************************************
  *MEMC_0_DDR - 64-bit Memory Controller DDR IOBUF Registers
  ***************************************************************************/
-#define BCHP_MEMC_0_DDR_CNTRLR_CONFIG            0x00c0a000 /* Memory Controller Mode-Configuration Register. */
-#define BCHP_MEMC_0_DDR_DRAM_MODE                0x00c0a004 /* DDR Mode Register. */
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0            0x00c0a008 /* DDR-SDRAM Timing Register. */
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_1            0x00c0a00c /* DDR-SDRAM Timing Register. */
-#define BCHP_MEMC_0_DDR_READ_WRITE_TIMING        0x00c0a010 /* Read to Write & write to read timing register */
-#define BCHP_MEMC_0_DDR_POWER_DOWN_MODE          0x00c0a014 /* Memory Controller Auto-Refresh Power Down Control Register. */
-#define BCHP_MEMC_0_DDR_CNTRLR_START_SEQ         0x00c0a018 /* Memory Controller Sequencer Enable */
-#define BCHP_MEMC_0_DDR_CNTRLR_SM_TIMEOUT        0x00c0a01c /* Memory Controller , state machine timeout register. */
-#define BCHP_MEMC_0_DDR_POWER_DOWN_STATUS        0x00c0a020 /* Memory Controller , status register. */
-#define BCHP_MEMC_0_DDR_BANK_STATUS              0x00c0a024 /* Memory Controller, Bank Status Register. */
+#define BCHP_MEMC_0_DDR_CNTRLR_CONFIG            0x00c01000 /* Memory Controller Mode-Configuration Register. */
+#define BCHP_MEMC_0_DDR_DRAM_MODE                0x00c01004 /* DDR Mode Register. */
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_0            0x00c01008 /* DDR-SDRAM Timing Register. */
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_1            0x00c0100c /* DDR-SDRAM Timing Register. */
+#define BCHP_MEMC_0_DDR_READ_WRITE_TIMING        0x00c01010 /* Read to Write & write to read timing register */
+#define BCHP_MEMC_0_DDR_POWER_DOWN_MODE          0x00c01014 /* Memory Controller Auto-Refresh Power Down Control Register. */
+#define BCHP_MEMC_0_DDR_CNTRLR_START_SEQ         0x00c01018 /* Memory Controller Sequencer Enable */
+#define BCHP_MEMC_0_DDR_CNTRLR_SM_TIMEOUT        0x00c0101c /* Memory Controller , state machine timeout register. */
+#define BCHP_MEMC_0_DDR_POWER_DOWN_STATUS        0x00c01020 /* Memory Controller , status register. */
+#define BCHP_MEMC_0_DDR_BANK_STATUS              0x00c01024 /* Memory Controller, Bank Status Register. */
 
 /***************************************************************************
  *CNTRLR_CONFIG - Memory Controller Mode-Configuration Register.

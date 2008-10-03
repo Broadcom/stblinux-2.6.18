@@ -136,6 +136,7 @@ rootfs:
 				cp images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
 				cp images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
 				cp images/$$i/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$$i.img; \
+				cp images/$$i/jffs2-mlc-512k.img $(TFTPDIR)/jffs2-mlc-512k-$$i.img; \
 				cp images/$$i/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$$i.img; \
 				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
 				cp images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
@@ -190,6 +191,7 @@ $(ROOTFS_PLATFORMS):
 			cp -f images/$(subst rootfs-,,$@)/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$(subst rootfs-,,$@).img; \
+			cp -f images/$(subst rootfs-,,$@)/jffs2-mlc-512k.img $(TFTPDIR)/jffs2-mlc-512k-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$(subst rootfs-,,$@).img ; \
 			cp -f images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img ; \

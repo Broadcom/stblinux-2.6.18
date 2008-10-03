@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Tue Jun 10 12:51:08 2008
- *                 MD5 Checksum         4f19f1f3a208e874e2a583f12a043545
+ * Date:           Generated on         Mon Jul 28 11:24:49 2008
+ *                 MD5 Checksum         fb86407f93bca40e048906386e215a30
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_pcie_misc.h $
  * 
- * Hydra_Software_Devel/1   6/10/08 3:24p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   7/28/08 2:30p tdo
+ * PR42663: Sync up RDB header files
  *
  ***************************************************************************/
 
@@ -45,33 +45,33 @@
 /***************************************************************************
  *PCIE_MISC - PCI-E Miscellaneous Registers
  ***************************************************************************/
-#define BCHP_PCIE_MISC_RESET_CTRL                0x00006000 /* Reset Control Register */
-#define BCHP_PCIE_MISC_ECO_CTRL_CORE             0x00006004 /* ECO Core Reset Control Register */
-#define BCHP_PCIE_MISC_MISC_CTRL                 0x00006008 /* MISC Control Register */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN0_LO    0x0000600c /* CPU to PCI-E Memory Window 0 Low */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN0_HI    0x00006010 /* CPU to PCI-E Memory Window 0 High */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN1_LO    0x00006014 /* CPU to PCI-E Memory Window 1 Low */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN1_HI    0x00006018 /* CPU to PCI-E Memory Window 1 High */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN2_LO    0x0000601c /* CPU to PCI-E Memory Window 2 Low */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN2_HI    0x00006020 /* CPU to PCI-E Memory Window 2 High */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_LO    0x00006024 /* CPU to PCI-E Memory Window 3 Low */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_HI    0x00006028 /* CPU to PCI-E Memory Window 3 High */
-#define BCHP_PCIE_MISC_RC_BAR1_CONFIG_LO         0x0000602c /* RC BAR1 Configuration Low Register */
-#define BCHP_PCIE_MISC_RC_BAR1_CONFIG_HI         0x00006030 /* RC BAR1 Configuration High Register */
-#define BCHP_PCIE_MISC_RC_BAR2_CONFIG_LO         0x00006034 /* RC BAR2 Configuration Low Register */
-#define BCHP_PCIE_MISC_RC_BAR2_CONFIG_HI         0x00006038 /* RC BAR2 Configuration High Register */
-#define BCHP_PCIE_MISC_RC_BAR3_CONFIG_LO         0x0000603c /* RC BAR3 Configuration Low Register */
-#define BCHP_PCIE_MISC_RC_BAR3_CONFIG_HI         0x00006040 /* RC BAR3 Configuration High Register */
-#define BCHP_PCIE_MISC_MSI_BAR_CONFIG_LO         0x00006044 /* Message Signaled Interrupt Base Address Low Register */
-#define BCHP_PCIE_MISC_MSI_BAR_CONFIG_HI         0x00006048 /* Message Signaled Interrupt Base Address High Register */
-#define BCHP_PCIE_MISC_MSI_DATA_CONFIG           0x0000604c /* Message Signaled Interrupt Data Configuration Register */
-#define BCHP_PCIE_MISC_RC_BAD_ADDRESS_LO         0x00006050 /* RC Bad Address Register Low */
-#define BCHP_PCIE_MISC_RC_BAD_ADDRESS_HI         0x00006054 /* RC Bad Address Register High */
-#define BCHP_PCIE_MISC_RC_BAD_DATA               0x00006058 /* RC Bad Data Register */
-#define BCHP_PCIE_MISC_RC_CONFIG_RETRY_TIMEOUT   0x0000605c /* RC Configuration Retry Timeout Register */
-#define BCHP_PCIE_MISC_EOI_CTRL                  0x00006060 /* End of Interrupt Control Register */
-#define BCHP_PCIE_MISC_PCIE_CTRL                 0x00006064 /* PCIE Control */
-#define BCHP_PCIE_MISC_PCIE_STATUS               0x00006068 /* PCIE Status */
+#define BCHP_PCIE_MISC_RESET_CTRL                0x00014000 /* Reset Control Register */
+#define BCHP_PCIE_MISC_ECO_CTRL_CORE             0x00014004 /* ECO Core Reset Control Register */
+#define BCHP_PCIE_MISC_MISC_CTRL                 0x00014008 /* MISC Control Register */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN0_LO    0x0001400c /* CPU to PCI-E Memory Window 0 Low */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN0_HI    0x00014010 /* CPU to PCI-E Memory Window 0 High */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN1_LO    0x00014014 /* CPU to PCI-E Memory Window 1 Low */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN1_HI    0x00014018 /* CPU to PCI-E Memory Window 1 High */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN2_LO    0x0001401c /* CPU to PCI-E Memory Window 2 Low */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN2_HI    0x00014020 /* CPU to PCI-E Memory Window 2 High */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_LO    0x00014024 /* CPU to PCI-E Memory Window 3 Low */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_HI    0x00014028 /* CPU to PCI-E Memory Window 3 High */
+#define BCHP_PCIE_MISC_RC_BAR1_CONFIG_LO         0x0001402c /* RC BAR1 Configuration Low Register */
+#define BCHP_PCIE_MISC_RC_BAR1_CONFIG_HI         0x00014030 /* RC BAR1 Configuration High Register */
+#define BCHP_PCIE_MISC_RC_BAR2_CONFIG_LO         0x00014034 /* RC BAR2 Configuration Low Register */
+#define BCHP_PCIE_MISC_RC_BAR2_CONFIG_HI         0x00014038 /* RC BAR2 Configuration High Register */
+#define BCHP_PCIE_MISC_RC_BAR3_CONFIG_LO         0x0001403c /* RC BAR3 Configuration Low Register */
+#define BCHP_PCIE_MISC_RC_BAR3_CONFIG_HI         0x00014040 /* RC BAR3 Configuration High Register */
+#define BCHP_PCIE_MISC_MSI_BAR_CONFIG_LO         0x00014044 /* Message Signaled Interrupt Base Address Low Register */
+#define BCHP_PCIE_MISC_MSI_BAR_CONFIG_HI         0x00014048 /* Message Signaled Interrupt Base Address High Register */
+#define BCHP_PCIE_MISC_MSI_DATA_CONFIG           0x0001404c /* Message Signaled Interrupt Data Configuration Register */
+#define BCHP_PCIE_MISC_RC_BAD_ADDRESS_LO         0x00014050 /* RC Bad Address Register Low */
+#define BCHP_PCIE_MISC_RC_BAD_ADDRESS_HI         0x00014054 /* RC Bad Address Register High */
+#define BCHP_PCIE_MISC_RC_BAD_DATA               0x00014058 /* RC Bad Data Register */
+#define BCHP_PCIE_MISC_RC_CONFIG_RETRY_TIMEOUT   0x0001405c /* RC Configuration Retry Timeout Register */
+#define BCHP_PCIE_MISC_EOI_CTRL                  0x00014060 /* End of Interrupt Control Register */
+#define BCHP_PCIE_MISC_PCIE_CTRL                 0x00014064 /* PCIE Control */
+#define BCHP_PCIE_MISC_PCIE_STATUS               0x00014068 /* PCIE Status */
 
 /***************************************************************************
  *RESET_CTRL - Reset Control Register
@@ -395,9 +395,13 @@
 /***************************************************************************
  *PCIE_CTRL - PCIE Control
  ***************************************************************************/
-/* PCIE_MISC :: PCIE_CTRL :: reserved0 [31:01] */
-#define BCHP_PCIE_MISC_PCIE_CTRL_reserved0_MASK                    0xfffffffe
-#define BCHP_PCIE_MISC_PCIE_CTRL_reserved0_SHIFT                   1
+/* PCIE_MISC :: PCIE_CTRL :: reserved0 [31:02] */
+#define BCHP_PCIE_MISC_PCIE_CTRL_reserved0_MASK                    0xfffffffc
+#define BCHP_PCIE_MISC_PCIE_CTRL_reserved0_SHIFT                   2
+
+/* PCIE_MISC :: PCIE_CTRL :: PCIE_PME_REQUEST [01:01] */
+#define BCHP_PCIE_MISC_PCIE_CTRL_PCIE_PME_REQUEST_MASK             0x00000002
+#define BCHP_PCIE_MISC_PCIE_CTRL_PCIE_PME_REQUEST_SHIFT            1
 
 /* PCIE_MISC :: PCIE_CTRL :: PCIE_L23_REQUEST [00:00] */
 #define BCHP_PCIE_MISC_PCIE_CTRL_PCIE_L23_REQUEST_MASK             0x00000001
@@ -406,9 +410,25 @@
 /***************************************************************************
  *PCIE_STATUS - PCIE Status
  ***************************************************************************/
-/* PCIE_MISC :: PCIE_STATUS :: reserved0 [31:07] */
-#define BCHP_PCIE_MISC_PCIE_STATUS_reserved0_MASK                  0xffffff80
-#define BCHP_PCIE_MISC_PCIE_STATUS_reserved0_SHIFT                 7
+/* PCIE_MISC :: PCIE_STATUS :: reserved0 [31:12] */
+#define BCHP_PCIE_MISC_PCIE_STATUS_reserved0_MASK                  0xfffff000
+#define BCHP_PCIE_MISC_PCIE_STATUS_reserved0_SHIFT                 12
+
+/* PCIE_MISC :: PCIE_STATUS :: PCIE_PM_STATE [11:10] */
+#define BCHP_PCIE_MISC_PCIE_STATUS_PCIE_PM_STATE_MASK              0x00000c00
+#define BCHP_PCIE_MISC_PCIE_STATUS_PCIE_PM_STATE_SHIFT             10
+
+/* PCIE_MISC :: PCIE_STATUS :: PCIE_WAKE [09:09] */
+#define BCHP_PCIE_MISC_PCIE_STATUS_PCIE_WAKE_MASK                  0x00000200
+#define BCHP_PCIE_MISC_PCIE_STATUS_PCIE_WAKE_SHIFT                 9
+
+/* PCIE_MISC :: PCIE_STATUS :: PCIE_PME_EVENT [08:08] */
+#define BCHP_PCIE_MISC_PCIE_STATUS_PCIE_PME_EVENT_MASK             0x00000100
+#define BCHP_PCIE_MISC_PCIE_STATUS_PCIE_PME_EVENT_SHIFT            8
+
+/* PCIE_MISC :: PCIE_STATUS :: reserved1 [07:07] */
+#define BCHP_PCIE_MISC_PCIE_STATUS_reserved1_MASK                  0x00000080
+#define BCHP_PCIE_MISC_PCIE_STATUS_reserved1_SHIFT                 7
 
 /* PCIE_MISC :: PCIE_STATUS :: PCIE_LINK_IN_L23 [06:06] */
 #define BCHP_PCIE_MISC_PCIE_STATUS_PCIE_LINK_IN_L23_MASK           0x00000040

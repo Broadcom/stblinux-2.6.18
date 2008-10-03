@@ -11,7 +11,7 @@
 #include <sys/mount.h>
 #include <mtd/mtd-user.h>
 
-int region_erase(int Fd, int start, int count, int unlock, int regcount)
+int region_erase(int Fd, off_t start, int count, int unlock, int regcount)
 {
 	int i, j;
 	region_info_t * reginfo;
@@ -42,7 +42,11 @@ int region_erase(int Fd, int start, int count, int unlock, int regcount)
 
 	if(i >= regcount)
 	{
-		printf("Starting offset %x not within chip.\n", start);
+#ifdef __USE_FILE_OFFSET64
+		printf("Starting offset 0x%llx not within chip.\n", start);
+#else
+		printf("Starting offset 0x%x not within chip.\n", start);
+#endif
 		return 8;
 	}
 
@@ -66,8 +70,13 @@ int region_erase(int Fd, int start, int count, int unlock, int regcount)
 				return 8;
 			}
 		}
+#ifdef __USE_FILE_OFFSET64
+		printf("\rPerforming Flash Erase of length %u at offset 0x%llx",
+				erase.length, erase.start);
+#else
 		printf("\rPerforming Flash Erase of length %u at offset 0x%x",
 				erase.length, erase.start);
+#endif
 		fflush(stdout);
 		if(ioctl(Fd, MEMERASE, &erase) != 0)
 		{
@@ -90,7 +99,7 @@ int region_erase(int Fd, int start, int count, int unlock, int regcount)
 	return 0;
 }
 
-int non_region_erase(int Fd, int start, int count, int unlock)
+int non_region_erase(int Fd, off_t start, int count, int unlock)
 {
 	mtd_info_t meminfo;
 
@@ -103,14 +112,23 @@ int non_region_erase(int Fd, int start, int count, int unlock)
 		erase.length = meminfo.erasesize;
 
 		for (; count > 0; count--) {
+#ifdef __USE_FILE_OFFSET64
 			printf("\rPerforming Flash Erase of length %u at offset 0x%x",
 					erase.length, erase.start);
+#else
+			printf("\rPerforming Flash Erase of length %u at offset 0x%x",
+					erase.length, erase.start);
+#endif
 			fflush(stdout);
 
 			if(unlock != 0)
 			{
 				//Unlock the sector first.
+#ifdef __USE_FILE_OFFSET64
 				printf("\rPerforming Flash unlock at offset 0x%x",erase.start);
+#else
+				printf("\rPerforming Flash unlock at offset 0x%x",erase.start);
+#endif
 				if(ioctl(Fd, MEMUNLOCK, &erase) != 0)
 				{
 					perror("\nMTD Unlock failure");
@@ -136,7 +154,7 @@ int main(int argc,char *argv[])
 {
 	int regcount;
 	int Fd;
-	int start;
+	off_t start;
 	int count;
 	int unlock;
 	int res = 0;
@@ -148,9 +166,13 @@ int main(int argc,char *argv[])
 	}
 
 	if (argc > 2)
+#ifdef __USE_FILE_OFFSET64
+		start = strtoll(argv[2], NULL, 0);
+#else
 		start = strtol(argv[2], NULL, 0);
+#endif
 	else
-		start = 0;
+		start = 0LL;
 
 	if (argc > 3)
 		count = strtol(argv[3], NULL, 0);
@@ -180,6 +202,7 @@ int main(int argc,char *argv[])
 		}
 		else
 		{
+			//TODO sidc fix this case
 			res = region_erase(Fd, start, count, unlock, regcount);
 		}
 	}

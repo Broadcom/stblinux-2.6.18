@@ -554,7 +554,7 @@ static void inline brcm_reserve_bootmem_node(unsigned long firstUsableAddr)
 			}
 			if (!found) {
 printk(KERN_WARNING "Requested mem node[%08x: %08x] not found or does not fit inside a memory bank\n",
-	(unsigned int)brcm_mmap.map[i].addr, brcm_mmap.map[i].size);
+	(unsigned int)brcm_mmap.map[i].addr, (unsigned int)brcm_mmap.map[i].size);
 			}
 #endif
 		}

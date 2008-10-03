@@ -1231,7 +1231,7 @@ static struct shadow_registers {
 static void mips_srs_init(void)
 {
 	shadow_registers.sr_supported = ((read_c0_srsctl() >> 26) & 0x0f) + 1;
-	printk(KERN_INFO "%d MIPSR2 register sets available\n",
+	printk(KERN_INFO "%lu MIPSR2 register sets available\n",
 	       shadow_registers.sr_supported);
 	shadow_registers.sr_allocated = 1;	/* Set 0 used by kernel */
 }
@@ -1527,7 +1527,8 @@ void __init per_cpu_trap_init(void)
 		cpu_cache_init();
 		tlb_init();
 	}
-#ifdef CONFIG_MIPS_MT_SMTC
+#if defined(CONFIG_MIPS_MT_SMTC) && ! defined(CONFIG_MIPS_BRCM97XXX)
+	/* BRCM note: moved to smtc.c to preserve the wired register */
 	else if (!secondaryTC) {
 		/*
 		 * First TC in non-boot VPE must do subset of tlb_init()

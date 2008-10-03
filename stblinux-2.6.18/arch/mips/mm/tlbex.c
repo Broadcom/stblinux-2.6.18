@@ -432,6 +432,7 @@ enum label_id {
 	label_nopage_tlbm,
 	label_smp_pgtable_change,
 	label_r3000_write_probe_fail,
+	label_smtc_probe,
 };
 
 struct label {
@@ -464,6 +465,7 @@ L_LA(_nopage_tlbs)
 L_LA(_nopage_tlbm)
 L_LA(_smp_pgtable_change)
 L_LA(_r3000_write_probe_fail)
+L_LA(_smtc_probe)
 
 /* convenience macros for instructions */
 #ifdef CONFIG_64BIT
@@ -1665,7 +1667,19 @@ build_r4000_tlbchange_handler_tail(u32 **p, struct label **l,
 	i_ori(p, ptr, ptr, sizeof(pte_t));
 	i_xori(p, ptr, ptr, sizeof(pte_t));
 	build_update_entries(p, tmp, ptr);
+#ifdef CONFIG_MIPS_MT_SMTC
+	/* for shared TLB, the entry could be replaced before we get here */
+	i_mfc0(p, tmp, C0_INDEX);
+	i_srl(p, tmp, tmp, 31);
+	il_bnez(p, r, tmp, label_smtc_probe);
+	i_ehb(p);
+	i_tlbwi(p);
+	i_eret(p);
+	l_smtc_probe(l, *p);
+	i_tlbwr(p);
+#else
 	build_tlb_write_entry(p, l, r, tlb_indexed);
+#endif
 	l_leave(l, *p);
 	i_eret(p); /* return from trap */
 

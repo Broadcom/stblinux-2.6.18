@@ -39,6 +39,10 @@
 #include <linux/mtd/cfi.h>
 #include <linux/mtd/xip.h>
 
+#ifdef MTD_LARGE
+#include <linux/mtd/mtd64.h>
+#endif
+
 #define AMD_BOOTLOC_BUG
 #define FORCE_WORD_WRITE 0
 
@@ -440,7 +444,10 @@ static struct mtd_info *cfi_amdstd_setup(struct mtd_info *mtd)
 	printk(KERN_NOTICE "number of %s chips: %d\n",
 	       (cfi->cfi_mode == CFI_MODE_CFI)?"CFI":"JEDEC",cfi->numchips);
 	/* Select the correct geometry setup */
+#ifndef MTD_LARGE
+	/* For MTD_LARGE, we do the numblks assignment after calculating erase size */
 	mtd->size = devsize * cfi->numchips;
+#endif
 
 	mtd->numeraseregions = cfi->cfiq->NumEraseRegions * cfi->numchips;
 	mtd->eraseregions = kmalloc(sizeof(struct mtd_erase_region_info)
@@ -458,6 +465,10 @@ static struct mtd_info *cfi_amdstd_setup(struct mtd_info *mtd)
 		if (mtd->erasesize < ersize) {
 			mtd->erasesize = ersize;
 		}
+#ifdef MTD_LARGE
+		mtd->numblks = (uint64_t) mtd64_rshft32((uint64_t)(devsize * cfi->numchips),\
+				ffs(mtd->erasesize)-1);
+#endif
 		for (j=0; j<cfi->numchips; j++) {
 			mtd->eraseregions[(j*cfi->cfiq->NumEraseRegions)+i].offset = (j*devsize)+offset;
 			mtd->eraseregions[(j*cfi->cfiq->NumEraseRegions)+i].erasesize = ersize;
@@ -1695,8 +1706,13 @@ static int cfi_amdstd_erase_chip(struct mtd_info *mtd, struct erase_info *instr)
 	if (instr->addr != 0)
 		return -EINVAL;
 
+#ifdef MTD_LARGE
+	if (mtd64_notequals((uint64_t)instr->len, MTD_SIZE(mtd)))
+		return -EINVAL;
+#else
 	if (instr->len != mtd->size)
 		return -EINVAL;
+#endif
 
 	ret = do_erase_chip(map, &cfi->chips[0]);
 	if (ret)

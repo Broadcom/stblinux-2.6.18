@@ -28,6 +28,10 @@
 #include <linux/mtd/cfi.h>
 #include <linux/mtd/compatmac.h>
 
+#ifdef MTD_LARGE
+#include <linux/mtd/mtd64.h>
+#endif
+
 struct cfi_extquery *
 __xipram cfi_read_pri(struct map_info *map, __u16 adr, __u16 size, const char* name)
 {
@@ -101,11 +105,19 @@ int cfi_varsize_frob(struct mtd_info *mtd, varsize_frob_t frob,
 	int i, first;
 	struct mtd_erase_region_info *regions = mtd->eraseregions;
 
+#ifdef MTD_LARGE
+	if (mtd64_is_greater(len, MTD_SIZE(mtd)))
+		return -EINVAL;
+
+	if (mtd64_is_greater(mtd64_add32(ofs, len), MTD_SIZE(mtd)))
+		return -EINVAL;
+#else
 	if (ofs > mtd->size)
 		return -EINVAL;
 
 	if ((len + ofs) > mtd->size)
 		return -EINVAL;
+#endif
 
 	/* Check that both start and end of the requested erase are
 	 * aligned with the erasesize at the appropriate addresses.

@@ -21,6 +21,10 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/compatmac.h>
 
+#ifdef MTD_LARGE
+#include <linux/mtd/mtd64.h>
+#endif
+
 /* Our partition linked list */
 static LIST_HEAD(mtd_partitions);
 
@@ -28,7 +32,11 @@ static LIST_HEAD(mtd_partitions);
 struct mtd_part {
 	struct mtd_info mtd;
 	struct mtd_info *master;
+#ifdef MTD_LARGE
+	u_int64_t offset;
+#else
 	u_int32_t offset;
+#endif
 	int index;
 	struct list_head list;
 	int registered;
@@ -52,10 +60,17 @@ static int part_read (struct mtd_info *mtd, loff_t from, size_t len,
 	struct mtd_part *part = PART(mtd);
 	int res;
 
+#ifdef MTD_LARGE
+	if (mtd64_is_gteq((int64_t) from, MTD_SIZE(mtd))) 
+		len = 0;
+	else if (mtd64_is_greater((int64_t)(from + len), MTD_SIZE(mtd))) 
+		len = mtd64_ll_low(mtd64_sub32(MTD_SIZE(mtd), from));
+#else
 	if (from >= mtd->size)
 		len = 0;
 	else if (from + len > mtd->size)
 		len = mtd->size - from;
+#endif
 	res = part->master->read (part->master, from + part->offset,
 				   len, retlen, buf);
 	if (unlikely(res)) {
@@ -71,10 +86,17 @@ static int part_point (struct mtd_info *mtd, loff_t from, size_t len,
 			size_t *retlen, u_char **buf)
 {
 	struct mtd_part *part = PART(mtd);
+#ifdef MTD_LARGE
+	if (mtd64_is_gteq((int64_t) from, MTD_SIZE(mtd)))
+		len = 0;
+	else if (mtd64_is_greater((int64_t) (from + len), MTD_SIZE(mtd)))
+		len = mtd64_ll_low(mtd64_sub32(MTD_SIZE(mtd), from));
+#else
 	if (from >= mtd->size)
 		len = 0;
 	else if (from + len > mtd->size)
 		len = mtd->size - from;
+#endif
 	return part->master->point (part->master, from + part->offset,
 				    len, retlen, buf);
 }
@@ -92,10 +114,17 @@ static int part_read_oob(struct mtd_info *mtd, loff_t from,
 	struct mtd_part *part = PART(mtd);
 	int res;
 
+#ifdef MTD_LARGE
+	if (mtd64_is_gteq((int64_t) from, MTD_SIZE(mtd)))
+		return -EINVAL;
+	if (mtd64_is_greater((int64_t) (from + ops->len), MTD_SIZE(mtd)))
+		return -EINVAL;
+#else
 	if (from >= mtd->size)
 		return -EINVAL;
 	if (from + ops->len > mtd->size)
 		return -EINVAL;
+#endif
 	res = part->master->read_oob(part->master, from + part->offset, ops);
 
 	if (unlikely(res)) {
@@ -143,10 +172,17 @@ static int part_write (struct mtd_info *mtd, loff_t to, size_t len,
 	struct mtd_part *part = PART(mtd);
 	if (!(mtd->flags & MTD_WRITEABLE))
 		return -EROFS;
+#ifdef MTD_LARGE
+	if (mtd64_is_gteq((int64_t) to, MTD_SIZE(mtd)))
+		len = 0;
+	else if (mtd64_is_greater((int64_t)(to + len), MTD_SIZE(mtd)))
+		len = mtd64_ll_low(mtd64_sub32(MTD_SIZE(mtd), to));
+#else
 	if (to >= mtd->size)
 		len = 0;
 	else if (to + len > mtd->size)
 		len = mtd->size - to;
+#endif
 	return part->master->write (part->master, to + part->offset,
 				    len, retlen, buf);
 }
@@ -159,10 +195,17 @@ static int part_write_oob(struct mtd_info *mtd, loff_t to,
 	if (!(mtd->flags & MTD_WRITEABLE))
 		return -EROFS;
 
+#ifdef MTD_LARGE
+	if (mtd64_is_gteq((int64_t) to, MTD_SIZE(mtd)))
+		return -EINVAL;
+	if (mtd64_is_greater((int64_t) (to + ops->len), MTD_SIZE(mtd)))
+		return -EINVAL;
+#else
 	if (to >= mtd->size)
 		return -EINVAL;
 	if (to + ops->len > mtd->size)
 		return -EINVAL;
+#endif
 	return part->master->write_oob(part->master, to + part->offset, ops);
 }
 
@@ -196,8 +239,13 @@ static int part_erase (struct mtd_info *mtd, struct erase_info *instr)
 	int ret;
 	if (!(mtd->flags & MTD_WRITEABLE))
 		return -EROFS;
+#ifdef MTD_LARGE
+	if (mtd64_is_gteq((uint64_t) instr->addr, MTD_SIZE(mtd))) 
+		return -EINVAL;
+#else
 	if (instr->addr >= mtd->size)
 		return -EINVAL;
+#endif
 	instr->addr += part->offset;
 	ret = part->master->erase(part->master, instr);
 	return ret;
@@ -208,8 +256,13 @@ void mtd_erase_callback(struct erase_info *instr)
 	if (instr->mtd->erase == part_erase) {
 		struct mtd_part *part = PART(instr->mtd);
 
+#ifdef MTD_LARGE
+		if (mtd64_notequals(instr->fail_addr, (uint64_t) 0xffffffffffffffffULL)) 
+			instr->fail_addr -= part->offset;
+#else
 		if (instr->fail_addr != 0xffffffff)
 			instr->fail_addr -= part->offset;
+#endif
 		instr->addr -= part->offset;
 	}
 	if (instr->callback)
@@ -220,16 +273,26 @@ EXPORT_SYMBOL_GPL(mtd_erase_callback);
 static int part_lock (struct mtd_info *mtd, loff_t ofs, size_t len)
 {
 	struct mtd_part *part = PART(mtd);
+#ifdef MTD_LARGE
+	if (mtd64_is_greater((int64_t)(len + ofs), MTD_SIZE(mtd)))
+		return -EINVAL;
+#else
 	if ((len + ofs) > mtd->size)
 		return -EINVAL;
+#endif
 	return part->master->lock(part->master, ofs + part->offset, len);
 }
 
 static int part_unlock (struct mtd_info *mtd, loff_t ofs, size_t len)
 {
 	struct mtd_part *part = PART(mtd);
+#ifdef MTD_LARGE
+	if (mtd64_is_greater((int64_t)(len + ofs), MTD_SIZE(mtd)))
+		return -EINVAL;
+#else
 	if ((len + ofs) > mtd->size)
 		return -EINVAL;
+#endif
 	return part->master->unlock(part->master, ofs + part->offset, len);
 }
 
@@ -254,8 +317,13 @@ static void part_resume(struct mtd_info *mtd)
 static int part_block_isbad (struct mtd_info *mtd, loff_t ofs)
 {
 	struct mtd_part *part = PART(mtd);
+#ifdef MTD_LARGE
+	if (mtd64_is_gteq((int64_t) ofs, MTD_SIZE(mtd)))
+		return -EINVAL;
+#else
 	if (ofs >= mtd->size)
 		return -EINVAL;
+#endif
 	ofs += part->offset;
 	return part->master->block_isbad(part->master, ofs);
 }
@@ -267,8 +335,12 @@ static int part_block_markbad (struct mtd_info *mtd, loff_t ofs)
 
 	if (!(mtd->flags & MTD_WRITEABLE))
 		return -EROFS;
+#ifdef MTD_LARGE
+	if (mtd64_is_gteq((int64_t) ofs, MTD_SIZE(mtd)))
+#else
 	if (ofs >= mtd->size)
 		return -EINVAL;
+#endif
 	ofs += part->offset;
 	res = part->master->block_markbad(part->master, ofs);
 	if (!res)
@@ -315,7 +387,15 @@ int add_mtd_partitions(struct mtd_info *master,
 		       int nbparts)
 {
 	struct mtd_part *slave;
+#ifdef MTD_LARGE
+	u_int64_t cur_offset = 0;
+	int rem, rs;
+	uint64_t tmpdiv;
+	unsigned int fragmentsize = 0;
+	char add_fragment = 0;
+#else
 	u_int32_t cur_offset = 0;
+#endif
 	int i;
 
 	printk (KERN_NOTICE "Creating %d MTD partitions on \"%s\":\n", nbparts, master->name);
@@ -336,7 +416,23 @@ int add_mtd_partitions(struct mtd_info *master,
 		/* set up the MTD object for this partition */
 		slave->mtd.type = master->type;
 		slave->mtd.flags = master->flags & ~parts[i].mask_flags;
+#ifdef MTD_LARGE
+#if 0
+		if (add_fragment == 1) {
+			parts[i].size += fragmentsize;
+			if (fragmentsize > master->erasesize) {
+				add_fragment = 0;
+			}
+		}
+#endif
+		if (mtd64_is_less(parts[i].size, master->erasesize)) {
+			fragmentsize += parts[i].size;
+			add_fragment = 1;
+		}
+		slave->mtd.numblks = mtd64_rshft32((parts[i].size), (ffs(master->erasesize)-1));
+#else
 		slave->mtd.size = parts[i].size;
+#endif
 		slave->mtd.writesize = master->writesize;
 		slave->mtd.oobsize = master->oobsize;
 		slave->mtd.ecctype = master->ecctype;
@@ -348,6 +444,7 @@ int add_mtd_partitions(struct mtd_info *master,
 
 		slave->mtd.read = part_read;
 		slave->mtd.write = part_write;
+		slave->mtd.erasesize = master->erasesize;
 
 		if(master->point && master->unpoint){
 			slave->mtd.point = part_point;
@@ -395,6 +492,18 @@ int add_mtd_partitions(struct mtd_info *master,
 			slave->offset = cur_offset;
 		if (slave->offset == MTDPART_OFS_NXTBLK) {
 			slave->offset = cur_offset;
+#ifdef MTD_LARGE
+			//TODO sidc check test case for this
+			tmpdiv = (uint64_t) cur_offset;
+			rem = do_div(tmpdiv, master->erasesize);
+			rs = (int) tmpdiv;
+			if (rem != 0) {
+				slave->offset = (rs + 1) >> (ffs(master->erasesize)-1);
+				printk(KERN_NOTICE "Moving partition %d: "
+				       "0x%016llx -> 0x%016llx\n", i,
+				       cur_offset, slave->offset);
+			}
+#else
 			if ((cur_offset % master->erasesize) != 0) {
 				/* Round up to next erasesize */
 				slave->offset = ((cur_offset / master->erasesize) + 1) * master->erasesize;
@@ -402,27 +511,56 @@ int add_mtd_partitions(struct mtd_info *master,
 				       "0x%08x -> 0x%08x\n", i,
 				       cur_offset, slave->offset);
 			}
+#endif
 		}
+#ifdef MTD_LARGE
+		if (MTD_SIZE(&(slave->mtd))== MTDPART_SIZ_FULL)
+			slave->mtd.numblks = mtd64_rshft32(mtd64_sub(MTD_SIZE(master), slave->offset)\
+					, (ffs(master->erasesize)-1));
+		cur_offset = mtd64_add(slave->offset, MTD_SIZE(&(slave->mtd)));
+
+		printk (KERN_NOTICE "0x%016llx-0x%016llx : \"%s\"\n", slave->offset,
+			slave->offset + MTD_SIZE(&(slave->mtd)), slave->mtd.name);
+#else
 		if (slave->mtd.size == MTDPART_SIZ_FULL)
 			slave->mtd.size = master->size - slave->offset;
 		cur_offset = slave->offset + slave->mtd.size;
 
 		printk (KERN_NOTICE "0x%08x-0x%08x : \"%s\"\n", slave->offset,
 			slave->offset + slave->mtd.size, slave->mtd.name);
+#endif
 
 		/* let's do some sanity checks */
+#ifdef MTD_LARGE
+		if (mtd64_is_gteq(slave->offset, MTD_SIZE(master))) {
+#else
 		if (slave->offset >= master->size) {
+#endif
 				/* let's register it anyway to preserve ordering */
 			slave->offset = 0;
+#ifdef MTD_LARGE
+			slave->mtd.numblks = 0;
+#else
 			slave->mtd.size = 0;
+#endif
 			printk ("mtd: partition \"%s\" is out of reach -- disabled\n",
 				parts[i].name);
 		}
+#ifdef MTD_LARGE
+		//if (slave->offset + MTD_SIZE(&(slave->mtd)) > MTD_SIZE(master)) {
+		if (mtd64_is_greater(mtd64_add(slave->offset, MTD_SIZE(&(slave->mtd))), MTD_SIZE(master))) {
+			//slave->mtd.numblks = (MTD_SIZE(master) - slave->offset) >> (ffs(master->erasesize)-1);
+			slave->mtd.numblks = mtd64_rshft32(mtd64_sub(MTD_SIZE(master), slave->offset), (ffs(master->erasesize)-1));
+			printk ("mtd: partition \"%s\" extends beyond the end of device \"%s\" -- size truncated to %#llx\n",
+				parts[i].name, master->name, MTD_SIZE(&(slave->mtd)));
+		}
+#else
 		if (slave->offset + slave->mtd.size > master->size) {
 			slave->mtd.size = master->size - slave->offset;
 			printk ("mtd: partition \"%s\" extends beyond the end of device \"%s\" -- size truncated to %#x\n",
 				parts[i].name, master->name, slave->mtd.size);
 		}
+#endif
 		if (master->numeraseregions>1) {
 			/* Deal with variable erase size stuff */
 			int i;
@@ -432,26 +570,47 @@ int add_mtd_partitions(struct mtd_info *master,
 			for (i=0; i < master->numeraseregions && slave->offset >= regions[i].offset; i++)
 				;
 
+#ifdef MTD_LARGE
+			//TODO sidc - should master->numeraseregions be uint64_t ?
+			for (i--; i < master->numeraseregions && mtd64_add(slave->offset, MTD_SIZE(&(slave->mtd))) > regions[i].offset; i++) {
+				if (slave->mtd.erasesize < regions[i].erasesize) {
+					slave->mtd.erasesize = regions[i].erasesize;
+				}
+			}
+#else
 			for (i--; i < master->numeraseregions && slave->offset + slave->mtd.size > regions[i].offset; i++) {
 				if (slave->mtd.erasesize < regions[i].erasesize) {
 					slave->mtd.erasesize = regions[i].erasesize;
 				}
 			}
+#endif
 		} else {
 			/* Single erase size */
 			slave->mtd.erasesize = master->erasesize;
 		}
 
+#ifdef MTD_LARGE
+		tmpdiv = (uint64_t) slave->offset;
+		rem = do_div(tmpdiv, master->erasesize);
+		if ((slave->mtd.flags & MTD_WRITEABLE) && rem) {
+#else
 		if ((slave->mtd.flags & MTD_WRITEABLE) &&
 		    (slave->offset % slave->mtd.erasesize)) {
+#endif
 			/* Doesn't start on a boundary of major erase size */
 			/* FIXME: Let it be writable if it is on a boundary of _minor_ erase size though */
 			slave->mtd.flags &= ~MTD_WRITEABLE;
 			printk ("mtd: partition \"%s\" doesn't start on an erase block boundary -- force read-only\n",
 				parts[i].name);
 		}
+#ifdef MTD_LARGE
+		tmpdiv = (uint64_t) MTD_SIZE(&(slave->mtd));
+		rem = do_div(tmpdiv, master->erasesize);
+		if ((slave->mtd.flags & MTD_WRITEABLE) && rem) {
+#else
 		if ((slave->mtd.flags & MTD_WRITEABLE) &&
 		    (slave->mtd.size % slave->mtd.erasesize)) {
+#endif
 			slave->mtd.flags &= ~MTD_WRITEABLE;
 			printk ("mtd: partition \"%s\" doesn't end on an erase block -- force read-only\n",
 				parts[i].name);
@@ -461,7 +620,11 @@ int add_mtd_partitions(struct mtd_info *master,
 		if (master->block_isbad) {
 			uint32_t offs = 0;
 
+#ifdef MTD_LARGE
+			while(offs < MTD_SIZE(&(slave->mtd))) {
+#else
 			while(offs < slave->mtd.size) {
+#endif
 				if (master->block_isbad(master,
 							offs + slave->offset))
 					slave->mtd.ecc_stats.badblocks++;

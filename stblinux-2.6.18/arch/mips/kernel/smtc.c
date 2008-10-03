@@ -486,6 +486,11 @@ void mipsmt_prepare_cpus(void)
 			/* Propagate Config7 */
 			write_vpe_c0_config7(read_c0_config7());
 		}
+#ifdef CONFIG_MIPS_BRCM97XXX
+		/* sync up wired TLB entries and set up pagemask */
+		write_vpe_c0_wired(read_c0_wired());
+		write_vpe_c0_pagemask(PM_DEFAULT_MASK);
+#endif
 		/* enable multi-threading within VPE */
 		write_vpe_c0_vpecontrol(read_vpe_c0_vpecontrol() | VPECONTROL_TE);
 		/* enable the VPE */

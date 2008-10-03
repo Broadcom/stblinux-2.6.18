@@ -219,7 +219,7 @@ static void cet_eraseall(struct mtd_info *mtd, struct brcmnand_cet_descr *cet)
 			einfo.len = mtd->erasesize;
 			ret = this->erase_bbt(mtd, &einfo, 1, 1);
 			if (unlikely(ret < 0)) {
-				printk(KERN_ERR "brcmnandCET: %s Error erasing block %x\n", __FUNCTION__, einfo.addr);
+				printk(KERN_ERR "brcmnandCET: %s Error erasing block %llx\n", __FUNCTION__, einfo.addr);
 			}
 		}
 	}
@@ -665,6 +665,11 @@ int brcmnand_create_cet(struct mtd_info *mtd)
 	}
 	this->cet = cet = &cet_descr;
 	cet->flags = 0x00;
+	if (NAND_IS_MLC(this)) {
+		printk(KERN_INFO "Disabling CET for MLC NAND\n");
+		cet->flags = BRCMNAND_CET_DISABLED;
+		return -1;
+	}
 	/* Check that BBT table and mirror exist */
 	if (unlikely(!this->bbt_td && !this->bbt_md)) {
 		printk(KERN_INFO "brcmnandCET: BBT tables not found, disabling\n");
@@ -962,6 +967,10 @@ int brcmnand_cet_prepare_reboot(struct mtd_info *mtd)
 	struct brcmnand_chip *this = (struct brcmnand_chip *) mtd->priv;
 	struct brcmnand_cet_descr *cet = this->cet;
 
+	// Disable for MLC
+	if (NAND_IS_MLC(this)) {
+		return 0;
+	}
 	if (unlikely(gdebug)) {
 		uart_puts(KERN_INFO "DEBUG -> brcmnandCET: flushing pending CET\n");
 	}
