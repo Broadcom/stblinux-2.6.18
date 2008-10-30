@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu May 29 18:46:14 2008
- *                 MD5 Checksum         820227b279d06813a6bca9e3c5b6cb55
+ * Date:           Generated on         Thu Sep  4 18:00:51 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_pci_cfg.h $
  * 
- * Hydra_Software_Devel/1   5/29/08 11:27p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   9/5/08 11:34a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,27 +45,27 @@
 /***************************************************************************
  *PCI_CFG - PCI Configuration Registers
  ***************************************************************************/
-#define BCHP_PCI_CFG_DEVICE_VENDOR_ID            0x00000200 /* PCI CFG Device Vendor ID */
-#define BCHP_PCI_CFG_STATUS_COMMAND              0x00000204 /* PCI CFG Status Command */
-#define BCHP_PCI_CFG_CLASS_CODE_REV_ID           0x00000208 /* PCI CFG Class Code Rev ID */
-#define BCHP_PCI_CFG_BIST_LATENCY_CACHELINE      0x0000020c /* PCI CFG BIST Latency Cacheline Size */
-#define BCHP_PCI_CFG_GISB_BASE_W                 0x00000210 /* PCI CFG GISB Base Window */
-#define BCHP_PCI_CFG_MEMORY_BASE_W0              0x00000214 /* PCI CFG Memory Base Window0 */
-#define BCHP_PCI_CFG_MEMORY_BASE_W1              0x00000218 /* PCI CFG Memory Base Window1 */
-#define BCHP_PCI_CFG_MEMORY_BASE_W2              0x0000021c /* PCI CFG Memory Base Window2 */
-#define BCHP_PCI_CFG_SUBSYSTEM_ID                0x0000022c /* PCI CFG Subsystem ID */
-#define BCHP_PCI_CFG_LATENCY_GRANT_INTR          0x0000023c /* Latency Min Grant Interrupt */
-#define BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0          0x00000250 /* PCI CFG CPU to PCI MEM WIN0 */
-#define BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1          0x00000254 /* PCI CFG CPU to PCI MEM WIN1 */
-#define BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2          0x00000258 /* PCI CFG CPU to PCI MEM WIN2 */
-#define BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3          0x0000025c /* PCI CFG CPU to PCI MEM WIN3 */
-#define BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0           0x00000260 /* PCI CFG CPU to PCI IO WIN0 */
-#define BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1           0x00000264 /* PCI CFG CPU to PCI IO WIN1 */
-#define BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2           0x00000268 /* PCI CFG CPU to PCI IO WIN2 */
-#define BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL       0x0000026c /* PCI CFG PCI SDRAM Endian Control */
-#define BCHP_PCI_CFG_PCI_INTA_CYC                0x00000274 /* External PCI Interrupt Ack Cycle Generation */
-#define BCHP_PCI_CFG_EXT_CFG_INDEX               0x00000278 /* External PCI Configuration Access Address */
-#define BCHP_PCI_CFG_EXT_CFG_DATA                0x0000027c /* External PCI Configuration Access Data */
+#define BCHP_PCI_CFG_DEVICE_VENDOR_ID            0x00440200 /* PCI CFG Device Vendor ID */
+#define BCHP_PCI_CFG_STATUS_COMMAND              0x00440204 /* PCI CFG Status Command */
+#define BCHP_PCI_CFG_CLASS_CODE_REV_ID           0x00440208 /* PCI CFG Class Code Rev ID */
+#define BCHP_PCI_CFG_BIST_LATENCY_CACHELINE      0x0044020c /* PCI CFG BIST Latency Cacheline Size */
+#define BCHP_PCI_CFG_GISB_BASE_W                 0x00440210 /* PCI CFG GISB Base Window */
+#define BCHP_PCI_CFG_MEMORY_BASE_W0              0x00440214 /* PCI CFG Memory Base Window0 */
+#define BCHP_PCI_CFG_MEMORY_BASE_W1              0x00440218 /* PCI CFG Memory Base Window1 */
+#define BCHP_PCI_CFG_MEMORY_BASE_W2              0x0044021c /* PCI CFG Memory Base Window2 */
+#define BCHP_PCI_CFG_SUBSYSTEM_ID                0x0044022c /* PCI CFG Subsystem ID */
+#define BCHP_PCI_CFG_LATENCY_GRANT_INTR          0x0044023c /* Latency Min Grant Interrupt */
+#define BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN0          0x00440250 /* PCI CFG CPU to PCI MEM WIN0 */
+#define BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN1          0x00440254 /* PCI CFG CPU to PCI MEM WIN1 */
+#define BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN2          0x00440258 /* PCI CFG CPU to PCI MEM WIN2 */
+#define BCHP_PCI_CFG_CPU_2_PCI_MEM_WIN3          0x0044025c /* PCI CFG CPU to PCI MEM WIN3 */
+#define BCHP_PCI_CFG_CPU_2_PCI_IO_WIN0           0x00440260 /* PCI CFG CPU to PCI IO WIN0 */
+#define BCHP_PCI_CFG_CPU_2_PCI_IO_WIN1           0x00440264 /* PCI CFG CPU to PCI IO WIN1 */
+#define BCHP_PCI_CFG_CPU_2_PCI_IO_WIN2           0x00440268 /* PCI CFG CPU to PCI IO WIN2 */
+#define BCHP_PCI_CFG_PCI_SDRAM_ENDIAN_CTRL       0x0044026c /* PCI CFG PCI SDRAM Endian Control */
+#define BCHP_PCI_CFG_PCI_INTA_CYC                0x00440274 /* External PCI Interrupt Ack Cycle Generation */
+#define BCHP_PCI_CFG_EXT_CFG_INDEX               0x00440278 /* External PCI Configuration Access Address */
+#define BCHP_PCI_CFG_EXT_CFG_DATA                0x0044027c /* External PCI Configuration Access Data */
 
 /***************************************************************************
  *DEVICE_VENDOR_ID - PCI CFG Device Vendor ID

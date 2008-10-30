@@ -338,6 +338,10 @@ static void print_opcode_name(unsigned char * cdbp, int cdb_len,
 void __scsi_print_command(unsigned char *command)
 {
 	int k, len;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	unsigned char printbuf[64];
+	unsigned char *pPtr = &printbuf[0];
+#endif
 
 	print_opcode_name(command, 0, 1);
 	if (VARIABLE_LENGTH_CMD == command[0])
@@ -345,9 +349,16 @@ void __scsi_print_command(unsigned char *command)
 	else
 		len = COMMAND_SIZE(command[0]);
 	/* print out all bytes in cdb */
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	memset(printbuf, 0, sizeof(printbuf));
+	for (k = 0; k < len; ++k) 
+		pPtr += sprintf(pPtr, " %02x", command[k]);
+	printk("%s\n", printbuf);
+#else
 	for (k = 0; k < len; ++k) 
 		printk(" %02x", command[k]);
 	printk("\n");
+#endif
 }
 EXPORT_SYMBOL(__scsi_print_command);
 
@@ -358,7 +369,7 @@ EXPORT_SYMBOL(__scsi_print_command);
 static void scsi_print_cdb(unsigned char *cdb, int cdb_len, int start_of_line)
 {
 	int k;
-
+	
 	print_opcode_name(cdb, cdb_len, start_of_line);
 	/* print out all bytes in cdb */
 	printk(":");

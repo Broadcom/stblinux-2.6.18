@@ -25,13 +25,6 @@
 #ifndef _BRCMSTB_H
 #define _BRCMSTB_H
 
-// Compatiblity between RDB and gas
-#ifdef __ASSEMBLY__
-#define _ASMLANGUAGE
-#endif
-
-
-
 #include <linux/config.h>
 #include <asm/types.h>		/* For phys_t declaration */
 
@@ -55,6 +48,27 @@
 #include <asm/brcmstb/brcm93548a0/bchp_mspi.h>
 #include <asm/brcmstb/brcm93548a0/bchp_bspi.h>
 #include <asm/brcmstb/brcm93548a0/bchp_vcxo_ctl_misc.h>
+
+#elif defined(CONFIG_MIPS_BCM3548B0)
+#include <asm/brcmstb/brcm93548b0/bcmuart.h>
+#include <asm/brcmstb/brcm93548b0/bcmtimer.h>
+#include <asm/brcmstb/brcm93548b0/bcmebi.h>
+#include <asm/brcmstb/brcm93548b0/int1.h>
+#include <asm/brcmstb/brcm93548b0/board.h>
+#include <asm/brcmstb/brcm93548b0/bchp_irq0.h>
+#include <asm/brcmstb/brcm93548b0/bcmintrnum.h>
+#include <asm/brcmstb/brcm93548b0/bchp_nand.h>
+#include <asm/brcmstb/brcm93548b0/bchp_ebi.h>
+#include <asm/brcmstb/brcm93548b0/bchp_sun_top_ctrl.h>
+#include <asm/brcmstb/brcm93548b0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm93548b0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm93548b0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm93548b0/bchp_bmips4380.h>
+#include <asm/brcmstb/brcm93548b0/bchp_clkgen.h>
+#include <asm/brcmstb/brcm93548b0/bchp_memc_0_ddr.h>
+#include <asm/brcmstb/brcm93548b0/bchp_mspi.h>
+#include <asm/brcmstb/brcm93548b0/bchp_bspi.h>
+#include <asm/brcmstb/brcm93548b0/bchp_vcxo_ctl_misc.h>
 
 #elif defined(CONFIG_MIPS_BCM3563C0)
 #include <asm/brcmstb/brcm93563c0/bcmuart.h>
@@ -114,7 +128,6 @@
 
 #elif defined(CONFIG_MIPS_BCM7118C0)
 
-#ifndef __ASSEMBLY__
 #include <asm/brcmstb/brcm97118c0/bcmuart.h>
 #include <asm/brcmstb/brcm97118c0/bcmtimer.h>
 #include <asm/brcmstb/brcm97118c0/bcmebi.h>
@@ -131,10 +144,7 @@
 #include <asm/brcmstb/brcm97118c0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97118c0/bchp_usb_ohci1.h>
 #include <asm/brcmstb/brcm97118c0/bchp_pci_bridge.h>
-
-#else
 #include <asm/brcmstb/brcm97118c0/bcmtimer.h>
-#endif
 
 #define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE)
 #define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_nand_flash_MASK
@@ -497,6 +507,21 @@ extern unsigned long (* __get_discontig_RAM_size) (void);
 
 #if defined(BCHP_PCIE_MISC_MISC_CTRL) && ! defined(CONFIG_BRCM_PCI_SLAVE)
 #define BRCM_PCIE_SUPPORTED	1
+#endif
+
+/* BCM3548, BCM7420, and later chips do not have straps for memory size */
+#if defined(CONFIG_MIPS_BCM3560) || defined(CONFIG_MIPS_BCM7038) || \
+	defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7325) || \
+	defined(CONFIG_MIPS_BCM7335) || defined(CONFIG_MIPS_BCM7400) || \
+	defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7402) || \
+	defined(CONFIG_MIPS_BCM7403) || defined(CONFIG_MIPS_BCM7405) || \
+	defined(CONFIG_MIPS_BCM7440)
+#define BRCM_MEMORY_STRAPS	1
+#endif
+
+/* MSPI SS deassertion bug in BCM3548A0 and earlier */
+#if defined(BCHP_MSPI_SPCR2) && ! defined(BCHP_MSPI_SPCR2_cont_after_cmd_MASK)
+#define BRCM_SPI_SS_WAR		1
 #endif
 
 /* e.g. BCM9745x */

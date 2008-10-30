@@ -54,6 +54,9 @@ static void __ata_port_freeze(struct ata_port *ap);
 static void ata_eh_handle_port_suspend(struct ata_port *ap);
 static void ata_eh_handle_port_resume(struct ata_port *ap);
 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+static unsigned int atapi_eh_request_sense(struct ata_device *dev, unsigned char *sense_buf);
+#endif
 
 static void ata_ering_record(struct ata_ering *ering, int is_io,
 			     unsigned int err_mask)
@@ -200,6 +203,12 @@ void ata_scsi_error(struct Scsi_Host *host)
 	struct ata_port *ap = ata_shost_to_port(host);
 	int i, repeat_cnt = ATA_EH_MAX_REPEAT;
 	unsigned long flags;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	u8 stat;
+	int issue_request_sense = 0;
+	int sns;
+	struct ata_queued_cmd *sns_qc = NULL;
+#endif
 
 	DPRINTK("ENTER\n");
 
@@ -239,10 +248,30 @@ void ata_scsi_error(struct Scsi_Host *host)
 			if (i < ATA_MAX_QUEUE) {
 				/* the scmd has an associated qc */
 				if (!(qc->flags & ATA_QCFLAG_FAILED)) {
+#if defined (CONFIG_MIPS_BCM_NDVD)
+					stat  = ata_altstatus(ap);
+					if ((stat & (ATA_BUSY | ATA_DRDY | ATA_ERR)) == (ATA_DRDY | ATA_ERR)) {
+						issue_request_sense = 1;
+						sns_qc = qc;
+
+						/*
+						 * Make sure that the DMA engine is stopped
+						 * and interrupts cleared so that we can
+						 * send the Request Sense below.
+						 */
+						ap->ops->bmdma_stop(qc);
+						ata_chk_status(ap);
+						ap->ops->irq_clear(ap);
+					}
+					else
+
+#endif
+					{
 					/* which hasn't failed yet, timeout */
 					qc->err_mask |= AC_ERR_TIMEOUT;
 					qc->flags |= ATA_QCFLAG_FAILED;
 					nr_timedout++;
+				}
 				}
 			} else {
 				/* Normal completion occurred after
@@ -266,6 +295,28 @@ void ata_scsi_error(struct Scsi_Host *host)
 		spin_unlock_irqrestore(ap->lock, flags);
 	} else
 		spin_unlock_wait(ap->lock);
+
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	if (issue_request_sense && sns_qc) {
+		sns = atapi_eh_request_sense(sns_qc->dev, sns_qc->scsicmd->sense_buffer);
+		if (!sns) {
+			/* ATA_QCFLAG_SENSE_VALID is used to
+			 * tell atapi_qc_complete() that sense
+			 * data is already valid.
+			 *
+			 * TODO: interpret sense data and set
+			 * appropriate err_mask.
+			 */
+			sns_qc->flags |= ATA_QCFLAG_SENSE_VALID;
+
+			/*
+			 * Successfully complete it.
+			 */
+			ata_qc_complete(sns_qc);
+			return;
+		}
+	}
+#endif
 
  repeat:
 	/* invoke error handler */
@@ -1029,11 +1080,15 @@ static unsigned int atapi_eh_request_sense(struct ata_device *dev,
 	tf.flags |= ATA_TFLAG_ISADDR | ATA_TFLAG_DEVICE;
 	tf.command = ATA_CMD_PACKET;
 
+#if !defined (CONFIG_MIPS_BCM_NDVD)
 	/* is it pointless to prefer PIO for "safety reasons"? */
 	if (ap->flags & ATA_FLAG_PIO_DMA) {
 		tf.protocol = ATA_PROT_ATAPI_DMA;
 		tf.feature |= ATAPI_PKT_DMA;
-	} else {
+	}
+	else
+#endif
+	{
 		tf.protocol = ATA_PROT_ATAPI;
 		tf.lbam = (8 * 1024) & 0xff;
 		tf.lbah = (8 * 1024) >> 8;

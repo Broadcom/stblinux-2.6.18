@@ -69,6 +69,7 @@ extern "C" {
 #define INT1_ID_XPT_STATUS_CPU_INTR    0x001
 #define INT1_ID_HIF_CPU_INTR           0x000
 
+#ifndef __ASSEMBLY__
 
 /***************************************************************************
  *  Level 1 ISR Type Definition
@@ -79,8 +80,6 @@ typedef void (*FN_L1_ISR) (void *, int);
 /***************************************************************************
  *  Level 1 Interrupt Control Structure
  **************************************************************************/
-
-#ifndef _ASMLANGUAGE
 
 
 typedef struct Int1Control {
@@ -151,8 +150,6 @@ unsigned long        			IntrW1Status;
 } Int1Control;                                
 
 
-#endif /* _ASMLANGUAGE */
-
 
 /***************************************************************************
  *  Level 1 Interrupt Function Prototypes
@@ -165,6 +162,7 @@ extern void CPUINT1_Enable(unsigned long intId);
 extern int  CPUINT1_ConnectIsr(unsigned long intId, FN_L1_ISR pfunc,
                                void *param1, int param2);
 
+#endif /* __ASSEMBLY__ */
 
 #ifdef __cplusplus
 }

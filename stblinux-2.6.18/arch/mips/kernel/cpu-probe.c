@@ -746,6 +746,7 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
         /* Set generic BRCM processor options */
         c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX | MIPS_CPU_COUNTER |
 		MIPS_CPU_DIVEC | MIPS_CPU_4K_CACHE | MIPS_CPU_LLSC;
+	c->isa_level = MIPS_CPU_ISA_M32R1;
 
         /* Test for other generic proc options */
         config1 = read_c0_config1();

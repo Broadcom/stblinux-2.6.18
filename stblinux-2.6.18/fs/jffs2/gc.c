@@ -140,13 +140,8 @@ int jffs2_garbage_collect_pass(struct jffs2_sb_info *c)
 
 		/* checked_ino is protected by the alloc_sem */
 		if (c->checked_ino > c->highest_ino && xattr) {
-#ifdef MTD_LARGE
 			printk(KERN_CRIT "Checked all inodes but still 0x%llx bytes of unchecked space?\n",
 			       c->unchecked_size);
-#else
-			printk(KERN_CRIT "Checked all inodes but still 0x%x bytes of unchecked space?\n",
-			       c->unchecked_size);
-#endif
 			jffs2_dbg_dump_block_lists_nolock(c);
 			spin_unlock(&c->erase_completion_lock);
 			BUG();

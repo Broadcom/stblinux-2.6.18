@@ -53,10 +53,6 @@ extern const char *yaffs_guts_c_version;
 #include <linux/string.h>
 #include <linux/ctype.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0))
 
 #include <linux/statfs.h>	/* Added NCB 15-8-2003 */
@@ -1525,9 +1521,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 	char devname_buf[BDEVNAME_SIZE + 1];
 	struct mtd_info *mtd;
 	int err;
-#ifdef MTD_LARGE
 	uint64_t tmpdiv;
-#endif
 
 	sb->s_magic = YAFFS_MAGIC;
 	sb->s_op = &yaffs_super_ops;
@@ -1593,11 +1587,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 #endif
 	T(YAFFS_TRACE_OS, (" oobsize %d\n", mtd->oobsize));
 	T(YAFFS_TRACE_OS, (" erasesize %d\n", mtd->erasesize));
-#ifdef MTD_LARGE
-	T(YAFFS_TRACE_OS, (" size %llx\n", MTD_SIZE(mtd)));
-#else
-	T(YAFFS_TRACE_OS, (" size %d\n", mtd->size));
-#endif
+	T(YAFFS_TRACE_OS, (" size %llx\n", device_size(mtd)));
 	
 #ifdef CONFIG_YAFFS_AUTO_YAFFS2
 
@@ -1708,13 +1698,9 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 
 	/* Set up the memory size parameters.... */
 
-#ifdef MTD_LARGE
-	tmpdiv = (uint64_t) MTD_SIZE(mtd);
-	do_div(tmpdiv, YAFFS_CHUNKS_PER_BLOCK * YAFFS_BYTES_PER_CHUNK);
+	tmpdiv = (uint64_t) device_size(mtd);
+	do_div(tmpdiv, (YAFFS_CHUNKS_PER_BLOCK * YAFFS_BYTES_PER_CHUNK));
 	nBlocks = (int) tmpdiv;
-#else
-	nBlocks = mtd->size / (YAFFS_CHUNKS_PER_BLOCK * YAFFS_BYTES_PER_CHUNK);
-#endif
 	dev->startBlock = 0;
 	dev->endBlock = nBlocks - 1;
 	dev->nChunksPerBlock = YAFFS_CHUNKS_PER_BLOCK;
@@ -1741,11 +1727,9 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 		dev->nDataBytesPerChunk = mtd->oobblock;
 		dev->nChunksPerBlock = mtd->erasesize / mtd->oobblock;
 #endif
-#ifdef MTD_LARGE
-		nBlocks = mtd64_rshft32(MTD_SIZE(mtd), (ffs(mtd->erasesize)-1));
-#else
-		nBlocks = mtd->size / mtd->erasesize;
-#endif
+		tmpdiv = device_size(mtd);
+		do_div(tmpdiv, mtd->erasesize);
+		nBlocks = (int) tmpdiv;
 
 		dev->nCheckpointReservedBlocks = CONFIG_YAFFS_CHECKPOINT_RESERVED_BLOCKS;
 		dev->startBlock = 0;

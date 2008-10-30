@@ -110,6 +110,9 @@ struct gendisk {
 	struct request_queue *queue;
 	void *private_data;
 	sector_t capacity;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	unsigned int sector_size;
+#endif
 
 	int flags;
 	struct device *driverfs_dev;

@@ -59,6 +59,12 @@ inline int elv_rq_merge_ok(struct request *rq, struct bio *bio)
 	if (rq->rq_disk == bio->bi_bdev->bd_disk &&
 	    !rq->waiting && !rq->special)
 		return 1;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	/* Cannot merge directIO to non-directO requests */
+	if (test_bit(__REQ_DIRECTIO, (unsigned long *)&rq->flags) !=
+	    test_bit(BIO_DIRECT, (unsigned long *)&bio->bi_flags) )
+		return 0;
+#endif
 
 	return 0;
 }

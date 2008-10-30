@@ -24,8 +24,13 @@ ifeq (.config,$(wildcard .config))
 include .config
 
 # THT Add prepare target for Linux 2.6.x
-#all: prepare subdirs modules modules_install romfs linux image
+# jipeng - add incremental rebuild "make -f build.mk dir="user/XXX lib/YYY""
+ifneq ($(INITRD_SUBDIR),)
+all: rebuild_all
+else
 all: prepare subdirs modules linux modules_install romfs zImage
+endif
+
 else
 all: config_error
 endif
@@ -75,6 +80,26 @@ export VERSIONPKG VERSIONSTR ROMFSINST PATH IMAGEDIR TFTPDIR
 prepare:
 	$(MAKEARCH) -C $(LINUXDIR) prepare0
 
+
+############################################################################
+
+#
+# Incremental build stuff - There are different cases if there is linux kernel
+# only or with both kernel and user packages
+#
+
+.PHONY: rebuild_all
+ifeq ($(INITRD_LINUXDIR),)
+rebuild_all: subdirs romfs zImage
+else
+
+ifeq ($(filter-out $(INITRD_LINUXDIR)%,$(INITRD_SUBDIR)),)
+rebuild_all: prepare modules linux modules_install zImage
+else
+rebuild_all: prepare subdirs modules linux modules_install romfs zImage
+endif
+
+endif
 
 ############################################################################
 
@@ -255,7 +280,9 @@ image:
 
 .PHONY: zImage
 zImage:
+ifeq ($(INITRD_LINUXDIR),)
 	$(MAKEARCH) -C $(LINUXDIR) $(LINUXTARGET) || exit 1
+endif
 	if [ -f $(LINUXDIR)/vmlinux ]; then \
 		ln -f $(LINUXDIR)/vmlinux $(LINUXDIR)/linux ; \
 	fi
@@ -277,12 +304,14 @@ linux linux%_only:
 		echo "ERROR: you need to do a 'make dep' first" ; \
 		exit 1 ; \
 	fi
+	if [ "$(INITRD_SUBDIR)" == ""  -o  "$(filter vendors/$(CONFIG_VENDOR)/$(CONFIG_PRODUCT)%,$(INITRD_SUBDIR))" != "" ]; then	\
 	. $(LINUXDIR)/.config; if [ "$$CONFIG_BLK_DEV_INITRD" = "y" ]; then \
 		$(MAKE) -C $(VENDDIR) romfs initrd; \
 	else \
 		exit 1 ; \
+	fi	\
 	fi
-	echo "Build initrd image"
+	@echo "Build initrd image"
 	$(MAKEARCH) -C $(LINUXDIR) BRCM_VERSION=$(BRCM_VERSION) $(LINUXTARGET) || exit 1
 	if [ -f $(LINUXDIR)/vmlinux ]; then \
 		ln -f $(LINUXDIR)/vmlinux $(LINUXDIR)/linux ; \
@@ -291,13 +320,6 @@ linux linux%_only:
 .PHONY: subdirs
 subdirs:
 	for dir in $(DIRS) ; do $(MAKEARCH) -C $$dir || exit 1 ; done
-
-dep:		# Now no longer needed in 2.6.x
-#	@if [ ! -f $(LINUXDIR)/.config ] ; then \
-#		echo "ERROR: you need to do a 'make config' first" ; \
-#		exit 1 ; \
-#	fi
-#	$(MAKEARCH) -C $(LINUXDIR) dep
 
 # This one removes all executables from the tree and forces their relinking
 .PHONY: relink

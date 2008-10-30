@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu May 29 18:48:04 2008
- *                 MD5 Checksum         820227b279d06813a6bca9e3c5b6cb55
+ * Date:           Generated on         Thu Sep  4 18:03:13 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_mips_biu.h $
  * 
- * Hydra_Software_Devel/1   5/29/08 11:24p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   9/5/08 11:27a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,8 +45,8 @@
 /***************************************************************************
  *MIPS_BIU - MIPS_BIU Registers
  ***************************************************************************/
-#define BCHP_MIPS_BIU_EXCEPTION_VECTOR_OFFSET    0x00000400 /* "Exception Vector Offset Address" */
-#define BCHP_MIPS_BIU_PROCESSOR_ID               0x00000404 /* Processor ID Register. */
+#define BCHP_MIPS_BIU_EXCEPTION_VECTOR_OFFSET    0x00440400 /* "Exception Vector Offset Address" */
+#define BCHP_MIPS_BIU_PROCESSOR_ID               0x00440404 /* Processor ID Register. */
 
 /***************************************************************************
  *EXCEPTION_VECTOR_OFFSET - "Exception Vector Offset Address"

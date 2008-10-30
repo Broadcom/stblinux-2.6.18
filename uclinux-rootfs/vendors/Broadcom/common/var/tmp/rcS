@@ -62,17 +62,23 @@ echo "Configure Network interface"
 #
 if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
 	if [ -z "$netconf" ]; then
+		interfaces=`cat /proc/net/dev | grep eth | wc -l`
+
 		ifconfig lo 127.0.0.1 netmask 255.0.0.0
-    rm -f /etc/resolv.conf
-	if [ -f /var/run/dhcpcd-eth0.pid ]; then
-		rm -f /var/run/dhcpcd-eth0.pid
-	fi
-    # PR21492 - new dhcpcd use different dir to store *.pid
-    if [ -f /etc/config/dhcpc/dhcpcd-eth0.pid ]; then
-        rm -f /etc/config/dhcpc/dhcpcd-eth0.pid
-    fi
-	echo "dhcpcd -Hd -L /var/run eth0"
-    dhcpcd -Hd -L /var/run eth0 &
+
+		for ((i=0; i<$interfaces; i++))
+		do
+			rm -f /etc/resolv.conf
+			if [ -f /var/run/dhcpcd-eth$i.pid ]; then
+				rm -f /var/run/dhcpcd-eth$i.pid
+			fi
+			# PR21492 - new dhcpcd use different dir to store *.pid
+			if [ -f /etc/config/dhcpc/dhcpcd-eth$i.pid ]; then
+        			rm -f /etc/config/dhcpc/dhcpcd-eth$i.pid
+			fi
+			echo "dhcpcd -Hd eth$i"
+			dhcpcd -Hd eth$i > /dev/null  &
+		done
 	else
 		netdev=`echo "$netconf" | cut -f1 -d','`
 		ip=`echo "$netconf" | cut -f2 -d','`
@@ -86,12 +92,12 @@ if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
 			if [ -f /var/run/dhcpcd-${netdev}.pid ]; then
 				rm -f /var/run/dhcpcd-${netdev}.pid
 			fi
-            # PR21492 - new dhcpcd use different dir to store *.pid
-            if [ -f /etc/config/dhcpc/dhcpcd-${netdev}.pid ]; then
-                rm -f /etc/config/dhcpc/dhcpcd-${netdev}.pid
-            fi
-			echo "dhcpcd -Hd -L /var/run $netdev"
-    		dhcpcd -Hd -L /var/run "$netdev" &
+		        # PR21492 - new dhcpcd use different dir to store *.pid
+		        if [ -f /etc/config/dhcpc/dhcpcd-${netdev}.pid ]; then
+		                rm -f /etc/config/dhcpc/dhcpcd-${netdev}.pid
+		        fi
+			echo "dhcpcd -Hd $netdev"
+    			dhcpcd -Hd "$netdev" > /dev/null &
 			;;
 	
 		*)	# If the user specifies the wrong syntax, there is nothing we can do

@@ -13,6 +13,11 @@
  *    http://www.osta.org/ *    http://www.ecma.ch/
  *    http://www.iso.org/
  *
+ * CONTACTS
+ *	E-mail regarding any portion of the Linux UDF file system should be
+ *	directed to the development team mailing list (run by majordomo):
+ *		linux_udf@hpesjro.fc.hp.com
+ *
  * COPYRIGHT
  *	This file is distributed under the terms of the GNU General Public
  *	License (GPL). Copies of the GPL can be obtained from:
@@ -32,10 +37,11 @@
 #define UDF_PREALLOCATE
 #define UDF_DEFAULT_PREALLOC_BLOCKS	8
 
-#define UDFFS_DATE			"2004/29/09"
-#define UDFFS_VERSION			"0.9.8.1"
+#define UDFFS_DATE			"2007/31/05"
+#define UDFFS_VERSION		"0.9.9.1-BRCM"
 
 #undef UDFFS_DEBUG
+//#define UDFFS_DEBUG
 
 #ifdef UDFFS_DEBUG
 #define udf_debug(f, a...) \

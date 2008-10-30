@@ -31,6 +31,7 @@
 #include <linux/spinlock.h>
 #include <linux/module.h> // SYM EXPORT */
 #include <asm/bootinfo.h>
+#include <asm/r4kcache.h>
 //#include <asm/mmzone.h>
 #include <asm/brcmstb/common/brcmstb.h>
 
@@ -154,10 +155,71 @@ extern void breakpoint(void);
 //cmdEntry_t rootEntry;
 
 char cfeBootParms[CFE_CMDLINE_BUFLEN]; 
+
+unsigned long brcm_dram0_size = 0;
+unsigned long brcm_dram1_size = 0;
 #endif
 //char arcs_cmdline[COMMAND_LINE_SIZE];
 
+#ifndef BRCM_MEMORY_STRAPS
 
+#define MAGIC0		0xdeadbeef
+#define MAGIC1		0xfeedcafe
+
+static unsigned long
+probe_memsize(void)
+{
+#if !defined(CONFIG_MIPS_BRCM_SIM)
+	volatile uint32_t *addr = (volatile void *)KSEG1, *taddr;
+	uint32_t olddata;
+	long flags;
+	unsigned int i, memsize = 256;
+
+	printk("Probing system memory size... ");
+
+	local_irq_save(flags);
+	cache_op(Index_Writeback_Inv_D, KSEG0);
+	olddata = *addr;
+
+	/*
+	 * Try to figure out where memory wraps around.  If it does not
+	 * wrap, assume 256MB
+ 	*/
+	for(i = 4; i <= 128; i <<= 1) {
+		taddr = (volatile void *)(KSEG1 + (i * 1048576));
+		*addr = MAGIC0;
+		if(*taddr == MAGIC0) {
+			*addr = MAGIC1;
+			if(*taddr == MAGIC1) {
+				memsize = i;
+				break;
+			}
+		}
+	}
+
+	*addr = olddata;
+	cache_op(Index_Writeback_Inv_D, KSEG0);
+	local_irq_restore(flags);
+
+	printk("found %u MB\n", memsize);
+
+	return(memsize * 1048576);
+#else
+	/* Use fixed memory size (32MB) for simulation runs */
+	return(32 * 1048576);
+#endif
+}
+
+unsigned long
+get_RAM_size(void)
+{
+	BUG_ON(! brcm_dram0_size);
+	return(brcm_dram0_size);
+}
+
+EXPORT_SYMBOL(get_RAM_size);
+
+#endif /* BRCM_MEMORY_STRAPS */
 
 /*
   * Munges cmdArg, and append the console= string if its not there
@@ -227,13 +289,22 @@ isRootSpecified(char* cmdArg)
 	return 0;
 }
 
+static void early_read_int(char *param, int *var)
+{
+	char *cp = strstr(cfeBootParms, param);
+
+	if(cp == NULL)
+		return;
+	cp += strlen(param);
+	*var = memparse(cp, &cp);
+}
+
 void __init prom_init(void)
 {
 
 #ifdef CONFIG_MIPS_BRCM97XXX
 	int hasCfeParms = 0;
 	int res = -1;
-	char msg[COMMAND_LINE_SIZE];
 	extern void determineBootFromFlashOrRom(void);
 #endif
 
@@ -290,7 +361,23 @@ void __init prom_init(void)
 		}
   	}
   
-	res = get_cfe_boot_parms(cfeBootParms, &gNumHwAddrs, gHwAddrs);
+	res = get_cfe_boot_parms();
+	hasCfeParms = (res == 0);
+
+#ifdef BRCM_MEMORY_STRAPS
+	get_RAM_size();
+#else
+	if(brcm_dram0_size == 0)
+		brcm_dram0_size = probe_memsize();
+#ifndef CONFIG_DISCONTIGMEM
+	if(brcm_dram0_size > (256 << 20)) {
+		printk("Extra RAM beyond 256MB ignored.  Please "
+			"use a kernel that supports DISCONTIG.\n");
+		brcm_dram0_size = 256 << 20;
+	}
+#endif /* CONFIG_DISCONTIGMEM */
+#endif /* BRCM_MEMORY_STRAPS */
+
 	if(gNumHwAddrs <= 0) {
 #if !defined(CONFIG_BRCM_PCI_SLAVE)
 		unsigned int i, mac = FLASH_MACADDR_ADDR, ok = 0;
@@ -323,8 +410,6 @@ void __init prom_init(void)
 #endif
 		gNumHwAddrs = 1;
 	}
-  //printk("get_cfe_boot_parms returns %d, strlen(cfeBootParms)=%d\n", res, strlen(cfeBootParms));
-	hasCfeParms = ((res == 0 ) || (res == -2));
 	// Make sure cfeBootParms is not empty or contains all white space
 	if (hasCfeParms) {
 		int i;
@@ -359,22 +444,16 @@ void __init prom_init(void)
 	  char	str1[32], str2[32] = "0x";
 	  char *cp, *sp;
 
-	  sprintf(msg, "cfeBootParms ===> %s\n", cfeBootParms);
-	  uart_puts(msg);
 	  cp = strstr( cfeBootParms, "bcmrac=" );
 	  if( cp ) { 
 		if ( strchr(cfeBootParms, ',') ) {
 			for( cp+=strlen("bcmrac="),sp=str1; *cp != ','; *sp++=*cp++ );
 			*sp = '\0';
 			strcat( str2, ++cp );
-			sprintf(msg, "STR1 : %s    STR2 : %s\n", str1, str2);
-		        uart_puts(msg);
 			sscanf( str1, "%u", &par_val );
 			sscanf( str2, "%x", &par_val2 );
 			if (par_val2 == 0x00) par_val2 = (get_RAM_size()-1) & 0xffff0000;
 		} else {
-			sprintf(msg, "RAC Cacheable Space is set to default...\n");
-		        uart_puts(msg);
 			sscanf( cp+=strlen("bcmrac="), "%i", &par_val );
 			par_val2 = (get_RAM_size()-1) & 0xffff0000;
 		}
@@ -389,97 +468,11 @@ void __init prom_init(void)
 	  }
 	}
 
-
-	/* bcmsata2=1 */
-	{
-		char c = ' ', *from = cfeBootParms;
-		int len = 0;
-
-		for (;;) {
-			if (c == ' ' && !memcmp(from, "bcmsata2=", 9)) {
-				gSata2_3Gbps= memparse(from + 9, &from);
-				break;
-			}
-			c = *(from++);
-			if (!c)
-				break;
-			if (CL_SIZE <= ++len)
-				break;
-		}
-	}
-
-	/* bcmssc=1, turn on Interpolation for SSC drives, default 0 */
-	{
-		char c = ' ', *from = cfeBootParms;
-		int len = 0;
-
-		for (;;) {
-			if (c == ' ' && !memcmp(from, "bcmssc=", 7)) {
-				gSataInterpolation= memparse(from + 7, &from);
-				break;
-			}
-			c = *(from++);
-			if (!c)
-				break;
-			if (CL_SIZE <= ++len)
-				break;
-		}
-	}
-
-
-	/* flashsize=nnM */
-	{
-		char c = ' ', *from = cfeBootParms;
-		int len = 0;
-
-		for (;;) {
-			if (c == ' ' && !memcmp(from, "flashsize=", 10)) {
-				gFlashSize = memparse(from + 10, &from) >> 20;
-				break;
-			}
-			c = *(from++);
-			if (!c)
-				break;
-			if (CL_SIZE <= ++len)
-				break;
-		}
-	}
-
-	/* flashcode=1 : Write 0xF0 to reset Spansion flash */
-	{
-		char c = ' ', *from = cfeBootParms;
-		int len = 0;
-
-		for (;;) {
-			if (c == ' ' && !memcmp(from, "flashcode=", 10)) {
-				gFlashCode = memparse(from + 10, &from);
-				break;
-			}
-			c = *(from++);
-			if (!c)
-				break;
-			if (CL_SIZE <= ++len)
-				break;
-		}
-	}
-
-	/* bcmsplash=1 */
-	{
-		char c = ' ', *from = cfeBootParms;
-		int len = 0;
-
-		for (;;) {
-			if (c == ' ' && !memcmp(from, "bcmsplash=", 10)) {
-				gBcmSplash= memparse(from + 10, &from);
-				break;
-			}
-			c = *(from++);
-			if (!c)
-				break;
-			if (CL_SIZE <= ++len)
-				break;
-		}
-	}
+	early_read_int("bcmsata2=", &gSata2_3Gbps);
+	early_read_int("bcmssc=", &gSataInterpolation);
+	early_read_int("flashsize=", &gFlashSize);
+	early_read_int("flashcode=", &gFlashCode);
+	early_read_int("bcmsplash=", &gBcmSplash);
 
 	/* brcmnand=
 	 *	rescan: 	1. Rescan for bad blocks, and update existing BBT
@@ -570,17 +563,13 @@ void __init prom_init(void)
                        gNandCS = &gNandCS_priv[1];     // Real array starts at element #1
 	}
 
-               printk("Number of Nand Chips = %d\n", gNumNand);
+               //printk("Number of Nand Chips = %d\n", gNumNand);
        }
 
 
 
 	/* Just accept whatever specified in BOOT_FLAGS as kernel options, unless root= is NOT specified */
 	if (hasCfeParms && isRootSpecified(cfeBootParms)) {
-//sprintf(msg, "after get_cfe_boot_parms, res=0, BootParmAddr=%08x,bootParms=%s\n",
-//&cfeBootParms[0],cfeBootParms);
-//uart_puts(msg);
-
 		strcpy(arcs_cmdline, cfeBootParms);
 		appendConsoleArg(arcs_cmdline);
 	}
@@ -664,9 +653,9 @@ void __init prom_init(void)
 
 	} /* End else no root= option is specified */
 
-	uart_puts("Kernel boot options: ");
-	uart_puts(arcs_cmdline);
-	uart_puts("\r\n");
+	//uart_puts("Kernel boot options: ");
+	//uart_puts(arcs_cmdline);
+	//uart_puts("\r\n");
 
 	// THT: PR21410 Implement memory hole in init_bootmem, now just record the memory size.
 	{

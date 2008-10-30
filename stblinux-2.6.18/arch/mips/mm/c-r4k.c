@@ -1376,7 +1376,9 @@ static void __init probe_pcache(void)
 		              c->dcache.linesz;
 		c->dcache.waybit = __ffs(dcache_size/c->dcache.ways);
 
+#ifdef CONFIG_CPU_HAS_PREFETCH
 		c->options |= MIPS_CPU_PREFETCH;
+#endif
 		break;
 	}
 
@@ -1526,7 +1528,7 @@ extern int r5k_sc_init(void);
 extern int rm7k_sc_init(void);
 extern int mips_sc_init(void);
 
-#if defined(CONFIG_BRCM_SCM_L2)
+#if defined(CONFIG_BRCM_SCM_L2) && defined(CONFIG_MTI_R34K)
 static unsigned long read_scm_reg(unsigned long addr)
 {
 	cache_op(Index_Load_Tag_S, addr);
@@ -1590,7 +1592,7 @@ static void __init setup_scache(void)
 				printk("MIPS secondary cache %ldkB, %s, linesize %d bytes.\n",
 				       scache_size >> 10,
 				       way_string[c->scache.ways], c->scache.linesz);
-#if defined(CONFIG_BRCM_SCM_L2)
+#if defined(CONFIG_BRCM_SCM_L2) && defined(CONFIG_MTI_R34K)
 				printk("SCM configuration: %08lx %08lx %08lx "
 					"%08lx %08lx %08lx\n",
 					read_scm_reg(0x90000000),

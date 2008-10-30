@@ -2813,10 +2813,29 @@ int ata_std_prereset(struct ata_link *link)
 	/* Wait for !BSY if the controller can wait for the first D2H
 	 * Reg FIS and we don't know that no device is attached.
 	 */
-	if (!(ap->flags & ATA_FLAG_SKIP_D2H_BSY) && !ata_link_offline(link))
-		ata_busy_sleep(ap, ATA_TMOUT_BOOT_QUICK, ATA_TMOUT_BOOT);
+	if (!(ap->flags & ATA_FLAG_SKIP_D2H_BSY) && !ata_link_offline(link)) {
+		rc = ata_busy_sleep(ap, ATA_TMOUT_BOOT_QUICK, ATA_TMOUT_BOOT);
+		if (rc && rc != -ENODEV) {
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		  if (ehc->i.flags & ATA_EHI_DID_RESET) {
+			ata_link_printk(link, KERN_WARNING, "device not ready "
+					"(errno=%d), forcing hardreset\n", rc);
+			ehc->i.action |= ATA_EH_HARDRESET;
+		  }
+		  else {
+			ata_link_printk(link, KERN_WARNING, "device not ready "
+					"(errno=%d), try softreset\n", rc);
+			ehc->i.action |= ATA_EH_SOFTRESET;
+		  }
+#else
+			ata_link_printk(link, KERN_WARNING, "device not ready "
+					"(errno=%d), forcing hardreset\n", rc);
+			ehc->i.action |= ATA_EH_HARDRESET;
+#endif
+		}
+	}
 
-	return 0;
+	return rc;
 }
 
 /**
@@ -4110,6 +4129,9 @@ static void __atapi_pio_bytes(struct ata_queued_cmd *qc, unsigned int bytes)
 	struct page *page;
 	unsigned char *buf;
 	unsigned int offset, count;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	int sg_count = 0;
+#endif
 
 	if (qc->curbytes + bytes >= qc->nbytes)
 		ap->hsm_task_state = HSM_ST_LAST;
@@ -4179,10 +4201,25 @@ next_sg:
 	if (qc->cursg_ofs == sg->length) {
 		qc->cursg++;
 		qc->cursg_ofs = 0;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		sg_count++;
+#endif
 	}
 
-	if (bytes)
+	if (bytes) {
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		if (sg_count < qc->n_elem)
 		goto next_sg;
+		else {
+			printk(KERN_ERR "\n%s: RESIDUAL %d BYTES, EXCEEDS SG RESOURCES !!\n\n",
+			       __FUNCTION__, bytes);
+			BUG();
+		}
+#else
+		goto next_sg;
+#endif
+	}
+
 }
 
 /**
@@ -4670,8 +4707,13 @@ void __ata_qc_complete(struct ata_queued_cmd *qc)
 	struct ata_port *ap = qc->ap;
 	struct ata_link *link = qc->dev->link;
 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	if (qc == NULL || !(qc->flags & ATA_QCFLAG_ACTIVE))
+		return;
+#else
 	WARN_ON(qc == NULL);	/* ata_qc_from_tag _might_ return NULL */
 	WARN_ON(!(qc->flags & ATA_QCFLAG_ACTIVE));
+#endif
 
 	if (likely(qc->flags & ATA_QCFLAG_DMAMAP))
 		ata_sg_clean(qc);

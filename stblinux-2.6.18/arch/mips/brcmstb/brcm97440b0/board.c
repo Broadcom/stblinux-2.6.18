@@ -75,15 +75,13 @@
 #if defined (CONFIG_MIPS_BCM7440B0) // To emphasize that this only happens for this board */
 
 extern int get_cfe_hw_info(cfe_xiocb_t* cfe_boardinfo);
-extern int get_cfe_env_variable(cfe_xiocb_t *cfeparam,
-				void * name_ptr, int name_length,
+extern int get_cfe_env_variable(void * name_ptr,
 				void * val_ptr,  int val_length);
 
 /*
 ** Structure for return of CFE HW INFO
 */
 cfe_xiocb_t cfe_boardinfo;
-cfe_xiocb_t cfeparam;
 
 int cfe_hwinfo_called  = 0;
 int cfe_hwinfo_stat    = -99;
@@ -163,8 +161,7 @@ int __init board_get_cfe_env(void)
 	int res;
 	
 	tmp_envbuf[0] = 0;
-	res = get_cfe_env_variable(&cfeparam,
-				   (void *)cfe_env,    strlen(cfe_env),
+	res = get_cfe_env_variable((void *)cfe_env,
 				   (void *)tmp_envbuf, sizeof(tmp_envbuf));
 	if (res == 0 && tmp_envbuf[0])
 		ATAPI_ERRINFO = bcm_atoi(tmp_envbuf);
@@ -173,8 +170,7 @@ int __init board_get_cfe_env(void)
 
 	cfe_env = "SATA_RX_LVL";
 	tmp_envbuf[0] = 0;
-	res = get_cfe_env_variable(&cfeparam,
-				   (void *)cfe_env,    strlen(cfe_env),
+	res = get_cfe_env_variable((void *)cfe_env,
 				   (void *)tmp_envbuf, sizeof(tmp_envbuf));
 	if (res == 0 && tmp_envbuf[0])
 		SATA_RX_LVL = bcm_atoi(tmp_envbuf);
@@ -183,8 +179,7 @@ int __init board_get_cfe_env(void)
 
 	cfe_env = "SATA_TX_LVL";
 	tmp_envbuf[0] = 0;
-	res = get_cfe_env_variable(&cfeparam,
-				   (void *)cfe_env,    strlen(cfe_env),
+	res = get_cfe_env_variable((void *)cfe_env,
 				   (void *)tmp_envbuf, sizeof(tmp_envbuf));
 	if (res == 0 && tmp_envbuf[0])
 		SATA_TX_LVL = bcm_atoi(tmp_envbuf);
@@ -193,8 +188,7 @@ int __init board_get_cfe_env(void)
 
 	cfe_env = "SATA_TX_PRE";
 	tmp_envbuf[0] = 0;
-	res = get_cfe_env_variable(&cfeparam,
-				   (void *)cfe_env,    strlen(cfe_env),
+	res = get_cfe_env_variable((void *)cfe_env,
 				   (void *)tmp_envbuf, sizeof(tmp_envbuf));
 	if (res == 0 && tmp_envbuf[0])
 		SATA_TX_PRE = bcm_atoi(tmp_envbuf);
@@ -208,8 +202,7 @@ int __init board_get_cfe_env(void)
 	 * Get the board name string.
 	 */
 	cfe_env = "CFE_BOARDNAME";
-	res = get_cfe_env_variable(&cfeparam,
-				   (void *)cfe_env,       strlen(cfe_env),
+	res = get_cfe_env_variable((void *)cfe_env,
 				   (void *)local_cfe_boardname,
 				   CFE_BOARDNAME_MAX_LEN);
 	if (res)

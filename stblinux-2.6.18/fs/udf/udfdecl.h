@@ -43,12 +43,12 @@ struct buffer_head;
 struct super_block;
 
 extern struct inode_operations udf_dir_inode_operations;
-extern const struct file_operations udf_dir_operations;
+extern struct file_operations udf_dir_operations;
 extern struct inode_operations udf_file_inode_operations;
-extern const struct file_operations udf_file_operations;
-extern const struct address_space_operations udf_aops;
-extern const struct address_space_operations udf_adinicb_aops;
-extern const struct address_space_operations udf_symlink_aops;
+extern struct file_operations udf_file_operations;
+extern struct address_space_operations udf_aops;
+extern struct address_space_operations udf_adinicb_aops;
+extern struct address_space_operations udf_symlink_aops;
 
 struct udf_fileident_bh
 {
@@ -126,6 +126,7 @@ extern uint32_t udf_get_pblock(struct super_block *, uint32_t, uint16_t, uint32_
 extern uint32_t udf_get_pblock_virt15(struct super_block *, uint32_t, uint16_t, uint32_t);
 extern uint32_t udf_get_pblock_virt20(struct super_block *, uint32_t, uint16_t, uint32_t);
 extern uint32_t udf_get_pblock_spar15(struct super_block *, uint32_t, uint16_t, uint32_t);
+extern uint32_t udf_get_pblock_meta25(struct super_block *, uint32_t, uint16_t, uint32_t);
 extern int udf_relocate_blocks(struct super_block *, long, long *);
 
 /* unicode.c */

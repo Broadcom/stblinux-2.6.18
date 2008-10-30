@@ -1,0 +1,16 @@
+AR=mipsel-linux-ar
+AS=mipsel-linux-as
+LD=mipsel-linux-ld
+NM=mipsel-linux-nm
+CC=mipsel-linux-gcc
+GCC=mipsel-linux-gcc
+CXX=mipsel-linux-g++
+RANLIB=mipsel-linux-ranlib
+gdb_cv_func_sigsetjmp=yes
+ac_cv_type_uintptr_t=yes
+gt_cv_func_gettext_libintl=ye
+ac_cv_func_dcgettext=yes
+bash_cv_func_strcoll_broken=no
+bash_cv_must_reinstall_sighandlers=no
+bash_cv_func_sigsetjmp=present
+bash_cv_have_mbstate_t=yes

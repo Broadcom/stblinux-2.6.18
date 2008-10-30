@@ -58,7 +58,7 @@ int main(int argc,char *argv[])
 #else
 	int fd;
 	unsigned int erase_length;
-	mtd_info_t meminfo;
+	mtd_info64_t meminfo;
 
 	exe_name = argv[0];
 	if (1 >= argc)
@@ -74,7 +74,7 @@ int main(int argc,char *argv[])
 	}
 
 
-	if (ioctl(fd, MEMGETINFO, &meminfo) != 0) {
+	if (ioctl(fd, MEMGETINFO64, &meminfo) != 0) {
 		fprintf(stderr, "%s: %s: unable to get MTD device info\n", exe_name, mtd_device);
 		exit(1);
 	}

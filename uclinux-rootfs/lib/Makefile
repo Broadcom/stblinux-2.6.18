@@ -70,6 +70,12 @@ dir_$(CONFIG_LIB_LIBCPLUSPLUS)    += $(ROOTDIR)/lib/libc++
 
 dir_$(CONFIG_LIB_SNAPGEAR)       += libsnapgear libconfigdd
 
+ifneq ($(INITRD_SUBDIR),) 
+ifneq ($(shell echo $(filter lib%,$(INITRD_SUBDIR))|sed -e 's/lib[\/]/lib/'),lib)
+dir_y:=$(patsubst lib/%,%,$(filter lib/%,$(INITRD_SUBDIR)))
+endif
+endif
+
 all:
 ifeq ($(LIBCDIR),glibc/build)
 	[ -d glibc/build ] || mkdir glibc/build
@@ -87,8 +93,8 @@ ifeq ($(LIBCDIR),glibc/build)
 endif
 # Force a rebuild of the Makefiles in the directfb tree.
 	if [ -d directfb ]; then $(RM) directfb/Makefile directfb/configure directfb/config.cache; fi
-	echo '$$$$$$$$$$$$$$$$$ Building all libraries $$$$$$$$$$$$$$$$$$$$$$$$'
-	echo 'dir_y =' "$(dir_y)"
+	@echo '$$$$$$$$$$$$$$$$$ Building all libraries $$$$$$$$$$$$$$$$$$$$$$$$'
+	@echo 'dir_y =' "$(dir_y)"
 	for i in $(dir_y) ; do [ ! -d $$i ] || $(MAKEARCH) -C $$i || exit $? ; done
 	# Link uuidlib
 	-$(RM) -f $(ROMFSDIR)/lib/libuuid.so
@@ -98,11 +104,7 @@ romfs:
 	for i in $(dir_y) ; do \
 		[ ! -d $$i ] || $(MAKEARCH) -C $$i romfs || exit $$? ; \
 	done
-	# Handle libtermcap.so differently, since it is built as part of bash
-#ifeq ($(CONFIG_LIB_LIBTERMCAP),y)
-#	$(MAKEARCH) -C $(ROOTDIR)/user/bash $(ROOTDIR)/romfs/lib/libtermcap.so
-#	-$(STRIP) $(ROOTDIR)/romfs/lib/libtermcap.so
-#endif
+ifeq ($(INITRD_SUBDIR),) 
 ifeq ($(findstring y,$(CONFIG_LIB_LIBSTDCXX_FORCE)$(CONFIG_LIB_LIBSTDCXX)),y)
 	-$(RM) -f $(ROMFSDIR)/lib/libstdc++.*
 	cp -af $(GCCLIB)/libstdc++.* $(ROMFSDIR)/lib/
@@ -118,6 +120,7 @@ ifeq ($(findstring y,$(CONFIG_LIB_LIBGCC_FORCE)$(CONFIG_LIB_LIBGCC)),y)
 	-$(RM) -f $(ROMFSDIR)/lib/libgcc_s.*
 	cp -af $(GCCLIB)/libgcc_s.* $(ROMFSDIR)/lib/
 	$(STRIP) $(ROMFSDIR)/lib/libgcc_s.so
+endif
 endif
 
 clean:

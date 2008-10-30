@@ -18,10 +18,6 @@
 
 #include <asm/uaccess.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 static struct class *mtd_class;
 
 static void mtd_notify_add(struct mtd_info* mtd)
@@ -72,25 +68,14 @@ static loff_t mtd_lseek (struct file *file, loff_t offset, int orig)
 		offset += file->f_pos;
 		break;
 	case SEEK_END:
-#ifdef MTD_LARGE
-		offset += MTD_SIZE(mtd);
-#else
-		offset += mtd->size;
-#endif
+		offset += device_size(mtd);
 		break;
 	default:
 		return -EINVAL;
 	}
 
-
-#ifdef MTD_LARGE
-	if (offset >= 0 && mtd64_is_lteq(offset, MTD_SIZE(mtd)))
+	if (offset >= 0 && offset <= device_size(mtd))
 		return file->f_pos = offset;
-#else
-	if (offset >= 0 && offset <= mtd->size)
-		return file->f_pos = offset;
-#endif
-
 
 	return -EINVAL;
 }
@@ -176,13 +161,8 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 
 	DEBUG(MTD_DEBUG_LEVEL0,"MTD_read\n");
 
-#ifdef MTD_LARGE
-	if (mtd64_is_greater(*ppos + count, MTD_SIZE(mtd)))
-		count = MTD_SIZE(mtd) - *ppos;
-#else
-	if (*ppos + count > mtd->size)
-		count = mtd->size - *ppos;
-#endif
+	if (*ppos + count > device_size(mtd))
+		count = device_size(mtd) - *ppos;
 
 	if (!count)
 		return 0;
@@ -274,19 +254,11 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 
 	DEBUG(MTD_DEBUG_LEVEL0,"MTD_write\n");
 
-#ifdef MTD_LARGE
-	if (mtd64_equals(*ppos, MTD_SIZE(mtd)))
+	if (*ppos == device_size(mtd))
 		return -ENOSPC;
 
-	if (mtd64_is_greater(*ppos + count, MTD_SIZE(mtd)))
-		count = MTD_SIZE(mtd) - *ppos;
-#else
-	if (*ppos == mtd->size)
-		return -ENOSPC;
-
-	if (*ppos + count > mtd->size)
-		count = mtd->size - *ppos;
-#endif
+	if (*ppos + count > device_size(mtd))
+		count = device_size(mtd) - *ppos;
 
 	if (!count)
 		return 0;
@@ -405,6 +377,7 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 	int ret = 0;
 	u_long size;
 	struct mtd_info_user info;
+	struct mtd_info_user64 info64;
 
 	DEBUG(MTD_DEBUG_LEVEL0, "MTD_ioctl\n");
 
@@ -425,38 +398,130 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 		break;
 
 	case MEMGETREGIONINFO:
-	{
+		{
 		struct region_info_user ur;
+		struct mtd_erase_region_info32 mer;
 
 		if (copy_from_user(&ur, argp, sizeof(struct region_info_user)))
 			return -EFAULT;
 
 		if (ur.regionindex >= mtd->numeraseregions)
 			return -EINVAL;
+		mer.offset = (u_int32_t) mtd->eraseregions[ur.regionindex].offset;
+		mer.erasesize = mtd->eraseregions[ur.regionindex].erasesize;
+		mer.numblocks = mtd->eraseregions[ur.regionindex].numblocks;
+
+		if (copy_to_user(argp, &mer, sizeof(struct mtd_erase_region_info32)))
+			return -EFAULT;
+		/*
 		if (copy_to_user(argp, &(mtd->eraseregions[ur.regionindex]),
 				sizeof(struct mtd_erase_region_info)))
 			return -EFAULT;
+			*/
 		break;
-	}
+		}
+
+	case MEMGETREGIONINFO64:
+		{
+		struct region_info_user64 ur;
+
+		if(copy_from_user(&ur, argp, sizeof(struct region_info_user64)))
+			return -EFAULT;
+		if (ur.regionindex >= mtd->numeraseregions)
+			return -EINVAL;
+		if (copy_to_user(argp, &(mtd->eraseregions[ur.regionindex]), 
+					sizeof(struct mtd_erase_region_info)))
+			return -EINVAL;
+		break;
+		}
 
 	case MEMGETINFO:
 		info.type	= mtd->type;
 		info.flags	= mtd->flags;
-#ifdef MTD_LARGE
-		info.size	= MTD_SIZE(mtd);
-#else
-		info.size	= mtd->size;
-#endif
+		info.size	= device_size(mtd);
 		info.erasesize	= mtd->erasesize;
 		info.writesize	= mtd->writesize;
 		info.oobsize	= mtd->oobsize;
 		info.ecctype	= mtd->ecctype;
 		info.eccsize	= mtd->eccsize;
-		if (copy_to_user(argp, &info, sizeof(struct mtd_info_user)))
+		if (copy_to_user(argp, &info, sizeof(struct mtd_info_user))) 
+			return -EFAULT;
+		break;
+
+	case MEMGETINFO64:
+		info64.type		= mtd->type;
+		info64.flags		= mtd->flags;
+		info64.size		= device_size(mtd);
+		info64.erasesize	= mtd->erasesize;
+		info64.writesize	= mtd->writesize;
+		info64.oobsize		= mtd->oobsize;
+		info64.ecctype		= mtd->ecctype;
+		info64.eccsize		= mtd->eccsize;
+		if (copy_to_user(argp, &info64, sizeof(struct mtd_info_user64)))
 			return -EFAULT;
 		break;
 
 	case MEMERASE:
+	{
+		struct erase_info32 *erase; /* Backward compatible older struct */
+		struct erase_info *erase64; /* Actual struct sent to kernel */
+
+		if(!(file->f_mode & 2))
+			return -EPERM;
+
+		erase=kmalloc(sizeof(struct erase_info32),GFP_KERNEL);
+		erase64 = kmalloc(sizeof(struct erase_info), GFP_KERNEL);
+		if (!erase || !erase64)
+			ret = -ENOMEM;
+		else {
+			wait_queue_head_t waitq;
+			DECLARE_WAITQUEUE(wait, current);
+
+			init_waitqueue_head(&waitq);
+
+			memset (erase,0,sizeof(struct erase_info32));
+			if (copy_from_user(&erase->addr, argp,
+				    sizeof(struct erase_info_user))) {
+				kfree(erase);
+				kfree(erase64);
+				return -EFAULT;
+			}
+			/* Send an erase64 to the kernel mtd layer */
+			erase64->addr = (uint64_t) erase->addr;
+			erase64->len = erase->len;
+
+			erase64->mtd = mtd;
+			erase64->callback = mtdchar_erase_callback;
+			erase64->priv = (unsigned long)&waitq;
+
+			/*
+			  FIXME: Allow INTERRUPTIBLE. Which means
+			  not having the wait_queue head on the stack.
+
+			  If the wq_head is on the stack, and we
+			  leave because we got interrupted, then the
+			  wq_head is no longer there when the
+			  callback routine tries to wake us up.
+			*/
+			ret = mtd->erase(mtd, erase64);
+			if (!ret) {
+				set_current_state(TASK_UNINTERRUPTIBLE);
+				add_wait_queue(&waitq, &wait);
+				if (erase64->state != MTD_ERASE_DONE &&
+				    erase64->state != MTD_ERASE_FAILED)
+					schedule();
+				remove_wait_queue(&waitq, &wait);
+				set_current_state(TASK_RUNNING);
+
+				ret = (erase64->state == MTD_ERASE_FAILED)?-EIO:0;
+			}
+			kfree(erase);
+			kfree(erase64);
+		}
+		break;
+	}
+
+	case MEMERASE64:
 	{
 		struct erase_info *erase;
 
@@ -474,7 +539,7 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 
 			memset (erase,0,sizeof(struct erase_info));
 			if (copy_from_user(&erase->addr, argp,
-				    sizeof(struct erase_info_user))) {
+				    sizeof(struct erase_info_user64))) {
 				kfree(erase);
 				return -EFAULT;
 			}
@@ -533,11 +598,7 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 
 		ops.len = buf.length;
 		ops.ooblen = buf.length;
-#ifdef MTD_LARGE
-		ops.ooboffs = mtd64_ll_low(buf.start) & (mtd->oobsize - 1);
-#else
 		ops.ooboffs = buf.start & (mtd->oobsize - 1);
-#endif
 		ops.datbuf = NULL;
 		ops.mode = MTD_OOB_PLACE;
 
@@ -553,20 +614,66 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 			return -EFAULT;
 		}
 
-#ifdef MTD_LARGE
-		buf.start = mtd64_and(buf.start, (uint64_t) (~(mtd->oobsize - 1)));
-#else
 		buf.start &= ~(mtd->oobsize - 1);
-#endif
 		ret = mtd->write_oob(mtd, buf.start, &ops);
 
-#ifdef MTD_LARGE
-		if (copy_to_user(argp + sizeof(uint64_t), &ops.retlen,
-				 sizeof(uint64_t)))
-#else
 		if (copy_to_user(argp + sizeof(uint32_t), &ops.retlen,
 				 sizeof(uint32_t)))
-#endif
+		{
+			ret = -EFAULT;
+		}
+
+		kfree(ops.oobbuf);
+		break;
+
+	}
+
+	case MEMWRITEOOB64:
+	{
+		struct mtd_oob_buf64 buf;
+		struct mtd_oob_ops ops;
+
+		if(!(file->f_mode & 2))
+			return -EPERM;
+
+		if (copy_from_user(&buf, argp, sizeof(struct mtd_oob_buf64)))
+			return -EFAULT;
+
+		if (buf.length > 4096)
+			return -EINVAL;
+
+		if (!mtd->write_oob)
+			ret = -EOPNOTSUPP;
+		else
+			ret = access_ok(VERIFY_READ, buf.ptr,
+					buf.length) ? 0 : EFAULT;
+
+		if (ret)
+			return ret;
+
+		ops.len = buf.length;
+		ops.ooblen = buf.length;
+		ops.ooboffs = buf.start & (mtd->oobsize - 1);
+		ops.datbuf = NULL;
+		ops.mode = MTD_OOB_PLACE;
+
+		if (ops.ooboffs && ops.len > (mtd->oobsize - ops.ooboffs))
+			return -EINVAL;
+
+		ops.oobbuf = kmalloc(buf.length, GFP_KERNEL);
+		if (!ops.oobbuf)
+			return -ENOMEM;
+
+		if (copy_from_user(ops.oobbuf, buf.ptr, buf.length)) {
+			kfree(ops.oobbuf);
+			return -EFAULT;
+		}
+
+		buf.start &= ~(mtd->oobsize - 1);
+		ret = mtd->write_oob(mtd, buf.start, &ops);
+
+		if (copy_to_user(argp + sizeof(uint32_t), &ops.retlen,
+				 sizeof(uint32_t)))
 		{
 			ret = -EFAULT;
 		}
@@ -598,11 +705,7 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 
 		ops.len = buf.length;
 		ops.ooblen = buf.length;
-#ifdef MTD_LARGE
-		ops.ooboffs = mtd64_ll_low(buf.start) & (mtd->oobsize - 1);
-#else
 		ops.ooboffs = buf.start & (mtd->oobsize - 1);
-#endif
 		ops.datbuf = NULL;
 		ops.mode = MTD_OOB_PLACE;
 
@@ -614,11 +717,56 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 		if (!ops.oobbuf)
 			return -ENOMEM;
 
-#ifdef MTD_LARGE
-		buf.start = mtd64_and(buf.start, (uint64_t) (~(mtd->oobsize - 1)));
-#else
 		buf.start &= ~(mtd->oobsize - 1);
-#endif
+		ret = mtd->read_oob(mtd, buf.start, &ops);
+
+		if (put_user(ops.retlen, (uint32_t __user *)argp)) {
+			ret = -EFAULT;
+		}
+		else if (ops.retlen && copy_to_user(buf.ptr, ops.oobbuf,
+						    ops.retlen)) {
+			ret = -EFAULT;
+		}
+
+		kfree(ops.oobbuf);
+		break;
+	}
+
+	case MEMREADOOB64:
+	{
+		struct mtd_oob_buf64 buf;
+		struct mtd_oob_ops ops;
+
+		if (copy_from_user(&buf, argp, sizeof(struct mtd_oob_buf64)))
+			return -EFAULT;
+
+		if (buf.length > 4096)
+			return -EINVAL;
+
+		if (!mtd->read_oob)
+			ret = -EOPNOTSUPP;
+		else
+			ret = access_ok(VERIFY_WRITE, buf.ptr,
+					buf.length) ? 0 : -EFAULT;
+		if (ret)
+			return ret;
+
+
+		ops.len = buf.length;
+		ops.ooblen = buf.length;
+		ops.ooboffs = buf.start & (mtd->oobsize - 1);
+		ops.datbuf = NULL;
+		ops.mode = MTD_OOB_PLACE;
+
+		if (ops.ooboffs && ops.len > (mtd->oobsize - ops.ooboffs))
+			return -EINVAL;
+
+
+		ops.oobbuf = kmalloc(buf.length, GFP_KERNEL);
+		if (!ops.oobbuf)
+			return -ENOMEM;
+
+		buf.start &= ~(mtd->oobsize - 1);
 		ret = mtd->read_oob(mtd, buf.start, &ops);
 
 		if (put_user(ops.retlen, (uint32_t __user *)argp)) {
@@ -661,8 +809,42 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 		break;
 	}
 
+	case MEMUNLOCK64:
+	{
+		struct erase_info_user64 info;
+
+		if (copy_from_user(&info, argp, sizeof(info)))
+			return -EFAULT;
+
+		if (!mtd->unlock)
+			ret = -EOPNOTSUPP;
+		else
+			ret = mtd->unlock(mtd, info.start, info.length);
+		break;
+	}
+
 	/* Legacy interface */
 	case MEMGETOOBSEL:
+	{
+		struct nand_oobinfo32 oi;
+
+		if (!mtd->ecclayout)
+			return -EOPNOTSUPP;
+		if (mtd->ecclayout->eccbytes > ARRAY_SIZE(oi.eccpos))
+			return -EINVAL;
+
+		oi.useecc = MTD_NANDECC_AUTOPLACE;
+		memcpy(&oi.eccpos, mtd->ecclayout->eccpos, sizeof(oi.eccpos));
+		memcpy(&oi.oobfree, mtd->ecclayout->oobfree,
+		       sizeof(oi.oobfree));
+
+		if (copy_to_user(argp, &oi, sizeof(struct nand_oobinfo32)))
+			return -EFAULT;
+		break;
+	}
+
+	/* Legacy interface */
+	case MEMGETOOBSEL64:
 	{
 		struct nand_oobinfo oi;
 
@@ -680,6 +862,7 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 			return -EFAULT;
 		break;
 	}
+
 
 	case MEMGETBADBLOCK:
 	{

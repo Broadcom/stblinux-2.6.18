@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu May 29 18:54:17 2008
- *                 MD5 Checksum         820227b279d06813a6bca9e3c5b6cb55
+ * Date:           Generated on         Thu Sep  4 18:11:11 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_sata_mdio.h $
  * 
- * Hydra_Software_Devel/1   5/29/08 11:39p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   9/5/08 11:45a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,22 +45,22 @@
 /***************************************************************************
  *SATA_MDIO - MDIO Address mapping
  ***************************************************************************/
-#define BCHP_SATA_MDIO_MDIO_PLL_CONTROL          0x520800 /* MDIO PLL Control Register */
-#define BCHP_SATA_MDIO_MDIO_FRQ_CONTROL_LOW      0x520801 /* MDIO Freq Synth Control Low */
-#define BCHP_SATA_MDIO_MDIO_FRQ_CONTROL_HIGH     0x520803 /* MDIO Freq Synth Control High */
-#define BCHP_SATA_MDIO_MDIO_FRQ_STATUS           0x520805 /* MDIO Freq Synth Status */
-#define BCHP_SATA_MDIO_MDIO_CONTROL              0x520807 /* MDIO Misc Control Register */
-#define BCHP_SATA_MDIO_MDIO_TEST_CONTROL         0x520809 /* MDIO Testbus Control Register */
-#define BCHP_SATA_MDIO_MDIO_PORT_SEL             0x52080b /* MDIO Read/Write Port Select Register */
-#define BCHP_SATA_MDIO_MDIO_PORT_RX_LOW          0x52080d /* MDIO PORTx Rx Control Low Register */
-#define BCHP_SATA_MDIO_MDIO_PORT_RX_HIGH         0x52080f /* MDIO PORTx Rx Control High Register */
-#define BCHP_SATA_MDIO_MDIO_PORT_TX              0x520811 /* MDIO PORTx Tx Control Register */
-#define BCHP_SATA_MDIO_MDIO_PORT_PRBS_CONTROL    0x520813 /* MDIO PORTx PRBS Control Register */
-#define BCHP_SATA_MDIO_MDIO_PORT_PRBS_STATUS     0x520815 /* MDIO PORTx PRBS Status Register */
-#define BCHP_SATA_MDIO_MDIO_PORT_DIG_CONTROL     0x520817 /* MDIO PORTx Digital Control Register */
-#define BCHP_SATA_MDIO_MDIO_BIST_STATUS_LOW      0x520819 /* Ram BIST Status Register Low */
-#define BCHP_SATA_MDIO_MDIO_BIST_CONTROL         0x52081b /* Ram BIST Control Register */
-#define BCHP_SATA_MDIO_MDIO_DEV_ID               0x52081d /* Device and Revision ID */
+#define BCHP_SATA_MDIO_MDIO_PLL_CONTROL          0x1a0800 /* MDIO PLL Control Register */
+#define BCHP_SATA_MDIO_MDIO_FRQ_CONTROL_LOW      0x1a0801 /* MDIO Freq Synth Control Low */
+#define BCHP_SATA_MDIO_MDIO_FRQ_CONTROL_HIGH     0x1a0803 /* MDIO Freq Synth Control High */
+#define BCHP_SATA_MDIO_MDIO_FRQ_STATUS           0x1a0805 /* MDIO Freq Synth Status */
+#define BCHP_SATA_MDIO_MDIO_CONTROL              0x1a0807 /* MDIO Misc Control Register */
+#define BCHP_SATA_MDIO_MDIO_TEST_CONTROL         0x1a0809 /* MDIO Testbus Control Register */
+#define BCHP_SATA_MDIO_MDIO_PORT_SEL             0x1a080b /* MDIO Read/Write Port Select Register */
+#define BCHP_SATA_MDIO_MDIO_PORT_RX_LOW          0x1a080d /* MDIO PORTx Rx Control Low Register */
+#define BCHP_SATA_MDIO_MDIO_PORT_RX_HIGH         0x1a080f /* MDIO PORTx Rx Control High Register */
+#define BCHP_SATA_MDIO_MDIO_PORT_TX              0x1a0811 /* MDIO PORTx Tx Control Register */
+#define BCHP_SATA_MDIO_MDIO_PORT_PRBS_CONTROL    0x1a0813 /* MDIO PORTx PRBS Control Register */
+#define BCHP_SATA_MDIO_MDIO_PORT_PRBS_STATUS     0x1a0815 /* MDIO PORTx PRBS Status Register */
+#define BCHP_SATA_MDIO_MDIO_PORT_DIG_CONTROL     0x1a0817 /* MDIO PORTx Digital Control Register */
+#define BCHP_SATA_MDIO_MDIO_BIST_STATUS_LOW      0x1a0819 /* Ram BIST Status Register Low */
+#define BCHP_SATA_MDIO_MDIO_BIST_CONTROL         0x1a081b /* Ram BIST Control Register */
+#define BCHP_SATA_MDIO_MDIO_DEV_ID               0x1a081d /* Device and Revision ID */
 
 /***************************************************************************
  *MDIO_PLL_CONTROL - MDIO PLL Control Register

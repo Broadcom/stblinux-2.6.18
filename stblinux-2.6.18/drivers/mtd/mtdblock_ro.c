@@ -11,10 +11,6 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/blktrans.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 static int mtdblock_readsect(struct mtd_blktrans_dev *dev,
 			      unsigned long block, char *buf)
 {
@@ -47,11 +43,7 @@ static void mtdblock_add_mtd(struct mtd_blktrans_ops *tr, struct mtd_info *mtd)
 	dev->mtd = mtd;
 	dev->devnum = mtd->index;
 	dev->blksize = 512;
-#ifdef MTD_LARGE
-	dev->size = mtd64_rshft32(MTD_SIZE(mtd), 9);
-#else
-	dev->size = mtd->size >> 9;
-#endif
+	dev->size = device_size(mtd) >> 9;
 	dev->tr = tr;
 	dev->readonly = 1;
 

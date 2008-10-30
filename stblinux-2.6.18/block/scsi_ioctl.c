@@ -220,6 +220,98 @@ static int verify_command(struct file *file, unsigned char *cmd)
 	return -EPERM;
 }
 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+/*
+ * static routine used for cross-verification of the
+ * dma length provided in the scatterlist against the
+ * data length send to the ATAPI device in the SCSI
+ * CDB.
+ */
+static int cdb_xfer_len(unsigned char *cdb, unsigned int sector_size)
+{
+	int xfer_len = 0;
+
+	switch(cdb[0]) {
+	case TEST_UNIT_READY:
+	case START_STOP:
+	case GPCMD_PLAY_AUDIO_MSF:
+	case GPCMD_PAUSE_RESUME:
+	case GPCMD_READ_CD_MSF:
+	case GPCMD_SCAN:
+	case GPCMD_SEEK:
+	case GPCMD_STOP_PLAY_SCAN:
+	case GPCMD_LOAD_UNLOAD:
+	case GPCMD_BLANK:
+	case GPCMD_CLOSE_TRACK:
+	case GPCMD_FLUSH_CACHE:
+	case GPCMD_FORMAT_UNIT:
+	case GPCMD_REPAIR_RZONE_TRACK:
+	case GPCMD_RESERVE_RZONE_TRACK:
+	case GPCMD_SET_SPEED:
+	case GPCMD_PREVENT_ALLOW_MEDIUM_REMOVAL:
+		xfer_len = 0;
+		break;
+	case REQUEST_SENSE:
+		xfer_len = cdb[4];
+		break;
+	case GPCMD_PLAY_AUDIO_10:
+	case GPCMD_VERIFY_10:
+	case READ_10:
+	case WRITE_10:
+		xfer_len = (cdb[7] << 8) | cdb[8];
+		xfer_len *= sector_size;
+		break;
+	case READ_12:
+	case WRITE_12:
+		xfer_len = (cdb[6] << 24) | (cdb[7] << 16) | (cdb[8] << 8) | cdb[9];
+		xfer_len *= sector_size;
+		break;
+	case INQUIRY:
+		xfer_len = (cdb[3] << 8) | cdb[4];
+		break;
+	case GPCMD_GET_CONFIGURATION:
+	case MODE_SENSE_10:
+	case GPCMD_READ_BUFFER_CAPACITY:
+	case GPCMD_READ_DISC_INFO:
+	case GPCMD_READ_TRACK_RZONE_INFO:
+	case GPCMD_READ_TOC_PMA_ATIP:
+	case GPCMD_READ_SUBCHANNEL:
+	case GPCMD_READ_FORMAT_CAPACITIES:
+	case GPCMD_GET_EVENT_STATUS_NOTIFICATION:
+	case WRITE_VERIFY:
+	case GPCMD_MODE_SELECT_10:
+	case GPCMD_SEND_OPC:
+		xfer_len = (cdb[7] << 8) | cdb[8];
+		break;
+	case GPCMD_READ_CD:
+	case GPCMD_SEND_CUE_SHEET:
+		xfer_len = (cdb[6] << 16) | (cdb[7] << 8) | cdb[8];
+		xfer_len *= sector_size;
+		break;
+	case GPCMD_READ_CDVD_CAPACITY:
+		xfer_len = 8;
+		break;
+	case GPCMD_READ_DVD_STRUCTURE:
+	case GPCMD_REPORT_KEY:
+	case GPCMD_MECHANISM_STATUS:
+	case GPCMD_SEND_DVD_STRUCTURE:
+	case GPCMD_SEND_EVENT:
+	case GPCMD_SEND_KEY:
+		xfer_len = (cdb[8] << 8) | cdb[9];
+		break;
+	case GPCMD_SET_STREAMING:
+		xfer_len = (cdb[9] << 8) | cdb[10];
+		break;
+
+	default:
+		printk(KERN_WARNING "WARNING: UNCHECKED SCSI OPCODE 0x%02x, POTENTIAL FOR ATA CORRUPTION!!\n", cdb[0]);
+		xfer_len = -1;
+	}
+
+	return xfer_len;
+}
+#endif // CONFIG_MIPS_BCM_NDVD
+
 static int sg_io(struct file *file, request_queue_t *q,
 		struct gendisk *bd_disk, struct sg_io_hdr *hdr)
 {
@@ -229,6 +321,9 @@ static int sg_io(struct file *file, request_queue_t *q,
 	struct bio *bio;
 	char sense[SCSI_SENSE_BUFFERSIZE];
 	unsigned char cmd[BLK_MAX_CDB];
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	int cdb_data_xfer_len;
+#endif
 
 	if (hdr->interface_id != 'S')
 		return -EINVAL;
@@ -241,6 +336,19 @@ static int sg_io(struct file *file, request_queue_t *q,
 
 	if (hdr->dxfer_len > (q->max_hw_sectors << 9))
 		return -EIO;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	if (hdr->dxfer_len && bd_disk->sector_size) {
+		cdb_data_xfer_len = cdb_xfer_len(cmd, bd_disk->sector_size);
+		if (hdr->dxfer_len < cdb_data_xfer_len) {
+			printk(KERN_WARNING "\n!!! %s - CMD 0x%02x:  CDB Xfer Len 0x%08x GT SG Resource Len 0x%08x !!!\n\n",
+			       __FUNCTION__, cmd[0], cdb_data_xfer_len, hdr->dxfer_len);
+			BUG();
+			return -EIO;
+		}
+	}
+	else if (!bd_disk->sector_size)
+		printk(KERN_WARNING "\n!!! %s - DISK SECTOR SIZE UNINITIALIZED !!!", __FUNCTION__);
+#endif
 
 	if (hdr->dxfer_len)
 		switch (hdr->dxfer_direction) {
@@ -610,7 +718,20 @@ int scsi_cmd_ioctl(struct file *file, struct gendisk *bd_disk, unsigned int cmd,
 			hdr.sbp = cgc.sense;
 			if (hdr.sbp)
 				hdr.mx_sb_len = sizeof(struct request_sense);
+#if defined (CONFIG_MIPS_BCM_NDVD)
+			if ((cgc.timeout < 10*HZ ) &&
+			    (cgc.cmd[0] != READ_12)) {
+				/*
+				 * Enforce 10-second min timeout
+				 * on all but READ_12.
+				 */
+				hdr.timeout = 10*HZ;
+			}
+			else
+				hdr.timeout = cgc.timeout;
+#else
 			hdr.timeout = cgc.timeout;
+#endif
 			hdr.cmdp = ((struct cdrom_generic_command __user*) arg)->cmd;
 			hdr.cmd_len = sizeof(cgc.cmd);
 

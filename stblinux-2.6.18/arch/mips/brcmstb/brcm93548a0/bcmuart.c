@@ -54,6 +54,7 @@ typedef struct {
 
 #define stUart ((volatile Uart7320 * const) UART7320_BASE)
 #define stUartB ((volatile Uart7320 * const) 0xb04001a0)
+#define stUartC ((volatile Uart7320 * const) 0xb04001c0)
 
 #define DFLT_BAUDRATE   115200
 
@@ -80,6 +81,14 @@ uartB_putc(char c)
 
     stUartB->uTxData = c;
 }
+
+uartC_putc(char c)
+{
+    // Wait for Tx Data Register Empty
+    while (! (stUartC->uTxStatus & 0x1));
+
+    stUartC->uTxData = c;
+}
 /* --------------------------------------------------------------------------
     Name: PutString
  Purpose: Send a string to the UART
@@ -105,6 +114,16 @@ uartB_puts(const char *s)
             uartB_putc('\r');
         }
     	uartB_putc(*s++);
+    }
+}
+
+uartC_puts(const char *s)
+{
+    while (*s) {
+        if (*s == '\n') {
+            uartC_putc('\r');
+        }
+    	uartC_putc(*s++);
     }
 }
 /* --------------------------------------------------------------------------
@@ -135,8 +154,28 @@ uartB_getc(void)
     char cData = 0;
     unsigned long uStatus = stUartB->uRxStatus;
 
+
     if (uStatus & 0x4) {
         cData = stUartB->uRxData;
+#if 0
+	// Check for Frame & Parity errors
+        if (uStatus & (0x10 | 0x20)) {
+            cData = 0;
+        }
+#endif
+    }
+    return cData;
+}
+
+char
+uartC_getc(void)
+{
+    char cData = 0;
+    volatile unsigned long uStatus = stUartC->uRxStatus;
+
+    if (uStatus & 0x4) {
+        cData = stUartC->uRxData;
+
 #if 0
 	// Check for Frame & Parity errors
         if (uStatus & (0x10 | 0x20)) {
@@ -155,11 +194,32 @@ uartB_init(void)
 //    bits 24:22   Value 0x1  for Rx
 // Do this until CFE initializes it correctly
 
+#define SUN_TOP_CTRL_PIN_MUX_CTRL_5	(0xb0404114)
 #define SUN_TOP_CTRL_PIN_MUX_CTRL_7	(0xb040411C)
+	volatile unsigned long* pSunTopMuxCtrl5 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_5;
+
+	*pSunTopMuxCtrl5 &= 0x3FFFFFFF;	 // Clear the bits
+	*pSunTopMuxCtrl5 |= 0x12000000;  // set (27:25) to 1, (24:22) to 1
+}
+
+void
+uartC_init(void)
+{
+// MUX for UARTB :  
+//    bits 29:27   Value 0x1  for Rx
+//    bits 2:0   Value 0x1  for Tx
+// Do this until CFE initializes it correctly
+
+#define SUN_TOP_CTRL_PIN_MUX_CTRL_6	(0xb0404118)
+#define SUN_TOP_CTRL_PIN_MUX_CTRL_7	(0xb040411C)
+	volatile unsigned long* pSunTopMuxCtrl6 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_6;
 	volatile unsigned long* pSunTopMuxCtrl7 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_7;
 
-	*pSunTopMuxCtrl7 &= 0xF03FFFFF;	 // Clear the bits
-	*pSunTopMuxCtrl7 |= 0x02400000;  // set (27:25) to 1, (24:22) to 1
+	*pSunTopMuxCtrl6 &= 0x07FFFFFF;	 // Clear the bits
+	*pSunTopMuxCtrl6 |= 0x10000000;  // set (28) to 1
+	*pSunTopMuxCtrl7 &= 0x3FFFFFF8;	 // Clear the bits
+	*pSunTopMuxCtrl7 |= 0x00000002;  // set (2) to 1
+
 }
 
 /* --------------------------------------------------------------------------
@@ -175,6 +235,7 @@ uart_init(unsigned long uClock)
 #if defined( CONFIG_KGDB ) && !defined( CONFIG_SINGLE_SERIAL_PORT )
 	(void) uartB_init();
 #endif
+	(void) uartC_init();
 
     // Make sure clock is ticking
     //INTC->blkEnables = INTC->blkEnables | UART_CLK_EN;
@@ -188,7 +249,12 @@ uart_init(unsigned long uClock)
 	stUart->uBaudRateHi = ((uBaudRate >> 8) & 0xFF);
 	stUartB->uBaudRateLo = (uBaudRate & 0xFF);
 	stUartB->uBaudRateHi = ((uBaudRate >> 8) & 0xFF);
+	stUartC->uBaudRateLo = (uBaudRate & 0xFF);
+	stUartC->uBaudRateHi = ((uBaudRate >> 8) & 0xFF);
 
 	stUart->uControl = 0x16;
 	stUartB->uControl = 0x16;
+	stUartC->uControl = 0x16;
+
+	uartC_puts(" the 3rd UART port UARTC has been inited ..... \r\n");
 }

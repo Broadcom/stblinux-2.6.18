@@ -21,10 +21,6 @@
 
 #include <asm/div64.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 /*
  * Our storage structure:
  * Subdev points to an array of pointers to struct mtd_info objects
@@ -69,37 +65,20 @@ concat_read(struct mtd_info *mtd, loff_t from, size_t len,
 		struct mtd_info *subdev = concat->subdev[i];
 		size_t size, retsize;
 
-#ifdef MTD_LARGE
-		if (from >= MTD_SIZE(subdev)) {
+		if (from >= device_size(subdev)) {
 			/* Not destined for this subdev */
 			size = 0;
-			from -= MTD_SIZE(subdev);
+			from -= device_size(subdev);
 			continue;
 		}
-		if (from + len > MTD_SIZE(subdev))
+		if (from + len > device_size(subdev))
 			/* First part goes into this subdev */
-			size = MTD_SIZE(subdev) - from;
+			size = device_size(subdev) - from;
 		else
 			/* Entire transaction goes into this subdev */
 			size = len;
 
 		err = subdev->read(subdev, from, size, &retsize, buf);
-#else
-		if (from >= subdev->size) {
-			/* Not destined for this subdev */
-			size = 0;
-			from -= subdev->size;
-			continue;
-		}
-		if (from + len > subdev->size)
-			/* First part goes into this subdev */
-			size = subdev->size - from;
-		else
-			/* Entire transaction goes into this subdev */
-			size = len;
-
-		err = subdev->read(subdev, from, size, &retsize, buf);
-#endif
 
 		/* Save information about bitflips! */
 		if (unlikely(err)) {
@@ -143,14 +122,13 @@ concat_write(struct mtd_info *mtd, loff_t to, size_t len,
 		struct mtd_info *subdev = concat->subdev[i];
 		size_t size, retsize;
 
-#ifdef MTD_LARGE
-		if (to >= MTD_SIZE(subdev)) {
+		if (to >= device_size(subdev)) {
 			size = 0;
-			to -= MTD_SIZE(subdev);
+			to -= device_size(subdev);
 			continue;
 		}
-		if (to + len > MTD_SIZE(subdev))
-			size = MTD_SIZE(subdev) - to;
+		if (to + len > device_size(subdev))
+			size = device_size(subdev) - to;
 		else
 			size = len;
 
@@ -158,23 +136,6 @@ concat_write(struct mtd_info *mtd, loff_t to, size_t len,
 			err = -EROFS;
 		else
 			err = subdev->write(subdev, to, size, &retsize, buf);
-#else
-		if (to >= subdev->size) {
-			size = 0;
-			to -= subdev->size;
-			continue;
-		}
-		if (to + len > subdev->size)
-			size = subdev->size - to;
-		else
-			size = len;
-
-		if (!(subdev->flags & MTD_WRITEABLE))
-			err = -EROFS;
-		else
-			err = subdev->write(subdev, to, size, &retsize, buf);
-#endif
-
 		if (err)
 			break;
 
@@ -211,11 +172,7 @@ concat_writev(struct mtd_info *mtd, const struct kvec *vecs,
 		total_len += vecs[i].iov_len;
 
 	/* Do not allow write past end of device */
-#if MTD_LARGE
-	if ((to + total_len) > MTD_SIZE(mtd))
-#else
-	if ((to + total_len) > mtd->size)
-#endif
+	if ((to + total_len) > device_size(mtd))
 		return -EINVAL;
 
 	/* Check alignment */
@@ -236,19 +193,11 @@ concat_writev(struct mtd_info *mtd, const struct kvec *vecs,
 		struct mtd_info *subdev = concat->subdev[i];
 		size_t size, wsize, retsize, old_iov_len;
 
-#ifdef MTD_LARGE
-		if (to >= MTD_SIZE(subdev)) {
-			to -= MTD_SIZE(subdev);
+		if (to >= device_size(subdev)) {
+			to -= device_size(subdev);
 			continue;
 		}
-		size = min(total_len, (size_t)(MTD_SIZE(subdev)- to));
-#else
-		if (to >= subdev->size) {
-			to -= subdev->size;
-			continue;
-		}
-		size = min(total_len, (size_t)(subdev->size - to));
-#endif
+		size = min(total_len, (size_t)(device_size(subdev)- to));
 
 		wsize = size; /* store for future use */
 
@@ -302,26 +251,14 @@ concat_read_oob(struct mtd_info *mtd, loff_t from, struct mtd_oob_ops *ops)
 	for (i = 0; i < concat->num_subdev; i++) {
 		struct mtd_info *subdev = concat->subdev[i];
 
-#ifdef MTD_LARGE
-		if (from >= MTD_SIZE(subdev)) {
-			from -= MTD_SIZE(subdev);
+		if (from >= device_size(subdev)) {
+			from -= device_size(subdev);
 			continue;
 		}
-#else
-		if (from >= subdev->size) {
-			from -= subdev->size;
-			continue;
-		}
-#endif
 
 		/* partial read ? */
-#ifdef MTD_LARGE
-		if (from + devops.len > MTD_SIZE(subdev))
-			devops.len = MTD_SIZE(subdev)- from;
-#else
-		if (from + devops.len > subdev->size)
-			devops.len = subdev->size - from;
-#endif
+		if (from + devops.len > device_size(subdev))
+			devops.len = device_size(subdev) - from;
 
 		err = subdev->read_oob(subdev, from, &devops);
 		ops->retlen += devops.retlen;
@@ -369,26 +306,14 @@ concat_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 	for (i = 0; i < concat->num_subdev; i++) {
 		struct mtd_info *subdev = concat->subdev[i];
 
-#ifdef MTD_LARGE
-		if (to >= MTD_SIZE(subdev)) {
-			to -= MTD_SIZE(subdev);
+		if (to >= device_size(subdev)) {
+			to -= device_size(subdev);
 			continue;
 		}
-#else
-		if (to >= MTD_SIZE(subdev)) {
-			to -= MTD_SIZE(subdev);
-			continue;
-		}
-#endif
 
 		/* partial write ? */
-#ifdef MTD_LARGE
-		if (to + devops.len > MTD_SIZE(subdev))
-			devops.len = MTD_SIZE(subdev) - to;
-#else
-		if (to + devops.len > subdev->size)
-			devops.len = subdev->size - to;
-#endif
+		if (to + devops.len > device_size(subdev))
+			devops.len = device_size(subdev) - to;
 
 		err = subdev->write_oob(subdev, to, &devops);
 		ops->retlen += devops.retlen;
@@ -452,24 +377,17 @@ static int concat_erase(struct mtd_info *mtd, struct erase_info *instr)
 	struct mtd_concat *concat = CONCAT(mtd);
 	struct mtd_info *subdev;
 	int i, err;
-	u_int32_t length, offset = 0;
+	u_int32_t length;
+	u_int64_t offset = 0;
 	struct erase_info *erase;
 
 	if (!(mtd->flags & MTD_WRITEABLE))
 		return -EROFS;
 
-#ifdef MTD_LARGE
-	if (instr->addr > MTD_SIZE(&(concat->mtd)))
-#else
-	if (instr->addr > concat->mtd.size)
-#endif
+	if (instr->addr > device_size(&(concat->mtd)))
 		return -EINVAL;
 
-#ifdef MTD_LARGE
-	if (instr->len + instr->addr > MTD_SIZE(&(concat->mtd)))
-#else
-	if (instr->len + instr->addr > concat->mtd.size)
-#endif
+	if (instr->len + instr->addr > device_size(&(concat->mtd)))
 		return -EINVAL;
 
 	/*
@@ -519,11 +437,7 @@ static int concat_erase(struct mtd_info *mtd, struct erase_info *instr)
 			return -EINVAL;
 	}
 
-#ifdef MTD_LARGE
 	instr->fail_addr = 0xffffffffffffffffULL;
-#else
-	instr->fail_addr = 0xffffffff;
-#endif
 
 	/* make a local copy of instr to avoid modifying the caller's struct */
 	erase = kmalloc(sizeof (struct erase_info), GFP_KERNEL);
@@ -540,21 +454,12 @@ static int concat_erase(struct mtd_info *mtd, struct erase_info *instr)
 	 */
 	for (i = 0; i < concat->num_subdev; i++) {
 		subdev = concat->subdev[i];
-#ifdef MTD_LARGE
-		if (MTD_SIZE(subdev) <= erase->addr) {
-			erase->addr -= MTD_SIZE(subdev);
-			offset += MTD_SIZE(subdev);
+		if (device_size(subdev) <= erase->addr) {
+			erase->addr -= device_size(subdev);
+			offset += device_size(subdev);
 		} else {
 			break;
 		}
-#else
-		if (subdev->size <= erase->addr) {
-			erase->addr -= subdev->size;
-			offset += subdev->size;
-		} else {
-			break;
-		}
-#endif
 	}
 
 	/* must never happen since size limit has been verified above */
@@ -567,17 +472,10 @@ static int concat_erase(struct mtd_info *mtd, struct erase_info *instr)
 		subdev = concat->subdev[i];	/* get current subdevice */
 
 		/* limit length to subdevice's size: */
-#ifdef MTD_LARGE
-		if (erase->addr + length > MTD_SIZE(subdev))
-			erase->len = MTD_SIZE(subdev) - erase->addr;
+		if (erase->addr + length > device_size(subdev))
+			erase->len = device_size(subdev) - erase->addr;
 		else
 			erase->len = length;
-#else
-		if (erase->addr + length > subdev->size)
-			erase->len = subdev->size - erase->addr;
-		else
-			erase->len = length;
-#endif
 
 		if (!(subdev->flags & MTD_WRITEABLE)) {
 			err = -EROFS;
@@ -588,15 +486,9 @@ static int concat_erase(struct mtd_info *mtd, struct erase_info *instr)
 			/* sanity check: should never happen since
 			 * block alignment has been checked above */
 			BUG_ON(err == -EINVAL);
-#ifdef MTD_LARGE
 			if (erase->fail_addr != 0xffffffffffffffffULL)
 				instr->fail_addr = erase->fail_addr + offset;
 			break;
-#else
-			if (erase->fail_addr != 0xffffffff)
-				instr->fail_addr = erase->fail_addr + offset;
-			break;
-#endif
 		}
 		/*
 		 * erase->addr specifies the offset of the area to be
@@ -607,11 +499,7 @@ static int concat_erase(struct mtd_info *mtd, struct erase_info *instr)
 		 * current subdevice, i.e. at offset zero.
 		 */
 		erase->addr = 0;
-#ifdef MTD_LARGE
-		offset += MTD_SIZE(subdev);
-#else
-		offset += subdev->size;
-#endif
+		offset += device_size(subdev);
 	}
 	instr->state = erase->state;
 	kfree(erase);
@@ -623,47 +511,27 @@ static int concat_erase(struct mtd_info *mtd, struct erase_info *instr)
 	return 0;
 }
 
-#ifdef MTD_LARGE
 static int concat_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
-#else
-static int concat_lock(struct mtd_info *mtd, loff_t ofs, size_t len)
-#endif
 {
 	struct mtd_concat *concat = CONCAT(mtd);
 	int i, err = -EINVAL;
 
-#ifdef MTD_LARGE
-	if ((len + ofs) > MTD_SIZE(mtd))
-#else
-	if ((len + ofs) > mtd->size)
-#endif
+	if ((len + ofs) > device_size(mtd))
 		return -EINVAL;
 
 	for (i = 0; i < concat->num_subdev; i++) {
 		struct mtd_info *subdev = concat->subdev[i];
-		size_t size;
+		uint64_t size;
 
-#ifdef MTD_LARGE
-		if (ofs >= MTD_SIZE(subdev)) {
+		if (ofs >= device_size(subdev)) {
 			size = 0;
-			ofs -= MTD_SIZE(subdev);
+			ofs -= device_size(subdev);
 			continue;
 		}
-		if (ofs + len > MTD_SIZE(subdev))
-			size = MTD_SIZE(subdev) - ofs;
+		if (ofs + len > device_size(subdev))
+			size = device_size(subdev) - ofs;
 		else
 			size = len;
-#else
-		if (ofs >= subdev->size) {
-			size = 0;
-			ofs -= subdev->size;
-			continue;
-		}
-		if (ofs + len > subdev->size)
-			size = subdev->size - ofs;
-		else
-			size = len;
-#endif
 
 		err = subdev->lock(subdev, ofs, size);
 
@@ -681,47 +549,28 @@ static int concat_lock(struct mtd_info *mtd, loff_t ofs, size_t len)
 	return err;
 }
 
-#ifdef MTD_LARGE
 static int concat_unlock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
-#else
-static int concat_unlock(struct mtd_info *mtd, loff_t ofs, size_t len)
-#endif
 {
 	struct mtd_concat *concat = CONCAT(mtd);
 	int i, err = 0;
 
-#ifdef MTD_LARGE
-	if ((len + ofs) > MTD_SIZE(mtd))
-#else
-	if ((len + ofs) > mtd->size)
-#endif
+	if ((len + ofs) > device_size(mtd))
 		return -EINVAL;
 
 	for (i = 0; i < concat->num_subdev; i++) {
 		struct mtd_info *subdev = concat->subdev[i];
-		size_t size;
+		uint64_t size;
 
-#ifdef MTD_LARGE
-		if (ofs >= MTD_SIZE(subdev)) {
+		if (ofs >= device_size(subdev)) {
 			size = 0;
-			ofs -= MTD_SIZE(subdev);
+			ofs -= device_size(subdev);
 			continue;
 		}
-		if (ofs + len > MTD_SIZE(subdev))
-			size = MTD_SIZE(subdev) - ofs;
+		if (ofs + len > device_size(subdev))
+			size = device_size(subdev) - ofs;
 		else
 			size = len;
-#else
-		if (ofs >= subdev->size) {
-			size = 0;
-			ofs -= subdev->size;
-			continue;
-		}
-		if (ofs + len > subdev->size)
-			size = subdev->size - ofs;
-		else
-			size = len;
-#endif
+
 		err = subdev->unlock(subdev, ofs, size);
 
 		if (err)
@@ -781,27 +630,16 @@ static int concat_block_isbad(struct mtd_info *mtd, loff_t ofs)
 	if (!concat->subdev[0]->block_isbad)
 		return res;
 
-#ifdef MTD_LARGE
-	if (ofs > MTD_SIZE(mtd))
-#else
-	if (ofs > mtd->size)
-#endif
+	if (ofs > device_size(mtd))
 		return -EINVAL;
 
 	for (i = 0; i < concat->num_subdev; i++) {
 		struct mtd_info *subdev = concat->subdev[i];
 
-#ifdef MTD_LARGE
-		if (ofs >= MTD_SIZE(subdev)) {
-			ofs -= MTD_SIZE(subdev);
+		if (ofs >= device_size(subdev)) {
+			ofs -= device_size(subdev);
 			continue;
 		}
-#else
-		if (ofs >= subdev->size) {
-			ofs -= subdev->size;
-			continue;
-		}
-#endif
 
 		res = subdev->block_isbad(subdev, ofs);
 		break;
@@ -818,27 +656,16 @@ static int concat_block_markbad(struct mtd_info *mtd, loff_t ofs)
 	if (!concat->subdev[0]->block_markbad)
 		return 0;
 
-#ifdef MTD_LARGE
-	if (ofs > MTD_SIZE(mtd))
-#else
-	if (ofs > mtd->size)
-#endif
+	if (ofs > device_size(mtd))
 		return -EINVAL;
 
 	for (i = 0; i < concat->num_subdev; i++) {
 		struct mtd_info *subdev = concat->subdev[i];
 
-#ifdef MTD_LARGE
-		if (ofs >= MTD_SIZE(subdev)) {
-			ofs -= MTD_SIZE(subdev);
+		if (ofs >= device_size(subdev)) {
+			ofs -= device_size(subdev);
 			continue;
 		}
-#else
-		if (ofs >= subdev->size) {
-			ofs -= subdev->size;
-			continue;
-		}
-#endif
 
 		err = subdev->block_markbad(subdev, ofs);
 		if (!err)
@@ -888,11 +715,8 @@ struct mtd_info *mtd_concat_create(struct mtd_info *subdev[],	/* subdevices to c
 	 */
 	concat->mtd.type = subdev[0]->type;
 	concat->mtd.flags = subdev[0]->flags;
-#ifdef MTD_LARGE
-	concat->mtd.numblks = subdev[0]->numblks;
-#else
-	concat->mtd.size = subdev[0]->size;
-#endif
+	concat->mtd.num_eraseblocks = subdev[0]->num_eraseblocks;
+	concat->mtd.size = device_size(subdev[0]);
 	concat->mtd.erasesize = subdev[0]->erasesize;
 	concat->mtd.writesize = subdev[0]->writesize;
 	concat->mtd.oobsize = subdev[0]->oobsize;
@@ -937,11 +761,8 @@ struct mtd_info *mtd_concat_create(struct mtd_info *subdev[],	/* subdevices to c
 				concat->mtd.flags |=
 				    subdev[i]->flags & MTD_WRITEABLE;
 		}
-#ifdef MTD_LARGE
-		concat->mtd.numblks += subdev[i]->numblks;
-#else
-		concat->mtd.size += subdev[i]->size;
-#endif
+		concat->mtd.num_eraseblocks += subdev[i]->num_eraseblocks;
+		concat->mtd.size += device_size(subdev[i]);
 		concat->mtd.ecc_stats.badblocks +=
 			subdev[i]->ecc_stats.badblocks;
 		if (concat->mtd.writesize   !=  subdev[i]->writesize ||
@@ -1009,6 +830,15 @@ struct mtd_info *mtd_concat_create(struct mtd_info *subdev[],	/* subdevices to c
 			}
 		}
 	}
+	//TODO sidc test this
+	/*
+	 * We make the size 0 to indicate that the flash size is 4GB+. The
+	 * size is 32bit and therefore can only accomodate < 4GB. The size in
+	 * this case is calculated using device_size() function
+	 */
+	if (concat->mtd.num_eraseblocks * concat->mtd.erasesize > (uint64_t) MTD_MAX_32BIT) {
+		concat->mtd.size = 0;
+	}
 
 	if (num_erase_region == 1) {
 		/*
@@ -1023,7 +853,7 @@ struct mtd_info *mtd_concat_create(struct mtd_info *subdev[],	/* subdevices to c
 		 * space to store the data describing the variable erase regions
 		 */
 		struct mtd_erase_region_info *erase_region_p;
-		u_int32_t begin, position;
+		u_int64_t begin, position, tmpdiv;
 
 		concat->mtd.erasesize = max_erasesize;
 		concat->mtd.numeraseregions = num_erase_region;
@@ -1055,18 +885,14 @@ struct mtd_info *mtd_concat_create(struct mtd_info *subdev[],	/* subdevices to c
 					erase_region_p->offset = begin;
 					erase_region_p->erasesize =
 					    curr_erasesize;
-					erase_region_p->numblocks =
-					    (position - begin) / curr_erasesize;
+					tmpdiv = (position - begin);
+					erase_region_p->numblocks = do_div(tmpdiv, curr_erasesize);
 					begin = position;
 
 					curr_erasesize = subdev[i]->erasesize;
 					++erase_region_p;
 				}
-#ifdef MTD_LARGE
-				position += MTD_SIZE(subdev[i]);
-#else
-				position += subdev[i]->size;
-#endif
+				position += device_size(subdev[i]);
 			} else {
 				/* current subdevice has variable erase size */
 				int j;
@@ -1077,9 +903,8 @@ struct mtd_info *mtd_concat_create(struct mtd_info *subdev[],	/* subdevices to c
 						erase_region_p->offset = begin;
 						erase_region_p->erasesize =
 						    curr_erasesize;
-						erase_region_p->numblocks =
-						    (position -
-						     begin) / curr_erasesize;
+						tmpdiv = (position - begin);
+						erase_region_p->numblocks = do_div(tmpdiv, curr_erasesize);
 						begin = position;
 
 						curr_erasesize =
@@ -1096,7 +921,8 @@ struct mtd_info *mtd_concat_create(struct mtd_info *subdev[],	/* subdevices to c
 		/* Now write the final entry */
 		erase_region_p->offset = begin;
 		erase_region_p->erasesize = curr_erasesize;
-		erase_region_p->numblocks = (position - begin) / curr_erasesize;
+		tmpdiv = (position - begin);
+		erase_region_p->numblocks = do_div(tmpdiv, curr_erasesize); 
 	}
 
 	return &concat->mtd;

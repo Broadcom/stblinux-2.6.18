@@ -13,10 +13,6 @@
 #include <linux/mtd/cfi.h>
 #include <linux/mtd/gen_probe.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 static struct mtd_info *check_cmd_set(struct map_info *, int);
 static struct cfi_private *genprobe_ident_chips(struct map_info *map,
 						struct chip_probe *cp);
@@ -42,23 +38,16 @@ struct mtd_info *mtd_do_chip_probe(struct map_info *map, struct chip_probe *cp)
 		mtd = check_cmd_set(map, 0); /* Then the secondary */
 
 	if (mtd) {
-#ifdef MTD_LARGE
-		if (mtd64_is_greater(MTD_SIZE(mtd), map->size)) {
+		if (device_size(mtd) > map->size) {
 			printk(KERN_WARNING "Reducing visibility of %ldKiB chip to %ldKiB\n",
-			       (unsigned long)mtd64_ll_low(mtd64_rshft32(MTD_SIZE(mtd), 10)),
+			       (unsigned long)device_size(mtd) >> 10, 
 			       (unsigned long)map->size >> 10);
-			mtd->numblks = map->size;
-		}
-		return mtd;
-#else
-		if (mtd->size > map->size) {
-			printk(KERN_WARNING "Reducing visibility of %ldKiB chip to %ldKiB\n",
-			       (unsigned long)mtd->size >> 10, 
-			       (unsigned long)map->size >> 10);
+			mtd->num_eraseblocks = map->size / mtd->erasesize;
+			/* Since map->size is of type unsigned long, the size has to be
+			   < 4GB, therefore assign mtd->size */
 			mtd->size = map->size;
 		}
 		return mtd;
-#endif
 	}
 
 	printk(KERN_WARNING"gen_probe: No supported Vendor Command Set found\n");

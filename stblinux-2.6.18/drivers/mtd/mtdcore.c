@@ -22,10 +22,6 @@
 
 #include <linux/mtd/mtd.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 /* These are exported solely for the purpose of mtd_blkdevs.c. You
    should not use them for _anything_ else */
 DEFINE_MUTEX(mtd_table_mutex);
@@ -280,13 +276,13 @@ static inline int mtd_proc_info (char *buf, int i)
 	if (!this)
 		return 0;
 
-#ifdef MTD_LARGE
-	return sprintf(buf, "mtd%d: %16.16llx %8.8x \"%s\"\n", i, MTD_SIZE(this),
-		       this->erasesize, this->name);
-#else
-	return sprintf(buf, "mtd%d: %8.8x %8.8x \"%s\"\n", i, this->size,
-		       this->erasesize, this->name);
-#endif
+	if (this->size == 0) {
+		return sprintf(buf, "mtd%d: %16.16llx %8.8x \"%s\"\n", i, device_size(this),
+				this->erasesize, this->name);
+	} else {
+		return sprintf(buf, "mtd%d: %8.8x %8.8x \"%s\"\n", i, this->size,
+				this->erasesize, this->name);
+	}
 }
 
 static int mtd_read_proc (char *page, char **start, off_t off, int count,
@@ -294,14 +290,16 @@ static int mtd_read_proc (char *page, char **start, off_t off, int count,
 {
 	int len, l, i;
         off_t   begin = 0;
+	struct mtd_info *this = mtd_table[0];
 
 	mutex_lock(&mtd_table_mutex);
 
-#ifdef MTD_LARGE
-	len = sprintf(page, "dev:    size           erasesize  name\n");
-#else
-	len = sprintf(page, "dev:    size   erasesize  name\n");
-#endif
+	if (this->size == 0) {
+		len = sprintf(page, "dev:    size           erasesize  name\n");
+	} else {
+		len = sprintf(page, "dev:    size   erasesize  name\n");
+	}
+
         for (i=0; i< MAX_MTD_DEVICES; i++) {
 
                 l = mtd_proc_info(page + len, i);

@@ -43,7 +43,7 @@ int nandmtd2_WriteChunkWithTagsToNAND(yaffs_Device * dev, int chunkInNAND,
 #endif
 	int retval = 0;
 
-	loff_t addr = (loff_t) (chunkInNAND * dev->nDataBytesPerChunk);
+	loff_t addr = (loff_t) ((loff_t) chunkInNAND * dev->nDataBytesPerChunk);
 
 	yaffs_PackedTags2 pt;
 
@@ -137,7 +137,7 @@ int nandmtd2_ReadChunkWithTagsFromNAND(yaffs_Device * dev, int chunkInNAND,
 		 return YAFFS_FAIL;
 	}
 	else {
-		 addr = (loff_t) ( chunkInNAND * dev->nDataBytesPerChunk);
+		 addr = (loff_t) ((loff_t) chunkInNAND * dev->nDataBytesPerChunk);
 	}
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,17))
@@ -210,7 +210,7 @@ int nandmtd2_MarkNANDBlockBad(struct yaffs_DeviceStruct *dev, int blockNo)
 
 	retval =
 	    mtd->block_markbad(mtd,
-			       blockNo * dev->nChunksPerBlock *
+			       (loff_t) blockNo * dev->nChunksPerBlock *
 			       dev->nDataBytesPerChunk);
 
 	if (retval == 0)
@@ -230,7 +230,7 @@ int nandmtd2_QueryNANDBlock(struct yaffs_DeviceStruct *dev, int blockNo,
 	  (TSTR("nandmtd2_QueryNANDBlock %d" TENDSTR), blockNo));
 	retval =
 	    mtd->block_isbad(mtd,
-			     blockNo * dev->nChunksPerBlock *
+			     (loff_t) blockNo * dev->nChunksPerBlock *
 			     dev->nDataBytesPerChunk);
 
 	if (retval) {

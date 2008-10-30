@@ -914,14 +914,7 @@ static _INLINE_ void sched_receive_chars(struct async_struct *info)
                  * For statistics only
                  */
 
-                if (ch == 0x03)   /* break   */
-                {
-                        icount->brk++;
-                        if (info->flags & ASYNC_SAK)
-                                do_SAK(tty);
-                }
-
-                else if (status & UART_PE)
+                if (status & UART_PE)
                         icount->parity++;
                 else if (status & UART_FE)
                         icount->frame++;
@@ -954,19 +947,7 @@ static _INLINE_ void sched_receive_chars(struct async_struct *info)
                 status &= info->read_status_mask;
                 flag = TTY_NORMAL;
 
-
-                if (ch == 0x03) /* break */
-                {
-
-#ifdef SERIAL_DEBUG_INTR
-/*                      printk("handling break....");*/
-                        sprintf(_str_, "handling break....\r\n");
-                        dbg_print (_str_);
-
-#endif
-                        flag = TTY_BREAK;
-                }
-                else if (status & UART_PE)
+                if (status & UART_PE)
                         flag = TTY_PARITY;
                 else if (status & UART_FE)
                         flag = TTY_FRAME;

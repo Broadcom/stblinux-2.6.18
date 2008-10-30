@@ -56,14 +56,9 @@
 
 
 #if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
-
-#define L_OFF_T			int64_t
-#define UL_OFF_T 		uint64_t
 #define MAX_NAND_CS	8
 
 #else
-#define L_OFF_T			int32_t
-#define UL_OFF_T 		uint32_t
 #define MAX_NAND_CS	1
 #endif
 
@@ -202,6 +197,25 @@
 
 #define HYNIX_HY27UF082G2A      0xDA
 #define HYNIX_HY27UF084G2M     0xDC
+
+/* Hynix MLC flashes, same infos as Samsung, except the 5th Byte */
+#define HYNIX_HY27UT088G2A	0xD3
+
+/* Number of Planes, same as Samsung */
+
+/* Plane Size */
+#define HYNIX_5THID_PLANESZ_MASK	0x70
+#define HYNIX_5THID_PLANESZ_512Mb	0x00
+#define HYNIX_5THID_PLANESZ_1Gb	0x10
+#define HYNIX_5THID_PLANESZ_2Gb	0x20
+#define HYNIX_5THID_PLANESZ_4Gb	0x30
+#define HYNIX_5THID_PLANESZ_8Gb	0x40
+#define HYNIX_5THID_PLANESZ_RSVD1	0x50
+#define HYNIX_5THID_PLANESZ_RSVD2	0x60
+#define HYNIX_5THID_PLANESZ_RSVD3	0x70
+
+
+/*--------- END Hynix MLC NAND flashes -----------------------*/
 
 //Micron flashes
 #define FLASHTYPE_MICRON        0x2C
@@ -376,18 +390,20 @@ struct brcmnand_chip {
 
 	uint32_t (*ctrl_read) (uint32_t command);
 	void (*ctrl_write) (uint32_t command, uint32_t val);
-	void (*ctrl_writeAddr)(struct brcmnand_chip* chip, L_OFF_T addr, int cmdEndAddr);
+	void (*ctrl_writeAddr)(struct brcmnand_chip* chip, loff_t addr, int cmdEndAddr);
 
 	/*
 	 * THT: Private methods exported to BBT, equivalent to the methods defined in struct ecc_nand_ctl
 	 * The caller is responsible to hold locks before calling these routines
+	 * Input and output buffers __must__ be aligned on a DW boundary (enforced inside the driver).
+	 * EDU may require that the buffer be aligned on a 512B boundary.
 	 */
 	int (*read_page)(struct mtd_info *mtd,  
-		uint8_t *outp_buf, uint8_t* outp_oob, uint32_t page);
+		uint8_t *outp_buf, uint8_t* outp_oob, uint64_t page);
 	int (*write_page)(struct mtd_info *mtd, 
-		const uint8_t *inp_buf, const uint8_t* inp_oob, uint32_t page);
-	int (*read_page_oob)(struct mtd_info *mtd, uint8_t* outp_oob, uint32_t page);
-	int (*write_page_oob)(struct mtd_info *mtd,  const uint8_t* inp_oob, uint32_t page);
+		const uint8_t *inp_buf, const uint8_t* inp_oob, uint64_t page);
+	int (*read_page_oob)(struct mtd_info *mtd, uint8_t* outp_oob, uint64_t page);
+	int (*write_page_oob)(struct mtd_info *mtd,  const uint8_t* inp_oob, uint64_t page);
 	
 	int (*write_is_complete)(struct mtd_info *mtd, int* outp_needBBT);
 
@@ -406,18 +422,14 @@ struct brcmnand_chip {
 	wait_queue_head_t	wq;
 	brcmnand_state_t	state;
 
-#ifdef MTD_LARGE
-	uint64_t		chipSize;
-#else
-	unsigned int		chipSize;
-#endif
+	uint64_t			chipSize;
 	unsigned int		numchips; // Always 1 in v0.0 and 0.1, up to 8 in v1.0+
 	int 				directAccess;		// For v1,0+, use directAccess or EBI address	
 	int 				CS[MAX_NAND_CS];	// Value of CS selected one per chip, in ascending order of chip Select (enforced)..
 										// Say, user uses CS0, CS2, and CS5 for NAND, then the first 3 entries
 										// have the values 0, 2 and 5, and numchips=3.
 	unsigned int		chip_shift; // How many bits shold be shifted.
-	UL_OFF_T		mtdSize;	// Total size of NAND flash, 64 bit integer for V1.0.  This supercedes mtd->size which is
+	uint64_t			mtdSize;	// Total size of NAND flash, 64 bit integer for V1.0.  This supercedes mtd->size which is
 								// currently defined as a uint32_t.
 
 	/* THT Added */
@@ -442,7 +454,8 @@ struct brcmnand_chip {
 	
 	//unsigned long	chipsize;
 	int			pagemask;
-	uint32_t		pagebuf; // Cached page number
+	int64_t		pagebuf; /* Cached page number.  This can be a 36 bit signed integer. 
+						  * -1LL denotes NULL/invalidated page cache. */
 	int			oobavail; // Number of free bytes per page
 	int			disableECC;	/* Turn on for 100% valid chips that don't need ECC 
 						 * might need in future for Spansion flash */

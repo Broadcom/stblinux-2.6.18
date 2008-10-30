@@ -26,13 +26,12 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
 
+#ifdef CONFIG_MIPS_BRCM97XXX
+#include <asm/brcmstb/common/brcmstb.h>
+#endif
 
 #define FLASH_PAGESIZE		256
 
@@ -192,18 +191,15 @@ static int m25p80_erase(struct mtd_info *mtd, struct erase_info *instr)
 {
 	struct m25p *flash = mtd_to_m25p(mtd);
 	u32 addr,len;
-#ifdef MTD_LARGE
 	uint64_t tmpdiv;
 	int rem, rem1;
-#endif
 
 	DEBUG(MTD_DEBUG_LEVEL2, "%s: %s %s 0x%08x, len %d\n",
 			flash->spi->dev.bus_id, __FUNCTION__, "at",
 			(u32)instr->addr, instr->len);
 
 	/* sanity checks */
-#ifdef MTD_LARGE
-	if (mtd64_is_greater(mtd64_add32(instr->addr, instr->len), MTD_SIZE(&(flash->mtd))))
+	if (instr->addr + instr->len > device_size(&(flash->mtd)))
 		return -EINVAL;
 	tmpdiv = (uint64_t) instr->addr;
  	rem = do_div(tmpdiv, mtd->erasesize);
@@ -212,14 +208,6 @@ static int m25p80_erase(struct mtd_info *mtd, struct erase_info *instr)
 	if (rem != 0 || rem1 != 0) {
 		return -EINVAL;
 	}
-#else
-	if (instr->addr + instr->len > flash->mtd.size)
-		return -EINVAL;
-	if ((instr->addr % mtd->erasesize) != 0
-			|| (instr->len % mtd->erasesize) != 0) {
-		return -EINVAL;
-	}
-#endif
 
 	addr = instr->addr;
 	len = instr->len;
@@ -275,13 +263,8 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	if (!len)
 		return 0;
 
-#ifdef MTD_LARGE
-	if (mtd64_is_greater(mtd64_add32(from, len), MTD_SIZE(&(flash->mtd))))
+	if (from + len > device_size(&(flash->mtd)))
 		return -EINVAL;
-#else
-	if (from + len > flash->mtd.size)
-		return -EINVAL;
-#endif
 
 	if (retlen)
 		*retlen = 0;
@@ -290,7 +273,7 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	while(total_len) {
 		len = total_len;
 
-#if 0 //defined(CONFIG_MIPS_BCM3548A0)
+#if 0 //defined(BRCM_SPI_SS_WAR)
 	/*
 	 * For testing purposes only - read 12 bytes at a time:
 	 *
@@ -381,14 +364,9 @@ static int m25p80_write(struct mtd_info *mtd, loff_t to, size_t len,
 	if (!len)
 		return(0);
 
-#ifdef MTD_LARGE
-	if (mtd64_is_greater(mtd64_add32(to, len), MTD_SIZE(&(flash->mtd))))
+	if (to + len > device_size(&(flash->mtd)))
 		return -EINVAL;
-#else
-	if (to + len > flash->mtd.size)
-		return -EINVAL;
-#endif
-#ifdef CONFIG_MIPS_BCM3548A0
+#ifdef BRCM_SPI_SS_WAR
 	if(len > 12)
 		return -EIO;
 #endif
@@ -617,6 +595,7 @@ static int __devinit m25p_probe(struct spi_device *spi)
 	struct m25p			*flash;
 	struct flash_info		*info;
 	unsigned			i;
+	uint64_t tmpdiv;
 
 	/* Platform data helps sort out which chip type we have, as
 	 * well as how this board partitions it.  If we don't have
@@ -672,9 +651,7 @@ static int __devinit m25p_probe(struct spi_device *spi)
 	flash->mtd.type = MTD_NORFLASH;
 	flash->mtd.writesize = 1;
 	flash->mtd.flags = MTD_CAP_NORFLASH;
-#ifndef MTD_LARGE
 	flash->mtd.size = info->sector_size * info->n_sectors;
-#endif
 	flash->mtd.erase = m25p80_erase;
 	flash->mtd.read = m25p80_read;
 	flash->mtd.write = m25p80_write;
@@ -687,17 +664,12 @@ static int __devinit m25p_probe(struct spi_device *spi)
 		flash->erase_opcode = OPCODE_SE;
 		flash->mtd.erasesize = info->sector_size;
 	}
-#ifdef MTD_LARGE
-	flash->mtd.numblks = mtd64_rshft(mtd64_mul(info->sector_size, info->n_sectors), ffs(flash->mtd.erasesize)-1);
-#endif
+	tmpdiv = (uint64_t) info->sector_size * info->n_sectors;
+	do_div(tmpdiv, flash->mtd.erasesize);
+	flash->mtd.num_eraseblocks = tmpdiv;
 
-#ifdef MTD_LARGE
-	dev_info(&spi->dev, "%s (%d Kbytes)\n", info->name,
-			(int)mtd64_rshft(MTD_SIZE(&(flash->mtd)), (ffs(1024)-1)));
-#else
-	dev_info(&spi->dev, "%s (%d Kbytes)\n", info->name,
-			flash->mtd.size / 1024);
-#endif
+	dev_info(&spi->dev, "%s (%lld Kbytes)\n", info->name,
+			device_size(&(flash->mtd)) >> (ffs(1024)-1));
 
 	DEBUG(MTD_DEBUG_LEVEL2,
 		"mtd .name = %s, .size = 0x%.8x (%uMiB) "

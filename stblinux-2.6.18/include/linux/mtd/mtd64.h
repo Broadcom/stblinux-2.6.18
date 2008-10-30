@@ -27,7 +27,6 @@
 #define _MTD64_H_
 #include <linux/config.h>
 
-#ifdef MTD_LARGE
 /*
  * 64 bit arithmetics 
  */
@@ -63,7 +62,58 @@ static inline char *mtd64_sprintf(char* msg, int64_t offset)
 	return msg;
 }
 
+static inline int mtd64_is_positive(int64_t ll)
+{
+	DIunion u;
 
+	u.ll = ll;
+	return ((int) u.s.high > 0 || (((int) u.s.high) == 0 && ((unsigned int) u.s.low) > 0));
+}
+
+static inline int mtd64_is_positiveorzero(int64_t ll)
+{
+	DIunion u;
+
+	u.ll = ll;
+	return ((int) u.s.high >= 0 || (((int) u.s.high) == 0 && ((unsigned int) u.s.low) >= 0));
+}
+
+/*
+ * Returns low DWord
+ */
+static inline uint32_t mtd64_ll_low(int64_t ll)
+{
+	DIunion ull;
+
+	ull.ll = ll;
+	return (uint32_t) ull.s.low;
+}
+
+/*
+ * Returns high DWord
+ */
+static inline int32_t mtd64_ll_high(int64_t ll)
+{
+	DIunion ull;
+
+	ull.ll = ll;
+	return (int32_t) ull.s.high;
+}
+  
+static inline int mtd64_ll_ffs(uint64_t ll)
+{
+	DIunion ull;
+	int res;
+
+	ull.ll = ll;
+	res = ffs(ull.s.low);
+	if (res)
+		return res;
+	res = ffs(ull.s.high);
+	return (32 + res);
+}
+
+#if 0
 /*
  * Returns (ll >> shift)
  */
@@ -87,22 +137,6 @@ static inline uint64_t mtd64_lshft32(uint64_t ll, int shift)
 	src.ll = ll;
 	bitmap_shift_left((unsigned long*) &res, (unsigned long*) &src, shift, LONGLONG_TO_BITS);
 	return res.ll;
-}
-
-static inline int mtd64_is_positive(int64_t ll)
-{
-	DIunion u;
-
-	u.ll = ll;
-	return ((int) u.s.high > 0 || (((int) u.s.high) == 0 && ((unsigned int) u.s.low) > 0));
-}
-
-static inline int mtd64_is_positiveorzero(int64_t ll)
-{
-	DIunion u;
-
-	u.ll = ll;
-	return ((int) u.s.high >= 0 || (((int) u.s.high) == 0 && ((unsigned int) u.s.low) >= 0));
 }
 
 /* 
@@ -208,28 +242,6 @@ static inline int mtd64_is_lteq(int64_t left, int64_t right)
 }
 
 /*
- * Returns low DWord
- */
-static inline uint32_t mtd64_ll_low(int64_t ll)
-{
-	DIunion ull;
-
-	ull.ll = ll;
-	return (uint32_t) ull.s.low;
-}
-
-/*
- * Returns high DWord
- */
-static inline int32_t mtd64_ll_high(int64_t ll)
-{
-	DIunion ull;
-
-	ull.ll = ll;
-	return (int32_t) ull.s.high;
-}
-
-/*
  * Returns (left & right)
  */
 static inline uint64_t mtd64_and(uint64_t left, uint64_t right)
@@ -256,25 +268,6 @@ static inline uint64_t mtd64_mul(unsigned int left, unsigned int right)
 	umul_ppmm(llw.s.high, llw.s.low, left, right);
 	return llw.ll;
 }
-
-/*
- * Multiply a 64bit * 32 bit
- * WARNING: Assumptions: 
- * 1. multiplier and multiplicand are both +ve
- * 2. The product does not overflow 64 bit
- * TODO sidc - replace with a more efficient function
- */
-static inline uint64_t mtd64_mul32(uint64_t left, uint32_t right) 
-{
-	int i;
-	uint64_t sum = 0;
-
-	for (i = 0; i < (int) right; i++) {
-		sum = mtd64_add(sum, left);
-	}
-	return sum;
-}
-  
 
 /*
  * res 		Result
@@ -319,6 +312,5 @@ static inline uint64_t mtd64_mul32(uint64_t left, uint32_t right)
         (rem) = __mod; \
         __quot; })
 
-#endif /* MTD_LARGE */
-
+#endif
 #endif

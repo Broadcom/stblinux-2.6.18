@@ -21,10 +21,6 @@
 #include "summary.h"
 #include "debug.h"
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 #define DEFAULT_EMPTY_SCAN_SIZE 2048
 extern int gdebug;
 
@@ -109,23 +105,13 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 	size_t pointlen;
 
 	if (c->mtd->point) {
-#ifdef MTD_LARGE
-		ret = c->mtd->point (c->mtd, 0, MTD_SIZE(c->mtd), &pointlen, &flashbuf);
-		if (!ret && pointlen < MTD_SIZE(c->mtd)) {
+		ret = c->mtd->point (c->mtd, 0, device_size(c->mtd), &pointlen, &flashbuf);
+		if (!ret && pointlen < device_size(c->mtd)) {
 			/* Don't muck about if it won't let us point to the whole flash */
 			D1(printk(KERN_DEBUG "MTD point returned len too short: 0x%zx\n", pointlen));
-			c->mtd->unpoint(c->mtd, flashbuf, 0, MTD_SIZE(c->mtd));
+			c->mtd->unpoint(c->mtd, flashbuf, 0, device_size(c->mtd));
 			flashbuf = NULL;
 		}
-#else
-		ret = c->mtd->point (c->mtd, 0, c->mtd->size, &pointlen, &flashbuf);
-		if (!ret && pointlen < c->mtd->size) {
-			/* Don't muck about if it won't let us point to the whole flash */
-			D1(printk(KERN_DEBUG "MTD point returned len too short: 0x%zx\n", pointlen));
-			c->mtd->unpoint(c->mtd, flashbuf, 0, c->mtd->size);
-			flashbuf = NULL;
-		}
-#endif
 		if (ret)
 			D1(printk(KERN_DEBUG "MTD point failed %d\n", ret));
 	}
@@ -287,11 +273,7 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 		kfree(flashbuf);
 #ifndef __ECOS
 	else
-#ifdef MTD_LARGE
-		c->mtd->unpoint(c->mtd, flashbuf, 0, MTD_SIZE(c->mtd));
-#else
-		c->mtd->unpoint(c->mtd, flashbuf, 0, c->mtd->size);
-#endif
+		c->mtd->unpoint(c->mtd, flashbuf, 0, device_size(c->mtd));
 #endif
 	if (s)
 		kfree(s);

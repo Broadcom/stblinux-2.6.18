@@ -20,11 +20,6 @@
 #include <linux/mtd/blktrans.h>
 #include <linux/mutex.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
-
 static struct mtdblk_dev {
 	struct mtd_info *mtd;
 	int count;
@@ -353,12 +348,7 @@ static void mtdblock_add_mtd(struct mtd_blktrans_ops *tr, struct mtd_info *mtd)
 	dev->mtd = mtd;
 	dev->devnum = mtd->index;
 	dev->blksize = 512;
-#ifdef MTD_LARGE
-	//TODO sidc Do we need to change dev->size to 64 bit ? 
-	dev->size = mtd64_rshft32(MTD_SIZE(mtd), 9);
-#else
-	dev->size = mtd->size >> 9;
-#endif
+	dev->size = device_size(mtd) >> 9;
 	dev->tr = tr;
 
 	if (!(mtd->flags & MTD_WRITEABLE))

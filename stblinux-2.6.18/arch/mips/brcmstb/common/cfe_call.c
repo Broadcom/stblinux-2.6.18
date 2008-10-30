@@ -32,12 +32,10 @@
 
 extern unsigned int cfe_seal;
 
-#define ETH_HWADDR_LEN 18	/* 12:45:78:ab:de:01\0 */
-
 /*
  * Convert ch from a hex digit to an int
  */
-static inline int hex(unsigned char ch)
+static inline int hex(char ch)
 {
 	if (ch >= 'a' && ch <= 'f')
 		return ch-'a'+10;
@@ -48,24 +46,36 @@ static inline int hex(unsigned char ch)
 	return -1;
 }
 
-int get_cfe_env_variable(cfe_xiocb_t *cfeparam,
-				void * name_ptr, int name_length,
-				void * val_ptr,  int val_length)
+static int hex16(char *b)
+{
+	int d0, d1;
+
+	d0 = hex(b[0]);
+	d1 = hex(b[1]);
+	if((d0 == -1) || (d1 == -1))
+		return(-1);
+	return((d0 << 4) | d1);
+}
+
+/* NOTE: do not put this on the stack.  It can exceed 3kB. */
+static cfe_xiocb_t cfeparam;
+
+int get_cfe_env_variable(char *name_ptr, char *val_ptr, int val_length)
 {
 	int res = 0;
 
-	cfeparam->xiocb_fcode  = CFE_CMD_ENV_GET;
-	cfeparam->xiocb_status = 0;
-	cfeparam->xiocb_handle = 0;
-	cfeparam->xiocb_flags  = 0;
-	cfeparam->xiocb_psize  = sizeof(xiocb_envbuf_t);
-	cfeparam->plist.xiocb_envbuf.name_ptr    = (unsigned int)name_ptr;
-	cfeparam->plist.xiocb_envbuf.name_length = name_length;
-	cfeparam->plist.xiocb_envbuf.val_ptr     = (unsigned int)val_ptr;
-	cfeparam->plist.xiocb_envbuf.val_length  = val_length;
+	cfeparam.xiocb_fcode  = CFE_CMD_ENV_GET;
+	cfeparam.xiocb_status = 0;
+	cfeparam.xiocb_handle = 0;
+	cfeparam.xiocb_flags  = 0;
+	cfeparam.xiocb_psize  = sizeof(xiocb_envbuf_t);
+	cfeparam.plist.xiocb_envbuf.name_ptr    = (unsigned int)name_ptr;
+	cfeparam.plist.xiocb_envbuf.name_length = strlen(name_ptr);
+	cfeparam.plist.xiocb_envbuf.val_ptr     = (unsigned int)val_ptr;
+	cfeparam.plist.xiocb_envbuf.val_length  = val_length;
 
 	if (cfe_seal == CFE_SEAL) {
-		res = cfe_call(cfeparam);
+		res = cfe_call(&cfeparam);
 	}
 	else
 		res = -1;
@@ -93,127 +103,122 @@ int get_cfe_hw_info(cfe_xiocb_t* cfe_boardinfo)
 	return res;
 }
 
-/* NOTE: do not put this on the stack.  It can exceed 3kB. */
-static cfe_xiocb_t cfeparam;
-char cfe_boardname[CFE_BOARDNAME_MAX_LEN];
-
-/*
- * ethHwAddrs is an array of 16 uchar arrays, each of length 6, allocated by the caller
- * numAddrs are the actual number of HW addresses used by CFE.
- * For now we only use 1 MAC address for eth0
- */
-int get_cfe_boot_parms( char bootParms[], int* numAddrs, unsigned char* ethHwAddrs[] )
+static int parse_eth0_hwaddr(char *buf)
 {
-	/*
-	 * This string can be whatever you want, as long
-	 * as it is * consistant both within CFE and here.
-	 */
-	const char *cfe_env = "BOOT_FLAGS";
-#ifdef CONFIG_MTD_BRCMNAND
-	const char *eth0HwAddr_env = "ETH0_HWADDR";
-#endif
-	const char *boardname_env = "CFE_BOARDNAME";
-	int res;
+	int i, t;
+	u8 addr[6];
+	extern unsigned char *gHwAddrs[];
+	extern int gNumHwAddrs;
 
-	res = get_cfe_env_variable(&cfeparam,
-		(void *)cfe_env,   strlen(cfe_env),
-		(void *)bootParms, CFE_CMDLINE_BUFLEN);
-
-	if (res) {
-		printk("No arguments presented to boot command\n");
-		res = -1;
-	} else {
-		/*
-		 * The kernel only takes 256 bytes, but CFE buffer can
-		 * get up to 1024 bytes
-		 */
-		if (strlen(bootParms) >= COMMAND_LINE_SIZE) {
-			int i;
-			printk("warning: kernel command line truncated to "
-				"%d bytes\n", COMMAND_LINE_SIZE);
-			for (i=COMMAND_LINE_SIZE-1; i>=0; i--) {
-				if (isspace(bootParms[i])) {
-					bootParms[i] = '\0';
-					break;
-				}
-			}
-		}	
-		res = 0;
+	for(i = 0; i < 6; i++) {
+		t = hex16(buf);
+		if(t == -1)
+			return(-1);
+		addr[i] = t;
+		buf += 3;
 	}
+	memcpy(&gHwAddrs[0][0], addr, 6);
+	gNumHwAddrs = 1;
 
-	res = get_cfe_env_variable(&cfeparam,
-		(void *)boardname_env, strlen(boardname_env),
-		(void *)cfe_boardname, CFE_BOARDNAME_MAX_LEN);
-	if(res == 0) {
+	return(0);
+}
+
+static int parse_dram0_size(char *buf)
+{
+	extern unsigned long brcm_dram0_size;
+	char *endp;
+	unsigned long tmp;
+
+	tmp = simple_strtoul(buf, &endp, 0);
+	if(*endp == 0) {
+		brcm_dram0_size = tmp << 20;
+		return(0);
+	}
+	return(-1);
+}
+
+static int parse_dram1_size(char *buf)
+{
+	extern unsigned long brcm_dram1_size;
+	char *endp;
+	unsigned long tmp;
+
+	tmp = simple_strtoul(buf, &endp, 0);
+	if(*endp == 0) {
+		brcm_dram1_size = tmp << 20;
+		return(0);
+	}
+	return(-1);
+}
+
+static int parse_boardname(char *buf)
+{
 #if defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7400) || \
 	defined(CONFIG_MIPS_BCM7403) || defined(CONFIG_MIPS_BCM7405)
-		/* autodetect 97455, 97456, 97458, 97459 DOCSIS boards */
-		if(strncmp("BCM9745", cfe_boardname, 7) == 0)
-			brcm_docsis_platform = 1;
+	/* autodetect 97455, 97456, 97458, 97459 DOCSIS boards */
+	if(strncmp("BCM9745", buf, 7) == 0)
+		brcm_docsis_platform = 1;
 #endif
 
 #if defined(CONFIG_MIPS_BCM7405)
-		/* autodetect 97405-MSG board (special MII configuration) */
-		if(strstr(cfe_boardname, "_MSG") != NULL)
-			brcm_enet_no_mdio = 1;
+	/* autodetect 97405-MSG board (special MII configuration) */
+	if(strstr(buf, "_MSG") != NULL)
+		brcm_enet_no_mdio = 1;
 #endif
-	}
-
-#ifdef CONFIG_MTD_BRCMNAND
-if (ethHwAddrs != NULL) {
-	unsigned char eth0HwAddr[ETH_HWADDR_LEN];
-	int i, j, k;
-
-	*numAddrs = 1;
-	  res = get_cfe_env_variable(&cfeparam,
-					 (void *)eth0HwAddr_env, strlen(eth0HwAddr_env),
-					 (void *)eth0HwAddr,     ETH_HWADDR_LEN*(*numAddrs));
-	  if (res)
-		  res = -2;
-	  else {
-	}
-
-	if (res){
-		uart_puts( "Ethernet MAC address was not set in CFE\n" );
-	
-		res = -2;
-	}
-	else {
-		if (strlen(eth0HwAddr) >= ETH_HWADDR_LEN*(*numAddrs)) {
-			printk("warning: CFE ETH0_HWADDR truncated to "
-				"%d bytes\n", ETH_HWADDR_LEN);
-			
-			eth0HwAddr[ETH_HWADDR_LEN-1] = '\0';
-		}	
-
-		/*
-		 * Convert to binary format
-		 */
-		for (k=0; k < *numAddrs; k++) {
-			unsigned char* hwAddr = ethHwAddrs[k];
-			int done = 0;
-			for (i=0,j=0; i<ETH_HWADDR_LEN && !done; ) {
-				switch (eth0HwAddr[i]) {
-				case ':':
-					i++;
-					continue;
-				
-				case '\0':
-					done = 1;
-					break;
-
-				default:
-					hwAddr[j] = (unsigned char)
-						((hex(eth0HwAddr[i]) << 4) | hex(eth0HwAddr[i+1]));
-					j++;
-					i +=2;
-				}
-			}
-		}
-		res = 0;
-	}
+	return(0);
 }
-#endif
 
-	return res;
+static int parse_boot_flags(char *buf)
+{
+	extern char cfeBootParms[];
+
+	strcpy(cfeBootParms, buf);
+	return(0);
+}
+
+#define BUF_SIZE		COMMAND_LINE_SIZE
+static char cfe_buf[BUF_SIZE];
+
+int get_cfe_boot_parms(void)
+{
+	int ret;
+	int e_ok = 1, d_ok = 1, b_ok = 1, c_ok = 1;
+
+	printk("Fetching vars from bootloader... ");
+	if (cfe_seal != CFE_SEAL) {
+		printk("none present, using defaults.\n");
+		return(-1);
+	}
+
+	ret = get_cfe_env_variable("ETH0_HWADDR", cfe_buf, BUF_SIZE);
+	if((ret != 0) || (parse_eth0_hwaddr(cfe_buf) != 0))
+		e_ok = 0;
+	
+	ret = get_cfe_env_variable("DRAM0_SIZE", cfe_buf, BUF_SIZE);
+	if((ret != 0) || (parse_dram0_size(cfe_buf) != 0))
+		d_ok = 0;
+	
+	ret = get_cfe_env_variable("DRAM1_SIZE", cfe_buf, BUF_SIZE);
+	if((ret != 0) || (parse_dram1_size(cfe_buf) != 0))
+		d_ok = 0;
+	
+	ret = get_cfe_env_variable("CFE_BOARDNAME", cfe_buf, BUF_SIZE);
+	if((ret != 0) || (parse_boardname(cfe_buf) != 0))
+		b_ok = 0;
+	
+	ret = get_cfe_env_variable("BOOT_FLAGS", cfe_buf, BUF_SIZE);
+	if((ret != 0) || (parse_boot_flags(cfe_buf) != 0))
+		c_ok = 0;
+
+	if(e_ok || d_ok || b_ok || c_ok) {
+		printk("OK (%c,%c,%c,%c)\n",
+			e_ok ? 'E' : 'e',
+			d_ok ? 'D' : 'd',
+			b_ok ? 'B' : 'b',
+			c_ok ? 'C' : 'c');
+		return(0);
+	} else {
+		printk("FAILED\n");
+		return(-1);
+	}
 }

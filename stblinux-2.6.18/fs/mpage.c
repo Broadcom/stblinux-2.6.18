@@ -589,6 +589,12 @@ page_is_mapped:
 	/*
 	 * This page will go to BIO.  Do we need to send this BIO off first?
 	 */
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	if (bio && test_bit(AS_DIRECT, &page->mapping->flags)) {
+		printk("%s: AS_DIRECT, set_bit(BIO_DIRECT, &bio->bi_flags)\n", __FUNCTION__);
+		set_bit(BIO_DIRECT, &bio->bi_flags);
+	}
+#endif
 	if (bio && *last_block_in_bio != blocks[0] - 1)
 		bio = mpage_bio_submit(WRITE, bio);
 

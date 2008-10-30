@@ -29,7 +29,7 @@
 #include "bchp_uartb.h"
 #include "bchp_uartc.h"
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -71,7 +71,7 @@ extern "C" {
 #define OE                              0x02
 #define DR                              0x01
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 
 /**********************************************************************
   Uart Register Structure
@@ -93,9 +93,9 @@ typedef struct UartChannel {
 
 #define UART  ((volatile UartChannel *)	UART_ADR_BASE)
 
-#endif /* _ASMLANGUAGE */
+#endif /* __ASSEMBLY__ */
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 #ifdef __cplusplus
 }
 #endif

@@ -25,7 +25,7 @@ struct mtd_blktrans_dev {
 	struct mutex lock;
 	int devnum;
 	int blksize;
-	unsigned long size;
+	uint64_t size;
 	int readonly;
 	void *blkcore_priv; /* gendisk in 2.5, devfs_handle in 2.4 */
 };

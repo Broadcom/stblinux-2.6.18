@@ -40,6 +40,7 @@ to the flash every 10 mins (CET_SYNC_FREQ).
 when	who 	what
 -----	---	----
 080519	sidc	initial code
+080910  sidc	MLC support
  */
 
 #include <linux/types.h>
@@ -55,9 +56,14 @@ when	who 	what
 #ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
 
 #define PRINTK(...)
-#define BBT_PARTITION	(1<<20)
-#define BBT_MAX_BLKS	4
-#define CET_START_BLK(x, y) __ll_low(__ll_RightShift((x), (y)->bbt_erase_shift) - (BBT_PARTITION/(y)->blockSize));
+
+#define BBT_SLC_PARTITION	(1<<20)
+#define BBT_MAX_BLKS_SLC	4
+#define CET_START_BLK_SLC(x, y) (uint32_t) (((x) >> ((y)->bbt_erase_shift)) - (BBT_SLC_PARTITION/(y)->blockSize))
+
+#define BBT_MLC_PARTITION	(4<<20)
+#define BBT_MAX_BLKS_MLC(x)	(BBT_MLC_PARTITION >> ((x)->bbt_erase_shift))
+#define CET_START_BLK_MLC(x, y, z)	(uint32_t) (((x) >> ((y)->bbt_erase_shift)) - ((z)/(y)->blockSize))
 
 #define CET_GOOD_BLK	0x00
 #define CET_BAD_WEAR 	0x01
@@ -69,6 +75,11 @@ when	who 	what
 static char cet_pattern[] = {'C', 'E', 'T', 0};
 static struct brcmnand_cet_descr cet_descr = {
 	.offs = 9,
+	.len = 4,
+	.pattern = cet_pattern
+};
+static struct brcmnand_cet_descr cet_descr_mlc = {
+	.offs = 1,
 	.len = 4,
 	.pattern = cet_pattern
 };
@@ -99,11 +110,13 @@ static inline int brcmnand_cet_read_oob(struct mtd_info *mtd, uint8_t *buf, loff
 static inline int brcmnand_cet_write_oob(struct mtd_info *mtd, uint8_t *buf, loff_t offs)
 {
 	struct mtd_oob_ops ops;
+	uint8_t databuf[mtd->writesize];
 
-	ops.mode = MTD_OOB_RAW;
-	ops.len = mtd->oobsize;
+	memset(databuf, 0xff, mtd->writesize);
+	ops.mode = MTD_OOB_PLACE;
+	ops.len = mtd->writesize;
 	ops.ooblen = mtd->oobsize;
-	ops.datbuf = NULL;
+	ops.datbuf = databuf;
 	ops.oobbuf = buf;
 	ops.ooboffs = 0;
 
@@ -153,7 +166,7 @@ static void cet_printpg_oob(struct mtd_info *mtd, struct brcmnand_cet_descr *cet
 	int i, gdebug = 0;
 	struct brcmnand_chip *this = (struct brcmnand_chip *) mtd->priv;
 
-	offs = __ll_LeftShift32(cet->startblk, this->bbt_erase_shift);
+	offs = ((loff_t) cet->startblk) << this->bbt_erase_shift;
 	if (gdebug) {
 		printk(KERN_INFO "%s: %x\n", __FUNCTION__, (unsigned int) offs);
 	}
@@ -184,7 +197,7 @@ static void cet_printblk_oob(struct mtd_info *mtd, struct brcmnand_cet_descr *ce
 	}
 	for (i = 0; i < this->bbt_td->maxblocks; i++) {
 		memset(oobbuf, 0, mtd->oobsize);
-		offs = __ll_LeftShift32(cet->startblk+((cet->sign)*i), this->bbt_erase_shift);
+		offs = ((loff_t) cet->startblk+((cet->sign)*i)) << this->bbt_erase_shift;
 		if (brcmnand_cet_read_oob(mtd, oobbuf, offs)) {
 			vfree(oobbuf);
 			return;
@@ -209,13 +222,13 @@ static void cet_eraseall(struct mtd_info *mtd, struct brcmnand_cet_descr *cet)
 
 	for (i = 0; i < cet->numblks; i++) {
 		if (cet->memtbl[i].blk != -1) {
-			from = __ll_LeftShift32(cet->memtbl[i].blk, this->bbt_erase_shift);
+			from = (uint64_t) cet->memtbl[i].blk << this->bbt_erase_shift;
 			if (unlikely(gdebug)) {
 				printk(KERN_INFO "DEBUG -> Erasing blk %x\n", cet->memtbl[i].blk);
 			}
 			memset(&einfo, 0, sizeof(einfo));
 			einfo.mtd = mtd;
-			einfo.addr = __ll_low(from);
+			einfo.addr = from;
 			einfo.len = mtd->erasesize;
 			ret = this->erase_bbt(mtd, &einfo, 1, 1);
 			if (unlikely(ret < 0)) {
@@ -239,10 +252,10 @@ static void cet_eraseall(struct mtd_info *mtd, struct brcmnand_cet_descr *cet)
 static inline int check_badblk(struct mtd_info *mtd, loff_t offs) 
 {
 	struct brcmnand_chip *this = (struct brcmnand_chip *) mtd->priv;
-	int blk;
+	uint32_t blk;
 	int res;
 
-	blk = __ll_low(__ll_RightShift(offs, this->bbt_erase_shift-1));
+	blk = (uint32_t) (offs >> (this->bbt_erase_shift-1));
 	res = (this->bbt[blk >> 3] >> blk & 0x06) & 0x03;
 
 	return res;
@@ -322,7 +335,7 @@ static inline void cmdline_showcet(struct mtd_info *mtd, struct brcmnand_cet_des
 	for (i = 0; i < cet->numblks; i++) {
 		if (cet->memtbl[i].blk == -1) 
 			continue;
-		offs = __ll_LeftShift32(cet->memtbl[i].blk, this->bbt_erase_shift);
+		offs = ((loff_t) cet->memtbl[i].blk) << this->bbt_erase_shift;
 		printk(KERN_INFO "brcmnandCET: Block[%d] @ %x\n", i, (unsigned int) offs);
 		if (brcmnand_cet_read_oob(mtd, oobbuf, offs)) {
 			return;
@@ -369,7 +382,7 @@ static int create_cet_blks(struct mtd_info *mtd, struct brcmnand_cet_descr *cet)
 		printk(KERN_INFO "brcmnandCET: Inside %s\n", __FUNCTION__);
 	}
 	for (i = 0; i < td->maxblocks; i++) {
-		from = __ll_LeftShift32(cet->startblk+i*cet->sign, this->bbt_erase_shift);
+		from = ((loff_t) cet->startblk+i*cet->sign) << this->bbt_erase_shift;
 		/* Skip if bad block */
 		ret = check_badblk(mtd, from);
 		if (ret == CET_BAD_FACTORY || ret == CET_BAD_WEAR) {
@@ -392,7 +405,7 @@ static int create_cet_blks(struct mtd_info *mtd, struct brcmnand_cet_descr *cet)
 		/* Erase */
 		memset(&einfo, 0, sizeof(einfo));
 		einfo.mtd = mtd;
-		einfo.addr = __ll_low(from);
+		einfo.addr = from;
 		einfo.len = mtd->erasesize;
 		ret = this->erase_bbt(mtd, &einfo, 1, 1);
 		if (unlikely(ret < 0)) {
@@ -456,7 +469,7 @@ static int search_cet_blks(struct mtd_info *mtd, struct brcmnand_cet_descr *cet,
 		printk(KERN_INFO "DEBUG -> Inside search_cet_blks\n");
 	}
 	for (i = 0; i < td->maxblocks; i++) {
-		from = __ll_LeftShift32(cet->startblk+i*cet->sign, this->bbt_erase_shift);
+		from = ((loff_t) cet->startblk+i*cet->sign) << this->bbt_erase_shift;
 		/* Skip if bad block */
 		ret = check_badblk(mtd, from);
 		if (ret == CET_BAD_FACTORY || ret == CET_BAD_WEAR) {
@@ -560,7 +573,7 @@ static int flush_memcet(struct mtd_info *mtd)
 
 	/* If chip is locked reset timer for a later time */
 	if (spin_is_locked(&this->chip_lock)) {
-		printk(KERN_INFO "DEBUG -> brcmnandCET: flash locked reseting timer\n");
+		printk(KERN_INFO "brcmnandCET: flash locked reseting timer\n");
 		return -1;
 	}
 	if (unlikely(gdebug)) {
@@ -571,11 +584,11 @@ static int flush_memcet(struct mtd_info *mtd)
 	for (i = 0; i < cet->numblks; i++) {
 		if (cet->memtbl[i].isdirty && cet->memtbl[i].blk != -1) {
 			/* Erase */
-			from = __ll_LeftShift32(cet->memtbl[i].blk, this->bbt_erase_shift);
+			from = ((loff_t) cet->memtbl[i].blk) << this->bbt_erase_shift;
 			to = from;
 			memset(&einfo, 0, sizeof(einfo));
 			einfo.mtd = mtd;
-			einfo.addr = __ll_low(from);
+			einfo.addr = from;
 			einfo.len = mtd->erasesize;
 			ret = this->erase_bbt(mtd, &einfo, 1, 1);
 			if (unlikely(ret < 0)) {
@@ -658,18 +671,18 @@ int brcmnand_create_cet(struct mtd_info *mtd)
 {
 	struct brcmnand_chip *this = (struct brcmnand_chip *) mtd->priv;
 	struct brcmnand_cet_descr *cet;
-	int gdebug = 0, i, ret;
+	int gdebug = 0, i, ret, rem;
+	uint64_t tmpdiv;
 
 	if (unlikely(gdebug)) {
 		printk(KERN_INFO "brcmnandCET: Creating correctable error table ...\n");
 	}
-	this->cet = cet = &cet_descr;
-	cet->flags = 0x00;
 	if (NAND_IS_MLC(this)) {
-		printk(KERN_INFO "Disabling CET for MLC NAND\n");
-		cet->flags = BRCMNAND_CET_DISABLED;
-		return -1;
+		this->cet = cet = &cet_descr_mlc;
+	} else {
+		this->cet = cet = &cet_descr;
 	}
+	cet->flags = 0x00;
 	/* Check that BBT table and mirror exist */
 	if (unlikely(!this->bbt_td && !this->bbt_md)) {
 		printk(KERN_INFO "brcmnandCET: BBT tables not found, disabling\n");
@@ -684,8 +697,17 @@ int brcmnand_create_cet(struct mtd_info *mtd)
 		return -1;
 	}
 	/* Calculate max blocks based on 1-bit per page */
-	cet->numblks = (this->mtdSize/this->pageSize)/(8*this->blockSize);
-	if (((this->mtdSize/this->pageSize)/8)%this->blockSize) {
+	tmpdiv = this->mtdSize;
+	do_div(tmpdiv, this->pageSize);
+	do_div(tmpdiv, (8*this->blockSize));
+	cet->numblks = (uint32_t) tmpdiv;
+	//cet->numblks = (this->mtdSize/this->pageSize)/(8*this->blockSize);
+	tmpdiv = this->mtdSize;
+	do_div(tmpdiv, this->pageSize);
+	do_div(tmpdiv, 8);
+	rem = do_div(tmpdiv, this->blockSize);
+	//if (((this->mtdSize/this->pageSize)/8)%this->blockSize) {
+	if (rem) {
 		cet->numblks++;
 	}
 	/* Allocate twice the size in case we have bad blocks */
@@ -694,25 +716,75 @@ int brcmnand_create_cet(struct mtd_info *mtd)
 	cet->sign = (this->bbt_td->options & NAND_BBT_LASTBLOCK) ? 1 : -1;
 	/* For flash size <= 512MB BBT and CET share the last 1MB
 	   for flash size > 512MB CET is at the 512th MB of flash */
-	if (this->mtdSize < (1<<29)) {
-		if (cet->maxblks + BBT_MAX_BLKS > BBT_PARTITION/this->blockSize) {
-			printk(KERN_INFO "brcmnandCET: Not enough space to store CET, disabling CET\n");
-			cet->flags = BRCMNAND_CET_DISABLED;
-			return -1;
-		}
-		if (cet->sign) {
-			cet->startblk = CET_START_BLK(this->mtdSize, this)
-		} else {
-			cet->startblk = __ll_low(__ll_RightShift(this->mtdSize, this->bbt_erase_shift)-1);
-		}
-
+#if 0
+	if (NAND_IS_MLC(this)) {
 	} else {
-		if (cet->maxblks > (BBT_PARTITION)/this->blockSize) {
-			printk(KERN_INFO "brcmnandCET: Not enough space to store CET, disabling CET\n");
-			cet->flags = BRCMNAND_CET_DISABLED;
-			return -1;
+		if (this->mtdSize < (1<<29)) {
+			if (cet->maxblks + BBT_MAX_BLKS > get_bbt_partition(this)/this->blockSize) {
+				printk(KERN_INFO "brcmnandCET: Not enough space to store CET, disabling CET\n");
+				cet->flags = BRCMNAND_CET_DISABLED;
+				return -1;
+			}
+			if (cet->sign) {
+				cet->startblk = CET_START_BLK(this->mtdSize, this);
+			} else {
+				cet->startblk = (uint32_t) (this->mtdSize >> this->bbt_erase_shift)-1;
+			}
+
+		} else {
+			if (cet->maxblks > (get_bbt_partition(this))/this->blockSize) {
+				printk(KERN_INFO "brcmnandCET: Not enough space to store CET, disabling CET\n");
+				cet->flags = BRCMNAND_CET_DISABLED;
+				return -1;
+			}
+			cet->startblk = CET_START_BLK((1<<29), this);
 		}
-		cet->startblk = CET_START_BLK((1<<29), this)
+	}
+#endif
+	if (NAND_IS_MLC(this)) {
+		if (this->mtdSize < (1<<29)) {
+			if (cet->maxblks + BBT_MAX_BLKS_MLC(this) > BBT_MLC_PARTITION/this->blockSize) {
+				printk(KERN_INFO "brcmnandCET: Not enough space to store CET, disabling CET\n");
+				cet->flags = BRCMNAND_CET_DISABLED;
+				return -1;
+			}
+			/* Reverse direction of BBT */
+			if (cet->sign) {
+				cet->startblk = CET_START_BLK_MLC(this->mtdSize, this, BBT_MLC_PARTITION);
+			} else {
+				cet->startblk = (uint32_t) (this->mtdSize >> this->bbt_erase_shift)-1;
+			}
+		} else {
+			/* 512th MB used by CET */
+			if (cet->maxblks > (1<<29)/this->blockSize) {
+				printk(KERN_INFO "brcmnandCET: Not enough space to store CET, disabling CET\n");
+				cet->flags = BRCMNAND_CET_DISABLED;
+				return -1;
+			}
+			cet->startblk = CET_START_BLK_MLC((1<<29), this, (1<<20));
+		}
+	} else {
+		if (this->mtdSize < (1<<29)) {
+			if (cet->maxblks + BBT_MAX_BLKS_SLC > BBT_SLC_PARTITION/this->blockSize) {
+				printk(KERN_INFO "brcmnandCET: Not enough space to store CET, disabling CET\n");
+				cet->flags = BRCMNAND_CET_DISABLED;
+				return -1;
+			}
+			/* Reverse direction of BBT */
+			if (cet->sign) {
+				cet->startblk = CET_START_BLK_SLC(this->mtdSize, this);
+			} else {
+				cet->startblk = (uint32_t) (this->mtdSize >> this->bbt_erase_shift)-1;
+			}
+		} else {
+			/* 512th MB used by CET */
+			if (cet->maxblks > BBT_SLC_PARTITION/this->blockSize) {
+				printk(KERN_INFO "brcmnandCET: Not enough space to store CET, disabling CET\n");
+				cet->flags = BRCMNAND_CET_DISABLED;
+				return -1;
+			}
+			cet->startblk = CET_START_BLK_SLC((1<<29), this);
+		}
 	}
 	if (gdebug) {
 		printk(KERN_INFO "brcmnandCET: start blk = %x, numblks = %x\n", cet->startblk, cet->numblks);
@@ -796,7 +868,7 @@ int brcmnand_cet_erasecallback(struct mtd_info *mtd, u_int32_t addr)
 	loff_t origaddr = addr;
 	
 	/* Find out which entry in the memtbl does the addr map to */
-	page = __ll_RightShift(addr, this->page_shift);
+	page = (uint32_t) (addr >> this->page_shift);
 	blk = page/(this->blockSize<<3);
 	if (unlikely(cet->memtbl[blk].blk == -1)) {
 		printk(KERN_INFO "brcmnandCET: %s invalid block# in CET\n", __FUNCTION__);
@@ -804,7 +876,7 @@ int brcmnand_cet_erasecallback(struct mtd_info *mtd, u_int32_t addr)
 	}
 	blkbegin = cet->memtbl[blk].blk;
 	/* Start page of the block */
-	addr = __ll_LeftShift32(blkbegin, this->bbt_erase_shift);
+	addr = ((loff_t) blkbegin) << this->bbt_erase_shift;
 	if (cet->memtbl[blk].bitvec == NULL) {
 		if (gdebug) {
 			printk(KERN_INFO "DEBUG -> brcmnandCET: bitvec is null, reloading\n");
@@ -896,7 +968,7 @@ int brcmnand_cet_update(struct mtd_info *mtd, loff_t from, int *status)
 		cet->flags = BRCMNAND_CET_LOADED;
 	}
 	/* Find out which entry in memtbl does the from address map to */
-	page = __ll_RightShift(from, this->page_shift);
+	page = (uint32_t) (from >> this->page_shift);
 	/* each bit is one page << 3 for 8 bits per byte */
 	blk = page/(this->blockSize<<3);
 	if (unlikely(cet->memtbl[blk].blk == -1)) {
@@ -905,7 +977,7 @@ int brcmnand_cet_update(struct mtd_info *mtd, loff_t from, int *status)
 	}
 	blkbegin = cet->memtbl[blk].blk;
 	/* Start page of the block */
-	from = __ll_LeftShift32(blkbegin, this->bbt_erase_shift);
+	from = ((loff_t) blkbegin) << this->bbt_erase_shift;
 	/* If bitvec == NULL, load the block from flash */
 	if (cet->memtbl[blk].bitvec == NULL) {
 		if (gdebug) {
@@ -963,14 +1035,16 @@ int brcmnand_cet_update(struct mtd_info *mtd, loff_t from, int *status)
  */
 int brcmnand_cet_prepare_reboot(struct mtd_info *mtd) 
 {
-	int gdebug = 1;
+	int gdebug = 0;
 	struct brcmnand_chip *this = (struct brcmnand_chip *) mtd->priv;
 	struct brcmnand_cet_descr *cet = this->cet;
 
+#if 0
 	// Disable for MLC
 	if (NAND_IS_MLC(this)) {
 		return 0;
 	}
+#endif
 	if (unlikely(gdebug)) {
 		uart_puts(KERN_INFO "DEBUG -> brcmnandCET: flushing pending CET\n");
 	}

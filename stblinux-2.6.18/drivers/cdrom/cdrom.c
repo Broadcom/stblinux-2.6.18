@@ -346,6 +346,9 @@ static void sanitize_format(union cdrom_addr *addr,
 static int mmc_ioctl(struct cdrom_device_info *cdi, unsigned int cmd,
 		     unsigned long arg);
 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+int cdrom_read_capacity(struct cdrom_device_info *, long *);
+#endif
 int cdrom_get_last_written(struct cdrom_device_info *, long *);
 static int cdrom_get_next_writable(struct cdrom_device_info *, long *);
 static void cdrom_count_tracks(struct cdrom_device_info *, tracktype*);
@@ -1021,6 +1024,12 @@ int cdrom_open(struct cdrom_device_info *cdi, struct inode *ip, struct file *fp)
 
 	cdinfo(CD_OPEN, "Use count for \"/dev/%s\" now %d\n",
 			cdi->name, cdi->use_count);
+
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	/* Always invalidate the buffer cache */
+	invalidate_bdev(ip->i_bdev, 0);
+#endif
+
 	/* Do this on open.  Don't wait for mount, because they might
 	    not be mounting, but opening with O_NONBLOCK */
 	check_disk_change(ip->i_bdev);
@@ -3073,8 +3082,13 @@ static int mmc_ioctl(struct cdrom_device_info *cdi, unsigned int cmd,
 	case CDROM_LAST_WRITTEN: {
 		long last = 0;
 		cdinfo(CD_DO_IOCTL, "entering CDROM_LAST_WRITTEN\n"); 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		if ((ret = cdrom_read_capacity(cdi, &last)))
+			return ret;
+#else
 		if ((ret = cdrom_get_last_written(cdi, &last)))
 			return ret;
+#endif
 		IOCTL_OUT(arg, long, last);
 		return 0;
 		}
@@ -3147,6 +3161,35 @@ static int cdrom_get_disc_info(struct cdrom_device_info *cdi, disc_information *
 	/* return actual fill size */
 	return buflen;
 }
+
+#if defined (CONFIG_MIPS_BCM_NDVD)
+/*
+** Return the capacity of the media. This is for the UDF filesystem.
+*/
+int cdrom_read_capacity(struct cdrom_device_info *cdi, long *capacity)
+{
+	struct {
+		__u32 lba;
+		__u32 blocklen;
+	} capbuf;
+
+	struct cdrom_device_ops  *cdo = cdi->ops;
+	struct packet_command cgc;
+	int ret;
+
+	init_cdrom_command(&cgc, (u_char *)&capbuf, sizeof(capbuf), CGC_DATA_READ);
+	cgc.quiet = 0;
+	cgc.cmd[0] = GPCMD_READ_CDVD_CAPACITY;
+
+	ret = cdo->generic_packet(cdi, &cgc);
+	if (ret == 0)
+		*capacity = 1 + be32_to_cpu(capbuf.lba);
+	else 
+		*capacity = 0;
+
+	return ret;
+}
+#endif
 
 /* return the last written block on the CD-R media. this is for the udf
    file system. */

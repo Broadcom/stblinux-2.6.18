@@ -128,6 +128,9 @@ do
 
 	*)  break ;;
 	esac
+
+# jipeng - ignore "-e" option in incremental build
+	if [ -z ${INITRD_SUBDIR} ]; then
 #
 #	process option here to get an ANDing effect
 #
@@ -139,6 +142,7 @@ do
 		exit 0
 		;;
 	esac
+	fi
 done
 
 shift `expr $OPTIND - 1`

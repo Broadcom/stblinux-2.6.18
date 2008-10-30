@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Mon Jul 28 11:24:49 2008
- *                 MD5 Checksum         fb86407f93bca40e048906386e215a30
+ * Date:           Generated on         Thu Sep  4 18:00:46 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_pcie_misc.h $
  * 
- * Hydra_Software_Devel/2   7/28/08 2:30p tdo
- * PR42663: Sync up RDB header files
+ * Hydra_Software_Devel/3   9/5/08 11:38a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,33 +45,33 @@
 /***************************************************************************
  *PCIE_MISC - PCI-E Miscellaneous Registers
  ***************************************************************************/
-#define BCHP_PCIE_MISC_RESET_CTRL                0x00014000 /* Reset Control Register */
-#define BCHP_PCIE_MISC_ECO_CTRL_CORE             0x00014004 /* ECO Core Reset Control Register */
-#define BCHP_PCIE_MISC_MISC_CTRL                 0x00014008 /* MISC Control Register */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN0_LO    0x0001400c /* CPU to PCI-E Memory Window 0 Low */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN0_HI    0x00014010 /* CPU to PCI-E Memory Window 0 High */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN1_LO    0x00014014 /* CPU to PCI-E Memory Window 1 Low */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN1_HI    0x00014018 /* CPU to PCI-E Memory Window 1 High */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN2_LO    0x0001401c /* CPU to PCI-E Memory Window 2 Low */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN2_HI    0x00014020 /* CPU to PCI-E Memory Window 2 High */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_LO    0x00014024 /* CPU to PCI-E Memory Window 3 Low */
-#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_HI    0x00014028 /* CPU to PCI-E Memory Window 3 High */
-#define BCHP_PCIE_MISC_RC_BAR1_CONFIG_LO         0x0001402c /* RC BAR1 Configuration Low Register */
-#define BCHP_PCIE_MISC_RC_BAR1_CONFIG_HI         0x00014030 /* RC BAR1 Configuration High Register */
-#define BCHP_PCIE_MISC_RC_BAR2_CONFIG_LO         0x00014034 /* RC BAR2 Configuration Low Register */
-#define BCHP_PCIE_MISC_RC_BAR2_CONFIG_HI         0x00014038 /* RC BAR2 Configuration High Register */
-#define BCHP_PCIE_MISC_RC_BAR3_CONFIG_LO         0x0001403c /* RC BAR3 Configuration Low Register */
-#define BCHP_PCIE_MISC_RC_BAR3_CONFIG_HI         0x00014040 /* RC BAR3 Configuration High Register */
-#define BCHP_PCIE_MISC_MSI_BAR_CONFIG_LO         0x00014044 /* Message Signaled Interrupt Base Address Low Register */
-#define BCHP_PCIE_MISC_MSI_BAR_CONFIG_HI         0x00014048 /* Message Signaled Interrupt Base Address High Register */
-#define BCHP_PCIE_MISC_MSI_DATA_CONFIG           0x0001404c /* Message Signaled Interrupt Data Configuration Register */
-#define BCHP_PCIE_MISC_RC_BAD_ADDRESS_LO         0x00014050 /* RC Bad Address Register Low */
-#define BCHP_PCIE_MISC_RC_BAD_ADDRESS_HI         0x00014054 /* RC Bad Address Register High */
-#define BCHP_PCIE_MISC_RC_BAD_DATA               0x00014058 /* RC Bad Data Register */
-#define BCHP_PCIE_MISC_RC_CONFIG_RETRY_TIMEOUT   0x0001405c /* RC Configuration Retry Timeout Register */
-#define BCHP_PCIE_MISC_EOI_CTRL                  0x00014060 /* End of Interrupt Control Register */
-#define BCHP_PCIE_MISC_PCIE_CTRL                 0x00014064 /* PCIE Control */
-#define BCHP_PCIE_MISC_PCIE_STATUS               0x00014068 /* PCIE Status */
+#define BCHP_PCIE_MISC_RESET_CTRL                0x00454000 /* Reset Control Register */
+#define BCHP_PCIE_MISC_ECO_CTRL_CORE             0x00454004 /* ECO Core Reset Control Register */
+#define BCHP_PCIE_MISC_MISC_CTRL                 0x00454008 /* MISC Control Register */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN0_LO    0x0045400c /* CPU to PCI-E Memory Window 0 Low */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN0_HI    0x00454010 /* CPU to PCI-E Memory Window 0 High */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN1_LO    0x00454014 /* CPU to PCI-E Memory Window 1 Low */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN1_HI    0x00454018 /* CPU to PCI-E Memory Window 1 High */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN2_LO    0x0045401c /* CPU to PCI-E Memory Window 2 Low */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN2_HI    0x00454020 /* CPU to PCI-E Memory Window 2 High */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_LO    0x00454024 /* CPU to PCI-E Memory Window 3 Low */
+#define BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_HI    0x00454028 /* CPU to PCI-E Memory Window 3 High */
+#define BCHP_PCIE_MISC_RC_BAR1_CONFIG_LO         0x0045402c /* RC BAR1 Configuration Low Register */
+#define BCHP_PCIE_MISC_RC_BAR1_CONFIG_HI         0x00454030 /* RC BAR1 Configuration High Register */
+#define BCHP_PCIE_MISC_RC_BAR2_CONFIG_LO         0x00454034 /* RC BAR2 Configuration Low Register */
+#define BCHP_PCIE_MISC_RC_BAR2_CONFIG_HI         0x00454038 /* RC BAR2 Configuration High Register */
+#define BCHP_PCIE_MISC_RC_BAR3_CONFIG_LO         0x0045403c /* RC BAR3 Configuration Low Register */
+#define BCHP_PCIE_MISC_RC_BAR3_CONFIG_HI         0x00454040 /* RC BAR3 Configuration High Register */
+#define BCHP_PCIE_MISC_MSI_BAR_CONFIG_LO         0x00454044 /* Message Signaled Interrupt Base Address Low Register */
+#define BCHP_PCIE_MISC_MSI_BAR_CONFIG_HI         0x00454048 /* Message Signaled Interrupt Base Address High Register */
+#define BCHP_PCIE_MISC_MSI_DATA_CONFIG           0x0045404c /* Message Signaled Interrupt Data Configuration Register */
+#define BCHP_PCIE_MISC_RC_BAD_ADDRESS_LO         0x00454050 /* RC Bad Address Register Low */
+#define BCHP_PCIE_MISC_RC_BAD_ADDRESS_HI         0x00454054 /* RC Bad Address Register High */
+#define BCHP_PCIE_MISC_RC_BAD_DATA               0x00454058 /* RC Bad Data Register */
+#define BCHP_PCIE_MISC_RC_CONFIG_RETRY_TIMEOUT   0x0045405c /* RC Configuration Retry Timeout Register */
+#define BCHP_PCIE_MISC_EOI_CTRL                  0x00454060 /* End of Interrupt Control Register */
+#define BCHP_PCIE_MISC_PCIE_CTRL                 0x00454064 /* PCIE Control */
+#define BCHP_PCIE_MISC_PCIE_STATUS               0x00454068 /* PCIE Status */
 
 /***************************************************************************
  *RESET_CTRL - Reset Control Register

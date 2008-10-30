@@ -31,24 +31,38 @@
 #define MTD_ERASE_DONE          0x08
 #define MTD_ERASE_FAILED        0x10
 
-#ifndef MTD_LARGE 
-#define MTD_LARGE 1
-#endif
+/*
+ * This is the lowest unsigned number > 32 bit limit. If mtd size is 
+ * >= MTD_MAX_32BIT, we use num_eraseblocks and make mtd->size = 0
+ */
+#define MTD_MAX_32BIT		0x100000000ULL
 
 /* If the erase fails, fail_addr might indicate exactly which block failed.  If
    fail_addr = 0xffffffff, the failure was not at the device level or was not
    specific to any particular block. */
 struct erase_info {
 	struct mtd_info *mtd;
-#ifdef MTD_LARGE
 	u_int64_t addr;
 	u_int32_t len;
 	u_int64_t fail_addr;
-#else
+	u_long time;
+	u_long retries;
+	u_int dev;
+	u_int cell;
+	void (*callback) (struct erase_info *self);
+	u_long priv;
+	u_char state;
+	struct erase_info *next;
+};
+/*
+ * This struct is just a placeholder for backward compatibility with 
+ * ioctl() - mtdchar.c ioctl code for more details
+ */
+struct erase_info32 {
+	struct mtd_info *mtd;
 	u_int32_t addr;
 	u_int32_t len;
 	u_int32_t fail_addr;
-#endif
 	u_long time;
 	u_long retries;
 	u_int dev;
@@ -59,20 +73,21 @@ struct erase_info {
 	struct erase_info *next;
 };
 
-#ifdef MTD_LARGE
 struct mtd_erase_region_info {
 	u_int64_t offset;		/* At which this region starts, from the beginning of the MTD */
 	u_int32_t erasesize;		/* For this region */
 	u_int32_t numblocks;		/* Number of blocks of erasesize in this region */
 };
-#else
-struct mtd_erase_region_info {
+
+/*
+ * This struct is just a placeholder for backward compatibility with 
+ * ioctl(MEMGETREGIONINFO) - mtdchar.c
+ */
+struct mtd_erase_region_info32 {
 	u_int32_t offset;		/* At which this region starts, from the beginning of the MTD */
 	u_int32_t erasesize;		/* For this region */
 	u_int32_t numblocks;		/* Number of blocks of erasesize in this region */
 };
-#endif
-
 /*
  * oob operation modes
  *
@@ -120,11 +135,10 @@ struct mtd_oob_ops {
 struct mtd_info {
 	u_char type;
 	u_int32_t flags;
-#ifdef MTD_LARGE
-	u64 numblks; 
-#else
-	u_int32_t size;	 // Total size of the MTD
-#endif
+	u_int64_t num_eraseblocks; /* Total number of erase blocks */
+	u_int32_t size;	 /* Total size of the MTD. 0 for flash size >= 4GB 
+			  * See device_size() function below 
+			  */ 
 
 	/* "Major" erase size for the device. Nave users may take this
 	 * to be the only erase size available, or may use the more detailed
@@ -231,11 +245,10 @@ struct mtd_info {
 	int usecount;
 };
 
-#ifdef MTD_LARGE
-#define MTD_SIZE(mtd) (mtd64_lshft32((mtd)->numblks, (ffs((mtd)->erasesize)-1)))
-#else
-#define MTD_SIZE(mtd) ((mtd)->size)
-#endif
+static inline u_int64_t device_size(struct mtd_info *mtd) 
+{
+	return mtd->size == 0 ? (u_int64_t) mtd->num_eraseblocks * mtd->erasesize : (u_int64_t) mtd->size;
+}
 
 	/* Kernel-side ioctl definitions */
 

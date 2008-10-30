@@ -17,10 +17,6 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/blktrans.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 struct romblock_map {
 	struct mtd_blktrans_dev dev;
 	/* block map for RO */
@@ -44,11 +40,7 @@ static loff_t map_over_bad_blocks(struct mtd_blktrans_dev* dev, loff_t from)
 
 	/* first time in */
 	if (block_map == NULL) {
-#ifdef MTD_LARGE
-		block_top = (int32_t) mtd64_rshft32(MTD_SIZE(mtd), ffs(mtd->erasesize)-1);
-#else
-		block_top = mtd->size / mtd->erasesize;
-#endif
+		block_top = (int32_t) device_size(mtd) / mtd->erasesize;
 		//block_map = kmalloc(sizeof(*block_map) * block_top, GFP_KERNEL);
 		block_map = vmalloc(sizeof(*block_map) * block_top);
 		if (block_map == NULL) {
@@ -155,12 +147,8 @@ static void romblock_add_mtd(struct mtd_blktrans_ops *tr, struct mtd_info *mtd)
 	dev_cont->dev.mtd = mtd;
 	dev_cont->dev.devnum = mtd->index;
 	dev_cont->dev.blksize = 512;
-#ifdef MTD_LARGE
 	/* size is in 512 byte sectors so a int type is ok for upto 512 GB */
-	dev_cont->dev.size = mtd64_rshft32(MTD_SIZE(mtd), 9);
-#else
-	dev_cont->dev.size = mtd->size >> 9;
-#endif
+	dev_cont->dev.size = device_size(mtd) >> 9;
 	dev_cont->dev.tr = tr;
 	dev_cont->dev.readonly = 1;
 

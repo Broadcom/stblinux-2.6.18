@@ -13,28 +13,29 @@
 #define __user
 #endif
 
-#ifndef MTD_USER_LARGE
-#define MTD_USER_LARGE 1
-#endif
-
 struct erase_info_user {
-#ifdef MTD_USER_LARGE
-	uint64_t start;
-#else
 	uint32_t start;
-#endif
+	uint32_t length;
+};
+
+struct erase_info_user64 {
+	uint64_t start;
 	uint32_t length;
 };
 
 struct mtd_oob_buf {
-#ifdef MTD_USER_LARGE
-	uint64_t start;
-#else
 	uint32_t start;
-#endif
 	uint32_t length;
 	unsigned char __user *ptr;
 };
+
+struct mtd_oob_buf64 {
+	uint64_t start;
+	uint32_t length;
+	unsigned char __user *ptr;
+};
+
+
 
 #define MTD_ABSENT		0
 #define MTD_RAM			1
@@ -82,11 +83,7 @@ struct mtd_oob_buf {
 struct mtd_info_user {
 	uint8_t type;
 	uint32_t flags;
-#ifdef MTD_USER_LARGE
-	uint64_t size;  // Total blocks in MTD
-#else
 	uint32_t size;	 // Total size of the MTD
-#endif
 	uint32_t erasesize;
 	uint32_t writesize;
 	uint32_t oobsize;   // Amount of OOB data per block (e.g. 16)
@@ -94,18 +91,34 @@ struct mtd_info_user {
 	uint32_t eccsize;
 };
 
+struct mtd_info_user64 {
+	uint8_t type;
+	uint32_t flags;
+	uint64_t size;  // Total blocks in MTD
+	uint32_t erasesize;
+	uint32_t writesize;
+	uint32_t oobsize;   // Amount of OOB data per block (e.g. 16)
+	uint32_t ecctype;
+	uint32_t eccsize;
+};
+
+
 struct region_info_user {
-#ifdef MTD_USER_LARGE
-	uint64_t offset;		/* At which this region starts,
-					 * from the beginning of the MTD */
-#else
 	uint32_t offset;		/* At which this region starts,
 					 * from the beginning of the MTD */
-#endif
 	uint32_t erasesize;		/* For this region */
 	uint32_t numblocks;		/* Number of blocks in this region */
 	uint32_t regionindex;
 };
+
+struct region_info_user64 {
+	uint64_t offset;		/* At which this region starts,
+					 * from the beginning of the MTD */
+	uint32_t erasesize;		/* For this region */
+	uint32_t numblocks;		/* Number of blocks in this region */
+	uint32_t regionindex;
+};
+
 
 struct otp_info {
 	uint32_t start;
@@ -121,8 +134,8 @@ struct otp_info {
 #define MEMUNLOCK		_IOW('M', 6, struct erase_info_user)
 #define MEMGETREGIONCOUNT	_IOR('M', 7, int)
 #define MEMGETREGIONINFO	_IOWR('M', 8, struct region_info_user)
-#define MEMSETOOBSEL		_IOW('M', 9, struct nand_oobinfo)
-#define MEMGETOOBSEL		_IOR('M', 10, struct nand_oobinfo)
+#define MEMSETOOBSEL		_IOW('M', 9, struct nand_oobinfo32)
+#define MEMGETOOBSEL		_IOR('M', 10, struct nand_oobinfo32)
 #define MEMGETBADBLOCK		_IOW('M', 11, loff_t)
 #define MEMSETBADBLOCK		_IOW('M', 12, loff_t)
 #define OTPSELECT		_IOR('M', 13, int)
@@ -133,9 +146,34 @@ struct otp_info {
 #define ECCGETSTATS		_IOR('M', 18, struct mtd_ecc_stats)
 #define MTDFILEMODE		_IO('M', 19)
 
+#define MEMGETINFO64		_IOR('M', 20, struct mtd_info_user64)
+#define MEMGETREGIONINFO64	_IOWR('M', 21, struct region_info_user64)
+#define MEMUNLOCK64		_IOW('M', 22, struct erase_info_user64)
+#define MEMERASE64		_IOW('M', 23, struct erase_info_user64)
+#define MEMWRITEOOB64		_IOWR('M', 24, struct mtd_oob_buf64)
+#define MEMREADOOB64		_IOWR('M', 25, struct mtd_oob_buf64)
+#define MEMSETOOBSEL64		_IOW('M', 26, struct nand_oobinfo)
+#define MEMGETOOBSEL64		_IOR('M', 27, struct nand_oobinfo)
+
 /*
  * Obsolete legacy interface. Keep it in order not to break userspace
  * interfaces
+ */
+struct nand_oobinfo32 {
+	uint32_t useecc;
+	uint32_t eccbytes;
+	uint32_t oobfree[8][2];
+	uint32_t eccpos[32];
+};
+
+/*
+ * The nand_oobinfo32 struct (above) was originally called nand_oobinfo
+ * It exists only for backward compatibility with ioctl() calls. The new
+ * struct was not named nand_oobinfo64 because the struct name 'nand_oobinfo'
+ * is used in the kernel (yaffs2/brcmnand) 
+ * Also, note that the old ioctl still works with a changed struct name because
+ * the ioctl numbers are generated based on sizeof(struct ...) and not name
+ * of the struct. 
  */
 struct nand_oobinfo {
 	uint32_t useecc;
@@ -143,6 +181,8 @@ struct nand_oobinfo {
 	uint32_t oobfree[8][2];
 	uint32_t eccpos[64];
 };
+/* For consistency with other structs used in ioctl 64-bit versions */
+typedef struct nand_oobinfo64 nand_oobinfo;
 
 struct nand_oobfree {
 	uint32_t offset;

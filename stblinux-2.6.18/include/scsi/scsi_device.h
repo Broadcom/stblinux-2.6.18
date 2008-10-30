@@ -7,6 +7,10 @@
 #include <linux/workqueue.h>
 #include <asm/atomic.h>
 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+#define ATAPI_RDY_TIMEOUT       (45*HZ)
+#endif
+
 struct request_queue;
 struct scsi_cmnd;
 struct scsi_lun;
@@ -134,6 +138,12 @@ struct scsi_device {
 	atomic_t ioerr_cnt;
 
 	int timeout;
+
+#if defined(CONFIG_MIPS_BCM_NDVD)
+        unsigned long rdy_tmo;   /* time budget for device to become ready */
+        unsigned not_ready:1;       /* device reports Not Ready/Becoming Ready */
+        unsigned do_early_spinup:1; /* device needs an early spinup performed */
+#endif
 
 	struct device		sdev_gendev;
 	struct class_device	sdev_classdev;

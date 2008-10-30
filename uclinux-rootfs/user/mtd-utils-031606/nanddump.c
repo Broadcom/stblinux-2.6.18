@@ -175,8 +175,8 @@ int main(int argc, char **argv)
 	off_t ofs, end_addr = 0;
 	unsigned long long blockstart = 1;
 	int i, fd, ofd, bs, badblock = 0;
-	struct mtd_oob_buf oob = {0, 16, oobbuf};
-	mtd_info_t meminfo;
+	struct mtd_oob_buf64 oob = {0, 16, oobbuf};
+	mtd_info64_t meminfo;
 	char pretty_buf[80];
 
  	process_options(argc, argv);
@@ -188,8 +188,8 @@ int main(int argc, char **argv)
 	}
 
 	/* Fill in MTD device capability structure */
-	if (ioctl(fd, MEMGETINFO, &meminfo) != 0) {
-		perror("MEMGETINFO");
+	if (ioctl(fd, MEMGETINFO64, &meminfo) != 0) {
+		perror("MEMGETINFO64");
 		close(fd);
 		exit (1);
 	}
@@ -285,8 +285,8 @@ int main(int argc, char **argv)
 		} else {
 			/* Read OOB data and exit on failure */
 			oob.start = ofs;
-			if (ioctl(fd, MEMREADOOB, &oob) != 0) {
-				perror("ioctl(MEMREADOOB)");
+			if (ioctl(fd, MEMREADOOB64, &oob) != 0) {
+				perror("ioctl(MEMREADOOB64)");
 				goto closeall;
 			}
 		}

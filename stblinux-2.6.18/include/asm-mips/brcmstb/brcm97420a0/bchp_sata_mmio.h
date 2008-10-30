@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu May 29 18:52:58 2008
- *                 MD5 Checksum         820227b279d06813a6bca9e3c5b6cb55
+ * Date:           Generated on         Thu Sep  4 18:09:30 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_sata_mmio.h $
  * 
- * Hydra_Software_Devel/1   5/29/08 11:39p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   9/5/08 11:45a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,14 +45,14 @@
 /***************************************************************************
  *SATA_MMIO - MMI/O Address mapping
  ***************************************************************************/
-#define BCHP_SATA_MMIO_SATA_STATUS               0x00520440 /* SATA Status Register(SCR0) */
-#define BCHP_SATA_MMIO_SATA_ERROR                0x00520444 /* SATA Error Register(SCR1) */
-#define BCHP_SATA_MMIO_SATA_CONTROL              0x00520448 /* SATA Control Register(SCR2) */
-#define BCHP_SATA_MMIO_SATA_CONTROL1             0x00520480 /* SATA Internal Control 1(FIFO Control) */
-#define BCHP_SATA_MMIO_SATA_CONTROL2             0x00520484 /* SATA Internal Control 2 (Debug Control) */
-#define BCHP_SATA_MMIO_SATA_MASK                 0x00520488 /* SerialATA Interrupt Mask Register(SIMR) */
-#define BCHP_SATA_MMIO_SATA_MDIO                 0x0052048c /* SATA MDIO Access Register */
-#define BCHP_SATA_MMIO_SATA_BIST                 0x00520490 /* SerialATA BIST FIS Control Register(SBCR) */
+#define BCHP_SATA_MMIO_SATA_STATUS               0x001a0440 /* SATA Status Register(SCR0) */
+#define BCHP_SATA_MMIO_SATA_ERROR                0x001a0444 /* SATA Error Register(SCR1) */
+#define BCHP_SATA_MMIO_SATA_CONTROL              0x001a0448 /* SATA Control Register(SCR2) */
+#define BCHP_SATA_MMIO_SATA_CONTROL1             0x001a0480 /* SATA Internal Control 1(FIFO Control) */
+#define BCHP_SATA_MMIO_SATA_CONTROL2             0x001a0484 /* SATA Internal Control 2 (Debug Control) */
+#define BCHP_SATA_MMIO_SATA_MASK                 0x001a0488 /* SerialATA Interrupt Mask Register(SIMR) */
+#define BCHP_SATA_MMIO_SATA_MDIO                 0x001a048c /* SATA MDIO Access Register */
+#define BCHP_SATA_MMIO_SATA_BIST                 0x001a0490 /* SerialATA BIST FIS Control Register(SBCR) */
 
 /***************************************************************************
  *SATA_STATUS - SATA Status Register(SCR0)

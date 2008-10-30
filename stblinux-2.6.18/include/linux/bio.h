@@ -124,6 +124,9 @@ struct bio {
 #define BIO_BOUNCED	5	/* bio is a bounce bio */
 #define BIO_USER_MAPPED 6	/* contains user pages */
 #define BIO_EOPNOTSUPP	7	/* not supported */
+#if defined (CONFIG_MIPS_BCM_NDVD)
+#define BIO_DIRECT	8	/* direct IO from originating file request */
+#endif
 #define bio_flagged(bio, flag)	((bio)->bi_flags & (1 << (flag)))
 
 /*

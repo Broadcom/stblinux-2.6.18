@@ -67,7 +67,12 @@ MODULE_ALIAS_BLOCKDEV_MAJOR(SCSI_CDROM_MAJOR);
 #define SR_DISKS	256
 
 #define MAX_RETRIES	3
+#if defined (CONFIG_MIPS_BCM_NDVD)
+#define SR_TIMEOUT	(10 * HZ)
+#define SR_READ_TIMEOUT	(5  * HZ)
+#else
 #define SR_TIMEOUT	(30 * HZ)
+#endif
 #define SR_CAPABILITIES \
 	(CDC_CLOSE_TRAY|CDC_OPEN_TRAY|CDC_LOCK|CDC_SELECT_SPEED| \
 	 CDC_SELECT_DISC|CDC_MULTI_SESSION|CDC_MCN|CDC_MEDIA_CHANGED| \
@@ -311,6 +316,19 @@ static int sr_init_command(struct scsi_cmnd * SCpnt)
 	}
 
 	if (cd->device->changed) {
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		/*
+		** Exempt the following commands from this check:
+		**  - Inquiry
+		**  - Test Unit Ready
+		**  - Start/Stop Unit
+		**  - Request Sense
+		*/
+		if (SCpnt->cmnd[0] != INQUIRY &&
+			SCpnt->cmnd[0] != TEST_UNIT_READY &&
+			SCpnt->cmnd[0] != START_STOP &&
+			SCpnt->cmnd[0] != REQUEST_SENSE)
+#endif
 		/*
 		 * quietly refuse to do anything to a changed disc until the
 		 * changed bit has been reset
@@ -342,7 +360,17 @@ static int sr_init_command(struct scsi_cmnd * SCpnt)
 		SCpnt->sc_data_direction = DMA_TO_DEVICE;
  	 	cd->cdi.media_written = 1;
 	} else if (rq_data_dir(SCpnt->request) == READ) {
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		if (test_bit(__REQ_DIRECTIO, &SCpnt->request->flags))
+		{
+			SCpnt->cmnd[0] = READ_12;
+		}
+		else {
 		SCpnt->cmnd[0] = READ_10;
+		}
+#else
+		SCpnt->cmnd[0] = READ_10;
+#endif
 		SCpnt->sc_data_direction = DMA_FROM_DEVICE;
 	} else {
 		blk_dump_rq_flags(SCpnt->request, "Unknown sr command");
@@ -394,9 +422,37 @@ static int sr_init_command(struct scsi_cmnd * SCpnt)
 	SCpnt->cmnd[3] = (unsigned char) (block >> 16) & 0xff;
 	SCpnt->cmnd[4] = (unsigned char) (block >> 8) & 0xff;
 	SCpnt->cmnd[5] = (unsigned char) block & 0xff;
+
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	if (SCpnt->cmnd[0] == READ_12) {
+		SCpnt->cmnd[6]  = (unsigned char) (this_count >> 24) & 0xff;
+		SCpnt->cmnd[7]  = (unsigned char) (this_count >> 16) & 0xff;
+		SCpnt->cmnd[8]  = (unsigned char) (this_count >> 8)  & 0xff;
+		SCpnt->cmnd[9]  = (unsigned char) this_count & 0xff;
+		SCpnt->cmnd[10] = 0x80;
+	}
+	else {
 	SCpnt->cmnd[6] = SCpnt->cmnd[9] = 0;
 	SCpnt->cmnd[7] = (unsigned char) (this_count >> 8) & 0xff;
 	SCpnt->cmnd[8] = (unsigned char) this_count & 0xff;
+	}
+
+	/*
+	** For READ_10/READ_12, limit retries.
+	** For READ_12, reduce command timeout interval.
+	*/
+	if (SCpnt->cmnd[0] == READ_10 || SCpnt->cmnd[0] == READ_12) {
+
+		SCpnt->retries = MAX_RETRIES;
+
+		if (SCpnt->cmnd[0] == READ_12)
+			timeout = SR_READ_TIMEOUT;
+	}
+#else
+	SCpnt->cmnd[6] = SCpnt->cmnd[9] = 0;
+	SCpnt->cmnd[7] = (unsigned char) (this_count >> 8) & 0xff;
+	SCpnt->cmnd[8] = (unsigned char) this_count & 0xff;
+#endif
 
 	/*
 	 * We shouldn't disconnect in the middle of a sector, so with a dumb
@@ -515,6 +571,14 @@ static int sr_open(struct cdrom_device_info *cdi, int purpose)
 	retval = -ENXIO;
 	if (!scsi_block_when_processing_errors(sdev))
 		goto error_out;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	/*
+	** Fix for BCM7440 Media Change issues
+	** (PR's 4038/3742). ALWAYS update
+	** sector size during open.
+	*/
+	get_sectorsize(cd);
+#endif
 
 	return 0;
 
@@ -593,6 +657,10 @@ static int sr_probe(struct device *dev)
 
 	disk->driverfs_dev = &sdev->sdev_gendev;
 	set_capacity(disk, cd->capacity);
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	if (cd->device->sector_size)
+		disk->sector_size = cd->device->sector_size;
+#endif
 	disk->private_data = &cd->driver;
 	disk->queue = sdev->request_queue;
 	cd->cdi.disk = disk;

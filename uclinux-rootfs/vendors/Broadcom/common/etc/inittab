@@ -21,7 +21,7 @@
 #tty2::respawn:/sbin/getty 38400 tty2
 
 # Put a getty on the serial port
-ttyS0::respawn:/bin/getty -L ttyS0 115200 vt102
+ttyS0::respawn:/bin/getty -L ttyS0 115200 vt102 &> /dev/null
 #@@@@@ttyS1::respawn:/bin/getty -L ttyS1 115200 vt102
 #ttyS0::respawn:/bin/sh
 

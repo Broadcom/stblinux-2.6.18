@@ -40,7 +40,7 @@ unexport $(shell test -f config/cleanenv.pl && \
 
 # THT For 2.6.18-2.0 we only support a few platforms
 # THT: Note there is no 7440b0 NOR flash build. 
-PLATFORMS=7325a0 7325a0-smtc 7401c0 97455c0 7400d0 7400d0-smp 7400d0-smp-discontig 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7118c0-nand 7405a0 7405a0-smp 7038c0 3563c0 3563c0-nand 3563c0-ddr1 7335a0 7335a0-smp 7405b0 7405b0-smp 7405b0-nand 7405b0-smp-nand 97459b0 97459b0-smp 97459b0-nand 97459b0-smp-nand 3548a0 3548a0-smp 3548a0-nand 3548a0-smp-nand 7440b0-nand # 3563c0-ddr1-nand (until CFE support it) 7400d0-smp-nand 97456d0-smp-nand 
+PLATFORMS=7325a0 7325a0-smtc 7401c0 97455c0 7400d0 7400d0-smp 7400d0-smp-discontig 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7118c0-nand 7405a0 7405a0-smp 7038c0 3563c0 3563c0-nand 3563c0-ddr1 7335a0 7335a0-smp 7405b0 7405b0-smp 7405b0-nand 7405b0-smp-nand 97459b0 97459b0-smp 97459b0-nand 97459b0-smp-nand 3548a0 3548a0-smp 3548a0-nand 3548a0-smp-nand 3548b0-spi 3548b0-smp-spi 3548b0-nand 3548b0-smp-nand 7440b0-nand # 3563c0-ddr1-nand (until CFE support it) 7400d0-smp-nand 97456d0-smp-nand 
     # Obsoleted
     # 7400a0 7400a0-smp 7440a0 97398 7402 7402c0 7403a0 3560b0 3563 97456
     # 7318 7400a0-nand  7401b0-nand
@@ -95,6 +95,19 @@ else
 	INITRD_DEFCONFIG:=$$CONFIG_LINUXDIR/.config.orig
 endif
 
+# jipeng - "make -f build.mk vmlinuz-initrd-XXXX dir="linux-2.6.x user/XXX lib/YYY"" to rebuild initrd image incrementally
+INITRD_SUBDIR=
+INITRD_LINUXDIR=
+
+ifneq ($(dir),) 
+ifneq ($(findstring linux-2.6.x,$(sort $(dir))),)
+INITRD_LINUXDIR=$(findstring linux-2.6.x,$(sort $(dir)))
+endif
+INITRD_SUBDIR:=$(sort $(dir))
+
+export INITRD_SUBDIR INITRD_LINUXDIR
+endif
+
 kernels: vercheck	
 	for i in $(ALL_PLATFORMS); do \
 		make -f build.mk $$i; \
@@ -105,8 +118,11 @@ all: vercheck kernels install
 .PHONY: vercheck install rootfs platlist prepare
 
 prepare:
-	test -f ../prepare.sh && (../prepare.sh || (echo "FATAL Error: missing files" ; exit 1)) || echo "succeed"
-
+	@test -f ../prepare.sh && (../prepare.sh || (echo "FATAL Error: missing files" ; exit 1)) || echo "succeed"
+ifneq ($(INITRD_SUBDIR),)
+	@for i in $(INITRD_SUBDIR); do test -d $$i || exit $?; done
+endif
+ 
 #jipeng - check version mismatch between rootfs and kernel source
 vercheck:
 	@test -f ${KERNEL_DIR}/Makefile || (echo "FATAL Error: miss ${KERNEL_DIR}/Makefile"; exit 1)
@@ -133,23 +149,26 @@ rootfs:
 			$(MAKE) -f build.mk rootfs-$$i || exit 1; \
 			case "$$i" in \
 			*-nand) \
-				cp images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
-				cp images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
-				cp images/$$i/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$$i.img; \
-				cp images/$$i/jffs2-mlc-512k.img $(TFTPDIR)/jffs2-mlc-512k-$$i.img; \
-				cp images/$$i/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$$i.img; \
-				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
-				cp images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
-				cp images/$$i/modules.tar.bz2 $(TFTPDIR)/modules-$$i.tar.bz2; \
+				cp -f images/$$i/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$$i.img; \
+				cp -f images/$$i/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$$i.img; \
+				cp -f images/$$i/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$$i.img; \
+				test -f images/$$i/jffs2-mlc-256k.img && \
+					cp -f images/$$i/jffs2-mlc-256k.img $(TFTPDIR)/jffs2-mlc-256k-$$i.img; \
+				test -f images/$$i/jffs2-mlc-512k.img && \
+					cp -f images/$$i/jffs2-mlc-512k.img $(TFTPDIR)/jffs2-mlc-512k-$$i.img; \
+				cp -f images/$$i/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$$i.img; \
+				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
+				cp -f images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
+				cp -f images/$$i/modules.tar.bz2 $(TFTPDIR)/modules-$$i.tar.bz2; \
 				;;\
 			*) \
-				cp images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img; \
+				cp -f images/$$i/jffs2.img $(TFTPDIR)/jffs2-$$i.img; \
 				if [ "$$i" == "7401c0" ]; then \
-					cp images/$$i/jffs2-64k.img $(TFTPDIR)/jffs2-64k-$$i.img; \
+					cp -f images/$$i/jffs2-64k.img $(TFTPDIR)/jffs2-64k-$$i.img; \
 				fi; \
-				cp images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
-				cp images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
-				cp images/$$i/modules.tar.bz2 $(TFTPDIR)/modules-$$i.tar.bz2; \
+				cp -f images/$$i/cramfs.img $(TFTPDIR)/cramfs-$$i.img; \
+				cp -f images/$$i/squashfs.img $(TFTPDIR)/squashfs-$$i.img; \
+				cp -f images/$$i/modules.tar.bz2 $(TFTPDIR)/modules-$$i.tar.bz2; \
 				;;\
 			esac; \
 		fi; \
@@ -161,19 +180,20 @@ rootfs:
 
 
 $(ALL_PLATFORMS) :
-	echo "Making uclinux-rootfs and kernels for $@ version=$(VERSION)"
+	@echo "Making uclinux-rootfs and kernels for $@ version=$(VERSION)"
 	#make -f build.mk distclean
 	make -f build.mk vmlinuz-initrd-$@
 	make -f build.mk vmlinuz-$@
 	
 $(OPROFILE_PLATFORMS) :
-	echo "Making OPROFILE uclinux-rootfs and kernels for $@ version=$(VERSION)"
+	@echo "Making OPROFILE uclinux-rootfs and kernels for $@ version=$(VERSION)"
 	#make -f build.mk distclean
 	make -f build.mk vmlinuz-initrd-$@
 	make -f build.mk vmlinuz-$@
 	
+# Pre v3.0 NAND controllers may not build MLC images, so test for existence before copying.
 $(ROOTFS_PLATFORMS):
-	echo "Making rootfs images for $@ version=$(VERSION)"; \
+	@echo "Making rootfs images for $@ version=$(VERSION)"; \
 	# We don't check whether the image is up-todate, but assume that it has been built.
 	cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst rootfs-,,$@) .config
 	. .config && make -C vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT" \
@@ -191,7 +211,10 @@ $(ROOTFS_PLATFORMS):
 			cp -f images/$(subst rootfs-,,$@)/jffs2-128k.img $(TFTPDIR)/jffs2-128k-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/jffs2-16k.img $(TFTPDIR)/jffs2-16k-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/jffs2-512k.img $(TFTPDIR)/jffs2-512k-$(subst rootfs-,,$@).img; \
-			cp -f images/$(subst rootfs-,,$@)/jffs2-mlc-512k.img $(TFTPDIR)/jffs2-mlc-512k-$(subst rootfs-,,$@).img; \
+			test -f images/$(subst rootfs-,,$@)/jffs2-mlc-256k.img && \
+				cp -f images/$(subst rootfs-,,$@)/jffs2-mlc-256k.img $(TFTPDIR)/jffs2-mlc-256k-$(subst rootfs-,,$@).img; \
+			test -f images/$(subst rootfs-,,$@)/jffs2-mlc-512k.img &&\
+				cp -f images/$(subst rootfs-,,$@)/jffs2-mlc-512k.img $(TFTPDIR)/jffs2-mlc-512k-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/yaffs-frm-cramfs.img $(TFTPDIR)/yaffs-frm-cramfs-$(subst rootfs-,,$@).img ; \
 			cp -f images/$(subst rootfs-,,$@)/cramfs.img $(TFTPDIR)/cramfs-$(subst rootfs-,,$@).img; \
 			cp -f images/$(subst rootfs-,,$@)/squashfs.img $(TFTPDIR)/squashfs-$(subst rootfs-,,$@).img ; \
@@ -209,10 +232,11 @@ $(ROOTFS_PLATFORMS):
 	esac
 
 $(NO_ROOTFS_PLATFORMS):
-	echo "No rootfs available for $@, skipping."
+	@echo "No rootfs available for $@, skipping."
 
 # The echo Done at the end is to prevent make from rep orting errors.
 $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
+ifeq ($(INITRD_SUBDIR),) 
 	cp -f defconfigs/defconfig-brcm-uclinux-rootfs-$(subst vmlinuz-initrd-,,$@) .config
 	rm -f $(KERNEL_DIR)/.config
 	(. .config; \
@@ -232,6 +256,7 @@ $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
 		cp -f vendors/$${CONFIG_VENDOR}/$${CONFIG_PRODUCT}/config.vendor-2.6.x config/.config; \
 		cd $${CONFIG_LINUXDIR} && $(MAKEARCH) silentoldconfig; \
 	)
+endif
 # PR25899 - show targets - following make command should specific target all
 	$(MAKEARCH) BRCM_VERSION=$(VERSION) all
 	test -d $(TFTPDIR) || mkdir -p $(TFTPDIR)
@@ -240,7 +265,7 @@ $(BB_INITRD_PLATFORMS) $(XFS_INITRD_PLATFORMS): prepare
 	else \
 		cp -f images/$(subst vmlinuz-initrd-,,$@)/vmlinuz $(TFTPDIR)/$@ ;\
 	fi
-	echo "Done building $@"
+	@echo "Done building $@"
 
 $(BB_PLATFORMS) $(XFS_BB_PLATFORMS): prepare
 	if [ "x$(KERNEL_DEFCONFIG)" != "x" ]; then	\
@@ -312,6 +337,7 @@ $(OPROF_INITRD_PLATFORMS) : prepare
 			vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config."$$CONFIG_LINUXDIR"  \
 		| sed -e "s/CONFIG_INITRAMFS_ROOT_GID=0/CONFIG_INITRAMFS_ROOT_GID=$(MYGID)/" \
 		| sed -e "s/# CONFIG_PROFILING is not set/CONFIG_PROFILING=y/" \
+		| sed -e "s/^CONFIG_BRCM_BUILD_TARGET.*/CONFIG_BRCM_BUILD_TARGET=\"$(subst -opf,,$(subst vmlinuz-initrd-,,$@))\"/" \
 			> "$$CONFIG_LINUXDIR"/.config; \
 		echo "CONFIG_OPROFILE=y" >> "$$CONFIG_LINUXDIR"/.config; \
 		echo "# CONFIG_USER_PROFILE_OPROFILE_FULL is not set" >> "$$CONFIG_LINUXDIR"/.config; \
@@ -320,7 +346,8 @@ $(OPROF_INITRD_PLATFORMS) : prepare
 		test -f config/.config && rm -f config/.config; \
 		sed -e "s/# CONFIG_USER_PROFILE_OPROFILE is not set/CONFIG_USER_PROFILE_OPROFILE=y/" \
 			vendors/"$$CONFIG_VENDOR"/"$$CONFIG_PRODUCT"/config.vendor-2.6.x  \
-		| sed -e "s/# CONFIG_USER_PROFILE_POFT is not set/CONFIG_USER_PROFILE_POFT=y/" > config/.config; \
+		| sed -e "s/# CONFIG_USER_PROFILE_POFT is not set/CONFIG_USER_PROFILE_POFT=y/" \
+		| sed -e "s/# CONFIG_LIB_LIBSTDCXX_FORCE is not set/CONFIG_LIB_LIBSTDCXX_FORCE=y/" > config/.config; \
 		(cd "$$CONFIG_LINUXDIR" && $(MAKEARCH) silentoldconfig);
 	$(MAKEARCH) oprofile
 # PR25899 - show targets - following make command should specific target all
@@ -332,7 +359,7 @@ $(OPROF_INITRD_PLATFORMS) : prepare
 	else \
 		cp -f images/$(subst -opf,,$(subst vmlinuz-initrd-,,$@))/vmlinuz $(TFTPDIR)/$@ ;\
 	fi
-	echo "Done building $@"
+	@echo "Done building $@"
 
 $(OPROF_PLATFORMS) : prepare
 	-test -f $(KERNEL_DIR)/.config && rm -f $(KERNEL_DIR)/.config

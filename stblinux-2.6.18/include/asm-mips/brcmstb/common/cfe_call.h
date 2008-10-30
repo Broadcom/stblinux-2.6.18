@@ -50,7 +50,7 @@ typedef struct cmdEntry_t {
  * The last 2 parameters return the MAC addresses of the internal MAC, and is only
  * meaningful for NAND flash, under CONFIG_MTD_BRCMNAND
  */
-int get_cfe_boot_parms(char bootParms[], int* numAddrs, unsigned char* ethHwAddrs[]);
+int get_cfe_boot_parms(void);
 
 
 /*

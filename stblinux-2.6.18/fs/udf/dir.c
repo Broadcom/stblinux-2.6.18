@@ -42,7 +42,7 @@ static int do_udf_readdir(struct inode *, struct file *, filldir_t, void *);
 
 /* readdir and lookup functions */
 
-const struct file_operations udf_dir_operations = {
+struct file_operations udf_dir_operations = {
 	.read			= generic_read_dir,
 	.readdir		= udf_readdir,
 	.ioctl			= udf_ioctl,

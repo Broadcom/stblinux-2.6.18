@@ -89,6 +89,7 @@ return_from_pci_slave_init:
 
 	mfc0    $8, $22, 0
 	srl     $8, $8, 24
+	andi	$8, 1
 #endif
 	beqz     $8, 1f
 	nop

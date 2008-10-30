@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Mon Jul 28 11:26:36 2008
- *                 MD5 Checksum         fb86407f93bca40e048906386e215a30
+ * Date:           Generated on         Thu Sep  4 18:02:12 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_hif_rgr1.h $
  * 
- * Hydra_Software_Devel/3   7/28/08 2:27p tdo
- * PR42663: Sync up RDB header files
+ * Hydra_Software_Devel/4   9/5/08 11:17a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,11 +45,11 @@
 /***************************************************************************
  *HIF_RGR1 - HIF RBUS-GISB-RBUS Bridge Registers
  ***************************************************************************/
-#define BCHP_HIF_RGR1_REVISION                   0x00018000 /* RGR Bridge Revision */
-#define BCHP_HIF_RGR1_CTRL                       0x00018004 /* RGR Bridge Control Register */
-#define BCHP_HIF_RGR1_RBUS_TIMER                 0x00018008 /* RGR Bridge RBUS Timer Register */
-#define BCHP_HIF_RGR1_SW_RESET_0                 0x0001800c /* RGR Bridge Software Reset 0 Register */
-#define BCHP_HIF_RGR1_SW_RESET_1                 0x00018010 /* RGR Bridge Software Reset 1 Register */
+#define BCHP_HIF_RGR1_REVISION                   0x00458000 /* RGR Bridge Revision */
+#define BCHP_HIF_RGR1_CTRL                       0x00458004 /* RGR Bridge Control Register */
+#define BCHP_HIF_RGR1_RBUS_TIMER                 0x00458008 /* RGR Bridge RBUS Timer Register */
+#define BCHP_HIF_RGR1_SW_RESET_0                 0x0045800c /* RGR Bridge Software Reset 0 Register */
+#define BCHP_HIF_RGR1_SW_RESET_1                 0x00458010 /* RGR Bridge Software Reset 1 Register */
 
 /***************************************************************************
  *REVISION - RGR Bridge Revision

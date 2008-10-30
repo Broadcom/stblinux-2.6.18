@@ -18,10 +18,6 @@
 #include <linux/mtd/mtd.h>
 #include "nodelist.h"
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 static void jffs2_build_remove_unlinked_inode(struct jffs2_sb_info *,
 		struct jffs2_inode_cache *, struct jffs2_full_dirent **);
 
@@ -261,12 +257,8 @@ static void jffs2_build_remove_unlinked_inode(struct jffs2_sb_info *c,
 
 static void jffs2_calc_trigger_levels(struct jffs2_sb_info *c)
 {
-#ifdef MTD_LARGE
 	uint64_t size, tmpdiv;
 	int res;
-#else
-	uint32_t size;
-#endif
 
 	/* Deletion should almost _always_ be allowed. We're fairly
 	   buggered once we stop allowing people to delete stuff
@@ -278,24 +270,17 @@ static void jffs2_calc_trigger_levels(struct jffs2_sb_info *c)
 	   of the medium to be available, for overhead caused by nodes being
 	   split across blocks, etc. */
 
-#ifdef MTD_LARGE
 	tmpdiv = (uint64_t) c->flash_size;
 	do_div(tmpdiv, 50);
 	size = tmpdiv;
-#else
-	size = c->flash_size / 50; /* 2% of flash size */
-#endif
 	size += c->nr_blocks * 100; /* And 100 bytes per eraseblock */
 	size += c->sector_size - 1; /* ... and round up */
 
-#ifdef MTD_LARGE
-	tmpdiv = (uint64_t) c->sector_size;
+	tmpdiv = size;
 	do_div(tmpdiv, c->sector_size);
 	res = tmpdiv;
 	c->resv_blocks_write = c->resv_blocks_deletion + res;
-#else
-	c->resv_blocks_write = c->resv_blocks_deletion + (size / c->sector_size);
-#endif
+	//c->resv_blocks_write = c->resv_blocks_deletion + (size / c->sector_size);
 
 	/* When do we let the GC thread run in the background */
 
@@ -311,25 +296,14 @@ static void jffs2_calc_trigger_levels(struct jffs2_sb_info *c)
 
 	/* If there's less than this amount of dirty space, don't bother
 	   trying to GC to make more space. It'll be a fruitless task */
-#ifdef MTD_LARGE
 	tmpdiv = (uint64_t) c->flash_size;
 	do_div(tmpdiv, 100);
 	res = (int) tmpdiv;
 	c->nospc_dirty_size = c->sector_size + res;
-#else
-	c->nospc_dirty_size = c->sector_size + (c->flash_size / 100);
-#endif
+	//c->nospc_dirty_size = c->sector_size + (c->flash_size / 100);
 
-#ifdef MTD_LARGE
-	tmpdiv = (uint64_t) c->flash_size;
-	do_div(tmpdiv, 1024);
-	res = (int) tmpdiv;
 	dbg_fsbuild("JFFS2 trigger levels (size %lu KiB, block size %d KiB, %d blocks)\n",
-		  res , c->sector_size / 1024, c->nr_blocks);
-#else
-	dbg_fsbuild("JFFS2 trigger levels (size %d KiB, block size %d KiB, %d blocks)\n",
-		  c->flash_size / 1024, c->sector_size / 1024, c->nr_blocks);
-#endif
+		  c->flash_size >> 10 , c->sector_size / 1024, c->nr_blocks);
 	dbg_fsbuild("Blocks required to allow deletion:    %d (%d KiB)\n",
 		  c->resv_blocks_deletion, c->resv_blocks_deletion*c->sector_size/1024);
 	dbg_fsbuild("Blocks required to allow writes:      %d (%d KiB)\n",

@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Mon Jul 28 11:31:28 2008
- *                 MD5 Checksum         fb86407f93bca40e048906386e215a30
+ * Date:           Generated on         Thu Sep  4 18:06:18 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_usb_ctrl.h $
  * 
- * Hydra_Software_Devel/3   7/28/08 2:35p tdo
- * PR42663: Sync up RDB header files
+ * Hydra_Software_Devel/4   9/5/08 11:50a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,25 +45,25 @@
 /***************************************************************************
  *USB_CTRL - USB Control Registers
  ***************************************************************************/
-#define BCHP_USB_CTRL_BRT_CTL_1                  0x00480200 /* BERT Control 1 Register */
-#define BCHP_USB_CTRL_BRT_CTL_2                  0x00480204 /* BERT Control 2 Register */
-#define BCHP_USB_CTRL_BRT_STAT_1                 0x00480208 /* BERT Status 1 Register */
-#define BCHP_USB_CTRL_BRT_STAT_2                 0x0048020c /* BERT Status 2 Register */
-#define BCHP_USB_CTRL_UTMI_CTL_1                 0x00480210 /* UTMI Control Register */
-#define BCHP_USB_CTRL_TEST_PORT_CTL              0x00480214 /* Test Port Control Register */
-#define BCHP_USB_CTRL_PLL_CTL_1                  0x00480218 /* PLL Control Register */
-#define BCHP_USB_CTRL_EBRIDGE                    0x0048021c /* Control Register for EHCI Bridge */
-#define BCHP_USB_CTRL_OBRIDGE                    0x00480220 /* Control Register for OHCI Bridge */
-#define BCHP_USB_CTRL_FLADJ_VALUE                0x00480224 /* Frame Adjust Value */
-#define BCHP_USB_CTRL_SETUP                      0x00480228 /* Setup Register */
-#define BCHP_USB_CTRL_MDIO                       0x0048022c /* MDIO Interface Programming Register */
-#define BCHP_USB_CTRL_MDIO2                      0x00480230 /* MDIO Interface Read Register */
-#define BCHP_USB_CTRL_USB_SIMCTL                 0x00480234 /* Simulation Register */
-#define BCHP_USB_CTRL_USB_TESTCTL                0x00480238 /* Spare1 Register for future use */
-#define BCHP_USB_CTRL_USB_TESTMON                0x0048023c /* Spare2 Register for future use */
-#define BCHP_USB_CTRL_UTMI_CTL_2                 0x00480240 /* UTMI Control 2 Register */
-#define BCHP_USB_CTRL_SPARE1                     0x00480244 /* Spare1 Register for future use */
-#define BCHP_USB_CTRL_SPARE2                     0x00480248 /* Spare2 Register for future use */
+#define BCHP_USB_CTRL_BRT_CTL_1                  0x00488200 /* BERT Control 1 Register */
+#define BCHP_USB_CTRL_BRT_CTL_2                  0x00488204 /* BERT Control 2 Register */
+#define BCHP_USB_CTRL_BRT_STAT_1                 0x00488208 /* BERT Status 1 Register */
+#define BCHP_USB_CTRL_BRT_STAT_2                 0x0048820c /* BERT Status 2 Register */
+#define BCHP_USB_CTRL_UTMI_CTL_1                 0x00488210 /* UTMI Control Register */
+#define BCHP_USB_CTRL_TEST_PORT_CTL              0x00488214 /* Test Port Control Register */
+#define BCHP_USB_CTRL_PLL_CTL_1                  0x00488218 /* PLL Control Register */
+#define BCHP_USB_CTRL_EBRIDGE                    0x0048821c /* Control Register for EHCI Bridge */
+#define BCHP_USB_CTRL_OBRIDGE                    0x00488220 /* Control Register for OHCI Bridge */
+#define BCHP_USB_CTRL_FLADJ_VALUE                0x00488224 /* Frame Adjust Value */
+#define BCHP_USB_CTRL_SETUP                      0x00488228 /* Setup Register */
+#define BCHP_USB_CTRL_MDIO                       0x0048822c /* MDIO Interface Programming Register */
+#define BCHP_USB_CTRL_MDIO2                      0x00488230 /* MDIO Interface Read Register */
+#define BCHP_USB_CTRL_USB_SIMCTL                 0x00488234 /* Simulation Register */
+#define BCHP_USB_CTRL_USB_TESTCTL                0x00488238 /* Throutput Test Control */
+#define BCHP_USB_CTRL_USB_TESTMON                0x0048823c /* Throughput Test Monitor */
+#define BCHP_USB_CTRL_UTMI_CTL_2                 0x00488240 /* UTMI Control 2 Register */
+#define BCHP_USB_CTRL_SPARE1                     0x00488244 /* Spare1 Register for future use */
+#define BCHP_USB_CTRL_SPARE2                     0x00488248 /* Spare2 Register for future use */
 
 /***************************************************************************
  *BRT_CTL_1 - BERT Control 1 Register
@@ -353,9 +353,9 @@
 /***************************************************************************
  *EBRIDGE - Control Register for EHCI Bridge
  ***************************************************************************/
-/* USB_CTRL :: EBRIDGE :: EBRIDGE_SPARE [31:17] */
-#define BCHP_USB_CTRL_EBRIDGE_EBRIDGE_SPARE_MASK                   0xfffe0000
-#define BCHP_USB_CTRL_EBRIDGE_EBRIDGE_SPARE_SHIFT                  17
+/* USB_CTRL :: EBRIDGE :: EBR_SPARE [31:17] */
+#define BCHP_USB_CTRL_EBRIDGE_EBR_SPARE_MASK                       0xfffe0000
+#define BCHP_USB_CTRL_EBRIDGE_EBR_SPARE_SHIFT                      17
 
 /* USB_CTRL :: EBRIDGE :: EBR_RD_THRESH [16:12] */
 #define BCHP_USB_CTRL_EBRIDGE_EBR_RD_THRESH_MASK                   0x0001f000
@@ -410,9 +410,17 @@
 #define BCHP_USB_CTRL_SETUP_async_expire_dis_MASK                  0x80000000
 #define BCHP_USB_CTRL_SETUP_async_expire_dis_SHIFT                 31
 
-/* USB_CTRL :: SETUP :: SETUP_SPARE4 [30:28] */
-#define BCHP_USB_CTRL_SETUP_SETUP_SPARE4_MASK                      0x70000000
-#define BCHP_USB_CTRL_SETUP_SETUP_SPARE4_SHIFT                     28
+/* USB_CTRL :: SETUP :: SETUP_SPARE4 [30:30] */
+#define BCHP_USB_CTRL_SETUP_SETUP_SPARE4_MASK                      0x40000000
+#define BCHP_USB_CTRL_SETUP_SETUP_SPARE4_SHIFT                     30
+
+/* USB_CTRL :: SETUP :: DIS_TXFIFO_SYNC2 [29:29] */
+#define BCHP_USB_CTRL_SETUP_DIS_TXFIFO_SYNC2_MASK                  0x20000000
+#define BCHP_USB_CTRL_SETUP_DIS_TXFIFO_SYNC2_SHIFT                 29
+
+/* USB_CTRL :: SETUP :: DIS_TXFIFO_SYNC1 [28:28] */
+#define BCHP_USB_CTRL_SETUP_DIS_TXFIFO_SYNC1_MASK                  0x10000000
+#define BCHP_USB_CTRL_SETUP_DIS_TXFIFO_SYNC1_SHIFT                 28
 
 /* USB_CTRL :: SETUP :: OC_DISABLE [27:25] */
 #define BCHP_USB_CTRL_SETUP_OC_DISABLE_MASK                        0x0e000000
@@ -563,8 +571,12 @@
 #define BCHP_USB_CTRL_USB_SIMCTL_test_clksel_MASK                  0x00600000
 #define BCHP_USB_CTRL_USB_SIMCTL_test_clksel_SHIFT                 21
 
-/* USB_CTRL :: USB_SIMCTL :: SIMCTL_SPARE [20:17] */
-#define BCHP_USB_CTRL_USB_SIMCTL_SIMCTL_SPARE_MASK                 0x001e0000
+/* USB_CTRL :: USB_SIMCTL :: pwrflt_tstsel [20:19] */
+#define BCHP_USB_CTRL_USB_SIMCTL_pwrflt_tstsel_MASK                0x00180000
+#define BCHP_USB_CTRL_USB_SIMCTL_pwrflt_tstsel_SHIFT               19
+
+/* USB_CTRL :: USB_SIMCTL :: SIMCTL_SPARE [18:17] */
+#define BCHP_USB_CTRL_USB_SIMCTL_SIMCTL_SPARE_MASK                 0x00060000
 #define BCHP_USB_CTRL_USB_SIMCTL_SIMCTL_SPARE_SHIFT                17
 
 /* USB_CTRL :: USB_SIMCTL :: AUTOPPD_ON_OVERCUR_EN [16:16] */
@@ -588,7 +600,7 @@
 #define BCHP_USB_CTRL_USB_SIMCTL_TMA_u1_SHIFT                      0
 
 /***************************************************************************
- *USB_TESTCTL - Spare1 Register for future use
+ *USB_TESTCTL - Throutput Test Control
  ***************************************************************************/
 /* USB_CTRL :: USB_TESTCTL :: TESTCTL_SPARE2 [31:22] */
 #define BCHP_USB_CTRL_USB_TESTCTL_TESTCTL_SPARE2_MASK              0xffc00000
@@ -615,7 +627,7 @@
 #define BCHP_USB_CTRL_USB_TESTCTL_MSEC_PRESCALER_SHIFT             0
 
 /***************************************************************************
- *USB_TESTMON - Spare2 Register for future use
+ *USB_TESTMON - Throughput Test Monitor
  ***************************************************************************/
 /* USB_CTRL :: USB_TESTMON :: TESTMON_STAT [31:00] */
 #define BCHP_USB_CTRL_USB_TESTMON_TESTMON_STAT_MASK                0xffffffff

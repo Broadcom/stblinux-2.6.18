@@ -31,7 +31,27 @@ config MIPS_BCM3548AX_NAND
         select MIPS_BCM3548
         select HW_HAS_PCI
 	select BMIPS4380
-	# select MTD_BRCMNAND
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
+
+config MIPS_BCM3548BX_SPI
+        bool "Support for BCM93548Bx with SPI flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM3548B0
+        select MIPS_BCM3548
+        select HW_HAS_PCI
+	select BMIPS4380
+
+
+config MIPS_BCM3548BX_NAND
+        bool "Support for BCM93548Bx with NAND flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM3548B0
+        select MIPS_BCM3548
+        select HW_HAS_PCI
+	select BMIPS4380
+	select MTD_BRCMNAND
 	select MTD_BRCMNAND_VERIFY_WRITE
 	select MTD_BLOCK_ROMBLOCK
 
@@ -1237,6 +1257,13 @@ config BRCM_COMMON_PCI
 
 	  If unsure, say N.
 
+config	MIPS_BCM_NDVD
+	bool "support DVD/Blue-Ray on BRCM platform"
+	depends MIPS_BRCM
+	default n
+	help
+	Enable it to support optical storage device on BRCM platform, like CD, DVD and Blue-Ray
+
 endmenu
 
 config RWSEM_GENERIC_SPINLOCK
@@ -1383,6 +1410,14 @@ config MIPS_BCM3548A0
 config MIPS_BCM3548
 	bool
 	depends MIPS_BCM3548A0
+
+config MIPS_BCM3548B0
+	bool
+	depends MIPS_BCM3548BX || MIPS_BCM3548BX_NAND
+
+config MIPS_BCM3548
+	bool
+	depends MIPS_BCM3548B0
 
 config MIPS_BCM3560
 	bool

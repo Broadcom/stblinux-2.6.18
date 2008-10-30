@@ -133,6 +133,57 @@ static void scsi_unlock_floptical(struct scsi_device *sdev,
 			 SCSI_TIMEOUT, 3);
 }
 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+/**
+ * get_tray_state - Find out the state of the loader tray.
+ * @sdev:	scsi device ptr
+ * @result:	area to store the result
+ *
+ * Description:
+ **/
+static int get_tray_state(struct scsi_device *sdev, unsigned char *result, int buflen)
+{
+	unsigned char scsi_cmd[MAX_COMMAND_SIZE];
+
+	scsi_cmd[0] = 0xbd;
+	scsi_cmd[1] = 0;
+	scsi_cmd[2] = 0;
+	scsi_cmd[3] = 0;
+	scsi_cmd[4] = 0;
+	scsi_cmd[5] = 0;
+	scsi_cmd[6] = 0;
+	scsi_cmd[7] = 0;
+	scsi_cmd[8] = (buflen >> 8) & 0xff;
+	scsi_cmd[9] = (buflen & 0xff);
+	return (scsi_execute_req(sdev, scsi_cmd, DMA_FROM_DEVICE, result, buflen /* size */, NULL,
+				 SCSI_TIMEOUT, 3));
+}
+
+
+/**
+ * scsi_start_unit - Close tray and spin the disc up
+ * @sdev:	scsi device ptr
+ * @result:	area to store the result
+ *
+ * Description:
+ **/
+static int scsi_start_unit(struct scsi_device *sdev, unsigned char *result,
+			   unsigned int loejbits)
+{
+	unsigned char scsi_cmd[MAX_COMMAND_SIZE];
+
+	scsi_cmd[0] = START_STOP;
+	scsi_cmd[1] = 0x1;
+	scsi_cmd[2] = 0;
+	scsi_cmd[3] = 0;
+	scsi_cmd[4] = loejbits;
+	scsi_cmd[5] = 0;
+	return (scsi_execute_req(sdev, scsi_cmd, DMA_NONE, result, 0 /* size */, NULL,
+				 SCSI_TIMEOUT, 3));
+}
+
+#endif	/* CONFIG_MIPS_BCM_NDVD */
+
 /**
  * print_inquiry - printk the inquiry information
  * @inq_result:	printk this SCSI INQUIRY
@@ -961,6 +1012,71 @@ static int scsi_probe_and_add_lun(struct scsi_target *starget,
 			sdev->lockable = 0;
 			scsi_unlock_floptical(sdev, result);
 		}
+
+#if defined (CONFIG_MIPS_BCM_NDVD)
+
+		if (sdev->do_early_spinup) {
+
+			int retries = 6;
+			int tray_open = -1;
+			int door_open_state, changer_state, ret;
+
+			/*
+			 * For improved Boot-Up Time project.
+			 * Spin disc up early during Linux boot
+			 * to minimize wait for drive ready at
+			 * application startup time. Must first
+			 * determine tray state to know which
+			 * flavor of START UNIT command to issue.
+			 */
+			do {
+				ret = get_tray_state(sdev, result, result_len);
+			} while (ret && (retries-- > 0));
+
+			if (retries > 0) {
+				/*
+				 * Determine tray state
+				 */
+				door_open_state = (result[1] & 0x10) >> 4;
+				changer_state   = (result[0] & 0x60) >> 5;
+
+				if (door_open_state && !changer_state)
+					tray_open = 1;
+				else if (changer_state == 2)
+					tray_open = 1;
+				else
+					tray_open = 0;
+
+				retries = 3;
+				if (!tray_open) {
+					/*
+					 * Issue command to spin the disc
+					 * without specifying tray movement.
+					 */
+					printk(KERN_NOTICE "scsi: Tray State CLOSED\n");
+					do {
+						ret = scsi_start_unit(sdev, result, 0x1);
+					} while (ret && (retries-- > 0));
+				}
+				else {
+					/*
+					 * Close the tray & spinup the disc.
+					 */
+					printk(KERN_NOTICE "scsi: Tray State OPEN\n");
+					do {
+						ret = scsi_start_unit(sdev, result, 0x3);
+					} while (ret && (retries-- > 0));
+				}
+
+				if (ret)
+					printk(KERN_WARNING "scsi: Loader could not execute early spinup !\n");
+				else
+					printk(KERN_NOTICE "scsi: Early spinup performed\n");
+
+			}
+			sdev->do_early_spinup = 0;
+		}
+#endif
 	}
 
  out_free_result:

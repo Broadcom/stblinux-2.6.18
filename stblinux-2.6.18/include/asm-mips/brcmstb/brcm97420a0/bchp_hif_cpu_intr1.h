@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Wed Aug 13 09:42:14 2008
- *                 MD5 Checksum         ae6d56c469a8a6797c624340f3aaceb0
+ * Date:           Generated on         Thu Sep  4 18:16:55 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_hif_cpu_intr1.h $
  * 
- * Hydra_Software_Devel/5   8/13/08 11:47a tdo
- * PR42663: RDB sync up
+ * Hydra_Software_Devel/6   9/5/08 11:16a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,18 +45,18 @@
 /***************************************************************************
  *HIF_CPU_INTR1 - HIF CPU1 Thread Processor 0 Level 1 Interrupt Controller Registers
  ***************************************************************************/
-#define BCHP_HIF_CPU_INTR1_INTR_W0_STATUS        0x00001400 /* Interrupt Status Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W1_STATUS        0x00001404 /* Interrupt Status Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W2_STATUS        0x00001408 /* Interrupt Status Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W0_MASK_STATUS   0x0000140c /* Interrupt Mask Status Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W1_MASK_STATUS   0x00001410 /* Interrupt Mask Status Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W2_MASK_STATUS   0x00001414 /* Interrupt Mask Status Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W0_MASK_SET      0x00001418 /* Interrupt Mask Set Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W1_MASK_SET      0x0000141c /* Interrupt Mask Set Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W2_MASK_SET      0x00001420 /* Interrupt Mask Set Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W0_MASK_CLEAR    0x00001424 /* Interrupt Mask Clear Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W1_MASK_CLEAR    0x00001428 /* Interrupt Mask Clear Register */
-#define BCHP_HIF_CPU_INTR1_INTR_W2_MASK_CLEAR    0x0000142c /* Interrupt Mask Clear Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W0_STATUS        0x00441400 /* Interrupt Status Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W1_STATUS        0x00441404 /* Interrupt Status Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W2_STATUS        0x00441408 /* Interrupt Status Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W0_MASK_STATUS   0x0044140c /* Interrupt Mask Status Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W1_MASK_STATUS   0x00441410 /* Interrupt Mask Status Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W2_MASK_STATUS   0x00441414 /* Interrupt Mask Status Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W0_MASK_SET      0x00441418 /* Interrupt Mask Set Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W1_MASK_SET      0x0044141c /* Interrupt Mask Set Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W2_MASK_SET      0x00441420 /* Interrupt Mask Set Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W0_MASK_CLEAR    0x00441424 /* Interrupt Mask Clear Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W1_MASK_CLEAR    0x00441428 /* Interrupt Mask Clear Register */
+#define BCHP_HIF_CPU_INTR1_INTR_W2_MASK_CLEAR    0x0044142c /* Interrupt Mask Clear Register */
 
 /***************************************************************************
  *INTR_W0_STATUS - Interrupt Status Register

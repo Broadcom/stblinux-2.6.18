@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Wed Aug 13 09:37:02 2008
- *                 MD5 Checksum         ae6d56c469a8a6797c624340f3aaceb0
+ * Date:           Generated on         Thu Sep  4 18:12:42 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_pcie_dma.h $
  * 
- * Hydra_Software_Devel/3   8/13/08 11:52a tdo
- * PR42663: RDB sync up
+ * Hydra_Software_Devel/4   9/5/08 11:35a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,34 +45,34 @@
 /***************************************************************************
  *PCIE_DMA - PCI-E DMA Registers
  ***************************************************************************/
-#define BCHP_PCIE_DMA_TX_FIRST_DESC_L_ADDR_LIST0 0x00014400 /* Tx Descriptor List0 First Descriptor lower Address */
-#define BCHP_PCIE_DMA_TX_FIRST_DESC_U_ADDR_LIST0 0x00014404 /* Tx Descriptor List0 First Descriptor Upper Address */
-#define BCHP_PCIE_DMA_TX_FIRST_DESC_L_ADDR_LIST1 0x00014408 /* Tx Descriptor List1 First Descriptor Lower Address */
-#define BCHP_PCIE_DMA_TX_FIRST_DESC_U_ADDR_LIST1 0x0001440c /* Tx Descriptor List1 First Descriptor Upper Address */
-#define BCHP_PCIE_DMA_TX_SW_DESC_LIST_CTRL_STS   0x00014410 /* Tx Software Descriptor List Control and Status */
-#define BCHP_PCIE_DMA_TX_WAKE_CTRL               0x00014414 /* Tx Wake Control */
-#define BCHP_PCIE_DMA_TX_ERROR_STATUS            0x00014418 /* Tx Engine Error Status */
-#define BCHP_PCIE_DMA_TX_LIST0_CUR_DESC_L_ADDR   0x0001441c /* Tx List0 Current Descriptor Lower Address */
-#define BCHP_PCIE_DMA_TX_LIST0_CUR_DESC_U_ADDR   0x00014420 /* Tx List0 Current Descriptor Upper Address */
-#define BCHP_PCIE_DMA_TX_LIST0_CUR_BYTE_CNT      0x00014424 /* Tx List0 Current Descriptor Byte Count */
-#define BCHP_PCIE_DMA_TX_LIST1_CUR_DESC_L_ADDR   0x00014428 /* Tx List1 Current Descriptor Lower Address */
-#define BCHP_PCIE_DMA_TX_LIST1_CUR_DESC_U_ADDR   0x0001442c /* Tx List1 Current Descriptor Upper Address */
-#define BCHP_PCIE_DMA_TX_LIST1_CUR_BYTE_CNT      0x00014430 /* Tx List1 Current Descriptor Byte Count */
-#define BCHP_PCIE_DMA_RX_FIRST_DESC_L_ADDR_LIST0 0x00014434 /* Rx Descriptor List0 First Descriptor Lower Address */
-#define BCHP_PCIE_DMA_RX_FIRST_DESC_U_ADDR_LIST0 0x00014438 /* Rx Descriptor List0 First Descriptor Upper Address */
-#define BCHP_PCIE_DMA_RX_FIRST_DESC_L_ADDR_LIST1 0x0001443c /* Rx Descriptor List1 First Descriptor Lower Address */
-#define BCHP_PCIE_DMA_RX_FIRST_DESC_U_ADDR_LIST1 0x00014440 /* Rx Descriptor List1 First Descriptor Upper Address */
-#define BCHP_PCIE_DMA_RX_SW_DESC_LIST_CTRL_STS   0x00014444 /* Rx Software Descriptor List Control and Status */
-#define BCHP_PCIE_DMA_RX_WAKE_CTRL               0x00014448 /* Rx DMA Wake Control */
-#define BCHP_PCIE_DMA_RX_ERROR_STATUS            0x0001444c /* Rx Engine Error Status */
-#define BCHP_PCIE_DMA_RX_LIST0_CUR_DESC_L_ADDR   0x00014450 /* Rx List0 Current Descriptor Lower Address */
-#define BCHP_PCIE_DMA_RX_LIST0_CUR_DESC_U_ADDR   0x00014454 /* Rx List0 Current Descriptor Upper Address */
-#define BCHP_PCIE_DMA_RX_LIST0_CUR_BYTE_CNT      0x00014458 /* Rx List0 Current Descriptor Byte Count */
-#define BCHP_PCIE_DMA_RX_LIST1_CUR_DESC_L_ADDR   0x0001445c /* Rx List1 Current Descriptor Lower address */
-#define BCHP_PCIE_DMA_RX_LIST1_CUR_DESC_U_ADDR   0x00014460 /* Rx List1 Current Descriptor Upper address */
-#define BCHP_PCIE_DMA_RX_LIST1_CUR_BYTE_CNT      0x00014464 /* Rx List1 Current Descriptor Byte Count */
-#define BCHP_PCIE_DMA_DMA_DEBUG_OPTIONS_REG      0x00014468 /* DMA Debug Options Register */
-#define BCHP_PCIE_DMA_READ_CHANNEL_ERROR_STATUS  0x0001446c /* Read Channel Error Status */
+#define BCHP_PCIE_DMA_TX_FIRST_DESC_L_ADDR_LIST0 0x00454400 /* Tx Descriptor List0 First Descriptor lower Address */
+#define BCHP_PCIE_DMA_TX_FIRST_DESC_U_ADDR_LIST0 0x00454404 /* Tx Descriptor List0 First Descriptor Upper Address */
+#define BCHP_PCIE_DMA_TX_FIRST_DESC_L_ADDR_LIST1 0x00454408 /* Tx Descriptor List1 First Descriptor Lower Address */
+#define BCHP_PCIE_DMA_TX_FIRST_DESC_U_ADDR_LIST1 0x0045440c /* Tx Descriptor List1 First Descriptor Upper Address */
+#define BCHP_PCIE_DMA_TX_SW_DESC_LIST_CTRL_STS   0x00454410 /* Tx Software Descriptor List Control and Status */
+#define BCHP_PCIE_DMA_TX_WAKE_CTRL               0x00454414 /* Tx Wake Control */
+#define BCHP_PCIE_DMA_TX_ERROR_STATUS            0x00454418 /* Tx Engine Error Status */
+#define BCHP_PCIE_DMA_TX_LIST0_CUR_DESC_L_ADDR   0x0045441c /* Tx List0 Current Descriptor Lower Address */
+#define BCHP_PCIE_DMA_TX_LIST0_CUR_DESC_U_ADDR   0x00454420 /* Tx List0 Current Descriptor Upper Address */
+#define BCHP_PCIE_DMA_TX_LIST0_CUR_BYTE_CNT      0x00454424 /* Tx List0 Current Descriptor Byte Count */
+#define BCHP_PCIE_DMA_TX_LIST1_CUR_DESC_L_ADDR   0x00454428 /* Tx List1 Current Descriptor Lower Address */
+#define BCHP_PCIE_DMA_TX_LIST1_CUR_DESC_U_ADDR   0x0045442c /* Tx List1 Current Descriptor Upper Address */
+#define BCHP_PCIE_DMA_TX_LIST1_CUR_BYTE_CNT      0x00454430 /* Tx List1 Current Descriptor Byte Count */
+#define BCHP_PCIE_DMA_RX_FIRST_DESC_L_ADDR_LIST0 0x00454434 /* Rx Descriptor List0 First Descriptor Lower Address */
+#define BCHP_PCIE_DMA_RX_FIRST_DESC_U_ADDR_LIST0 0x00454438 /* Rx Descriptor List0 First Descriptor Upper Address */
+#define BCHP_PCIE_DMA_RX_FIRST_DESC_L_ADDR_LIST1 0x0045443c /* Rx Descriptor List1 First Descriptor Lower Address */
+#define BCHP_PCIE_DMA_RX_FIRST_DESC_U_ADDR_LIST1 0x00454440 /* Rx Descriptor List1 First Descriptor Upper Address */
+#define BCHP_PCIE_DMA_RX_SW_DESC_LIST_CTRL_STS   0x00454444 /* Rx Software Descriptor List Control and Status */
+#define BCHP_PCIE_DMA_RX_WAKE_CTRL               0x00454448 /* Rx DMA Wake Control */
+#define BCHP_PCIE_DMA_RX_ERROR_STATUS            0x0045444c /* Rx Engine Error Status */
+#define BCHP_PCIE_DMA_RX_LIST0_CUR_DESC_L_ADDR   0x00454450 /* Rx List0 Current Descriptor Lower Address */
+#define BCHP_PCIE_DMA_RX_LIST0_CUR_DESC_U_ADDR   0x00454454 /* Rx List0 Current Descriptor Upper Address */
+#define BCHP_PCIE_DMA_RX_LIST0_CUR_BYTE_CNT      0x00454458 /* Rx List0 Current Descriptor Byte Count */
+#define BCHP_PCIE_DMA_RX_LIST1_CUR_DESC_L_ADDR   0x0045445c /* Rx List1 Current Descriptor Lower address */
+#define BCHP_PCIE_DMA_RX_LIST1_CUR_DESC_U_ADDR   0x00454460 /* Rx List1 Current Descriptor Upper address */
+#define BCHP_PCIE_DMA_RX_LIST1_CUR_BYTE_CNT      0x00454464 /* Rx List1 Current Descriptor Byte Count */
+#define BCHP_PCIE_DMA_DMA_DEBUG_OPTIONS_REG      0x00454468 /* DMA Debug Options Register */
+#define BCHP_PCIE_DMA_READ_CHANNEL_ERROR_STATUS  0x0045446c /* Read Channel Error Status */
 
 /***************************************************************************
  *TX_FIRST_DESC_L_ADDR_LIST0 - Tx Descriptor List0 First Descriptor lower Address

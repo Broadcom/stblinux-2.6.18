@@ -41,7 +41,6 @@ struct jffs2_sb_info {
 	uint32_t cleanmarker_size;	/* Size of an _inline_ CLEANMARKER
 					 (i.e. zero for OOB CLEANMARKER */
 
-#ifdef MTD_LARGE
 	uint64_t flash_size;
 	uint64_t used_size;
 	uint64_t dirty_size;
@@ -50,16 +49,7 @@ struct jffs2_sb_info {
 	uint64_t erasing_size;
 	uint64_t bad_size;
 	uint64_t unchecked_size;
-#else
-	uint32_t flash_size;
-	uint32_t used_size;
-	uint32_t dirty_size;
-	uint32_t wasted_size;
-	uint32_t free_size;
-	uint32_t erasing_size;
-	uint32_t bad_size;
-	uint32_t unchecked_size;
-#endif
+
 	uint32_t sector_size;
 
 	uint32_t nr_free_blocks;
@@ -72,11 +62,7 @@ struct jffs2_sb_info {
 	uint8_t resv_blocks_gcbad;	/* ... pick a block from the bad_list to GC */
 	uint8_t resv_blocks_gcmerge;	/* ... merge pages when garbage collecting */
 
-#ifdef MTD_LARGE
-	uint32_t nospc_dirty_size;
-#else
-	uint32_t nospc_dirty_size;
-#endif
+	uint64_t nospc_dirty_size;
 
 	uint32_t nr_blocks;
 	struct jffs2_eraseblock *blocks;	/* The whole array of blocks. Used for getting blocks

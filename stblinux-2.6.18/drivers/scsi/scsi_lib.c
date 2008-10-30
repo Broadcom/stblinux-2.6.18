@@ -908,6 +908,12 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 				return;
 			}
 			break;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		case MEDIUM_ERROR:
+			/* We don't wish to requeue Medium Errors */
+			req->flags |= REQ_FAILFAST;
+			break;
+#endif
 		case NOT_READY:
 			/* If the device is in the process of becoming
 			 * ready, or has a temporary blockage, retry.
@@ -957,6 +963,23 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 		return;
 	}
 	if (result) {
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		/*
+		** Exempt Get Configuration for Hybrid Disc Structure
+		** (very common error for the player application).
+		*/
+		if (cmd->cmnd[0] != 0xad && cmd->cmnd[7] != 0x90) {
+		  if (!(cmd->eh_eflags & SCSI_EH_SENSE_PRINTED) &&
+				 (driver_byte(result) & DRIVER_SENSE)) {
+				scsi_print_command(cmd);
+				scsi_print_sense("", cmd);
+				printk("\n");
+				cmd->eh_eflags |= SCSI_EH_SENSE_PRINTED;
+			}
+			else
+				cmd->eh_eflags = 0;
+		}
+#else
 		if (!(req->flags & REQ_QUIET)) {
 			scmd_printk(KERN_INFO, cmd,
 				    "SCSI error: return code = 0x%08x\n",
@@ -964,6 +987,7 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 			if (driver_byte(result) & DRIVER_SENSE)
 				scsi_print_sense("", cmd);
 		}
+#endif
 	}
 	scsi_end_request(cmd, 0, this_count, !result);
 }

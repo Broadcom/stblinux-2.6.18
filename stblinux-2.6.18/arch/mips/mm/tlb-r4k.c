@@ -214,6 +214,7 @@ static inline void brcm_setup_wired_discontig(void)
 		BUG();
 	}
 
+	/* 8MB of mappings (PCI, but no PCIe) */
 	write_c0_pagemask(PM_4M);
 	WR_TLB(PCI_IO_WIN_BASE,
 		PCI_IO_WIN_BASE,
@@ -277,13 +278,13 @@ static inline void brcm_setup_wired_64(void)
 
 //printk("Write end of first entry: hi=%08x, lo0=%08x, lo1=%08x, wired=%d\n", hi, lo0, lo1, entry);
 
-	/* Now write the entry for the IO space between 0xf000_0000 and 0xf060_000b */
-	write_c0_pagemask(PM_4M); /* 4MBx2 should cover it. */
+	/* PCI/PCIe I/O - f000_0000 - f1ff_ffff */
+	write_c0_pagemask(PM_16M);
 	/* Adjust to 8MB offset */
-	hi = (PCI_IO_WIN_BASE&0xffffe000);
-	/* IO space starts at 0xf000_0000 and is mapped to same value */
+	hi = PCI_IO_WIN_BASE;
+	/* IO space starts at 0xf000_0000; VA = PA */
 	lo0 = (((PCI_IO_WIN_BASE>>(4+2))&0x3fffffc0)|0x17);
-	lo1 = ((((PCI_IO_WIN_BASE+OFFSET_4MBYTES)>>(4+2))&0x3fffffc0)|0x17);
+	lo1 = ((((PCI_IO_WIN_BASE+OFFSET_16MBYTES)>>(4+2))&0x3fffffc0)|0x17);
 
 	//printk("Write 2nd entry: hi=%08x, lo0=%08x, lo1=%08x, wired=%d\n", hi, lo0, lo1, entry);
 	do {
@@ -299,9 +300,9 @@ static inline void brcm_setup_wired_64(void)
 		BARRIER;
 		tlb_write_indexed();
 		BARRIER;
-		hi += OFFSET_8MBYTES;
-		lo0 += TLBLO_OFFSET_8MBYTES;
-		lo1 += TLBLO_OFFSET_8MBYTES;
+		hi += OFFSET_32MBYTES;
+		lo0 += TLBLO_OFFSET_32MBYTES;
+		lo1 += TLBLO_OFFSET_32MBYTES;
 		entry++;
 	} while(0);
 
@@ -946,7 +947,7 @@ __setup("ntlb=", set_ntlb);
 #ifdef CONFIG_MIPS_BRCM97XXX
 
 static bcm_memmap_t bcm_standard_memmap = {
-#if defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_BMIPS4380) || \
+#if defined(CONFIG_MTI_R34K) || defined(CONFIG_BMIPS4380) || \
 	defined(CONFIG_BMIPS6200)
 		// || def(7440b0) but 7440b0 defines its own bcm_memmap
 	.tlb_mask =		PM_64M,

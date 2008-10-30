@@ -28,4 +28,4 @@
 # unless it's something special (ie not a .c file).
 #
 
-obj-y	 += bcm_uart.o board.o
+obj-y	 += bcm_uart.o

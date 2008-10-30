@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu May 29 18:57:31 2008
- *                 MD5 Checksum         820227b279d06813a6bca9e3c5b6cb55
+ * Date:           Generated on         Thu Sep  4 18:15:21 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_sata_cfg.h $
  * 
- * Hydra_Software_Devel/1   5/29/08 11:38p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   9/5/08 11:44a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,30 +45,30 @@
 /***************************************************************************
  *SATA_CFG - PCI Configuration Register
  ***************************************************************************/
-#define BCHP_SATA_CFG_VENDOR_ID                  0x520000 /* Vendor Identification Register */
-#define BCHP_SATA_CFG_DEVICE_ID                  0x520002 /* Device Identification Register */
-#define BCHP_SATA_CFG_PCI_COMMAND                0x520004 /* PCI Command Register */
-#define BCHP_SATA_CFG_PCI_STATUS                 0x520006 /* PCI Status  Register */
-#define BCHP_SATA_CFG_REV_ID_CLASS_CODE          0x00520008 /* Class Code Register */
-#define BCHP_SATA_CFG_CACHELINE_SIZE             0x52000c /* Cacheline Size Register */
-#define BCHP_SATA_CFG_MASTER_LATECY_TIMER        0x52000d /* Master Latency Timer Register */
-#define BCHP_SATA_CFG_HEADER_TYPE                0x52000e /* Header Type Register */
-#define BCHP_SATA_CFG_BIST                       0x52000f /* Built-in Self Test (BIST) Register */
-#define BCHP_SATA_CFG_PCS0                       0x00520010 /* Base Address Register 0 (Primary CS0) */
-#define BCHP_SATA_CFG_PCS1                       0x00520014 /* Base Address Register 1 (Primary CS1) */
-#define BCHP_SATA_CFG_SCS0                       0x00520018 /* Base Address Register 2 (Secondary CS0) */
-#define BCHP_SATA_CFG_SCS1                       0x0052001c /* Base Address Register 3 (Secondary CS1) */
-#define BCHP_SATA_CFG_BUS_MASTER_BASE_ADDR       0x00520020 /* Bus Master Interface Base Address Register */
-#define BCHP_SATA_CFG_MMIO_BASE_ADDR             0x00520024 /* MMIO Base Address Register */
-#define BCHP_SATA_CFG_SUB_VENDOR_ID              0x52002c /* Sub-System Vendor ID Register */
-#define BCHP_SATA_CFG_SUB_DEVICE_ID              0x52002e /* Sub-System Device ID Register */
-#define BCHP_SATA_CFG_INTERRUPT_LINE             0x52003c /* Interrupt Line Register */
-#define BCHP_SATA_CFG_INTERRUPT_PIN              0x52003d /* Interrupt Pin Register */
-#define BCHP_SATA_CFG_MINIIMUM_GRANT             0x52003e /* Minimum Grant Register */
-#define BCHP_SATA_CFG_MAXIMUM_LATENCY            0x52003f /* Maximum Latency Register */
-#define BCHP_SATA_CFG_MISC_CONTROL               0x520070 /* SerialATA Misc Control Register */
-#define BCHP_SATA_CFG_PCI_DEBUG_CONTROL          0x520078 /* SerialATA PCI Debug Control Register */
-#define BCHP_SATA_CFG_GLOBAL_INTERRUPT_STATUS    0x00520080 /* SerialATA Global Interrupt Status Register */
+#define BCHP_SATA_CFG_VENDOR_ID                  0x1a0000 /* Vendor Identification Register */
+#define BCHP_SATA_CFG_DEVICE_ID                  0x1a0002 /* Device Identification Register */
+#define BCHP_SATA_CFG_PCI_COMMAND                0x1a0004 /* PCI Command Register */
+#define BCHP_SATA_CFG_PCI_STATUS                 0x1a0006 /* PCI Status  Register */
+#define BCHP_SATA_CFG_REV_ID_CLASS_CODE          0x001a0008 /* Class Code Register */
+#define BCHP_SATA_CFG_CACHELINE_SIZE             0x1a000c /* Cacheline Size Register */
+#define BCHP_SATA_CFG_MASTER_LATECY_TIMER        0x1a000d /* Master Latency Timer Register */
+#define BCHP_SATA_CFG_HEADER_TYPE                0x1a000e /* Header Type Register */
+#define BCHP_SATA_CFG_BIST                       0x1a000f /* Built-in Self Test (BIST) Register */
+#define BCHP_SATA_CFG_PCS0                       0x001a0010 /* Base Address Register 0 (Primary CS0) */
+#define BCHP_SATA_CFG_PCS1                       0x001a0014 /* Base Address Register 1 (Primary CS1) */
+#define BCHP_SATA_CFG_SCS0                       0x001a0018 /* Base Address Register 2 (Secondary CS0) */
+#define BCHP_SATA_CFG_SCS1                       0x001a001c /* Base Address Register 3 (Secondary CS1) */
+#define BCHP_SATA_CFG_BUS_MASTER_BASE_ADDR       0x001a0020 /* Bus Master Interface Base Address Register */
+#define BCHP_SATA_CFG_MMIO_BASE_ADDR             0x001a0024 /* MMIO Base Address Register */
+#define BCHP_SATA_CFG_SUB_VENDOR_ID              0x1a002c /* Sub-System Vendor ID Register */
+#define BCHP_SATA_CFG_SUB_DEVICE_ID              0x1a002e /* Sub-System Device ID Register */
+#define BCHP_SATA_CFG_INTERRUPT_LINE             0x1a003c /* Interrupt Line Register */
+#define BCHP_SATA_CFG_INTERRUPT_PIN              0x1a003d /* Interrupt Pin Register */
+#define BCHP_SATA_CFG_MINIIMUM_GRANT             0x1a003e /* Minimum Grant Register */
+#define BCHP_SATA_CFG_MAXIMUM_LATENCY            0x1a003f /* Maximum Latency Register */
+#define BCHP_SATA_CFG_MISC_CONTROL               0x1a0070 /* SerialATA Misc Control Register */
+#define BCHP_SATA_CFG_PCI_DEBUG_CONTROL          0x1a0078 /* SerialATA PCI Debug Control Register */
+#define BCHP_SATA_CFG_GLOBAL_INTERRUPT_STATUS    0x001a0080 /* SerialATA Global Interrupt Status Register */
 
 /***************************************************************************
  *VENDOR_ID - Vendor Identification Register

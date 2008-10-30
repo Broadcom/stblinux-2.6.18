@@ -73,13 +73,13 @@ printf("***** THT print_oobbuf(user)\n");
 
 int main (int argc, char *argv[])
 {
-	mtd_info_t meminfo;
+	mtd_info64_t meminfo;
 	int fd, ebhpos = 0, ebhlen = 0;
-	erase_info_t erase;
+	erase_info64_t erase;
 	int isNAND, isNandMLC, bbtest = 1;
 	uint32_t pages_per_eraseblock, available_oob_space;
 	struct nand_oobinfo oobinfo;
-int gdebug = 0;
+	int gdebug = 0;
 
 	process_options(argc, argv);
 
@@ -90,7 +90,7 @@ int gdebug = 0;
 	}
 
 
-	if (ioctl(fd, MEMGETINFO, &meminfo) != 0) {
+	if (ioctl(fd, MEMGETINFO64, &meminfo) != 0) {
 		fprintf(stderr, "%s: %s: unable to get MTD device info\n", exe_name, mtd_device);
 		exit(1);
 	}
@@ -104,17 +104,17 @@ int gdebug = 0;
 			fprintf(stderr, "%s:%s: -j flag ignored for MLC NAND\n", exe_name, mtd_device);
 		}
 				
-static count=0;
+		static count=0;
 		memset(&ebh, 0, sizeof(ebh));
 		ebh.magic = cpu_to_je16 (JFFS2_MAGIC_BITMASK);
 		ebh.nodetype = cpu_to_je16 (JFFS2_NODETYPE_ERASEBLOCK_HEADER);
 		ebh.totlen = cpu_to_je32(sizeof(struct jffs2_raw_ebh));
 
 #if 1
-/*
- * THT: New 2.6.18 codes assume that only first 8 bytes are set
- * (Changed kernel codes in jffs2_check_empty_oob() instead )
- */
+		/*
+		 * THT: New 2.6.18 codes assume that only first 8 bytes are set
+		 * (Changed kernel codes in jffs2_check_empty_oob() instead )
+		 */
 		ebh.hdr_crc = cpu_to_je32 (crc32 (0, &ebh,  sizeof (struct jffs2_unknown_node) - 4));
 		ebh.reserved = 0;
 		ebh.compat_fset = JFFS2_EBH_COMPAT_FSET;
@@ -125,16 +125,16 @@ static count=0;
 					 sizeof(struct jffs2_raw_ebh) - sizeof(struct jffs2_unknown_node) - 4));
 #endif
 
-if (0) {
-printf("USR: EBH(len=%d)=\n", sizeof(ebh));
-print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
-}
+		if (0) {
+			printf("USR: EBH(len=%d)=\n", sizeof(ebh));
+			print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
+		}
 
 		if (isNAND && !isNandMLC) {
 			int i;
 			extern int brcmnand_get_oobavail(struct nand_oobinfo * oobinfo);
 
-			if (ioctl(fd, MEMGETOOBSEL, &oobinfo) != 0) {
+			if (ioctl(fd, MEMGETOOBSEL64, &oobinfo) != 0) {
 				fprintf(stderr, "%s: %s: unable to get NAND oobinfo\n", exe_name, mtd_device);
 				exit(1);
 			}
@@ -181,14 +181,14 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 		}
 	}
 
-//printf("*****  THT: About to erase, meminfo.erasesize=%d\n", meminfo.erasesize);
+	//printf("*****  THT: About to erase, meminfo.erasesize=%d\n", meminfo.erasesize);
 
 	for (erase.start = 0; erase.start < meminfo.size; erase.start += meminfo.erasesize) {
-//printf("Erasing start=0x%llx\r", erase.start);
+		//printf("Erasing start=0x%llx\r", erase.start);
 		if (bbtest) {
 			loff_t offset = erase.start;
 			int ret = ioctl(fd, MEMGETBADBLOCK, &offset);
-//printf("***** THT: ioctl(fd, MEMGETBADBLOCK, offset=%08x) returns %d, sizeof(offset)=%d\n", erase.start, ret, sizeof(offset));
+			//printf("***** THT: ioctl(fd, MEMGETBADBLOCK, offset=%08x) returns %d, sizeof(offset)=%d\n", erase.start, ret, sizeof(offset));
 			if (ret > 0) {
 				if (!quiet)
 					printf ("\nSkipping bad block at 0x%llx\n", erase.start);
@@ -216,7 +216,7 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 		}
 		fflush(stdout);
 
-		if (ioctl(fd, MEMERASE, &erase) != 0) {
+		if (ioctl(fd, MEMERASE64, &erase) != 0) {
 			fprintf(stderr, "\n%s: %s: MTD Erase failure: %s\n", exe_name, mtd_device, strerror(errno));
 gdebug = 1;
 			continue;
@@ -228,7 +228,7 @@ gdebug = 1;
 
 		/* write cleanmarker */
 		if (isNAND && !isNandMLC) {
-			struct mtd_oob_buf oob;
+			struct mtd_oob_buf64 oob;
 			uint32_t i = 0, written = 0;
 			int ooblen = 0, retlen = 0;
 			unsigned char oobbuf[128];
@@ -270,7 +270,7 @@ gdebug = 1;
 #endif
 					break;
 				}
-				if (ioctl(fd, MEMWRITEOOB, &oob) != 0) {
+				if (ioctl(fd, MEMWRITEOOB64, &oob) != 0) {
 					fprintf(stderr, "\n%s: %s: MTD writeoobfree failure: %s\n", exe_name, mtd_device, strerror(errno));
 #ifdef __USE_FILE_OFFSET64
 					fprintf(stderr, "flash-erase: written=%d, ebh-size=%d, start=%llx, len=%d\n", 

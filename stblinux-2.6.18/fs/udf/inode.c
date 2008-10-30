@@ -4,6 +4,11 @@
  * PURPOSE
  *  Inode handling routines for the OSTA-UDF(tm) filesystem.
  *
+ * CONTACTS
+ *  E-mail regarding any portion of the Linux UDF file system should be
+ *  directed to the development team mailing list (run by majordomo):
+ *    linux_udf@hpesjro.fc.hp.com
+ *
  * COPYRIGHT
  *  This file is distributed under the terms of the GNU General Public
  *  License (GPL). Copies of the GPL can be obtained from:
@@ -132,13 +137,40 @@ static sector_t udf_bmap(struct address_space *mapping, sector_t block)
 	return generic_block_bmap(mapping,block,udf_get_block);
 }
 
-const struct address_space_operations udf_aops = {
+static int
+udf_get_blocks(struct inode *inode, sector_t iblock,
+                        struct buffer_head *bh_result, int create)
+{
+        int ret;
+
+        ret = udf_get_block(inode, iblock, bh_result, create);
+        if (ret == 0)
+                bh_result->b_size = (1 << inode->i_blkbits);
+        return ret;
+}
+
+static ssize_t
+udf_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+                        loff_t offset, unsigned long nr_segs)
+{
+       struct file *file = iocb->ki_filp;
+       struct inode *inode = file->f_mapping->host;
+
+       return blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
+                       offset, nr_segs, udf_get_blocks, NULL);
+}                       
+
+
+
+
+struct address_space_operations udf_aops = {
 	.readpage		= udf_readpage,
 	.writepage		= udf_writepage,
 	.sync_page		= block_sync_page,
 	.prepare_write		= udf_prepare_write,
 	.commit_write		= generic_commit_write,
 	.bmap			= udf_bmap,
+        .direct_IO              = udf_direct_IO,
 };
 
 void udf_expand_file_adinicb(struct inode * inode, int newsize, int * err)
@@ -1020,14 +1052,22 @@ static void udf_fill_inode(struct inode *inode, struct buffer_head *bh)
 	{
 		UDF_I_EFE(inode) = 1;
 		UDF_I_USE(inode) = 0;
+#if defined ( CONFIG_MIPS_BCM97438 ) || defined ( CONFIG_MIPS_BCM7440 )
+		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct extendedFileEntry), GFP_KERNEL|GFP_DMA);
+#else
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct extendedFileEntry), GFP_KERNEL);
+#endif
 		memcpy(UDF_I_DATA(inode), bh->b_data + sizeof(struct extendedFileEntry), inode->i_sb->s_blocksize - sizeof(struct extendedFileEntry));
 	}
 	else if (le16_to_cpu(fe->descTag.tagIdent) == TAG_IDENT_FE)
 	{
 		UDF_I_EFE(inode) = 0;
 		UDF_I_USE(inode) = 0;
+#if defined ( CONFIG_MIPS_BCM97438 ) || defined ( CONFIG_MIPS_BCM7440 )
+		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct fileEntry), GFP_KERNEL|GFP_DMA);
+#else
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct fileEntry), GFP_KERNEL);
+#endif
 		memcpy(UDF_I_DATA(inode), bh->b_data + sizeof(struct fileEntry), inode->i_sb->s_blocksize - sizeof(struct fileEntry));
 	}
 	else if (le16_to_cpu(fe->descTag.tagIdent) == TAG_IDENT_USE)
@@ -1037,7 +1077,11 @@ static void udf_fill_inode(struct inode *inode, struct buffer_head *bh)
 		UDF_I_LENALLOC(inode) =
 			le32_to_cpu(
 				((struct unallocSpaceEntry *)bh->b_data)->lengthAllocDescs);
+#if defined ( CONFIG_MIPS_BCM97438 ) || defined ( CONFIG_MIPS_BCM7440 )
+		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct unallocSpaceEntry), GFP_KERNEL|GFP_DMA);
+#else
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct unallocSpaceEntry), GFP_KERNEL);
+#endif
 		memcpy(UDF_I_DATA(inode), bh->b_data + sizeof(struct unallocSpaceEntry), inode->i_sb->s_blocksize - sizeof(struct unallocSpaceEntry));
 		return;
 	}
@@ -1173,6 +1217,7 @@ static void udf_fill_inode(struct inode *inode, struct buffer_head *bh)
 		case ICBTAG_FILE_TYPE_REALTIME:
 		case ICBTAG_FILE_TYPE_REGULAR:
 		case ICBTAG_FILE_TYPE_UNDEF:
+		case ICBTAG_FILE_TYPE_VAT20:
 		{
 			if (UDF_I_ALLOCTYPE(inode) == ICBTAG_FLAG_AD_IN_ICB)
 				inode->i_data.a_ops = &udf_adinicb_aops;
@@ -1208,6 +1253,21 @@ static void udf_fill_inode(struct inode *inode, struct buffer_head *bh)
 			inode->i_data.a_ops = &udf_symlink_aops;
 			inode->i_op = &page_symlink_inode_operations;
 			inode->i_mode = S_IFLNK|S_IRWXUGO;
+			break;
+		}
+		case ICBTAG_FILE_TYPE_MAIN:
+		{
+			udf_debug("METADATA FILE-----\n");
+			break;
+		}
+		case ICBTAG_FILE_TYPE_MIRROR:
+		{
+			udf_debug("METADATA MIRROR FILE-----\n");
+			break;
+		}
+		case ICBTAG_FILE_TYPE_BITMAP:
+		{
+			udf_debug("METADATA BITMAP FILE-----\n");
 			break;
 		}
 		default:
@@ -1825,6 +1885,14 @@ int8_t udf_current_aext(struct inode *inode, kernel_lb_addr *bloc, int *extoffse
 			*elen = le32_to_cpu(lad->extLength) & UDF_EXTENT_LENGTH_MASK;
 			break;
 		}
+		case ICBTAG_FLAG_AD_IN_ICB:
+		{
+			etype = EXT_RECORDED_ALLOCATED;
+			eloc->logicalBlockNum = UDF_I_LOCATION(inode).logicalBlockNum;
+			eloc->partitionReferenceNum = UDF_I_LOCATION(inode).partitionReferenceNum;
+			*elen = UDF_I_LENALLOC(inode);
+			break;
+		}
 		default:
 		{
 			udf_debug("alloc_type = %d unsupported\n", UDF_I_ALLOCTYPE(inode));
@@ -1959,6 +2027,11 @@ int8_t inode_bmap(struct inode *inode, int block, kernel_lb_addr *bloc, uint32_t
 	if (block < 0)
 	{
 		printk(KERN_ERR "udf: inode_bmap: block < 0\n");
+		return -1;
+	}
+	if (!inode)
+	{
+		printk(KERN_ERR "udf: inode_bmap: NULL inode\n");
 		return -1;
 	}
 

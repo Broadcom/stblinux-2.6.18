@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu May 29 18:46:31 2008
- *                 MD5 Checksum         820227b279d06813a6bca9e3c5b6cb55
+ * Date:           Generated on         Thu Sep  4 18:01:11 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_usb_ohci1.h $
  * 
- * Hydra_Software_Devel/1   5/29/08 11:58p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   9/5/08 11:51a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,29 +45,29 @@
 /***************************************************************************
  *USB_OHCI1 - USB OHCI 2 Control Registers
  ***************************************************************************/
-#define BCHP_USB_OHCI1_HcRevision                0x00480600 /* Host Controller Revision Register */
-#define BCHP_USB_OHCI1_HcControl                 0x00480604 /* Host Controller Control Register */
-#define BCHP_USB_OHCI1_HcCommandStatus           0x00480608 /* Host Controller Command Status Register */
-#define BCHP_USB_OHCI1_HcInterruptStatus         0x0048060c /* Host Controller Interrupt Status Register */
-#define BCHP_USB_OHCI1_HcInterruptEnable         0x00480610 /* Host Controller Interrupt Enable Register */
-#define BCHP_USB_OHCI1_HcInterruptDisable        0x00480614 /* Host Controller Interrupt Disable Register */
-#define BCHP_USB_OHCI1_HcHCCA                    0x00480618 /* Host Controller Communication Area Register */
-#define BCHP_USB_OHCI1_HcPeriodCurrentED         0x0048061c /* Current Isochronous or Interrupt Endpoint Descriptor Register */
-#define BCHP_USB_OHCI1_HcControlHeadED           0x00480620 /* First Endpoint Descriptor of the Control List */
-#define BCHP_USB_OHCI1_HcControlCurrentED        0x00480624 /* Current Endpoint Descriptor of the Control List */
-#define BCHP_USB_OHCI1_HcBulkHeadED              0x00480628 /* First Endpoint Descriptor of the Bulk List */
-#define BCHP_USB_OHCI1_HcBulkCurrentED           0x0048062c /* Current Endpoint Descriptor of the Bulk List */
-#define BCHP_USB_OHCI1_HcDoneHead                0x00480630 /* Last Completed Transfer Descriptor Added to the Done Queue */
-#define BCHP_USB_OHCI1_HcFmInterval              0x00480634 /* Frame Bit Time Interval Register */
-#define BCHP_USB_OHCI1_HcFmRemaining             0x00480638 /* Bit Time Remaining in the Current Frame */
-#define BCHP_USB_OHCI1_HcFmNumber                0x0048063c /* Frame Number Register */
-#define BCHP_USB_OHCI1_HcPeriodicStart           0x00480640 /* Register to Start Processing the Periodic List */
-#define BCHP_USB_OHCI1_HcLSThreshold             0x00480644 /* LS Packet Threshold Register */
-#define BCHP_USB_OHCI1_HcRhDescriptorA           0x00480648 /* Root Hub Descriptor A Register */
-#define BCHP_USB_OHCI1_HcRhDescriptorB           0x0048064c /* Root Hub Descriptor B Register */
-#define BCHP_USB_OHCI1_HcRhStatus                0x00480650 /* Root Hub Status Register */
-#define BCHP_USB_OHCI1_HcRhPortStatus1           0x00480654 /* Root Hub Port Status Register for Port 1 */
-#define BCHP_USB_OHCI1_HcRhPortStatus2           0x00480658 /* Root Hub Port Status Register for Port 2 */
+#define BCHP_USB_OHCI1_HcRevision                0x00488600 /* Host Controller Revision Register */
+#define BCHP_USB_OHCI1_HcControl                 0x00488604 /* Host Controller Control Register */
+#define BCHP_USB_OHCI1_HcCommandStatus           0x00488608 /* Host Controller Command Status Register */
+#define BCHP_USB_OHCI1_HcInterruptStatus         0x0048860c /* Host Controller Interrupt Status Register */
+#define BCHP_USB_OHCI1_HcInterruptEnable         0x00488610 /* Host Controller Interrupt Enable Register */
+#define BCHP_USB_OHCI1_HcInterruptDisable        0x00488614 /* Host Controller Interrupt Disable Register */
+#define BCHP_USB_OHCI1_HcHCCA                    0x00488618 /* Host Controller Communication Area Register */
+#define BCHP_USB_OHCI1_HcPeriodCurrentED         0x0048861c /* Current Isochronous or Interrupt Endpoint Descriptor Register */
+#define BCHP_USB_OHCI1_HcControlHeadED           0x00488620 /* First Endpoint Descriptor of the Control List */
+#define BCHP_USB_OHCI1_HcControlCurrentED        0x00488624 /* Current Endpoint Descriptor of the Control List */
+#define BCHP_USB_OHCI1_HcBulkHeadED              0x00488628 /* First Endpoint Descriptor of the Bulk List */
+#define BCHP_USB_OHCI1_HcBulkCurrentED           0x0048862c /* Current Endpoint Descriptor of the Bulk List */
+#define BCHP_USB_OHCI1_HcDoneHead                0x00488630 /* Last Completed Transfer Descriptor Added to the Done Queue */
+#define BCHP_USB_OHCI1_HcFmInterval              0x00488634 /* Frame Bit Time Interval Register */
+#define BCHP_USB_OHCI1_HcFmRemaining             0x00488638 /* Bit Time Remaining in the Current Frame */
+#define BCHP_USB_OHCI1_HcFmNumber                0x0048863c /* Frame Number Register */
+#define BCHP_USB_OHCI1_HcPeriodicStart           0x00488640 /* Register to Start Processing the Periodic List */
+#define BCHP_USB_OHCI1_HcLSThreshold             0x00488644 /* LS Packet Threshold Register */
+#define BCHP_USB_OHCI1_HcRhDescriptorA           0x00488648 /* Root Hub Descriptor A Register */
+#define BCHP_USB_OHCI1_HcRhDescriptorB           0x0048864c /* Root Hub Descriptor B Register */
+#define BCHP_USB_OHCI1_HcRhStatus                0x00488650 /* Root Hub Status Register */
+#define BCHP_USB_OHCI1_HcRhPortStatus1           0x00488654 /* Root Hub Port Status Register for Port 1 */
+#define BCHP_USB_OHCI1_HcRhPortStatus2           0x00488658 /* Root Hub Port Status Register for Port 2 */
 
 #endif /* #ifndef BCHP_USB_OHCI1_H__ */
 

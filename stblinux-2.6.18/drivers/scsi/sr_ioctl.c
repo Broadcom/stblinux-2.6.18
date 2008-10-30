@@ -188,6 +188,12 @@ int sr_do_ioctl(Scsi_CD *cd, struct packet_command *cgc)
 	struct scsi_sense_hdr sshdr;
 	int result, err = 0, retries = 0;
 	struct request_sense *sense = cgc->sense;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	int bounced = 0, bounce_len = 0;
+	unsigned char *bounce_buf = NULL;
+	int user_len   = 0;
+	void *user_buf = NULL;
+#endif
 
 	SDev = cd->device;
 
@@ -206,9 +212,41 @@ int sr_do_ioctl(Scsi_CD *cd, struct packet_command *cgc)
 	}
 
 	memset(sense, 0, sizeof(*sense));
+
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	if (cgc->buflen & 0x3) {
+		/*
+		 * SATA requires that data be transferred in
+		 * multiple-of-4 quantities. Therefore, bounce
+		 * buffer this request.
+		 */
+		user_buf = (void *)cgc->buffer;
+		user_len = cgc->buflen;
+
+		bounce_len = (user_len + 3) & ~0x3;
+		bounce_buf = (unsigned char *)kzalloc(bounce_len, GFP_KERNEL);
+		if (bounce_buf) {
+			cgc->buffer = bounce_buf;
+			cgc->buflen = bounce_len;
+			/*
+			 * If a write, copy the data from user space.
+			 */
+			if (cgc->data_direction == DMA_TO_DEVICE) {
+				copy_from_user(bounce_buf, user_buf, user_len);
+				bounced = 1;
+			}
+		}
+	}
+#endif
+
 	result = scsi_execute(SDev, cgc->cmd, cgc->data_direction,
 			      cgc->buffer, cgc->buflen, (char *)sense,
 			      cgc->timeout, IOCTL_RETRIES, 0);
+
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	if (bounced && cgc->data_direction == DMA_FROM_DEVICE)
+		copy_to_user(user_buf, bounce_buf, user_len);
+#endif
 
 	scsi_normalize_sense((char *)sense, sizeof(*sense), &sshdr);
 
@@ -257,6 +295,17 @@ int sr_do_ioctl(Scsi_CD *cd, struct packet_command *cgc)
 			scsi_print_sense_hdr("sr", &sshdr);
 #endif
 			break;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		case MEDIUM_ERROR:
+			printk(KERN_INFO "%s: MEDIUM ERROR - EIO\n", __FUNCTION__);
+			err = -EIO;
+#ifdef DEBUG
+			__scsi_print_command(cgc->cmd);
+			scsi_print_sense_hdr("sr", SRpnt);
+#endif
+			break;
+#endif
+
 		default:
 			printk(KERN_ERR "%s: CDROM (ioctl) error, command: ", cd->cdi.name);
 			__scsi_print_command(cgc->cmd);
@@ -518,12 +567,19 @@ static int sr_read_sector(Scsi_CD *cd, int lba, int blksize, unsigned char *dest
 #endif
 
 	memset(&cgc, 0, sizeof(struct packet_command));
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	cgc.cmd[0]  = GPCMD_READ_12;
+	cgc.cmd[9]  = 1;
+	cgc.cmd[10] = 0x80;
+#else
 	cgc.cmd[0] = GPCMD_READ_10;
+	cgc.cmd[8] = 1;
+#endif
 	cgc.cmd[2] = (unsigned char) (lba >> 24) & 0xff;
 	cgc.cmd[3] = (unsigned char) (lba >> 16) & 0xff;
 	cgc.cmd[4] = (unsigned char) (lba >> 8) & 0xff;
 	cgc.cmd[5] = (unsigned char) lba & 0xff;
-	cgc.cmd[8] = 1;
+
 	cgc.buffer = dest;
 	cgc.buflen = blksize;
 	cgc.data_direction = DMA_FROM_DEVICE;

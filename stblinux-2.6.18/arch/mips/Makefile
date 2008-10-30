@@ -627,14 +627,23 @@ load-$(CONFIG_TOSHIBA_RBTX4938) += 0xffffffff80100000
 #
 # BCM93548A0
 #
-ifeq ($(CONFIG_MIPS_BCM3548),y)
-core-$(CONFIG_MIPS_BCM3548) += arch/mips/brcmstb/common/
-core-$(CONFIG_MIPS_BCM3548) += arch/mips/brcmstb/brcm93548a0/
-cflags-$(CONFIG_MIPS_BCM3548) += -Iinclude/asm-mips/mach-brcmstb
-load-$(CONFIG_MIPS_BCM3548) := 0x80001000
-endif
+core-$(CONFIG_MIPS_BCM3548A0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM3548A0) += arch/mips/brcmstb/brcm93548a0/
+cflags-$(CONFIG_MIPS_BCM3548A0) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM3548A0) := 0x80001000
 ifdef CONFIG_MIPS_BCM3548A0
         UTS_MACHINE:=3548a0
+endif
+
+#
+# BCM93548A0
+#
+core-$(CONFIG_MIPS_BCM3548B0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM3548B0) += arch/mips/brcmstb/brcm93548b0/
+cflags-$(CONFIG_MIPS_BCM3548B0) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM3548B0) := 0x80001000
+ifdef CONFIG_MIPS_BCM3548B0
+        UTS_MACHINE:=3548b0
 endif
 
 #

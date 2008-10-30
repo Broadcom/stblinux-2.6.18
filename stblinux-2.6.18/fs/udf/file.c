@@ -4,6 +4,11 @@
  * PURPOSE
  *  File handling routines for the OSTA-UDF(tm) filesystem.
  *
+ * CONTACTS
+ *  E-mail regarding any portion of the Linux UDF file system should be
+ *  directed to the development team mailing list (run by majordomo):
+ *    linux_udf@hpesjro.fc.hp.com
+ *
  * COPYRIGHT
  *  This file is distributed under the terms of the GNU General Public
  *  License (GPL). Copies of the GPL can be obtained from:
@@ -31,7 +36,6 @@
 #include <asm/uaccess.h>
 #include <linux/kernel.h>
 #include <linux/string.h> /* memset */
-#include <linux/capability.h>
 #include <linux/errno.h>
 #include <linux/smp_lock.h>
 #include <linux/pagemap.h>
@@ -95,7 +99,7 @@ static int udf_adinicb_commit_write(struct file *file, struct page *page, unsign
 	return 0;
 }
 
-const struct address_space_operations udf_adinicb_aops = {
+struct address_space_operations udf_adinicb_aops = {
 	.readpage		= udf_adinicb_readpage,
 	.writepage		= udf_adinicb_writepage,
 	.sync_page		= block_sync_page,
@@ -182,7 +186,7 @@ int udf_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 {
 	int result = -EINVAL;
 
-	if ( file_permission(filp, MAY_READ) != 0 )
+	if ( permission(inode, MAY_READ, NULL) != 0 )
 	{
 		udf_debug("no permission to access inode %lu\n",
 						inode->i_ino);
@@ -248,7 +252,7 @@ static int udf_release_file(struct inode * inode, struct file * filp)
 	return 0;
 }
 
-const struct file_operations udf_file_operations = {
+struct file_operations udf_file_operations = {
 	.read			= generic_file_read,
 	.ioctl			= udf_ioctl,
 	.open			= generic_file_open,

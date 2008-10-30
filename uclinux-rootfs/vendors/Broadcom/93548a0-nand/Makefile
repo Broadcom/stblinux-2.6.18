@@ -35,6 +35,7 @@ JFFSFILE  = jffs.img
 JFFS2FILE = jffs2-128k.img
 JFFS2_16K_FILE = jffs2-16k.img
 JFFS2_512K_FILE = jffs2-512k.img
+JFFS2_MLC_256K_FILE = jffs2-mlc-256k.img
 JFFS2_MLC_512K_FILE = jffs2-mlc-512k.img
 YAFFSFILE = yaffs-frm-cramfs.img
 LINUXIMG  = $(IMAGEDIR)/$(PLATFORM)/$(COMPRESSED_LINUXFILE)
@@ -44,6 +45,7 @@ JFFSIMG   = $(IMAGEDIR)/$(PLATFORM)/$(JFFSFILE)
 JFFS2IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2FILE)
 JFFS2_16K_IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_16K_FILE)
 JFFS2_512K_IMG = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_512K_FILE)
+JFFS2_MLC_256K_IMG = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_MLC_256K_FILE)
 JFFS2_MLC_512K_IMG = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_MLC_512K_FILE)
 YAFFSIMG   = $(IMAGEDIR)/$(PLATFORM)/$(YAFFSFILE)
 CRAMFSIMG = $(IMAGEDIR)/$(PLATFORM)/$(CRAMFSFILE)
@@ -74,7 +76,7 @@ endif
 #endif
 ifdef CONFIG_JFFS2_FS
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
-FSIMG += $(JFFS2IMG) $(JFFS2_16K_IMG) $(JFFS2_512K_IMG) $(JFFS2_MLC_512K_IMG)
+FSIMG += $(JFFS2IMG) $(JFFS2_16K_IMG) $(JFFS2_512K_IMG) $(JFFS2_MLC_256K_IMG) $(JFFS2_MLC_512K_IMG)
 endif
 ifdef CONFIG_YAFFS_FS
 ROMFS_DIRS += sbin tmp var/run var/log var/tmp /var/lock usr/sbin
@@ -106,7 +108,7 @@ DEVICES = \
 	\
 	tty0,c,4,0		tty1,c,4,1		tty2,c,4,2 \
 	tty3,c,4,3		tty4,c,4,4		tty5,c,4,5 \
-	ttyS0,c,4,64		ttyS1,c,4,65 \
+	ttyS0,c,4,64		ttyS1,c,4,65	ttyS2,c,4,66 \
 	\
 	hda,b,3,0		hda1,b,3,1		hda2,b,3,2 \
 	hda3,b,3,3		hda4,b,3,4		hda5,b,3,5 \
@@ -242,7 +244,7 @@ $(UMDRV):
 	# No longer needed to be built
 	# make -C ./umdrv
 
-images: $(JFFS2IMG) $(JFFS2_16K_IMG) $(JFFS2_512K_IMG) $(JFFS2_MLC_512K_IMG) \
+images: $(JFFS2IMG) $(JFFS2_16K_IMG) $(JFFS2_512K_IMG) $(JFFS2_MLC_256K_IMG) $(JFFS2_MLC_512K_IMG) \
 	$(CRAMFSIMG) $(SQUASHFSIMG) $(YAFFSIMG)
 
 #*************************************************************************
@@ -260,15 +262,10 @@ initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data_nodev.cpio
 	fi
 	
 
-: initramfs_dir
-	
-
-
-
 # Added parameters for NAND.  pagesize is for FS, and NOT 512, which is the cache size.
 # Now building for both 128K and 16K erase block sizes
 # THT 08/18/08: MLC images are built like the NOR counterpart, except with 512KB block size
-$(JFFS2IMG) $(JFFS2_16K_IMG) $(JFFS2_512K_IMG) $(JFFS2_MLC_512K_IMG): initramfs_dir
+$(JFFS2IMG) $(JFFS2_16K_IMG) $(JFFS2_512K_IMG) $(JFFS2_MLC_256K_IMG) $(JFFS2_MLC_512K_IMG): initramfs_dir
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o $(JFFS2IMG) -N --squash --verbose --little-endian \
 		--eraseblock=128KiB   \
 		-d $(INITRAMFS_DIR)
@@ -298,7 +295,15 @@ ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2_MLC_512K_IMG} ${JFFS2_MLC_512K_IMG}.nosummary
 	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_MLC_512K_IMG}.nosummary \
 		-o $(JFFS2_MLC_512K_IMG) -e 512KiB
-
+endif
+	# For MLC, build with no -N flag and with -n flag (no clean marker)
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -n -o ${JFFS2_MLC_256K_IMG} \
+	--squash --verbose -e 256KiB --little-endian --pagesize=4096  \
+		-d $(INITRAMFS_DIR)
+ifdef CONFIG_JFFS2_SUMMARY
+	mv ${JFFS2_MLC_256K_IMG} ${JFFS2_MLC_256K_IMG}.nosummary
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_MLC_256K_IMG}.nosummary \
+		-o $(JFFS2_MLC_256K_IMG) -e 256KiB
 endif
 
 $(JFFSIMG):

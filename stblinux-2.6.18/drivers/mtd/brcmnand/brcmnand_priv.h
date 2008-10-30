@@ -41,7 +41,7 @@
 #define BRCMNAND_free(addr) vfree(addr)
 #endif
 
-
+#if 0
 #if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
 
 
@@ -324,7 +324,7 @@ static inline int __ll_ffs(L_OFF_T ll)
 #define __ll_ffs(l)	(ffs(l))
 #endif
 
-
+#endif
 
 /**
  * brcmnand_scan - [BrcmNAND Interface] Scan for the BrcmNAND device
@@ -357,10 +357,11 @@ extern void* get_brcmnand_handle(void);
 extern void print_oobbuf(const unsigned char* buf, int len);
 extern void print_databuf(const unsigned char* buf, int len);
 
+#if CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
 extern int brcmnand_cet_update(struct mtd_info *mtd, loff_t from, int *status);
-
+extern int brcmnand_cet_prepare_reboot(struct mtd_info *mtd);
 extern int brcmnand_cet_erasecallback(struct mtd_info *mtd, u_int32_t addr);
-
 extern int brcmnand_create_cet(struct mtd_info *mtd);
+#endif
 
 #endif

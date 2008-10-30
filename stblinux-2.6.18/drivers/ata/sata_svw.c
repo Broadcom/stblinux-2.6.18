@@ -788,7 +788,23 @@ static void k2_sata_tf_load(struct ata_port *ap, const struct ata_taskfile *tf)
 	unsigned int is_addr = tf->flags & ATA_TFLAG_ISADDR;
 
 	if (tf->ctl != ap->last_ctl) {
-		writeb(tf->ctl, (void *)ioaddr->ctl_addr);
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		unsigned int mask;
+		if (tf->ctl & ATA_NIEN) {
+			void __iomem *port_mmio = PORT_MMIO(ap);
+			u32 simr = readl(port_mmio + K2_SATA_SIMR_OFFSET);
+#if defined (CONFIG_MIPS_BCM7440)
+			mask = 0xa0000000;
+#else
+			mask = 0x80000000;
+#endif
+			writel(simr | mask, port_mmio + K2_SATA_SIMR_OFFSET);
+		}
+		else
+#endif
+		{
+			writeb(tf->ctl, ioaddr->ctl_addr);
+		}
 		ap->last_ctl = tf->ctl;
 		ata_wait_idle(ap);
 	}
@@ -837,6 +853,11 @@ static void k2_bmdma_setup_mmio (struct ata_queued_cmd *qc)
 		dmactl |= ATA_DMA_WR;
 	writeb(dmactl, mmio + ATA_DMA_CMD);
 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	/* Read back/flush the byte written */
+	dmactl = readb(mmio + ATA_DMA_CMD);
+#endif
+
 	/* issue r/w command if this is not a ATA DMA command*/
 	if (qc->tf.protocol != ATA_PROT_DMA)
 		ap->ops->exec_command(ap, &qc->tf);
@@ -873,6 +894,12 @@ static void k2_bmdma_start_mmio (struct ata_queued_cmd *qc)
 	   on an system with very fast disks, where the SATA controller is sitting behind a
 	   number of bridges, and hence there is significant latency between the r/w command
 	   and the start command. */
+
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	/* Read back/flush the byte written */
+	dmactl = readb(mmio + ATA_DMA_CMD);
+#endif
+
 	/* issue r/w command if the access is to ATA*/
 	if (qc->tf.protocol == ATA_PROT_DMA)
 		ap->ops->exec_command(ap, &qc->tf);

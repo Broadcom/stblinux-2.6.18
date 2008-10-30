@@ -42,9 +42,6 @@ when	who what
 
 #include <linux/mtd/brcmnand.h>
 #include "brcmnand_priv.h"
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
 
 #define PRINTK(...)
 //#define PRINTK printk
@@ -146,20 +143,11 @@ brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo, int *numParts)
 #endif
 	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
 
-//TODO sidc check with 512MB ram if <= works
-#ifdef MTD_LARGE
-	if (mtd64_is_lteq(MTD_SIZE(mtd), (int64_t) (512<<20))) {
-		size = MTD_SIZE(mtd);	// mtd->size may be different than nandinfo->size
+	if (device_size(mtd) <= (512<<20)) {
+		size = (unsigned long) device_size(mtd);	// mtd->size may be different than nandinfo->size
 		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts) - 3; /* take into account the extra 2 parts
 								   and the data partition */
-#else
-	if (mtd->size <= (512<<20)) {
-		size = mtd->size;	// mtd->size may be different than nandinfo->size
-		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts) - 3; /* take into account the extra 2 parts
-								   and the data partition */
-#endif
-	}
-	else {
+	} else {
 		size = 512 << 20;
 		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts) - 2; // take into account the extra 2 parts
 	}
@@ -205,19 +193,11 @@ bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
 	}
 
 	
-#ifdef MTD_LARGE
-	if  (mtd64_is_greater(MTD_SIZE(mtd), (int64_t) (512 << 20))) { // For total flash size > 512MB, we must split the rootfs into 2 partitions
-#else
-	if  (mtd->size > (512 << 20)) { // For total flash size > 512MB, we must split the rootfs into 2 partitions
-#endif
+	if  (device_size(mtd) > (uint64_t) (512 << 20)) { // For total flash size > 512MB, we must split the rootfs into 2 partitions
 		i = *numParts - 1;
 		bcm7XXX_nand_parts[i].offset = 512 << 20;
-#ifdef MTD_LARGE
-		bcm7XXX_nand_parts[i].size = mtd64_sub(MTD_SIZE(mtd), 
-			 __ll_LeftShift32(512+DEFAULT_BBT1_SIZE_MB,  20));
-#else
-		bcm7XXX_nand_parts[i].size = mtd->size - ((512+DEFAULT_BBT1_SIZE_MB) << 20);
-#endif
+
+		bcm7XXX_nand_parts[i].size = device_size(mtd) - ((512+DEFAULT_BBT1_SIZE_MB) << 20);
 		bcm7XXX_nand_parts[i].ecclayout = mtd->ecclayout;
 #ifdef CONFIG_MTD_ECM_PARTITION
 PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", avail1_size? i: i-1, bcm7XXX_nand_parts[i].name, 
@@ -359,11 +339,7 @@ static int __devinit brcmnanddrv_probe(struct device *dev)
 	}
 
 //printk("	brcmnanddrv_setup_mtd_partitions\n");
-#ifdef MTD_LARGE
-	printk("	numchips=%d, size=%16llx\n", info->brcmnand.numchips, MTD_SIZE(&(info->mtd)));
-#else
-	printk("	numchips=%d, size=%08x\n", info->brcmnand.numchips, info->mtd.size);
-#endif
+	printk("	numchips=%d, size=%llx\n", info->brcmnand.numchips, device_size(&(info->mtd)));
 	brcmnanddrv_setup_mtd_partitions(info, &numParts);
 //printk("	add_mtd_partitions\n");
 	add_mtd_partitions(&info->mtd, info->parts, numParts);

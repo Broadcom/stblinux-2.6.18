@@ -14,17 +14,17 @@
 int region_erase(int Fd, off_t start, int count, int unlock, int regcount)
 {
 	int i, j;
-	region_info_t * reginfo;
+	region_info64_t * reginfo;
 
-	reginfo = calloc(regcount, sizeof(region_info_t));
+	reginfo = calloc(regcount, sizeof(region_info64_t));
 
 	for(i = 0; i < regcount; i++)
 	{
 		reginfo[i].regionindex = i;
-		if(ioctl(Fd,MEMGETREGIONINFO,&(reginfo[i])) != 0)
+		if(ioctl(Fd,MEMGETREGIONINFO64,&(reginfo[i])) != 0)
 			return 8;
 		else
-			printf("Region %d is at %d of %d sector and with sector "
+			printf("Region %d is at %llx of %d sector and with sector "
 					"size %x\n", i, reginfo[i].offset, reginfo[i].numblocks,
 					reginfo[i].erasesize);
 	}
@@ -33,7 +33,7 @@ int region_erase(int Fd, off_t start, int count, int unlock, int regcount)
 
 	for(i = 0; i < regcount; i++)
 	{ //Loop through the regions
-		region_info_t * r = &(reginfo[i]);
+		region_info64_t * r = &(reginfo[i]);
 
 		if((start >= reginfo[i].offset) &&
 				(start < (r->offset + r->numblocks*r->erasesize)))
@@ -55,15 +55,15 @@ int region_erase(int Fd, off_t start, int count, int unlock, int regcount)
 
 	for(j = 0; (j < count)&&(i < regcount); j++)
 	{
-		erase_info_t erase;
-		region_info_t * r = &(reginfo[i]);
+		erase_info64_t erase;
+		region_info64_t * r = &(reginfo[i]);
 
 		erase.start = start;
 		erase.length = r->erasesize;
 
 		if(unlock != 0)
 		{ //Unlock the sector first.
-			if(ioctl(Fd, MEMUNLOCK, &erase) != 0)
+			if(ioctl(Fd, MEMUNLOCK64, &erase) != 0)
 			{
 				perror("\nMTD Unlock failure");
 				close(Fd);
@@ -78,7 +78,7 @@ int region_erase(int Fd, off_t start, int count, int unlock, int regcount)
 				erase.length, erase.start);
 #endif
 		fflush(stdout);
-		if(ioctl(Fd, MEMERASE, &erase) != 0)
+		if(ioctl(Fd, MEMERASE64, &erase) != 0)
 		{
 			perror("\nMTD Erase failure");
 			close(Fd);
@@ -101,11 +101,11 @@ int region_erase(int Fd, off_t start, int count, int unlock, int regcount)
 
 int non_region_erase(int Fd, off_t start, int count, int unlock)
 {
-	mtd_info_t meminfo;
+	mtd_info64_t meminfo;
 
-	if (ioctl(Fd,MEMGETINFO,&meminfo) == 0)
+	if (ioctl(Fd,MEMGETINFO64,&meminfo) == 0)
 	{
-		erase_info_t erase;
+		erase_info64_t erase;
 
 		erase.start = start;
 
@@ -113,7 +113,7 @@ int non_region_erase(int Fd, off_t start, int count, int unlock)
 
 		for (; count > 0; count--) {
 #ifdef __USE_FILE_OFFSET64
-			printf("\rPerforming Flash Erase of length %u at offset 0x%x",
+			printf("\rPerforming Flash Erase of length %u at offset 0x%llx",
 					erase.length, erase.start);
 #else
 			printf("\rPerforming Flash Erase of length %u at offset 0x%x",
@@ -125,11 +125,11 @@ int non_region_erase(int Fd, off_t start, int count, int unlock)
 			{
 				//Unlock the sector first.
 #ifdef __USE_FILE_OFFSET64
-				printf("\rPerforming Flash unlock at offset 0x%x",erase.start);
+				printf("\rPerforming Flash unlock at offset 0x%llx",erase.start);
 #else
 				printf("\rPerforming Flash unlock at offset 0x%x",erase.start);
 #endif
-				if(ioctl(Fd, MEMUNLOCK, &erase) != 0)
+				if(ioctl(Fd, MEMUNLOCK64, &erase) != 0)
 				{
 					perror("\nMTD Unlock failure");
 					close(Fd);
@@ -137,7 +137,7 @@ int non_region_erase(int Fd, off_t start, int count, int unlock)
 				}
 			}
 
-			if (ioctl(Fd,MEMERASE,&erase) != 0)
+			if (ioctl(Fd,MEMERASE64,&erase) != 0)
 			{
 				perror("\nMTD Erase failure");
 				close(Fd);

@@ -45,7 +45,11 @@
  * Since it is allowed to sleep, it probably should.
  */
 #define BUS_RESET_SETTLE_TIME   (10)
+#if defined (CONFIG_MIPS_BCM_NDVD)
+#define HOST_RESET_SETTLE_TIME  (1)
+#else
 #define HOST_RESET_SETTLE_TIME  (10)
+#endif
 
 /* called with shost->host_lock held */
 void scsi_eh_wakeup(struct Scsi_Host *shost)
@@ -337,12 +341,49 @@ static int scsi_check_sense(struct scsi_cmnd *scmd)
 			scmd->device->expecting_cc_ua = 0;
 			return NEEDS_RETRY;
 		}
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		/*
+		** Check if device was reset
+		*/
+		else if ((sshdr.asc == 0x29) && (sshdr.ascq == 0x00)) {
+			return NEEDS_RETRY;
+		}
+#endif
 		/*
 		 * if the device is in the process of becoming ready, we 
 		 * should retry.
 		 */
-		if ((sshdr.asc == 0x04) && (sshdr.ascq == 0x01))
+		if ((sshdr.asc == 0x04) && (sshdr.ascq == 0x01)) {
+#if defined (CONFIG_MIPS_BCM_NDVD)
+			/*
+			** Required for PR 5384
+			**
+			**  Delay 200 msec between commands while it is becoming
+			**  ready so we don't pummel the drive.
+			*/
+			if (!scmd->device->not_ready) {
+				scmd->device->not_ready = 1;
+				scmd->device->rdy_tmo = jiffies + ATAPI_RDY_TIMEOUT;
+			}
+			else if (time_after(jiffies, scmd->device->rdy_tmo)) {
+				/*
+				** Taking too long to become ready. We can't let the
+				** user be held hostage by a ridiculously slow drive.
+				** Morph the sense info into HARDWARE_ERROR,
+				** Track Following Error (09/00).
+				*/
+				printk(KERN_WARNING "%s: Drive taking too long to become ready - SIMULATE TRACK FOLLOWING ERROR\n\n", __FUNCTION__);
+				scmd->sense_buffer[2]  = HARDWARE_ERROR;
+				scmd->sense_buffer[12] = 0x09;
+				scmd->sense_buffer[13] = 0;
+
+				scmd->device->not_ready = 0;
+				scmd->device->rdy_tmo   = 0;
+				return SUCCESS;
+			}
+#endif
 			return NEEDS_RETRY;
+		}
 		/*
 		 * if the device is not started, we need to wake
 		 * the error handler to start the motor
@@ -359,7 +400,19 @@ static int scsi_check_sense(struct scsi_cmnd *scmd)
 		return SUCCESS;
 
 	case MEDIUM_ERROR:
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		/*
+		 * Never retry Medium Errors.
+		 */
+		return SUCCESS;
+#else
+		if (sshdr.asc == 0x11 || /* UNRECOVERED READ ERR */
+		    sshdr.asc == 0x13 || /* AMNF DATA FIELD */
+		    sshdr.asc == 0x14) { /* RECORD NOT FOUND */
+			return SUCCESS;
+		}
 		return NEEDS_RETRY;
+#endif
 
 	case HARDWARE_ERROR:
 		if (scmd->device->retry_hwerror)
@@ -632,7 +685,11 @@ static int scsi_request_sense(struct scsi_cmnd *scmd)
 void scsi_eh_finish_cmd(struct scsi_cmnd *scmd, struct list_head *done_q)
 {
 	scmd->device->host->host_failed--;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	scmd->eh_eflags &= SCSI_EH_SENSE_PRINTED;
+#else
 	scmd->eh_eflags = 0;
+#endif
 	list_move_tail(&scmd->eh_entry, done_q);
 }
 EXPORT_SYMBOL(scsi_eh_finish_cmd);
@@ -736,7 +793,11 @@ static int scsi_try_to_abort_cmd(struct scsi_cmnd *scmd)
 static int scsi_eh_tur(struct scsi_cmnd *scmd)
 {
 	static unsigned char tur_command[6] = {TEST_UNIT_READY, 0, 0, 0, 0, 0};
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	int retry_cnt = 100, rtn;
+#else
 	int retry_cnt = 1, rtn;
+#endif
 
 retry_tur:
 	rtn = scsi_send_eh_cmnd(scmd, tur_command, 6, SENSE_TIMEOUT, 0);
@@ -782,7 +843,11 @@ static int scsi_eh_abort_cmds(struct list_head *work_q,
 						  scmd));
 		rtn = scsi_try_to_abort_cmd(scmd);
 		if (rtn == SUCCESS) {
+#if defined (CONFIG_MIPS_BCM_NDVD)
+			scmd->eh_eflags &= ~(SCSI_EH_CANCEL_CMD | SCSI_EH_SENSE_PRINTED);
+#else
 			scmd->eh_eflags &= ~SCSI_EH_CANCEL_CMD;
+#endif
 			if (!scsi_device_online(scmd->device) ||
 			    !scsi_eh_tur(scmd)) {
 				scsi_eh_finish_cmd(scmd, done_q);
@@ -1261,6 +1326,20 @@ int scsi_decide_disposition(struct scsi_cmnd *scmd)
 	case GOOD:
 	case COMMAND_TERMINATED:
 	case TASK_ABORTED:
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		/*
+		** Required for PR 5384
+		**
+		**  Delay 200 msec between commands while it is becoming
+		**  ready so we don't pummel the drive. Exempt opcodes that
+		**  will complete successfully even when the drive is
+		**  becoming ready.
+		*/
+		if ((scmd->cmnd[0] != REQUEST_SENSE) &&
+			(scmd->cmnd[0] != ALLOW_MEDIUM_REMOVAL) &&
+			(scmd->cmnd[0] != START_STOP))
+			scmd->device->not_ready = 0;
+#endif
 		return SUCCESS;
 	case CHECK_CONDITION:
 		rtn = scsi_check_sense(scmd);
@@ -1419,6 +1498,9 @@ void scsi_eh_flush_done_q(struct list_head *done_q)
 	list_for_each_entry_safe(scmd, next, done_q, eh_entry) {
 		list_del_init(&scmd->eh_entry);
 		if (scsi_device_online(scmd->device) &&
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		    (scmd->cmnd[0] != READ_12) &&
+#endif
 		    !blk_noretry_request(scmd->request) &&
 		    (++scmd->retries <= scmd->allowed)) {
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: flush"

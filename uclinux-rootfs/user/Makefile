@@ -120,6 +120,7 @@ dir_$(CONFIG_USER_FSWCERT_FSWCERT)          += fswcert
 dir_$(CONFIG_USER_FTP_FTP_FTP)              += ftp
 dir_$(CONFIG_USER_GDBSERVER_GDBREPLAY)      += gdbserver
 dir_$(CONFIG_USER_GDBSERVER_GDBSERVER)      += gdbserver
+dir_$(CONFIG_USER_GDB)		            += gdb
 dir_$(CONFIG_USER_GETTYD_GETTYD)            += gettyd
 dir_$(CONFIG_USER_HD_HD)                    += hd
 dir_$(CONFIG_USER_HDPARM_HDPARM)            += hdparm
@@ -321,7 +322,14 @@ dir_$(CONFIG_USER_ETHCTL)					+= ethctl
 # dir_y += games
 
 # THT: Clean these regardless
-dir_clean = popt oprofile xfsprogs gdb-6.3/bfd gdb-6.3/gdb/gdbserver squid
+dir_clean = popt oprofile xfsprogs gdb/bfd gdb/gdb/gdbserver squid
+
+ifneq ($(INITRD_SUBDIR),) 
+ifneq ($(shell echo $(filter user%,$(INITRD_SUBDIR))|sed -e 's/user[\/]/user/'),user)
+dir_v:=$(subst vendors,$(VEND),$(findstring vendors/$(CONFIG_VENDOR)/$(CONFIG_PRODUCT),$(INITRD_SUBDIR)))
+dir_y:=$(patsubst user/%,%,$(filter user/%,$(INITRD_SUBDIR)))
+endif
+endif
 
 all:
 # Force a rebuild of the Makefiles in the e2fsprogs tree.

@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Mon Jul 28 11:47:59 2008
- *                 MD5 Checksum         fb86407f93bca40e048906386e215a30
+ * Date:           Generated on         Thu Sep  4 18:19:47 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_pcie_misc_perst.h $
  * 
- * Hydra_Software_Devel/2   7/28/08 2:30p tdo
- * PR42663: Sync up RDB header files
+ * Hydra_Software_Devel/3   9/5/08 11:38a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,8 +45,8 @@
 /***************************************************************************
  *PCIE_MISC_PERST - PCI-E Miscellaneous Registers (Fundamental reset)
  ***************************************************************************/
-#define BCHP_PCIE_MISC_PERST_ECO_CTRL_PERST      0x00014100 /* ECO PCIE Reset Control Register */
-#define BCHP_PCIE_MISC_PERST_CCE_STATUS          0x00014104 /* Config Copy Engine Status */
+#define BCHP_PCIE_MISC_PERST_ECO_CTRL_PERST      0x00454100 /* ECO PCIE Reset Control Register */
+#define BCHP_PCIE_MISC_PERST_CCE_STATUS          0x00454104 /* Config Copy Engine Status */
 
 /***************************************************************************
  *ECO_CTRL_PERST - ECO PCIE Reset Control Register

@@ -1,0 +1,2 @@
+tools_dir_prefix=/projects/stbtc/crosstools_hf-linux-2.6.18.0_gcc-4.2-8ts_uclibc-nptl-0.9.29-20070423_20080520
+./configure --prefix=%{tools_dir_prefix}/mipsel-linux-apps/usr --target=mipsel-linux --build=mipsel-linux --host=mipsel-linux --mandir=%{tools_dir_prefix}/man --infodir=%{tools_dir_prefix}/info --disable-nls --without-uiout --disable-gdbmi --disable-tui --disable-gdbtk --without-x --without-included-gettext

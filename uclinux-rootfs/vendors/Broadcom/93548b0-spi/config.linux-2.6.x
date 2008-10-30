@@ -1,0 +1,1 @@
+../../../linux-2.6.x/arch/mips/configs/bcm93548b0-spi_initrd_defconfig

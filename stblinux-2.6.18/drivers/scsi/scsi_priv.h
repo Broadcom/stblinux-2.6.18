@@ -14,6 +14,10 @@ struct Scsi_Host;
  * Scsi Error Handler Flags
  */
 #define SCSI_EH_CANCEL_CMD	0x0001	/* Cancel this cmd */
+# if defined (CONFIG_MIPS_BCM_NDVD)
+#define SCSI_EH_SENSE_PRINTED	0x0002	/* sense info has been displayed */
+#endif
+
 
 #define SCSI_SENSE_VALID(scmd) \
 	(((scmd)->sense_buffer[0] & 0x70) == 0x70)

@@ -90,7 +90,7 @@ DEVICES = \
 	\
 	tty0,c,4,0		tty1,c,4,1		tty2,c,4,2 \
 	tty3,c,4,3		tty4,c,4,4		tty5,c,4,5 \
-	ttyS0,c,4,64		ttyS1,c,4,65 \
+	ttyS0,c,4,64		ttyS1,c,4,65		ttyS2,c,4,66  \
 	\
 	hda,b,3,0		hda1,b,3,1		hda2,b,3,2 \
 	hda3,b,3,3		hda4,b,3,4		hda5,b,3,5 \

@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu May 29 18:59:55 2008
- *                 MD5 Checksum         820227b279d06813a6bca9e3c5b6cb55
+ * Date:           Generated on         Thu Sep  4 18:18:16 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_sata_ide.h $
  * 
- * Hydra_Software_Devel/1   5/29/08 11:39p tdo
- * PR42663: Initial version
+ * Hydra_Software_Devel/2   9/5/08 11:45a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,9 +45,9 @@
 /***************************************************************************
  *SATA_IDE - Primary IDE Register Space
  ***************************************************************************/
-#define BCHP_SATA_IDE_IDE_COMMAND                0x520200 /* Bus-master IDE Command Register */
-#define BCHP_SATA_IDE_IDE_STATUS                 0x520201 /* Bus-master IDE Status Register */
-#define BCHP_SATA_IDE_DES_TABLE                  0x00520204 /* Descriptor Table Pointer & Transfer Address Register */
+#define BCHP_SATA_IDE_IDE_COMMAND                0x1a0200 /* Bus-master IDE Command Register */
+#define BCHP_SATA_IDE_IDE_STATUS                 0x1a0201 /* Bus-master IDE Status Register */
+#define BCHP_SATA_IDE_DES_TABLE                  0x001a0204 /* Descriptor Table Pointer & Transfer Address Register */
 
 /***************************************************************************
  *IDE_COMMAND - Bus-master IDE Command Register

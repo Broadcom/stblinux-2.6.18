@@ -20,11 +20,8 @@
 #include <linux/mtd/nand.h>
 #include <linux/jiffies.h>
 
-#ifdef MTD_LARGE
-#include <linux/mtd/mtd64.h>
-#endif
-
 #include "nodelist.h"
+#include <linux/mtd/mtd64.h>
 
 /* For testing write failures */
 #undef BREAKME
@@ -1293,10 +1290,8 @@ void jffs2_nand_flash_cleanup(struct jffs2_sb_info *c)
 }
 
 int jffs2_dataflash_setup(struct jffs2_sb_info *c) {
-#ifdef MTD_LARGE
 	int rem;
 	uint64_t tmpdiv;
-#endif
 	c->cleanmarker_size = 0;		/* No cleanmarkers needed */
 
 	/* Initialize write buffer */
@@ -1320,16 +1315,16 @@ int jffs2_dataflash_setup(struct jffs2_sb_info *c) {
 	}
 
 	/* It may be necessary to adjust the flash size */
-#ifdef MTD_LARGE
+	c->flash_size = device_size(c->mtd);
 	tmpdiv = (uint64_t) c->flash_size;
 	rem = do_div(tmpdiv, c->sector_size);
 
 	if (rem != 0) {
-		c->flash_size = mtd64_sub32(c->flash_size, rem);
+		c->flash_size = c->flash_size - rem;
 		//TODO sidc check if c->flash_size rounding is ok
 		printk(KERN_WARNING "JFFS2 flash size adjusted to %dKiB\n", mtd64_ll_low(c->flash_size));
 	}
-#else
+#if 0
 	c->flash_size = c->mtd->size;
 
 	if ((c->flash_size % c->sector_size) != 0) {

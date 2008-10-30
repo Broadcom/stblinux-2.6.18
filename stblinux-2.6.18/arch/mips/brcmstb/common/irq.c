@@ -605,7 +605,7 @@ void __init arch_init_irq(void)
 	set_c0_status(STATUSF_IP2);
 
 	/* enable L2 interrupts for UARTA, B, C */
-#ifdef CONFIG_MIPS_BCM3548
+#if defined(BCHP_IRQ0_UART_IRQEN_uarta_MASK)
         BDEV_SET(BCHP_IRQ0_UART_IRQEN, BCHP_IRQ0_UART_IRQEN_uarta_MASK |
         BCHP_IRQ0_UART_IRQEN_uartb_MASK |
         BCHP_IRQ0_UART_IRQEN_uartc_MASK);

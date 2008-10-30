@@ -236,6 +236,10 @@ enum rq_flag_bits {
 	__REQ_PM_SHUTDOWN,	/* shutdown request */
 	__REQ_ORDERED_COLOR,	/* is before or after barrier */
 	__REQ_RW_SYNC,		/* request is sync (O_DIRECT) */
+#if defined (CONFIG_MIPS_BCM_NDVD)
+        __REQ_DIRECTIO,         /* original file-based request was O_DIRECT */
+        __REQ_ISSUED,           /* request was issued by lower driver layers */
+#endif
 	__REQ_NR_BITS,		/* stops here */
 };
 
@@ -266,6 +270,10 @@ enum rq_flag_bits {
 #define REQ_PM_SHUTDOWN	(1 << __REQ_PM_SHUTDOWN)
 #define REQ_ORDERED_COLOR	(1 << __REQ_ORDERED_COLOR)
 #define REQ_RW_SYNC	(1 << __REQ_RW_SYNC)
+#if defined (CONFIG_MIPS_BCM_NDVD)
+#define REQ_DIRECTIO    (1 << __REQ_DIRECTIO)
+#define REQ_ISSUED      (1 << __REQ_ISSUED)
+#endif
 
 /*
  * State information carried for REQ_PM_SUSPEND and REQ_PM_RESUME

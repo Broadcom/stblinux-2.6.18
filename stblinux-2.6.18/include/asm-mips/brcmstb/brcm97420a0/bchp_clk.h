@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Wed Aug 13 09:42:11 2008
- *                 MD5 Checksum         ae6d56c469a8a6797c624340f3aaceb0
+ * Date:           Generated on         Thu Sep  4 18:16:52 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_clk.h $
  * 
- * Hydra_Software_Devel/4   8/13/08 11:44a tdo
- * PR42663: RDB sync up
+ * Hydra_Software_Devel/5   9/5/08 10:55a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -45,24 +45,25 @@
 /***************************************************************************
  *CLK - CLOCK_GEN Registers
  ***************************************************************************/
-#define BCHP_CLK_REVISION                        0x00040000 /* clock_gen Revision register */
-#define BCHP_CLK_PM_CTRL                         0x00040004 /* Software power management control to turn off 108 MHz clocks */
-#define BCHP_CLK_PM_CTRL_1                       0x00040008 /* Software power management control to turn off 200, 81, 54, 32.4, 27, 25, 20.25 and 40.5 MHz clocks */
-#define BCHP_CLK_PM_CTRL_2                       0x0004000c /* Software power management control to turn off 216, audio DSP, MIPS, SATA_PCI clocks */
-#define BCHP_CLK_PM_MOCA_GENET_CTRL              0x00040010 /* Software power management control to turn off MOCA and GENET clocks */
-#define BCHP_CLK_MISC                            0x00040020 /* clock_gen block output clock selection */
-#define BCHP_CLK_THIRD_OT_CONTROL_1              0x00040024 /* Low 3rd Overtone Oscillator Control registers */
-#define BCHP_CLK_PLL_LOCK_STATUS                 0x0004002c /* current lock status of main PLL */
-#define BCHP_CLK_SYS_PLL_1_CTLBUS_HI             0x00040030 /* SYS 1 PLL control bus higher word */
-#define BCHP_CLK_SYS_PLL_1_CTLBUS_LO             0x00040034 /* SYS 1 PLL control bus lower word */
-#define BCHP_CLK_SYS_PLL_1_CTRL_HI               0x00040038 /* SYS PLL 1 m3div, m4div, reset, ch_disable and powerdown */
-#define BCHP_CLK_SYS_PLL_1_CTRL_LO               0x0004003c /* SYS PLL 1  cml buffer enable */
-#define BCHP_CLK_GENET_NETWORK_PLL_CTRL_HI       0x00040040 /* GENET NETWORK PLL reset, ch_disable  and powerdown */
-#define BCHP_CLK_GENET_NETWORK_PLL_CTRL_LO       0x00040044 /* GENET NETWORK PLL cml buffer enable */
-#define BCHP_CLK_SYS_PLL_0_CTRL                  0x00040048 /* SYS PLL 0 reset, ch_disable, output_delay  and powerdown */
-#define BCHP_CLK_MIPS_PLL_CTRL                   0x0004004c /* MIPS PLL reset, ch_disable, cpu frequency select, output_delay and powerdown */
-#define BCHP_CLK_D2CDIFF_AC_CTRL                 0x00040060 /* AC_CTRL for D2CDIFF */
-#define BCHP_CLK_SCRATCH                         0x00040070 /* clock_gen  Scratch register */
+#define BCHP_CLK_REVISION                        0x00462000 /* clock_gen Revision register */
+#define BCHP_CLK_PM_CTRL                         0x00462004 /* Software power management control to turn off 108 MHz clocks */
+#define BCHP_CLK_PM_CTRL_1                       0x00462008 /* Software power management control to turn off 200, 81, 54, 32.4, 27, 25, 20.25 and 40.5 MHz clocks */
+#define BCHP_CLK_PM_CTRL_2                       0x0046200c /* Software power management control to turn off 216, audio DSP, MIPS, SATA_PCI clocks */
+#define BCHP_CLK_PM_MOCA_GENET_CTRL              0x00462010 /* Software power management control to turn off MOCA and GENET clocks */
+#define BCHP_CLK_PM_PLL_ALIVE_SEL                0x00462014 /* Software power management control to select certain PLL still alive even in standby mode with all PLLs off */
+#define BCHP_CLK_MISC                            0x00462020 /* clock_gen block output clock selection */
+#define BCHP_CLK_THIRD_OT_CONTROL_1              0x00462024 /* Low 3rd Overtone Oscillator Control registers */
+#define BCHP_CLK_PLL_LOCK_STATUS                 0x0046202c /* current lock status of main PLL */
+#define BCHP_CLK_SYS_PLL_1_CTLBUS_HI             0x00462030 /* SYS 1 PLL control bus higher word */
+#define BCHP_CLK_SYS_PLL_1_CTLBUS_LO             0x00462034 /* SYS 1 PLL control bus lower word */
+#define BCHP_CLK_SYS_PLL_1_CTRL_HI               0x00462038 /* SYS PLL 1 m3div, m4div, reset, ch_disable and powerdown */
+#define BCHP_CLK_SYS_PLL_1_CTRL_LO               0x0046203c /* SYS PLL 1  cml buffer enable */
+#define BCHP_CLK_GENET_NETWORK_PLL_CTRL_HI       0x00462040 /* GENET NETWORK PLL reset, ch_disable  and powerdown */
+#define BCHP_CLK_GENET_NETWORK_PLL_CTRL_LO       0x00462044 /* GENET NETWORK PLL cml buffer enable */
+#define BCHP_CLK_SYS_PLL_0_CTRL                  0x00462048 /* SYS PLL 0 reset, ch_disable, output_delay  and powerdown */
+#define BCHP_CLK_MIPS_PLL_CTRL                   0x0046204c /* MIPS PLL reset, ch_disable, cpu frequency select, output_delay and powerdown */
+#define BCHP_CLK_D2CDIFF_AC_CTRL                 0x00462060 /* AC_CTRL for D2CDIFF */
+#define BCHP_CLK_SCRATCH                         0x00462070 /* clock_gen  Scratch register */
 
 /***************************************************************************
  *REVISION - clock_gen Revision register
@@ -225,12 +226,8 @@
 #define BCHP_CLK_PM_CTRL_1_DIS_XPT_54M_CLK_MASK                    0x00020000
 #define BCHP_CLK_PM_CTRL_1_DIS_XPT_54M_CLK_SHIFT                   17
 
-/* CLK :: PM_CTRL_1 :: DIS_HIF_54M_CLK [16:16] */
-#define BCHP_CLK_PM_CTRL_1_DIS_HIF_54M_CLK_MASK                    0x00010000
-#define BCHP_CLK_PM_CTRL_1_DIS_HIF_54M_CLK_SHIFT                   16
-
-/* CLK :: PM_CTRL_1 :: reserved4 [15:15] */
-#define BCHP_CLK_PM_CTRL_1_reserved4_MASK                          0x00008000
+/* CLK :: PM_CTRL_1 :: reserved4 [16:15] */
+#define BCHP_CLK_PM_CTRL_1_reserved4_MASK                          0x00018000
 #define BCHP_CLK_PM_CTRL_1_reserved4_SHIFT                         15
 
 /* CLK :: PM_CTRL_1 :: DIS_HDMI_MAX_250M_CLK [14:14] */
@@ -456,11 +453,46 @@
 #define BCHP_CLK_PM_MOCA_GENET_CTRL_DIS_GENET_GMII_TX_27_125M_CLK_SHIFT 0
 
 /***************************************************************************
+ *PM_PLL_ALIVE_SEL - Software power management control to select certain PLL still alive even in standby mode with all PLLs off
+ ***************************************************************************/
+/* CLK :: PM_PLL_ALIVE_SEL :: reserved0 [31:03] */
+#define BCHP_CLK_PM_PLL_ALIVE_SEL_reserved0_MASK                   0xfffffff8
+#define BCHP_CLK_PM_PLL_ALIVE_SEL_reserved0_SHIFT                  3
+
+/* CLK :: PM_PLL_ALIVE_SEL :: DDR_PLL [02:02] */
+#define BCHP_CLK_PM_PLL_ALIVE_SEL_DDR_PLL_MASK                     0x00000004
+#define BCHP_CLK_PM_PLL_ALIVE_SEL_DDR_PLL_SHIFT                    2
+
+/* CLK :: PM_PLL_ALIVE_SEL :: MIPS_PLL [01:01] */
+#define BCHP_CLK_PM_PLL_ALIVE_SEL_MIPS_PLL_MASK                    0x00000002
+#define BCHP_CLK_PM_PLL_ALIVE_SEL_MIPS_PLL_SHIFT                   1
+
+/* CLK :: PM_PLL_ALIVE_SEL :: SYS_PLL_0 [00:00] */
+#define BCHP_CLK_PM_PLL_ALIVE_SEL_SYS_PLL_0_MASK                   0x00000001
+#define BCHP_CLK_PM_PLL_ALIVE_SEL_SYS_PLL_0_SHIFT                  0
+
+/***************************************************************************
  *MISC - clock_gen block output clock selection
  ***************************************************************************/
-/* CLK :: MISC :: reserved0 [31:19] */
-#define BCHP_CLK_MISC_reserved0_MASK                               0xfff80000
-#define BCHP_CLK_MISC_reserved0_SHIFT                              19
+/* CLK :: MISC :: reserved0 [31:23] */
+#define BCHP_CLK_MISC_reserved0_MASK                               0xff800000
+#define BCHP_CLK_MISC_reserved0_SHIFT                              23
+
+/* CLK :: MISC :: MOCA_ENET_CLK_SEL [22:22] */
+#define BCHP_CLK_MISC_MOCA_ENET_CLK_SEL_MASK                       0x00400000
+#define BCHP_CLK_MISC_MOCA_ENET_CLK_SEL_SHIFT                      22
+
+/* CLK :: MISC :: MOCA_ENET_GMII_TX_CLK_SEL [21:21] */
+#define BCHP_CLK_MISC_MOCA_ENET_GMII_TX_CLK_SEL_MASK               0x00200000
+#define BCHP_CLK_MISC_MOCA_ENET_GMII_TX_CLK_SEL_SHIFT              21
+
+/* CLK :: MISC :: GENET_CLK_SEL [20:20] */
+#define BCHP_CLK_MISC_GENET_CLK_SEL_MASK                           0x00100000
+#define BCHP_CLK_MISC_GENET_CLK_SEL_SHIFT                          20
+
+/* CLK :: MISC :: GENET_GMII_TX_CLK_SEL [19:19] */
+#define BCHP_CLK_MISC_GENET_GMII_TX_CLK_SEL_MASK                   0x00080000
+#define BCHP_CLK_MISC_GENET_GMII_TX_CLK_SEL_SHIFT                  19
 
 /* CLK :: MISC :: SMARTCARD_CLOCK_1_SOURCE_SEL [18:17] */
 #define BCHP_CLK_MISC_SMARTCARD_CLOCK_1_SOURCE_SEL_MASK            0x00060000
@@ -741,21 +773,9 @@
 #define BCHP_CLK_SYS_PLL_0_CTRL_RST_STATUS_MASK                    0x80000000
 #define BCHP_CLK_SYS_PLL_0_CTRL_RST_STATUS_SHIFT                   31
 
-/* CLK :: SYS_PLL_0_CTRL :: reserved0 [30:29] */
-#define BCHP_CLK_SYS_PLL_0_CTRL_reserved0_MASK                     0x60000000
-#define BCHP_CLK_SYS_PLL_0_CTRL_reserved0_SHIFT                    29
-
-/* CLK :: SYS_PLL_0_CTRL :: A_RST_PLL [28:28] */
-#define BCHP_CLK_SYS_PLL_0_CTRL_A_RST_PLL_MASK                     0x10000000
-#define BCHP_CLK_SYS_PLL_0_CTRL_A_RST_PLL_SHIFT                    28
-
-/* CLK :: SYS_PLL_0_CTRL :: D_RST_PLL [27:27] */
-#define BCHP_CLK_SYS_PLL_0_CTRL_D_RST_PLL_MASK                     0x08000000
-#define BCHP_CLK_SYS_PLL_0_CTRL_D_RST_PLL_SHIFT                    27
-
-/* CLK :: SYS_PLL_0_CTRL :: reserved1 [26:24] */
-#define BCHP_CLK_SYS_PLL_0_CTRL_reserved1_MASK                     0x07000000
-#define BCHP_CLK_SYS_PLL_0_CTRL_reserved1_SHIFT                    24
+/* CLK :: SYS_PLL_0_CTRL :: reserved0 [30:24] */
+#define BCHP_CLK_SYS_PLL_0_CTRL_reserved0_MASK                     0x7f000000
+#define BCHP_CLK_SYS_PLL_0_CTRL_reserved0_SHIFT                    24
 
 /* CLK :: SYS_PLL_0_CTRL :: EN_CMLBUF [23:18] */
 #define BCHP_CLK_SYS_PLL_0_CTRL_EN_CMLBUF_MASK                     0x00fc0000
@@ -806,20 +826,42 @@
 #define BCHP_CLK_MIPS_PLL_CTRL_BYPASS_PLL_STATE_normal_PLL_mode    0
 #define BCHP_CLK_MIPS_PLL_CTRL_BYPASS_PLL_STATE_bypassed_PLL_mode  1
 
-/* CLK :: MIPS_PLL_CTRL :: A_RST_PLL [28:28] */
-#define BCHP_CLK_MIPS_PLL_CTRL_A_RST_PLL_MASK                      0x10000000
-#define BCHP_CLK_MIPS_PLL_CTRL_A_RST_PLL_SHIFT                     28
+/* union - case normal_PLL_mode [28:23] */
+/* CLK :: MIPS_PLL_CTRL :: normal_PLL_mode :: A_RST_PLL [28:28] */
+#define BCHP_CLK_MIPS_PLL_CTRL_normal_PLL_mode_A_RST_PLL_MASK      0x10000000
+#define BCHP_CLK_MIPS_PLL_CTRL_normal_PLL_mode_A_RST_PLL_SHIFT     28
 
-/* CLK :: MIPS_PLL_CTRL :: D_RST_PLL [27:27] */
-#define BCHP_CLK_MIPS_PLL_CTRL_D_RST_PLL_MASK                      0x08000000
-#define BCHP_CLK_MIPS_PLL_CTRL_D_RST_PLL_SHIFT                     27
+/* CLK :: MIPS_PLL_CTRL :: normal_PLL_mode :: D_RST_PLL [27:27] */
+#define BCHP_CLK_MIPS_PLL_CTRL_normal_PLL_mode_D_RST_PLL_MASK      0x08000000
+#define BCHP_CLK_MIPS_PLL_CTRL_normal_PLL_mode_D_RST_PLL_SHIFT     27
 
-/* CLK :: MIPS_PLL_CTRL :: CPU_FREQ [26:24] */
-#define BCHP_CLK_MIPS_PLL_CTRL_CPU_FREQ_MASK                       0x07000000
-#define BCHP_CLK_MIPS_PLL_CTRL_CPU_FREQ_SHIFT                      24
+/* CLK :: MIPS_PLL_CTRL :: normal_PLL_mode :: CPU_FREQ [26:24] */
+#define BCHP_CLK_MIPS_PLL_CTRL_normal_PLL_mode_CPU_FREQ_MASK       0x07000000
+#define BCHP_CLK_MIPS_PLL_CTRL_normal_PLL_mode_CPU_FREQ_SHIFT      24
 
-/* CLK :: MIPS_PLL_CTRL :: reserved0 [23:19] */
-#define BCHP_CLK_MIPS_PLL_CTRL_reserved0_MASK                      0x00f80000
+/* CLK :: MIPS_PLL_CTRL :: normal_PLL_mode :: OVERRIDE_CPU_FREQ_PIN_STRAP [23:23] */
+#define BCHP_CLK_MIPS_PLL_CTRL_normal_PLL_mode_OVERRIDE_CPU_FREQ_PIN_STRAP_MASK 0x00800000
+#define BCHP_CLK_MIPS_PLL_CTRL_normal_PLL_mode_OVERRIDE_CPU_FREQ_PIN_STRAP_SHIFT 23
+
+/* union - case bypassed_PLL_mode [28:23] */
+/* CLK :: MIPS_PLL_CTRL :: bypassed_PLL_mode :: A_RST_PLL [28:28] */
+#define BCHP_CLK_MIPS_PLL_CTRL_bypassed_PLL_mode_A_RST_PLL_MASK    0x10000000
+#define BCHP_CLK_MIPS_PLL_CTRL_bypassed_PLL_mode_A_RST_PLL_SHIFT   28
+
+/* CLK :: MIPS_PLL_CTRL :: bypassed_PLL_mode :: D_RST_PLL [27:27] */
+#define BCHP_CLK_MIPS_PLL_CTRL_bypassed_PLL_mode_D_RST_PLL_MASK    0x08000000
+#define BCHP_CLK_MIPS_PLL_CTRL_bypassed_PLL_mode_D_RST_PLL_SHIFT   27
+
+/* CLK :: MIPS_PLL_CTRL :: bypassed_PLL_mode :: CPU_FREQ [26:24] */
+#define BCHP_CLK_MIPS_PLL_CTRL_bypassed_PLL_mode_CPU_FREQ_MASK     0x07000000
+#define BCHP_CLK_MIPS_PLL_CTRL_bypassed_PLL_mode_CPU_FREQ_SHIFT    24
+
+/* CLK :: MIPS_PLL_CTRL :: bypassed_PLL_mode :: OVERRIDE_CPU_FREQ_PIN_STRAP [23:23] */
+#define BCHP_CLK_MIPS_PLL_CTRL_bypassed_PLL_mode_OVERRIDE_CPU_FREQ_PIN_STRAP_MASK 0x00800000
+#define BCHP_CLK_MIPS_PLL_CTRL_bypassed_PLL_mode_OVERRIDE_CPU_FREQ_PIN_STRAP_SHIFT 23
+
+/* CLK :: MIPS_PLL_CTRL :: reserved0 [22:19] */
+#define BCHP_CLK_MIPS_PLL_CTRL_reserved0_MASK                      0x00780000
 #define BCHP_CLK_MIPS_PLL_CTRL_reserved0_SHIFT                     19
 
 /* CLK :: MIPS_PLL_CTRL :: DIS_MIPS_PLL_CH1 [18:18] */

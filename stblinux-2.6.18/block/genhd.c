@@ -614,6 +614,15 @@ struct gendisk *alloc_disk_node(int minors, int node_id)
 			kfree(disk);
 			return NULL;
 		}
+#if defined (CONFIG_MIPS_BCM_NDVD)
+		/*
+		 * Initialize the disk's sector size
+		 * to a typical value for hard disks.
+		 * This will be overridden later on
+		 * an as-needed basis.
+		 */
+		disk->sector_size = 512;
+#endif
 		if (minors > 1) {
 			int size = (minors - 1) * sizeof(struct hd_struct *);
 			disk->part = kmalloc_node(size, GFP_KERNEL, node_id);

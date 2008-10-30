@@ -385,6 +385,7 @@ static void dumpMem32(uint32 * pMemAddr, int iNumWords)
 -------------------------------------------------------------------------- */
 static int bcmemac_net_open(struct net_device * dev)
 {
+    int err = 0;
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
     ASSERT(pDevCtrl != NULL);
 
@@ -432,19 +433,26 @@ static int bcmemac_net_open(struct net_device * dev)
         pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= 0x2;
     }
 	
+    if(!timer_pending(&pDevCtrl->timer)) {
+    	pDevCtrl->timer.expires = jiffies + POLLTIME_100MS;
+	add_timer_on(&pDevCtrl->timer, 0);
+    }
 
-    pDevCtrl->timer.expires = jiffies + POLLTIME_100MS;
-    add_timer_on(&pDevCtrl->timer, 0);
+    pDevCtrl->linkState = bcmIsEnetUp(pDevCtrl->dev);
+    if(pDevCtrl->linkState == 0)
+    err = 1;
 
 #ifdef DISABLE_INTERRUPTS
+    if(!timer_pending(&pDevCtrl->poll_timer)) {
 	printk("Enable RX POLL timer\n");
 	pDevCtrl->poll_timer.expires = jiffies + POLLTIME_100MS;
 	add_timer_on(&pDevCtrl->poll_timer, 0);
+    }
 #endif
     // Start the network engine
     netif_start_queue(dev);
 
-    return 0;
+    return err;
 }
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
@@ -1914,7 +1922,8 @@ static void init_IUdma(BcmEnet_devctrl *pDevCtrl)
     /*
      * initialize IUDMA controller register
      */
-    pDevCtrl->dmaRegs->controller_cfg = DMA_FLOWC_CH1_EN;
+    //pDevCtrl->dmaRegs->controller_cfg = DMA_FLOWC_CH1_EN;
+    pDevCtrl->dmaRegs->controller_cfg = 0;
     pDevCtrl->dmaRegs->flowctl_ch1_thresh_lo = DMA_FC_THRESH_LO;
     pDevCtrl->dmaRegs->flowctl_ch1_thresh_hi = DMA_FC_THRESH_HI;
 #ifdef CONFIG_MIPS_BCM7405A0

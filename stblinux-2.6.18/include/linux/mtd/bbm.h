@@ -42,8 +42,8 @@
  * of the first block.
  */
 struct nand_bbt_descr {
+	int64_t pages[NAND_MAX_CHIPS];
 	int options;
-	int pages[NAND_MAX_CHIPS];
 	int offs;
 	int veroffs;
 	uint8_t version[NAND_MAX_CHIPS];

@@ -23,10 +23,7 @@
 #include <linux/vfs.h>
 #include <linux/crc32.h>
 #include "nodelist.h"
-
-#ifdef MTD_LARGE
 #include <linux/mtd/mtd64.h>
-#endif
 
 static int jffs2_flash_setup(struct jffs2_sb_info *c);
 
@@ -469,6 +466,7 @@ int jffs2_do_fill_super(struct super_block *sb, void *data, int silent)
 	struct inode *root_i;
 	int ret;
 	size_t blocks;
+	uint64_t tmpdiv;
 
 	c = JFFS2_SB_INFO(sb);
 
@@ -483,41 +481,25 @@ int jffs2_do_fill_super(struct super_block *sb, void *data, int silent)
 	}
 #endif
 
-#ifdef MTD_LARGE
-	c->flash_size = MTD_SIZE(c->mtd);
+	c->flash_size = device_size(c->mtd);
+	tmpdiv = device_size(c->mtd);
 	c->sector_size = c->mtd->erasesize;
-	blocks = mtd64_ll_low(mtd64_rshft32(c->flash_size, ffs(c->sector_size)-1));
-#else
-	c->flash_size = c->mtd->size;
-	c->sector_size = c->mtd->erasesize;
-	blocks = c->flash_size / c->sector_size;
-#endif
+	do_div(tmpdiv, c->sector_size);
+	blocks = (size_t) tmpdiv;
 
 	/*
 	 * Size alignment check
 	 */
 	if ((c->sector_size * blocks) != c->flash_size) {
 		c->flash_size = c->sector_size * blocks;
-#ifdef MTD_LARGE
 		printk(KERN_INFO "jffs2: Flash size not aligned to erasesize, reducing to %dKiB\n",
-			mtd64_ll_low(mtd64_rshft32(c->flash_size, (ffs(1024)-1))));
-#else
-		printk(KERN_INFO "jffs2: Flash size not aligned to erasesize, reducing to %dKiB\n",
-			c->flash_size / 1024);
-#endif
+			mtd64_ll_low(c->flash_size >> 10));
 	}
 
-#ifdef MTD_LARGE
 	if (c->flash_size < 5*c->sector_size) {
-		printk(KERN_ERR "jffs2: Too few erase blocks (%d)\n", mtd64_ll_low(mtd64_rshft32(c->flash_size, ffs(c->sector_size)-1)));
+		printk(KERN_ERR "jffs2: Too few erase blocks (%d)\n", mtd64_ll_low(c->flash_size >> (ffs(c->sector_size)-1)));
 		return -EINVAL;
 	}
-#else
-	if (c->flash_size < 5*c->sector_size) {
-		printk(KERN_ERR "jffs2: Too few erase blocks (%d)\n", c->flash_size / c->sector_size);
-		return -EINVAL;
-	}
-#endif
 
 	c->cleanmarker_size = sizeof(struct jffs2_unknown_node);
 

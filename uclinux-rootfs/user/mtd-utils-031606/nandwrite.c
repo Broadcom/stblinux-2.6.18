@@ -211,13 +211,14 @@ void process_options (int argc, char *argv[])
 int main(int argc, char **argv)
 {
 	int cnt, fd, ifd, pagelen, baderaseblock;
-	struct mtd_info_user meminfo;
-	struct mtd_oob_buf oob;
+	struct mtd_info_user64 meminfo;
+	struct mtd_oob_buf64 oob;
 	loff_t offs;
 	int ret, readlen;
 	int oobinfochanged = 0;
 	struct nand_oobinfo old_oobinfo;
-	off_t imglen = 0, blockstart = -1;
+	off_t imglen = 0, blockstart = -1; /* off_t is 64 bit if Makefile
+					      has FILE_OFFSET_BITS=64 */
 
 	process_options(argc, argv);
 
@@ -235,8 +236,8 @@ int main(int argc, char **argv)
 	}
 
 	/* Fill in MTD device capability structure */
-	if (ioctl(fd, MEMGETINFO, &meminfo) != 0) {
-		perror("MEMGETINFO");
+	if (ioctl(fd, MEMGETINFO64, &meminfo) != 0) {
+		perror("MEMGETINFO64");
 		close(fd);
 		exit(1);
 	}
@@ -264,8 +265,8 @@ int main(int argc, char **argv)
 
 	if (!MTD_IS_MLC(&meminfo)) {
 		/* Read the current oob info */
-		if (ioctl (fd, MEMGETOOBSEL, &old_oobinfo) != 0) {
-			perror ("MEMGETOOBSEL");
+		if (ioctl (fd, MEMGETOOBSEL64, &old_oobinfo) != 0) {
+			perror ("MEMGETOOBSEL64");
 			close (fd);
 			exit (1);
 		}
@@ -274,8 +275,8 @@ int main(int argc, char **argv)
 	if (!MTD_IS_MLC(&meminfo)) {
 		// write without ecc ?
 		if (noecc) {
-			if (ioctl (fd, MEMSETOOBSEL, &none_oobinfo) != 0) {
-				perror ("MEMSETOOBSEL");
+			if (ioctl (fd, MEMSETOOBSEL64, &none_oobinfo) != 0) {
+				perror ("MEMSETOOBSEL64");
 				close (fd);
 				exit (1);
 			}
@@ -287,8 +288,8 @@ int main(int argc, char **argv)
 		// autoplace ECC ?
 		if (autoplace && (old_oobinfo.useecc != MTD_NANDECC_AUTOPLACE)) {
 
-			if (ioctl (fd, MEMSETOOBSEL, &autoplace_oobinfo) != 0) {
-				perror ("MEMSETOOBSEL");
+			if (ioctl (fd, MEMSETOOBSEL64, &autoplace_oobinfo) != 0) {
+				perror ("MEMSETOOBSEL64");
 				close (fd);
 				exit (1);
 			}
@@ -320,8 +321,8 @@ int main(int argc, char **argv)
 			jffs2_oobinfo.eccbytes = 3;
 		}
 
-		if (ioctl (fd, MEMSETOOBSEL, oobsel) != 0) {
-			perror ("MEMSETOOBSEL");
+		if (ioctl (fd, MEMSETOOBSEL64, oobsel) != 0) {
+			perror ("MEMSETOOBSEL64");
 			goto restoreoob;
 		}
 	}
@@ -376,7 +377,7 @@ int main(int argc, char **argv)
 			offs = blockstart;
 		        baderaseblock = 0;
 			if (!quiet)
-				fprintf (stdout, "Writing data to block %x\n", blockstart);
+				fprintf (stdout, "Writing data to block %llx\n", blockstart);
 
 		        /* Check all the blocks in an erase block for bad blocks */
 			do {
@@ -387,7 +388,7 @@ int main(int argc, char **argv)
 				if (ret == 1) {
 					baderaseblock = 1;
 				   	if (!quiet)
-						fprintf (stderr, "Bad block at %x, %u block(s) from %x will be skipped\n", (int) offs, blockalign, blockstart);
+						fprintf (stderr, "Bad block at %llx, %u block(s) from %llx will be skipped\n", offs, blockalign, blockstart);
 					}
 
 				if (baderaseblock) {
@@ -448,7 +449,7 @@ int main(int argc, char **argv)
 			}
 			/* Write OOB data first, as ecc will be placed in there*/
 			oob.start = mtdoffset;
-			if (ioctl(fd, MEMWRITEOOB, &oob) != 0) {
+			if (ioctl(fd, MEMWRITEOOB64, &oob) != 0) {
 				perror ("ioctl(MEMWRITEOOB)");
 				goto closeall;
 			}
@@ -470,8 +471,8 @@ int main(int argc, char **argv)
  restoreoob:
 	/* oobinfochanged will be 0 for MLC */
 	if (oobinfochanged) {
-		if (ioctl (fd, MEMSETOOBSEL, &old_oobinfo) != 0) {
-			perror ("MEMSETOOBSEL");
+		if (ioctl (fd, MEMSETOOBSEL64, &old_oobinfo) != 0) {
+			perror ("MEMSETOOBSEL64");
 			close (fd);
 			exit (1);
 		}

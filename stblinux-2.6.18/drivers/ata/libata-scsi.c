@@ -43,6 +43,10 @@
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_tcq.h>
 #include <scsi/scsi_transport.h>
+#if defined (CONFIG_MIPS_BCM_NDVD)
+#include <scsi/scsi_dbg.h>
+#include "../scsi/scsi_priv.h"
+#endif
 #include <linux/libata.h>
 #include <linux/hdreg.h>
 #include <asm/uaccess.h>
@@ -2460,6 +2464,14 @@ static unsigned int atapi_xlat(struct ata_queued_cmd *qc, const u8 *scsicmd)
 	int using_pio = (dev->flags & ATA_DFLAG_PIO);
 	int nodata = (cmd->sc_data_direction == DMA_NONE);
 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	/* Force PIO mode for non-DMA reads*/
+	if ((qc->cdb[0] != READ_10) && (qc->cdb[0] != READ_12)) {
+		using_pio = 1;
+	}
+#endif
+
+
 	if (!using_pio)
 		/* Check whether ATAPI DMA is safe */
 		if (ata_check_atapi_dma(qc))
@@ -2812,6 +2824,19 @@ static inline int __ata_scsi_queuecmd(struct scsi_cmnd *cmd,
 				      struct ata_device *dev)
 {
 	int rc = 0;
+
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	/*
+	** Check that the transfer is for a buffer length
+	** that is a multiple of 4 bytes.
+	*/
+	if ((dev->class == ATA_DEV_ATAPI) && (cmd->request_bufflen & 0x03)) {
+		printk(KERN_WARNING "%s: ODD REQUEST BYTE COUNT TRAPPED (0x%x bytes)\n", __FUNCTION__, cmd->request_bufflen);
+		scsi_print_command(cmd);
+		dump_stack();
+		return 0;
+	}
+#endif // CONFIG_MIPS_BCM_NDVD
 
 	if (dev->class == ATA_DEV_ATA) {
 		ata_xlat_func_t xlat_func = ata_get_xlat_func(dev,

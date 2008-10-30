@@ -852,10 +852,22 @@ int check_disk_change(struct block_device *bdev)
 	struct gendisk *disk = bdev->bd_disk;
 	struct block_device_operations * bdops = disk->fops;
 
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	if (!(disk->flags & GENHD_FL_CD)) {
+		/*
+		 * Fix for PR 7475.
+		 *
+		 * For NDVD, be pessimistic and always assume
+		 * that CD/DVD media has been changed.
+		 */
+#endif
 	if (!bdops->media_changed)
 		return 0;
 	if (!bdops->media_changed(bdev->bd_disk))
 		return 0;
+#if defined (CONFIG_MIPS_BCM_NDVD)
+	}
+#endif
 
 	if (__invalidate_device(bdev))
 		printk("VFS: busy inodes on changed media.\n");

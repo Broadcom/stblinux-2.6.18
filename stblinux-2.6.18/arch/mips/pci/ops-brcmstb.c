@@ -48,13 +48,12 @@
 #define MIPS_PCI_SATA_XCFG_DATA		0xb0500208
 #endif
 
-#define CFG_INDEX(devfn, reg)		(0x80000000 | ((PCI_SLOT(devfn) & \
-	0x1f) << 11) | ((PCI_FUNC(devfn) & 0x7) << 8) | (reg))
-
-#define IDX_REG(b)			((b)->number ? \
-	MIPS_PCI_SATA_XCFG_INDEX : MIPS_PCI_XCFG_INDEX)
-#define DATA_REG(b)			((b)->number ? \
-	MIPS_PCI_SATA_XCFG_DATA : MIPS_PCI_XCFG_DATA)
+#define CFG_INDEX(bus, devfn, reg) \
+	((pci_io_map_base(bus) != PCIE_IO_START) ? \
+		((0x80000000 | ((PCI_SLOT(devfn) & 0x1f) << 11) | \
+			((PCI_FUNC(devfn) & 0x7) << 8) | (reg))) : \
+		((((PCI_SLOT(devfn) & 0x1f) << 15) | \
+			((PCI_FUNC(devfn) & 0x7) << 12) | (reg))))
 
 static void get_pci_cfg_regs(struct pci_bus *bus, unsigned long *idx_reg,
 	unsigned long *data_reg)
@@ -93,15 +92,15 @@ static int brcm_pci_write_config(struct pci_bus *bus, unsigned int devfn,
 
 	if(size < 4) {
 		/* partial word - read, modify, write */
-		DEV_WR(idx_reg, CFG_INDEX(devfn, where & ~3));
+		DEV_WR(idx_reg, CFG_INDEX(bus, devfn, where & ~3));
 		DEV_RD(idx_reg);
-		val = DEV_RD(DATA_REG(bus));
+		val = DEV_RD(data_reg);
 	}
 
 	shift = (where & 3) << 3;
 	mask = (0xffffffff >> ((4 - size) << 3)) << shift;
 
-	DEV_WR(idx_reg, CFG_INDEX(devfn, where & ~3));
+	DEV_WR(idx_reg, CFG_INDEX(bus, devfn, where & ~3));
 	val = (val & ~mask) | ((data << shift) & mask);
 	DEV_WR(data_reg, val);
 	DEV_RD(data_reg);
@@ -123,9 +122,9 @@ static int brcm_pci_read_config(struct pci_bus *bus, unsigned int devfn,
 
 	BUG_ON(((where & 3) + size) > 4);
 
-	DEV_WR(idx_reg, CFG_INDEX(devfn, where & ~3));
+	DEV_WR(idx_reg, CFG_INDEX(bus, devfn, where & ~3));
 	DEV_RD(idx_reg);
-	val = DEV_RD(DATA_REG(bus));
+	val = DEV_RD(data_reg);
 
 	shift = (where & 3) << 3;
 	mask = (0xffffffff >> ((4 - size) << 3)) << shift;

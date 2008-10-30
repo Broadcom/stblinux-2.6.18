@@ -32,7 +32,7 @@
 #include "bchp_uartc.h"
 #include "bchp_uartd.h"
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -60,7 +60,7 @@ extern "C" {
 #define UART_SDW_SCR     	0x1c
 
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 
 /**********************************************************************
   Uart Register Structure
@@ -85,7 +85,7 @@ typedef struct UartChannel {
 
 
 
-#endif /* _ASMLANGUAGE */
+#endif /* __ASSEMBLY__ */
 
 /******************************************************************
  * Baud Rate Table
@@ -115,7 +115,7 @@ typedef struct UartChannel {
 
 
 
-#if !defined _ASMLANGUAGE
+#if !defined __ASSEMBLY__
 #ifdef __cplusplus
 }
 #endif

@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Wed Aug 13 09:44:15 2008
- *                 MD5 Checksum         ae6d56c469a8a6797c624340f3aaceb0
+ * Date:           Generated on         Thu Sep  4 18:18:33 2008
+ *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_sun_top_ctrl.h $
  * 
- * Hydra_Software_Devel/6   8/13/08 11:54a tdo
- * PR42663: RDB sync up
+ * Hydra_Software_Devel/7   9/5/08 11:48a tdo
+ * PR42663: Sync up RDB
  *
  ***************************************************************************/
 
@@ -456,13 +456,21 @@
 /***************************************************************************
  *STRAP_VALUE_0 - Strapping values
  ***************************************************************************/
-/* SUN_TOP_CTRL :: STRAP_VALUE_0 :: reserved0 [31:09] */
-#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_reserved0_MASK             0xfffffe00
-#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_reserved0_SHIFT            9
+/* SUN_TOP_CTRL :: STRAP_VALUE_0 :: reserved0 [31:12] */
+#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_reserved0_MASK             0xfffff000
+#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_reserved0_SHIFT            12
 
-/* SUN_TOP_CTRL :: STRAP_VALUE_0 :: strap_RSVD_1 [08:08] */
-#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_RSVD_1_MASK          0x00000100
-#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_RSVD_1_SHIFT         8
+/* SUN_TOP_CTRL :: STRAP_VALUE_0 :: strap_RSVD_1 [11:11] */
+#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_RSVD_1_MASK          0x00000800
+#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_RSVD_1_SHIFT         11
+
+/* SUN_TOP_CTRL :: STRAP_VALUE_0 :: strap_xtal_adj [10:09] */
+#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_xtal_adj_MASK        0x00000600
+#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_xtal_adj_SHIFT       9
+
+/* SUN_TOP_CTRL :: STRAP_VALUE_0 :: strap_cpu_freq_0 [08:08] */
+#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_cpu_freq_0_MASK      0x00000100
+#define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_cpu_freq_0_SHIFT     8
 
 /* SUN_TOP_CTRL :: STRAP_VALUE_0 :: strap_reset_outb_def_val [07:07] */
 #define BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_reset_outb_def_val_MASK 0x00000080
@@ -2123,12 +2131,13 @@
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_SHIFT            8
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_GPIO_018         0
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_CHIP2POD_MCLKO   1
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_AUD_FS_CLK1      2
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_EBI_ADDR_15      3
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_EXT_IRQB_8       4
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_PM_GPIO_018      5
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_TP_OUT_18        6
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_RC_TP_OUT_18     7
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_RMXP_CLK         2
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_AUD_FS_CLK1      3
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_EBI_ADDR_15      4
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_EXT_IRQB_8       5
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_PM_GPIO_018      6
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_TP_OUT_18        7
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_018_RC_TP_OUT_18     8
 
 /* SUN_TOP_CTRL :: PIN_MUX_CTRL_9 :: gpio_017 [07:04] */
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_017_MASK             0x000000f0
@@ -2146,12 +2155,13 @@
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_SHIFT            0
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_GPIO_016         0
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_POD2CHIP_MCLKI   1
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_IR_IN3           2
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_EBI_ADDR_14      3
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_EXT_IRQB_6       4
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_PM_GPIO_016      5
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_TP_OUT_16        6
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_RC_TP_OUT_16     7
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_PPKT_CLK         2
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_IR_IN3           3
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_EBI_ADDR_14      4
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_EXT_IRQB_6       5
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_PM_GPIO_016      6
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_TP_OUT_16        7
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9_gpio_016_RC_TP_OUT_16     8
 
 /***************************************************************************
  *PIN_MUX_CTRL_10 - Pinmux control register 10
@@ -2566,9 +2576,10 @@
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_UART_TXD_1      3
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_HD_DVI0_09      4
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_RMX_CLK1        5
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_PM_GPIO_062     6
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_TP_OUT_27       7
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_RC_TP_OUT_27    8
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_UHF_LNA_PWRDN   6
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_PM_GPIO_062     7
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_TP_OUT_27       8
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_062_RC_TP_OUT_27    9
 
 /* SUN_TOP_CTRL :: PIN_MUX_CTRL_14 :: gpio_061 [23:20] */
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_14_gpio_061_MASK            0x00f00000
@@ -2845,8 +2856,8 @@
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_SC_PRES_1       1
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_NDS_SC_PRES     2
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_EXT_IRQB_3      3
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_UART_RTS_1      4
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_UART_TXD_2      5
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_UART_CTS_1      4
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_UART_RXD_2      5
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_PM_GPIO_084     6
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_ALT_TP_OUT_13   7
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_084_RC_ALT_TP_OUT_13 8
@@ -2858,8 +2869,8 @@
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_SC_RST_1        1
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_NDS_SC_RST      2
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_EXT_IRQB_2      3
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_UART_CTS_1      4
-#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_UART_RXD_2      5
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_UART_RTS_1      4
+#define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_UART_TXD_2      5
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_PM_GPIO_083     6
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_ALT_TP_OUT_12   7
 #define BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_17_gpio_083_RC_ALT_TP_OUT_12 8

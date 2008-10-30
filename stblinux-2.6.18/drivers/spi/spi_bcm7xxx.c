@@ -433,7 +433,7 @@ static void write_to_hw(struct bcmspi_priv *priv)
 			priv->mspi_hw->cdram[slot - 1] &= ~0x80;
 		mb();
 
-		priv->mspi_hw->spcr2 = 0x60;	// spe | spifie
+		priv->mspi_hw->spcr2 = 0xe0;	// cont | spe | spifie
 
 		priv->state = STATE_RUNNING;
 		priv->outstanding_bytes = slot;

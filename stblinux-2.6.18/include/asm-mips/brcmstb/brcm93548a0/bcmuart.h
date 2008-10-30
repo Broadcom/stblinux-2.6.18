@@ -30,6 +30,7 @@
 #include "bchp_common.h"
 #include "bchp_uarta.h"
 #include "bchp_uartb.h"
+#include "bchp_uartc.h"
 
 #if !defined __ASSEMBLY__
 #ifdef  __cplusplus
@@ -40,6 +41,7 @@ extern "C" {
 /* UART register base addresses */
 #define UARTA_ADR_BASE   BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_UARTA_RCVSTAT)
 #define UARTB_ADR_BASE   BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_UARTB_RCVSTAT)
+#define UARTC_ADR_BASE   BCM_PHYS_TO_K1(BCHP_PHYSICAL_OFFSET+BCHP_UARTC_RCVSTAT)
 
 #define UART_ADR_BASE	UARTA_ADR_BASE
 #define console_out		_writeasm 
