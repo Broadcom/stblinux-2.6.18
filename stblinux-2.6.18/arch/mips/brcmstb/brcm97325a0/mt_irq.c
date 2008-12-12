@@ -139,10 +139,9 @@ extern void breakpoint(void);
  *       97         2      	  UARTA
  *       98         2         UARTB
  *       99         2         UARTC
- *      100         7      	  R4k timer (used for master system time)
- *	101	    unused	R4k timer 1
- *	103	    0		Software IPI 0
- *	104	    1		Software IPI 1
+ *      107         7      	  R4k timer (used for master system time)
+ *	100	    0		Software IPI 0
+ *	101	    1		Software IPI 1
  * Again, I cannot stress this enough, keep this table up to date!!!
  */
 
@@ -190,21 +189,9 @@ static void brcm_intc_disable(unsigned int irq)
 	{
 		shift = irq - 1;
 
-
-		/* 
-		 * PR17654: UPG IRQ is shared with UART, so do not disable it, UPG_shift == 18
-		 */
-
-		if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT) {
-			local_irq_restore(flags);
-			return;
-		}
 		CPUINT1C->IntrW0MaskSet = (0x1UL<<shift);
 		if (irq == BCM_LINUX_CPU_ENET_IRQ)
-		{
-			//*((volatile unsigned long *)0xb008241c) &= ~0x2;
-			*((volatile unsigned long *)0xb0082424) &= ~0x2;
-		}
+		*((volatile unsigned long *)0xb0082424) &= ~0x2;
 	}
 	else if (irq > 32 && 
 			irq <= 32+32)
@@ -218,6 +205,7 @@ static void brcm_intc_disable(unsigned int irq)
 		shift = irq - 64 -1;
 		CPUINT1C->IntrW2MaskSet = (0x1UL<<shift);
 	}
+
 	local_irq_restore(flags);
 }
 
@@ -287,48 +275,48 @@ static struct hw_interrupt_type brcm_intc2_type = {
 static void brcm_uart_enable(unsigned int irq)
 {
 	unsigned int flags;
-
-//	local_irq_save(flags);
+	local_irq_save(flags);
 
 	if (irq == BCM_LINUX_UARTA_IRQ)
 	{
 PRINTK("$$$$$$$$ UART A irq enabled. \n");
-		CPUINT1C->IntrW0MaskClear = 
-			BCHP_HIF_CPU_INTR1_INTR_W0_MASK_CLEAR_UPG_UART0_CPU_INTR_MASK;
+		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_CLEAR_UPG_UART0_CPU_INTR_MASK;
 	}
 	else if (irq == BCM_LINUX_UARTB_IRQ)
 	{
 PRINTK("$$$$$$$$ UART B irq enabled. \n");
-		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_MASK;
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_ub_irqen_MASK;
+		CPUINT1C->IntrW2MaskClear = BCHP_HIF_CPU_INTR1_INTR_W2_MASK_CLEAR_UPG_UART1_CPU_INTR_MASK;
 	}
 	else if (irq == BCM_LINUX_UARTC_IRQ)
 	{
 PRINTK("$$$$$$$$ UART C irq enabled. \n");
-		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_MASK;
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_uc_irqen_MASK;
+		CPUINT1C->IntrW2MaskClear = BCHP_HIF_CPU_INTR1_INTR_W2_MASK_CLEAR_UPG_UART2_CPU_INTR_MASK;
 	}
 
-//	local_irq_restore(flags);
+	local_irq_restore(flags);
 }
 
 static void brcm_uart_disable(unsigned int irq)
 {
 	unsigned long flags;
-
 	local_irq_save(flags);
+
 	if (irq == BCM_LINUX_UARTA_IRQ)
 	{
 PRINTK("########## UART A irq Disabled. \n");
 		CPUINT1C->IntrW0MaskSet = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_SET_UPG_UART0_CPU_INTR_MASK;
-		//*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) &= ~(BCHP_IRQ0_IRQEN_uarta_irqen_MASK);
 	}
 	else if (irq == BCM_LINUX_UARTB_IRQ)
 	{
 PRINTK("########## UART B irq Disabled. \n");
-		//CPUINT1C->IntrW0MaskSet = BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_MASK;
-		*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) &= ~(BCHP_IRQ0_IRQEN_ub_irqen_MASK);
+		CPUINT1C->IntrW2MaskSet = BCHP_HIF_CPU_INTR1_INTR_W2_MASK_SET_UPG_UART1_CPU_INTR_MASK;
 	}
+	else if (irq == BCM_LINUX_UARTC_IRQ)
+	{
+PRINTK("########## UART C irq Disabled. \n");
+		CPUINT1C->IntrW2MaskSet = BCHP_HIF_CPU_INTR1_INTR_W2_MASK_SET_UPG_UART2_CPU_INTR_MASK;
+	}
+
 	local_irq_restore(flags);
 }
 
@@ -396,7 +384,6 @@ void brcm_mips_int7_dispatch(struct pt_regs *regs)
 
 static void brcm_mips_int7_enable(unsigned int irq)
 {
-	unsigned int flags;
 	unsigned int vpflags;
 
 	if(!irqs_disabled())
@@ -410,7 +397,6 @@ static void brcm_mips_int7_enable(unsigned int irq)
 
 static void brcm_mips_int7_disable(unsigned int irq)
 {
-	unsigned int flags;
 	unsigned int vpflags;
 
 	if(!irqs_disabled())
@@ -457,16 +443,15 @@ static struct hw_interrupt_type brcm_mips_int7_type = {
  */
 static void brcm_mips_int2_enable(unsigned int irq)
 {
-	unsigned int flags;
 	unsigned int vpflags;
 	
 	if(!irqs_disabled())
 	printk("WE GOT PROBLEM at %s:%d\n", __FUNCTION__, __LINE__);
 
-	vpflags = dvpe();
+	vpflags = dmt();
 	set_c0_status(STATUSF_IP2);
 	irq_enable_hazard();
-	evpe(vpflags);
+	emt(vpflags);
 }
 
 /*
@@ -474,16 +459,16 @@ static void brcm_mips_int2_enable(unsigned int irq)
  */
 static void brcm_mips_int2_disable(unsigned int irq)
 {
-	unsigned int flags;
 	unsigned int vpflags;
 
 	if(!irqs_disabled())
 	printk("WE GOT PROBLEM at %s:%d\n", __FUNCTION__, __LINE__);
 
-	vpflags = dvpe();
+	vpflags = dmt();
 	clear_c0_status(STATUSF_IP2);
+	clear_c0_cause(0x100<<2);
 	irq_disable_hazard();
-	evpe(vpflags);
+	emt(vpflags);
 }
 
 static void brcm_mips_int2_ack(unsigned int irq)
@@ -564,9 +549,7 @@ static void brcm_int2_do_IRQ(unsigned int irq, struct pt_regs *regs)
 void brcm_mips_int2_dispatch(struct pt_regs *regs)
 {
     	unsigned int pendingIrqs,pendingIrqs1,pendingIrqs2, shift,irq;
-	unsigned long flags;
 
-	local_irq_save(flags);
 	brcm_mips_int2_disable(0);
 
 	pendingIrqs = CPUINT1C->IntrW0Status;
@@ -636,7 +619,6 @@ PRINTK("UART C\n");
 	}
 
 	brcm_mips_int2_enable(0);
-	local_irq_restore(flags);
 }
 
 void brcm_mips_int3_dispatch(struct pt_regs *regs)
@@ -851,17 +833,7 @@ void __init brcm_irq_setup(void)
 
 void __init arch_init_irq(void)
 {
-#if	0
-// here we need clear IM bit of STATUS to prevent mishandling of interrupt before its handler is fully installed
-	clear_c0_status(ST0_IM);
-        clear_c0_cause(CAUSEF_IP);
-
-// jipeng - here we add brcm_mips_cpu_irq_init() to install the proper chip for timer, an ipc interrupts
-	brcm_mips_cpu_irq_init(BCM_LINUX_IPC_0_IRQ);
-#else
 	mips_cpu_irq_init(BCM_LINUX_IPC_0_IRQ);
-#endif
-
 	brcm_irq_setup();
 
 	set_vi_handler(2, plat_irq_dispatch);

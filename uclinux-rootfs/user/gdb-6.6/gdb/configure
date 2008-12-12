@@ -5,6 +5,23 @@
 # Copyright (C) 2003 Free Software Foundation, Inc.
 # This configure script is free software; the Free Software Foundation
 # gives unlimited permission to copy, distribute and modify it.
+
+
+gdb_cv_func_sigsetjmp=yes
+ac_cv_type_uintptr_t=yes
+gt_cv_func_gettext_libintl=yes
+ac_cv_func_dcgettext=yes
+bash_cv_func_strcoll_broken=no
+bash_cv_must_reinstall_sighandlers=no
+bash_cv_func_sigsetjmp=present
+bash_cv_have_mbstate_t=yes
+ac_cv_search_tgetent=../../../lib/libtermcap/libtermcap.a
+
+
+
+
+
+
 ## --------------------- ##
 ## M4sh Initialization.  ##
 ## --------------------- ##

@@ -571,8 +571,8 @@ config.status:	$(srcdir)/configure
 	$(SHELL) ./config.status --recheck
 
 # comment out for distribution
-$(srcdir)/configure:	$(srcdir)/configure.in $(srcdir)/aclocal.m4 $(srcdir)/config.h.in
-	cd $(srcdir) && autoconf
+#$(srcdir)/configure:	$(srcdir)/configure.in $(srcdir)/aclocal.m4 $(srcdir)/config.h.in
+#	cd $(srcdir) && autoconf
 
 # for chet
 reconfig: force

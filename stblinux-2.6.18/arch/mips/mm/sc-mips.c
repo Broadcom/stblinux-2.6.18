@@ -84,7 +84,11 @@ static inline int __init mips_sc_probe(void)
 	if (!(config1 & MIPS_CONF_M))
 		return 0;
 
+	/* Check L2 bypass bit */
 	config2 = read_c0_config2();
+	if(config2 & (1 << 12))
+		return 0;
+
 	tmp = (config2 >> 4) & 0x0f;
 	if (0 < tmp && tmp <= 7)
 		c->scache.linesz = 2 << tmp;

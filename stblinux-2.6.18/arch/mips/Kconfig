@@ -195,7 +195,7 @@ config MIPS_BCM7420AX
         select MIPS_BCM7420A0
         select MIPS_BCM7420
         select HW_HAS_PCI
-	select BMIPS6200
+	select BMIPS5000
 
 config MIPS_BCM97456DX
 	bool "Support for BCM97456DX board with NOR flash"
@@ -1472,7 +1472,7 @@ config BMIPS4380
 	select SYS_HAS_CPU_MIPS32_R1
 	select SYS_SUPPORTS_SMP
 
-config BMIPS6200
+config BMIPS5000
 	bool
 	default n
 	select SYS_SUPPORTS_32BIT_KERNEL
@@ -1833,7 +1833,7 @@ config SYS_SUPPORTS_PM
 
 config SYS_SUPPORTS_CPUFREQ
 	bool
-	depends on MIPS_BCM7401C0 || BMIPS4380 || BMIPS6200
+	depends on MIPS_BCM7401C0 || BMIPS4380 || BMIPS5000
 	default y
 
 if SYS_SUPPORTS_PM || SYS_SUPPORTS_CPUFREQ

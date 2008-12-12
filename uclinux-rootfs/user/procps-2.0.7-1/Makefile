@@ -1,6 +1,8 @@
 # Makefile for procps.  Chuck Blake.
 # Portions of this are highly dependent upon features specific to GNU make
 
+-include $(CONFIG_CONFIG)
+
 export PREFIX     =  #proc# prefix for program names
 
 export DESTDIR    = /
@@ -67,6 +69,9 @@ W_SHOWFROM =  -DW_SHOWFROM# show remote host users are logged in from.
 #----------------------------------------------------#
 #BUILD = $(BPROG) $(UPROG) $(PPROG) $(SPROG) $(SUBDIRS) $(DESKTOP)
 BUILD = top vmstat
+ifeq ($(CONFIG_USER_PROCPS_PS),y)
+BUILD += ps
+endif
 
 # BUILD LIBRARIES + PROGRAMS
 all: $(BUILD)
@@ -86,7 +91,7 @@ romfs:
 	$(ROMFSINST) -e CONFIG_USER_PROCPS_KILL $(BINDIR)/kill
 	$(ROMFSINST) -e CONFIG_USER_PROCPS_PGREP $(USRBINDIR)/pgrep
 	$(ROMFSINST) -e CONFIG_USER_PROCPS_PKILL $(USRBINDIR)/pkill
-	$(ROMFSINST) -e CONFIG_USER_PROCPS_PS $(USRBINDIR)/ps
+	$(ROMFSINST) -e CONFIG_USER_PROCPS_PS ps/ps $(USRBINDIR)/ps
 	$(ROMFSINST) -e CONFIG_USER_PROCPS_SNICE $(USRBINDIR)/snice
 	$(ROMFSINST) -e CONFIG_USER_PROCPS_SYSCTL $(USRBINDIR)/sysctl
 	$(ROMFSINST) -e CONFIG_USER_PROCPS_TLOAD $(USRBINDIR)/tload

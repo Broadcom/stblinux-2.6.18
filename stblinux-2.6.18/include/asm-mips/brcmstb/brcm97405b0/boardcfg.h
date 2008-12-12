@@ -77,4 +77,17 @@
 	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4, 0xfffc0000, 0x9249     }, \
 }
 
+/*
+ * for 97405-MSG MSPI
+ * gpio_020 = SS1 (BCM6816 slave select)
+ * gpio_025 = SCK
+ * gpio_026 = MOSI
+ * gpio_027 = MISO
+ * gpio_028 = SS0 (BCM5335 slave select)
+ */
+#define SPI_PINMUX_SETUP	{ \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_4, ~(07 << 18), (05 << 18) }, \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_5, ~077770,	022220     }, \
+}
+
 #endif

@@ -54,8 +54,16 @@ EXPORT_SYMBOL(brcm_sata_enabled);
 
 int brcm_enet_enabled = 0;
 int brcm_enet_no_mdio = 0;
+int brcm_emac_1_enabled = 0;
 EXPORT_SYMBOL(brcm_enet_enabled);
 EXPORT_SYMBOL(brcm_enet_no_mdio);
+EXPORT_SYMBOL(brcm_emac_1_enabled);
+
+int brcm_pci_enabled = 0;
+EXPORT_SYMBOL(brcm_pci_enabled);
+
+int brcm_smp_enabled = 0;
+EXPORT_SYMBOL(brcm_smp_enabled);
 
 /* DOCSIS platform (e.g. 97455) */
 int brcm_docsis_platform = 0;
@@ -325,6 +333,18 @@ void __init prom_init(void)
 	brcm_enet_enabled = 1;
 #endif
 
+#ifdef BRCM_EMAC_1_SUPPORTED
+	brcm_emac_1_enabled = 1;
+#endif
+
+#ifdef BRCM_PCI_SUPPORTED
+	brcm_pci_enabled = 1;
+#endif
+
+#ifdef CONFIG_SMP
+	brcm_smp_enabled = 1;
+#endif
+
 #ifdef CONFIG_MIPS_BCM7118
 	/* detect 7118RNG board */
 	if( BDEV_RD(BCHP_CLKGEN_REG_START) == 0x1c )
@@ -338,6 +358,25 @@ void __init prom_init(void)
 	if(BDEV_RD(BCHP_SUN_TOP_CTRL_OTP_OPTION_STATUS) &
 		BCHP_SUN_TOP_CTRL_OTP_OPTION_STATUS_otp_option_sata_disable_MASK)
 		brcm_sata_enabled = 0;
+	switch(BDEV_RD(BCHP_SUN_TOP_CTRL_OTP_OPTION_STATUS) & 0xf) {
+		case 0x0:
+			/* 7405/7406 */
+			break;
+		case 0x1:
+			/* 7466 */
+			brcm_pci_enabled = 0;
+			brcm_emac_1_enabled = 0;
+			break;
+		case 0x3:
+			/* 7106 */
+			brcm_emac_1_enabled = 0;
+			brcm_smp_enabled = 0;
+			break;
+		case 0x4:
+			/* 7205 */
+			brcm_emac_1_enabled = 0;
+			break;
+	}
 #endif
 	
 #if defined(CONFIG_BMIPS3300)
@@ -459,7 +498,7 @@ void __init prom_init(void)
 		}
 	  }
 	  else {
-#if defined(CONFIG_BMIPS4380) || defined(CONFIG_BMIPS6200)
+#if defined(CONFIG_BMIPS4380) || defined(CONFIG_BMIPS5000)
 		par_val = 0xff;		/* default: keep CFE setting */
 #elif !defined(CONFIG_MIPS_BCM7325A0)	/* no RAC in 7325A0 */
 		par_val = 0x03;		/* set default to I/D RAC on */
@@ -749,9 +788,11 @@ void __init prom_init(void)
 		brcm_ebi_war = 1;
 #endif
 
-	printk("Options: sata=%d enet=%d no_mdio=%d docsis=%d ebi_war=%d\n",
-		brcm_sata_enabled, brcm_enet_enabled, brcm_enet_no_mdio,
-		brcm_docsis_platform, brcm_ebi_war);
+	printk("Options: sata=%d enet=%d emac_1=%d no_mdio=%d docsis=%d "
+		"ebi_war=%d pci=%d smp=%d\n",
+		brcm_sata_enabled, brcm_enet_enabled, brcm_emac_1_enabled,
+		brcm_enet_no_mdio, brcm_docsis_platform, brcm_ebi_war,
+		brcm_pci_enabled, brcm_smp_enabled);
 }
 
 const char *get_system_type(void)

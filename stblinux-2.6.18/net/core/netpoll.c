@@ -172,6 +172,9 @@ static void service_arp_queue(struct netpoll_info *npi)
 
 void netpoll_poll(struct netpoll *np)
 {
+//EXPORT_SYMBOL
+//	printk(KERN_INFO "netpoll_poll: \n");
+
 	if(!np->dev || !netif_running(np->dev) || !np->dev->poll_controller)
 		return;
 
@@ -464,11 +467,22 @@ int __netpoll_rx(struct sk_buff *skb)
 	struct netpoll_info *npi = skb->dev->npinfo;
 	struct netpoll *np = npi->rx_np;
 
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() entered, np = 0x%x, npinfo=0x%x \n", np, npi);
+	}
+#endif
 
 	if (!np)
 		goto out;
 	if (skb->dev->type != ARPHRD_ETHER)
 		goto out;
+
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after ARPHRD_ETHE \n");
+	}
+#endif
 
 	/* check if netpoll clients need ARP */
 	if (skb->protocol == __constant_htons(ETH_P_ARP) &&
@@ -477,13 +491,38 @@ int __netpoll_rx(struct sk_buff *skb)
 		return 1;
 	}
 
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after ETH_P_ARP \n");
+	}
+#endif
+
 	proto = ntohs(eth_hdr(skb)->h_proto);
 	if (proto != ETH_P_IP)
 		goto out;
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after ETH_P_IP\n");
+	}
+#endif
 	if (skb->pkt_type == PACKET_OTHERHOST)
 		goto out;
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after PACKET_OTHERHOST\n");
+	}
+#endif
+
+#if 0
 	if (skb_shared(skb))
 		goto out;
+#endif 
+
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after shared \n");
+	}
+#endif
 
 	iph = (struct iphdr *)skb->data;
 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
@@ -495,12 +534,30 @@ int __netpoll_rx(struct sk_buff *skb)
 	if (ip_fast_csum((u8 *)iph, iph->ihl) != 0)
 		goto out;
 
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after may_pull \n");
+	}
+#endif
+
 	len = ntohs(iph->tot_len);
 	if (skb->len < len || len < iph->ihl*4)
 		goto out;
 
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after tot_len \n");
+	}
+#endif
+
 	if (iph->protocol != IPPROTO_UDP)
 		goto out;
+
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after IPPROTO_UDP \n");
+	}
+#endif
 
 	len -= iph->ihl*4;
 	uh = (struct udphdr *)(((char *)iph) + iph->ihl*4);
@@ -508,14 +565,56 @@ int __netpoll_rx(struct sk_buff *skb)
 
 	if (ulen != len)
 		goto out;
+
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after len \n");
+}
+#endif
+
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	-printk("__netpoll_rx() iph->sdaddr= 0x%x, iph->daddr=0x%x \n", iph->saddr, iph->daddr);
+	}
+#endif
+
 	if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr))
 		goto out;
+
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after checksum \n");
+	}
+#endif
+
+
 	if (np->local_ip && np->local_ip != ntohl(iph->daddr))
 		goto out;
+
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after 1 \n");
+	}
+#endif
 	if (np->remote_ip && np->remote_ip != ntohl(iph->saddr))
 		goto out;
+
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+	printk("__netpoll_rx() after 2 \n");
+	}
+#endif
 	if (np->local_port && np->local_port != ntohs(uh->dest))
 		goto out;
+
+ 
+#ifdef DEBUG_KGDBOE 
+	if ((np->local_port == 6443)||(np->local_port == 6442)) {
+		printk(KERN_INFO "__netpoll_rx() remote port is 0x%x\r\n", np->local_port);
+	}
+#endif
+
+	
 
 	np->rx_hook(np, ntohs(uh->source),
 		    (char *)(uh+1),
@@ -530,6 +629,9 @@ out:
 		return 1;
 	}
 
+#ifdef DEBUG_KGDBOE 
+	printk("__netpoll_rx() packet kept------------------------------------------------------------------------ \n");
+#endif
 	return 0;
 }
 
@@ -648,6 +750,10 @@ int netpoll_setup(struct netpoll *np)
 	struct netpoll_info *npinfo;
 	unsigned long flags;
 
+#ifdef DEBUG_KGDBOE 
+	printk(KERN_INFO "netpoll_setup: \n");
+#endif
+
 	if (np->dev_name)
 		ndev = dev_get_by_name(np->dev_name);
 	if (!ndev) {
@@ -738,7 +844,15 @@ int netpoll_setup(struct netpoll *np)
 		       np->name, HIPQUAD(np->local_ip));
 	}
 
+#ifdef DEBUG_KGDBOE 
+		printk(KERN_INFO "netpoll_setup() before setup rx_hook .................................. \r\n");
+#endif
+
 	if (np->rx_hook) {
+#ifdef DEBUG_KGDBOE 
+		printk(KERN_INFO "netpoll_setup() setup rx_hook .................................. \r\n");
+#endif
+
 		spin_lock_irqsave(&npinfo->rx_lock, flags);
 		npinfo->rx_flags |= NETPOLL_RX_ENABLED;
 		npinfo->rx_np = np;

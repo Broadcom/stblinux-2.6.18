@@ -241,7 +241,7 @@ void smp_call_function_interrupt(void)
 	/* clear the pending interrupt now so that we don't drop the next call */
 	clear_c0_cause(C_SW0);
 	mb();
-#elif defined(CONFIG_BMIPS6200)
+#elif defined(CONFIG_BMIPS5000)
 	write_c0_brcm_action(0x2000 | (raw_smp_processor_id() << 9));
 	mb();
 #endif

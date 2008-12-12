@@ -9,8 +9,8 @@ obj-$(CONFIG_32BIT)		+= ioremap.o pgtable-32.o
 obj-$(CONFIG_64BIT)		+= pgtable-64.o
 obj-$(CONFIG_HIGHMEM)		+= highmem.o
 
-ifdef CONFIG_BMIPS6200XXX #XXX
-obj-$(CONFIG_CPU_MIPS32)	+= c-b6k.o cex-gen.o pg-r4k.o tlb-r4k.o
+ifdef CONFIG_BMIPS5000
+obj-$(CONFIG_CPU_MIPS32)	+= c-b5k.o cex-gen.o pg-r4k.o tlb-r4k.o
 else
 obj-$(CONFIG_CPU_MIPS32)	+= c-r4k.o cex-gen.o pg-r4k.o tlb-r4k.o
 endif

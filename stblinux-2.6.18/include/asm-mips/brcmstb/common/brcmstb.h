@@ -501,6 +501,10 @@ extern unsigned long (* __get_discontig_RAM_size) (void);
 #define BRCM_ENET_SUPPORTED	1
 #endif
 
+#if defined(BCHP_EMAC_1_REG_START) && ! defined(CONFIG_MIPS_BCM7405A0)
+#define BRCM_EMAC_1_SUPPORTED	1
+#endif
+
 #if defined(BCHP_PCI_CFG_STATUS_COMMAND) && ! defined(CONFIG_BRCM_PCI_SLAVE)
 #define BRCM_PCI_SUPPORTED	1
 #endif
@@ -595,6 +599,11 @@ extern int brcm_docsis_platform;
  */
 extern int brcm_sata_enabled;
 extern int brcm_enet_enabled;
+
+/* other optional features */
+extern int brcm_emac_1_enabled;
+extern int brcm_pci_enabled;
+extern int brcm_smp_enabled;
 
 /* external PHY does not support MDIO (e.g. 97405-MSG) */
 extern int brcm_enet_no_mdio;

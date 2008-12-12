@@ -99,7 +99,7 @@ static const char *cpu_name[] = {
 	[CPU_BMIPS3300]	= "BMIPS3300",
 	[CPU_BMIPS4350]	= "BMIPS4350",
 	[CPU_BMIPS4380]	= "BMIPS4380",
-	[CPU_BMIPS6200]	= "BMIPS6200",
+	[CPU_BMIPS5000]	= "BMIPS5000",
 };
 
 extern unsigned int par_val;	

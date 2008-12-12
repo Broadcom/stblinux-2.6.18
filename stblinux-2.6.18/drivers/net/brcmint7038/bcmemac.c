@@ -91,10 +91,6 @@
 #define GPIO45_OFFSET				0x00002000
 #endif
 
-#if defined(BCHP_EMAC_1_REG_START) && ! defined(CONFIG_MIPS_BCM7405A0)
-#define HAS_EMAC_1
-#endif
-
 extern unsigned long getPhysFlashBase(void);
 
 static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr);
@@ -102,6 +98,7 @@ static int bcmemac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 static int bcmIsEnetUp(struct net_device *dev);
 
 #define POLLTIME_100MS      (HZ/10)
+#define POLLTIME_10MS		(HZ/100)
 #define POLLCNT_1SEC        (HZ/POLLTIME_100MS)
 #define POLLCNT_FOREVER     ((int) 0x80000000)
 
@@ -385,7 +382,6 @@ static void dumpMem32(uint32 * pMemAddr, int iNumWords)
 -------------------------------------------------------------------------- */
 static int bcmemac_net_open(struct net_device * dev)
 {
-    int err = 0;
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
     ASSERT(pDevCtrl != NULL);
 
@@ -434,13 +430,11 @@ static int bcmemac_net_open(struct net_device * dev)
     }
 	
     if(!timer_pending(&pDevCtrl->timer)) {
-    	pDevCtrl->timer.expires = jiffies + POLLTIME_100MS;
+    	pDevCtrl->timer.expires = jiffies + POLLTIME_10MS;
 	add_timer_on(&pDevCtrl->timer, 0);
     }
 
     pDevCtrl->linkState = bcmIsEnetUp(pDevCtrl->dev);
-    if(pDevCtrl->linkState == 0)
-    err = 1;
 
 #ifdef DISABLE_INTERRUPTS
     if(!timer_pending(&pDevCtrl->poll_timer)) {
@@ -452,7 +446,7 @@ static int bcmemac_net_open(struct net_device * dev)
     // Start the network engine
     netif_start_queue(dev);
 
-    return err;
+    return 0;
 }
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
@@ -464,6 +458,7 @@ static int bcmemac_net_open(struct net_device * dev)
 static void bcmemac_poll (struct net_device *dev)
 {
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
+      uint32 work_to_do = dev->quota;                           
 	/* disable_irq is not very nice, but with the funny lockless design
 	   we have no other choice. */
 
@@ -472,9 +467,9 @@ static void bcmemac_poll (struct net_device *dev)
     /* Run TX Queue */
     bcmemac_net_xmit(NULL, pDevCtrl->dev);
     /* Run RX Queue */
-    bcmemac_rx(pDevCtrl);
+    bcmemac_rx(pDevCtrl, work_to_do);
     /* Check for Interrupts */
-    bcmemac_net_isr (dev->irq, dev, NULL);
+//    bcmemac_net_isr (dev->irq, dev, NULL);
 }
 #endif /* CONFIG_NET_POLL_CONTROLLER */
 
@@ -688,7 +683,7 @@ static void tx_reclaim_timer(unsigned long arg)
         }
     }
 
-    pDevCtrl->timer.expires = jiffies + POLLTIME_100MS;
+    pDevCtrl->timer.expires = jiffies + POLLTIME_10MS;
     add_timer_on(&pDevCtrl->timer, 0);
 }
 
@@ -708,7 +703,7 @@ static void bcmemac_link_change_task(BcmEnet_devctrl *pDevCtrl)
 	else {
 		clear_bit(__LINK_STATE_START, &pDevCtrl->dev->state);
 		pDevCtrl->dev->flags &= ~IFF_RUNNING;
-		rtmsg_ifinfo(RTM_NEWLINK, pDevCtrl->dev, IFF_RUNNING);
+		rtmsg_ifinfo(RTM_DELLINK, pDevCtrl->dev, IFF_RUNNING);
 		set_bit(__LINK_STATE_START, &pDevCtrl->dev->state);
 	}
 	rtnl_unlock();
@@ -1394,10 +1389,15 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
 
         skb_pull(skb, brcm_hdr_len);
 		/* Remove 2 bytes trailer if in promiscous mode, for PR44081 */
+#ifdef CONFIG_NET_POLL_CONTROLLER
+
+	skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len - 2);
+#else
 		if(pDevCtrl->emac->rxControl & EMAC_PROM)
 			skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len - 2);
 		else
         	skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len);
+#endif
 
 #ifdef DUMP_DATA
         printk("bcmemac_rx :");
@@ -1418,7 +1418,7 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
         rxpktgood++;
 
         /* Notify kernel */
-        netif_receive_skb(skb);
+        netif_rx(skb);
         
         if (--budget <= 0) {
             break;
@@ -1929,7 +1929,7 @@ static void init_IUdma(BcmEnet_devctrl *pDevCtrl)
 #ifdef CONFIG_MIPS_BCM7405A0
     /* connect emac0->internal PHY (HW bug workaround) */
     pDevCtrl->dmaRegs->enet_iudma_tstctl |= (1 << 13);
-#elif defined(HAS_EMAC_1)
+#elif defined(BRCM_EMAC_1_SUPPORTED)
     /* connect emac0->internal PHY, emac1->external MII pins */
     pDevCtrl->dmaRegs->enet_iudma_tstctl &= ~(1 << 13);
 #endif
@@ -2767,7 +2767,7 @@ static int __init bcmemac_net_probe(int devnum, int phy_id)
     BcmEnet_devctrl *pDevCtrl;
 
     if (probed == 0) {
-#if defined(HAS_EMAC_1)
+#if defined(BRCM_EMAC_1_SUPPORTED)
         /* on dual EMAC systems, EMAC_0 is internal and EMAC_1 is external */
         if (BpSetBoardId(devnum ? "EXT_PHY" : "INT_PHY") != BP_SUCCESS)
 #elif defined(CONFIG_BCM5325_SWITCH) && (CONFIG_BCM5325_SWITCH == 1)
@@ -3075,7 +3075,7 @@ static int __init bcmemac_module_init(void)
     spin_lock_irq(&g_magnum_spinlock);
     BDEV_WR_ARRAY(MII_PINMUX_SETUP);
     spin_unlock_irq(&g_magnum_spinlock);
-#if ! defined(HAS_EMAC_1)
+#if ! defined(BRCM_EMAC_1_SUPPORTED)
     /* if EMAC_0 is external, find the PHY first before creating the iface */
     phy_id = mii_probe(ENET_MAC_ADR_BASE);
     if(phy_id == BCMEMAC_NO_PHY_ID)
@@ -3087,9 +3087,9 @@ static int __init bcmemac_module_init(void)
     if(! status)
         status = bcmemac_net_probe(0, phy_id);
 
-#if defined(CONFIG_BCMINTEMAC_7038_EXTMII) && defined(HAS_EMAC_1)
+#if defined(CONFIG_BCMINTEMAC_7038_EXTMII) && defined(BRCM_EMAC_1_SUPPORTED)
     /* probe EMAC_1 (this might fail) */
-    if(! status) {
+    if(brcm_emac_1_enabled && ! status) {
         int phy_id;
 
         phy_id = mii_probe(ENET_MAC_1_ADR_BASE);

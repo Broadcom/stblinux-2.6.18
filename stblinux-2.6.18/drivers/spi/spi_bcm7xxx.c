@@ -660,6 +660,8 @@ static void bcmspi_complete(void *arg)
 	complete(arg);
 }
 
+static struct spi_master *default_master = NULL;
+
 int bcmspi_simple_transaction(struct bcmspi_parms *xp,
 	const void *tx_buf, int tx_len, void *rx_buf, int rx_len)
 {
@@ -674,6 +676,7 @@ int bcmspi_simple_transaction(struct bcmspi_parms *xp,
 	spi.chip_select = xp->chip_select;
 	spi.mode = xp->mode;
 	spi.bits_per_word = xp->bits_per_word;
+	spi.master = default_master;
 
 	spi_message_init(&m);
 	m.complete = bcmspi_complete;
@@ -687,8 +690,10 @@ int bcmspi_simple_transaction(struct bcmspi_parms *xp,
 	t_rx.rx_buf = rx_buf;
 	t_rx.len = rx_len;
 
-	spi_message_add_tail(&t_tx, &m);
-	spi_message_add_tail(&t_rx, &m);
+	if(tx_len)
+		spi_message_add_tail(&t_tx, &m);
+	if(rx_len)
+		spi_message_add_tail(&t_rx, &m);
 
 	ret = bcmspi_transfer(&spi, &m);
 	if(! ret)
@@ -733,6 +738,10 @@ static int bcmspi_probe(struct platform_device *pdev)
 	int ret;
 
 	DBG("bcmspi_probe\n");
+
+#ifdef SPI_PINMUX_SETUP
+	BDEV_WR_ARRAY(SPI_PINMUX_SETUP);
+#endif
 
 	master = spi_alloc_master(dev, sizeof(struct bcmspi_priv));
 	if(! master) {
@@ -824,6 +833,8 @@ static int bcmspi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "can't register master\n");
 		goto err1;
 	}
+	if(! default_master)
+		default_master = master;
 
 	return(0);
 

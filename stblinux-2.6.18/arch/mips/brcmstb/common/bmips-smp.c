@@ -62,14 +62,16 @@ static int tp1_running = 0;
 
 void __init plat_smp_setup(void)
 {
-	int i, num;
+	int i, num, lim;
 
 	cpus_clear(phys_cpu_present_map);
 	cpu_set(0, phys_cpu_present_map);
 	__cpu_number_map[0] = 0;
 	__cpu_logical_map[0] = 0;
 
-	for (i = 1, num = 0; i < NR_CPUS; i++) {
+	lim = brcm_smp_enabled ? NR_CPUS : 1;
+
+	for (i = 1, num = 0; i < lim; i++) {
 		cpu_set(i, phys_cpu_present_map);
 		__cpu_number_map[i] = ++num;
 		__cpu_logical_map[num] = i;
@@ -93,7 +95,7 @@ static irqreturn_t brcm_reschedule_call_interrupt(int irq, void *dev_id, struct 
 {
 #if defined(CONFIG_BMIPS4380)
 	clear_c0_cause(C_SW1);
-#elif defined(CONFIG_BMIPS6200)
+#elif defined(CONFIG_BMIPS5000)
 	write_c0_brcm_action(0x2000 | (raw_smp_processor_id() << 9) | (1 << 8));
 #endif
 	return IRQ_HANDLED;
@@ -178,7 +180,7 @@ void core_send_ipi(int cpu, unsigned int action)
 
 	spin_unlock_irqrestore(&ipi_lock, flags);
 }
-#elif defined(CONFIG_BMIPS6200)
+#elif defined(CONFIG_BMIPS5000)
 void core_send_ipi(int cpu, unsigned int action)
 {
 	switch (action) {
@@ -298,7 +300,7 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
 	// respectively.
 
 	change_c0_brcm_cmt_intr(0xf8018000, (0x02 << 27) | (0x03 << 15));
-#elif defined(CONFIG_BMIPS6200)
+#elif defined(CONFIG_BMIPS5000)
 	/* enable raceless SW interrupts */
 	set_c0_brcm_config(0x03 << 22);
 	/* send HW interrupt 0 to TP0, HW interrupt 1 to TP1 */
@@ -330,7 +332,7 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
 		smp_processor_id());
 #if defined(CONFIG_BMIPS4380)
 	set_c0_brcm_cmt_ctrl(0x01);
-#elif defined(CONFIG_BMIPS6200)
+#elif defined(CONFIG_BMIPS5000)
 	write_c0_brcm_action(0x9);
 #endif
 

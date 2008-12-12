@@ -105,6 +105,31 @@ config SECURITY_SECLVL
 
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_DIGSIG
+        tristate "Enable Application Digital Signature Verification"
+        depends on SECURITY
+        select CRYPTO
+        select CRYPTO_SHA1
+        help
+          This is an LSM module which allows only objects with a valid
+          digital signnature to be executed.
+
+          Build as a module for testing.
+          Build into the kernel for production. In this case,
+          CRYPTO_SHA1 must also be built into the kernel.
+
+          If you are unsure how to answer this question, answer N.
+
+config SECURITY_DIGSIG_DEBUG
+        bool "Debug mode"
+        depends on SECURITY_DIGSIG
+        help
+          Enable debug mode.
+          Signatures are verified but not enforced.
+          Not for production mode.
+
+          If you are unsure how to answer this question, answer N.
+
 source security/selinux/Kconfig
 
 endmenu

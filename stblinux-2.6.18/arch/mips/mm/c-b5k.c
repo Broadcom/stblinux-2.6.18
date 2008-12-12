@@ -1,5 +1,5 @@
 /*
- * c-b6k.c - variant of c-r4k.c for BMIPS6xxx
+ * c-b5k.c - variant of c-r4k.c for BMIPS5xxx
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
@@ -43,56 +43,56 @@ static unsigned long scache_size __read_mostly;
  */
 typedef unsigned long long cachestat_t;
 
-static cachestat_t cache_all_count;		/* local_b6k___flush_cache_all */
+static cachestat_t cache_all_count;		/* local_b5k___flush_cache_all */
 static cachestat_t cache_all_cycles;
-static cachestat_t cache_mm_count;		/* local_b6k_flush_cache_mm */
+static cachestat_t cache_mm_count;		/* local_b5k_flush_cache_mm */
 static cachestat_t cache_mm_cycles;
-static cachestat_t cache_page_count;		/* local_b6k_flush_cache_page */
+static cachestat_t cache_page_count;		/* local_b5k_flush_cache_page */
 static cachestat_t cache_page_cycles;
-static cachestat_t cache_ipage_count;		/* local_b6k_flush_icache_page */
+static cachestat_t cache_ipage_count;		/* local_b5k_flush_icache_page */
 static cachestat_t cache_ipage_cycles;
-static cachestat_t cache_range_count;		/* local_b6k_flush_cache_range */
+static cachestat_t cache_range_count;		/* local_b5k_flush_cache_range */
 static cachestat_t cache_range_cycles;
 static cachestat_t cache_brange_count;		/* brcm_r4k_flush_cache_range */
 static cachestat_t cache_brange_cycles;
-static cachestat_t cache_sigtramp_count;	/* local_b6k_flush_cache_sigtramp */
+static cachestat_t cache_sigtramp_count;	/* local_b5k_flush_cache_sigtramp */
 static cachestat_t cache_sigtramp_cycles;
-static cachestat_t cache_iflush_count;		/* b6k_flush_icache_all */
+static cachestat_t cache_iflush_count;		/* b5k_flush_icache_all */
 static cachestat_t cache_iflush_cycles;
-static cachestat_t cache_dpage_count;		/* local_b6k_flush_data_cache_page */
+static cachestat_t cache_dpage_count;		/* local_b5k_flush_data_cache_page */
 static cachestat_t cache_dpage_cycles;
-static cachestat_t cache_irange_count;		/* local_b6k_flush_icache_range */
+static cachestat_t cache_irange_count;		/* local_b5k_flush_icache_range */
 static cachestat_t cache_irange_cycles;
-static cachestat_t cache_dmawb_count;		/* b6k_dma_cache_wback_inv */
+static cachestat_t cache_dmawb_count;		/* b5k_dma_cache_wback_inv */
 static cachestat_t cache_dmawb_cycles;
-static cachestat_t cache_dmainv_count;		/* b6k_dma_cache_inv */
+static cachestat_t cache_dmainv_count;		/* b5k_dma_cache_inv */
 static cachestat_t cache_dmainv_cycles;
 
 void cache_printstats(struct seq_file *m)
 {
-	seq_printf(m, "local_b6k__flush_cache_all      : %-12llu (%llu)\n",
+	seq_printf(m, "local_b5k__flush_cache_all      : %-12llu (%llu)\n",
 		cache_all_count, cache_all_cycles);
-	seq_printf(m, "local_b6k_flush_cache_mm        : %-12llu (%llu)\n",
+	seq_printf(m, "local_b5k_flush_cache_mm        : %-12llu (%llu)\n",
 		cache_mm_count, cache_mm_cycles);
-	seq_printf(m, "local_b6k_flush_cache_page      : %-12llu (%llu)\n",
+	seq_printf(m, "local_b5k_flush_cache_page      : %-12llu (%llu)\n",
 		cache_page_count, cache_page_cycles);
-	seq_printf(m, "local_b6k_flush_icache_page     : %-12llu (%llu)\n",
+	seq_printf(m, "local_b5k_flush_icache_page     : %-12llu (%llu)\n",
 		cache_ipage_count, cache_ipage_cycles);
-	seq_printf(m, "local_b6k_flush_cache_range     : %-12llu (%llu)\n",
+	seq_printf(m, "local_b5k_flush_cache_range     : %-12llu (%llu)\n",
 		cache_range_count, cache_range_cycles);
 	seq_printf(m, "brcm_r4k_flush_cache_range      : %-12llu (%llu)\n",
 		cache_brange_count, cache_brange_cycles);
-	seq_printf(m, "local_b6k_flush_cache_sigtramp  : %-12llu (%llu)\n",
+	seq_printf(m, "local_b5k_flush_cache_sigtramp  : %-12llu (%llu)\n",
 		cache_sigtramp_count, cache_sigtramp_cycles);
-	seq_printf(m, "b6k_flush_icache_all            : %-12llu (%llu)\n",
+	seq_printf(m, "b5k_flush_icache_all            : %-12llu (%llu)\n",
 		cache_iflush_count, cache_iflush_cycles);
-	seq_printf(m, "local_b6k_flush_data_cache_page : %-12llu (%llu)\n",
+	seq_printf(m, "local_b5k_flush_data_cache_page : %-12llu (%llu)\n",
 		cache_dpage_count, cache_dpage_cycles);
-	seq_printf(m, "local_b6k_flush_icache_range    : %-12llu (%llu)\n",
+	seq_printf(m, "local_b5k_flush_icache_range    : %-12llu (%llu)\n",
 		cache_irange_count, cache_irange_cycles);
-	seq_printf(m, "b6k_dma_cache_wback_inv         : %-12llu (%llu)\n",
+	seq_printf(m, "b5k_dma_cache_wback_inv         : %-12llu (%llu)\n",
 		cache_dmawb_count, cache_dmawb_cycles);
-	seq_printf(m, "b6k_dma_cache_inv               : %-12llu (%llu)\n",
+	seq_printf(m, "b5k_dma_cache_inv               : %-12llu (%llu)\n",
 		cache_dmainv_count, cache_dmainv_cycles);
 }
 
@@ -113,12 +113,12 @@ void cache_printstats(struct seq_file *m)
 	
 #endif
 
-static void (* b6k_blast_scache)(void);
+static void (* b5k_blast_scache)(void);
 
 void bcm_inv_rac_all(void)
 {
 	__sync();
-	b6k_blast_scache();
+	b5k_blast_scache();
 }
 EXPORT_SYMBOL(bcm_inv_rac_all);
 
@@ -136,187 +136,187 @@ static struct bcache_ops no_sc_ops = {
 
 struct bcache_ops *bcops = &no_sc_ops;
 
-static void (*b6k_blast_dcache_page)(unsigned long addr);
+static void (*b5k_blast_dcache_page)(unsigned long addr);
 
-static inline void b6k_blast_dcache_page_dc32(unsigned long addr)
+static inline void b5k_blast_dcache_page_dc32(unsigned long addr)
 {
 	blast_dcache32_page(addr);
 }
 
-static inline void b6k_blast_dcache_page_dc64(unsigned long addr)
+static inline void b5k_blast_dcache_page_dc64(unsigned long addr)
 {
 	blast_dcache64_page(addr);
 }
 
-static inline void b6k_blast_dcache_page_setup(void)
+static inline void b5k_blast_dcache_page_setup(void)
 {
 	unsigned long  dc_lsize = cpu_dcache_line_size();
 
 	if (dc_lsize == 0)
-		b6k_blast_dcache_page = (void *)cache_noop;
+		b5k_blast_dcache_page = (void *)cache_noop;
 	else if (dc_lsize == 16)
-		b6k_blast_dcache_page = blast_dcache16_page;
+		b5k_blast_dcache_page = blast_dcache16_page;
 	else if (dc_lsize == 32)
-		b6k_blast_dcache_page = b6k_blast_dcache_page_dc32;
+		b5k_blast_dcache_page = b5k_blast_dcache_page_dc32;
 	else if (dc_lsize == 64)
-		b6k_blast_dcache_page = b6k_blast_dcache_page_dc64;
+		b5k_blast_dcache_page = b5k_blast_dcache_page_dc64;
 }
 
-static void (* b6k_blast_dcache_page_indexed)(unsigned long addr);
+static void (* b5k_blast_dcache_page_indexed)(unsigned long addr);
 
-static inline void b6k_blast_dcache_page_indexed_setup(void)
+static inline void b5k_blast_dcache_page_indexed_setup(void)
 {
 	unsigned long dc_lsize = cpu_dcache_line_size();
 
 	if (dc_lsize == 0)
-		b6k_blast_dcache_page_indexed = (void *)cache_noop;
+		b5k_blast_dcache_page_indexed = (void *)cache_noop;
 	else if (dc_lsize == 16)
-		b6k_blast_dcache_page_indexed = blast_dcache16_page_indexed;
+		b5k_blast_dcache_page_indexed = blast_dcache16_page_indexed;
 	else if (dc_lsize == 32)
-		b6k_blast_dcache_page_indexed = blast_dcache32_page_indexed;
+		b5k_blast_dcache_page_indexed = blast_dcache32_page_indexed;
 	else if (dc_lsize == 64)
-		b6k_blast_dcache_page_indexed = blast_dcache64_page_indexed;
+		b5k_blast_dcache_page_indexed = blast_dcache64_page_indexed;
 }
 
-static void (* b6k_blast_dcache)(void);
+static void (* b5k_blast_dcache)(void);
 
-static inline void b6k_blast_dcache_setup(void)
+static inline void b5k_blast_dcache_setup(void)
 {
 	unsigned long dc_lsize = cpu_dcache_line_size();
 
 	if (dc_lsize == 0)
-		b6k_blast_dcache = (void *)cache_noop;
+		b5k_blast_dcache = (void *)cache_noop;
 	else if (dc_lsize == 16)
-		b6k_blast_dcache = blast_dcache16;
+		b5k_blast_dcache = blast_dcache16;
 	else if (dc_lsize == 32)
-		b6k_blast_dcache = blast_dcache32;
+		b5k_blast_dcache = blast_dcache32;
 	else if (dc_lsize == 64)
-		b6k_blast_dcache = blast_dcache64;
+		b5k_blast_dcache = blast_dcache64;
 }
 
-static void (* b6k_blast_icache_page)(unsigned long addr);
+static void (* b5k_blast_icache_page)(unsigned long addr);
 
-static inline void b6k_blast_icache_page_setup(void)
+static inline void b5k_blast_icache_page_setup(void)
 {
 	unsigned long ic_lsize = cpu_icache_line_size();
 
 	if (ic_lsize == 0)
-		b6k_blast_icache_page = (void *)cache_noop;
+		b5k_blast_icache_page = (void *)cache_noop;
 	else if (ic_lsize == 16)
-		b6k_blast_icache_page = blast_icache16_page;
+		b5k_blast_icache_page = blast_icache16_page;
 	else if (ic_lsize == 32)
-		b6k_blast_icache_page = blast_icache32_page;
+		b5k_blast_icache_page = blast_icache32_page;
 	else if (ic_lsize == 64)
-		b6k_blast_icache_page = blast_icache64_page;
+		b5k_blast_icache_page = blast_icache64_page;
 }
 
 
-static void (* b6k_blast_icache_page_indexed)(unsigned long addr);
+static void (* b5k_blast_icache_page_indexed)(unsigned long addr);
 
-static inline void b6k_blast_icache_page_indexed_setup(void)
+static inline void b5k_blast_icache_page_indexed_setup(void)
 {
 	unsigned long ic_lsize = cpu_icache_line_size();
 
 	if (ic_lsize == 0)
-		b6k_blast_icache_page_indexed = (void *)cache_noop;
+		b5k_blast_icache_page_indexed = (void *)cache_noop;
 	else if (ic_lsize == 16)
-		b6k_blast_icache_page_indexed = blast_icache16_page_indexed;
+		b5k_blast_icache_page_indexed = blast_icache16_page_indexed;
 	else if (ic_lsize == 32)
-		b6k_blast_icache_page_indexed = blast_icache32_page_indexed;
+		b5k_blast_icache_page_indexed = blast_icache32_page_indexed;
 	else if (ic_lsize == 64)
-		b6k_blast_icache_page_indexed = blast_icache64_page_indexed;
+		b5k_blast_icache_page_indexed = blast_icache64_page_indexed;
 }
 
-static void (* b6k_blast_icache)(void);
+static void (* b5k_blast_icache)(void);
 
-static inline void b6k_blast_icache_setup(void)
+static inline void b5k_blast_icache_setup(void)
 {
 	unsigned long ic_lsize = cpu_icache_line_size();
 
 	if (ic_lsize == 0)
-		b6k_blast_icache = (void *)cache_noop;
+		b5k_blast_icache = (void *)cache_noop;
 	else if (ic_lsize == 16)
-		b6k_blast_icache = blast_icache16;
+		b5k_blast_icache = blast_icache16;
 	else if (ic_lsize == 32)
-		b6k_blast_icache = blast_icache32;
+		b5k_blast_icache = blast_icache32;
 	else if (ic_lsize == 64)
-		b6k_blast_icache = blast_icache64;
+		b5k_blast_icache = blast_icache64;
 }
 
-static void (* b6k_blast_scache_page)(unsigned long addr);
+static void (* b5k_blast_scache_page)(unsigned long addr);
 
-static inline void b6k_blast_scache_page_setup(void)
+static inline void b5k_blast_scache_page_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
 	if (scache_size == 0)
-		b6k_blast_scache_page = (void *)cache_noop;
+		b5k_blast_scache_page = (void *)cache_noop;
 	else if (sc_lsize == 16)
-		b6k_blast_scache_page = blast_scache16_page;
+		b5k_blast_scache_page = blast_scache16_page;
 	else if (sc_lsize == 32)
-		b6k_blast_scache_page = blast_scache32_page;
+		b5k_blast_scache_page = blast_scache32_page;
 	else if (sc_lsize == 64)
-		b6k_blast_scache_page = blast_scache64_page;
+		b5k_blast_scache_page = blast_scache64_page;
 	else if (sc_lsize == 128)
-		b6k_blast_scache_page = blast_scache128_page;
+		b5k_blast_scache_page = blast_scache128_page;
 }
 
-static void (* b6k_blast_scache_page_indexed)(unsigned long addr);
+static void (* b5k_blast_scache_page_indexed)(unsigned long addr);
 
-static inline void b6k_blast_scache_page_indexed_setup(void)
+static inline void b5k_blast_scache_page_indexed_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
 	if (scache_size == 0)
-		b6k_blast_scache_page_indexed = (void *)cache_noop;
+		b5k_blast_scache_page_indexed = (void *)cache_noop;
 	else if (sc_lsize == 16)
-		b6k_blast_scache_page_indexed = blast_scache16_page_indexed;
+		b5k_blast_scache_page_indexed = blast_scache16_page_indexed;
 	else if (sc_lsize == 32)
-		b6k_blast_scache_page_indexed = blast_scache32_page_indexed;
+		b5k_blast_scache_page_indexed = blast_scache32_page_indexed;
 	else if (sc_lsize == 64)
-		b6k_blast_scache_page_indexed = blast_scache64_page_indexed;
+		b5k_blast_scache_page_indexed = blast_scache64_page_indexed;
 	else if (sc_lsize == 128)
-		b6k_blast_scache_page_indexed = blast_scache128_page_indexed;
+		b5k_blast_scache_page_indexed = blast_scache128_page_indexed;
 }
 
-static inline void b6k_blast_scache_setup(void)
+static inline void b5k_blast_scache_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
 	if (scache_size == 0)
-		b6k_blast_scache = (void *)cache_noop;
+		b5k_blast_scache = (void *)cache_noop;
 	else if (sc_lsize == 16)
-		b6k_blast_scache = blast_scache16;
+		b5k_blast_scache = blast_scache16;
 	else if (sc_lsize == 32)
-		b6k_blast_scache = blast_scache32;
+		b5k_blast_scache = blast_scache32;
 	else if (sc_lsize == 64)
-		b6k_blast_scache = blast_scache64;
+		b5k_blast_scache = blast_scache64;
 	else if (sc_lsize == 128)
-		b6k_blast_scache = blast_scache128;
+		b5k_blast_scache = blast_scache128;
 }
 
 /*
  * This is former mm's flush_cache_all() which really should be
  * flush_cache_vunmap these days ...
  */
-static void b6k_flush_cache_all(void)
+static void b5k_flush_cache_all(void)
 {
 	/* NOTE: this is normally a NOP when !cpu_has_dc_aliases */
-	b6k_blast_scache();
+	b5k_blast_scache();
 }
 
-static void b6k___flush_cache_all(void)
+static void b5k___flush_cache_all(void)
 {
 	/* L2 flush implicitly flushes L1 */
 	CACHE_ENTER(all);
-	b6k_blast_scache();
+	b5k_blast_scache();
 	CACHE_EXIT(all);
 }
 
-static void b6k_flush_cache_range(struct vm_area_struct *vma,
+static void b5k_flush_cache_range(struct vm_area_struct *vma,
 	unsigned long start, unsigned long end)
 {
-	/* I$ and D$ are coherent; b6k has no aliases */
+	/* I$ and D$ are coherent; b5k has no aliases */
 	CACHE_ENTER(range);
 	CACHE_EXIT(range);
 }
@@ -354,7 +354,7 @@ void brcm_r4k_flush_cache_range(struct vm_area_struct *vma, unsigned long start,
 #endif
 		if((mm->context != current->mm->context) ||
 			((end - start) > scache_size)) {
-			b6k_blast_scache();
+			b5k_blast_scache();
 		} else {
 			pgd_t *pgd;
 			pud_t *pud;
@@ -369,7 +369,7 @@ void brcm_r4k_flush_cache_range(struct vm_area_struct *vma, unsigned long start,
 				pte = pte_offset(pmd, start);
 
 				if(pte_val(*pte) & _PAGE_VALID)
-					b6k_blast_scache_page(start);
+					b5k_blast_scache_page(start);
 				start += PAGE_SIZE;
 			}
 			local_irq_restore(flags);
@@ -380,14 +380,14 @@ void brcm_r4k_flush_cache_range(struct vm_area_struct *vma, unsigned long start,
 }
 #endif // Brcm imple of flush_cache_range
 
-static void b6k_flush_cache_mm(struct mm_struct *mm)
+static void b5k_flush_cache_mm(struct mm_struct *mm)
 {
 	/* No cache aliases - not needed */
 	CACHE_ENTER(mm);
 	CACHE_EXIT(mm);
 }
 
-static void b6k_flush_cache_page(struct vm_area_struct *vma,
+static void b5k_flush_cache_page(struct vm_area_struct *vma,
 	unsigned long addr, unsigned long pfn)
 {
 	/*
@@ -399,25 +399,25 @@ static void b6k_flush_cache_page(struct vm_area_struct *vma,
 	CACHE_EXIT(page);
 }
 
-static inline void local_b6k_flush_data_cache_page(void * addr)
+static inline void local_b5k_flush_data_cache_page(void * addr)
 {
 	CACHE_ENTER(dpage);
 	CACHE_EXIT(dpage);
 }
 
-static void b6k_flush_data_cache_page(unsigned long addr)
+static void b5k_flush_data_cache_page(unsigned long addr)
 {
-	local_b6k_flush_data_cache_page(NULL);
+	local_b5k_flush_data_cache_page(NULL);
 }
 
-static void b6k_flush_icache_range(unsigned long start, unsigned long end)
+static void b5k_flush_icache_range(unsigned long start, unsigned long end)
 {
 	CACHE_ENTER(irange);
 	CACHE_EXIT(irange);
 	instruction_hazard();
 }
 
-static void b6k_flush_icache_page(struct vm_area_struct *vma,
+static void b5k_flush_icache_page(struct vm_area_struct *vma,
 	struct page *page)
 {
 	CACHE_ENTER(ipage);
@@ -428,7 +428,7 @@ static void b6k_flush_icache_page(struct vm_area_struct *vma,
 
 #ifdef CONFIG_DMA_NONCOHERENT
 
-static void b6k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
+static void b5k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 {
 	CACHE_ENTER(dmawb);
 	/* Catch bad driver code */
@@ -438,25 +438,25 @@ static void b6k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 
 	/* L2 flush implicitly flushes L1 */
 	if (size >= scache_size)
-		b6k_blast_scache();
+		b5k_blast_scache();
 	else
 		bc_wback_inv(addr, size);
 	CACHE_EXIT(dmawb);
 }
 
-static void b6k_dma_cache_inv(unsigned long addr, unsigned long size)
+static void b5k_dma_cache_inv(unsigned long addr, unsigned long size)
 {
-	b6k_dma_cache_wback_inv(addr, size);
+	b5k_dma_cache_wback_inv(addr, size);
 }
 #endif /* CONFIG_DMA_NONCOHERENT */
 
-static void b6k_flush_cache_sigtramp(unsigned long addr)
+static void b5k_flush_cache_sigtramp(unsigned long addr)
 {
 	CACHE_ENTER(sigtramp);
 	CACHE_EXIT(sigtramp);
 }
 
-static void b6k_flush_icache_all(void)
+static void b5k_flush_icache_all(void)
 {
 	CACHE_ENTER(iflush);
 	CACHE_EXIT(iflush);
@@ -470,7 +470,6 @@ static void __init probe_pcache(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int config = read_c0_config();
-	unsigned int prid = read_c0_prid();
 	unsigned long config1;
 	unsigned int lsize;
 
@@ -521,19 +520,6 @@ static void __init probe_pcache(void)
 		break;
 	}
 
-	/*
-	 * Processor configuration sanity check for the R4000SC erratum
-	 * #5.  With page sizes larger than 32kB there is no possibility
-	 * to get a VCE exception anymore so we don't care about this
-	 * misconfiguration.  The case is rather theoretical anyway;
-	 * presumably no vendor is shipping his hardware in the "bad"
-	 * configuration.
-	 */
-	if ((prid & 0xff00) == PRID_IMP_R4000 && (prid & 0xff) < 0x40 &&
-	    !(config & CONF_SC) && c->icache.linesz != 16 &&
-	    PAGE_SIZE <= 0x8000)
-		panic("Improper R4000SC processor configuration detected");
-
 	/* compute a couple of other cache variables */
 	c->icache.waysize = icache_size / c->icache.ways;
 	c->dcache.waysize = dcache_size / c->dcache.ways;
@@ -557,50 +543,22 @@ extern int mips_sc_init(void);
 static void __init setup_scache(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
-	int sc_present = 0;
 
-	/*
-	 * Do the probing thing on R4000SC and R4400SC processors.  Other
-	 * processors don't have a S-cache that would be relevant to the
-	 * Linux memory managment.
-	 */
-	switch (c->cputype) {
-	default:
-		if (c->isa_level == MIPS_CPU_ISA_M32R1 ||
-		    c->isa_level == MIPS_CPU_ISA_M32R2 ||
-		    c->isa_level == MIPS_CPU_ISA_M64R1 ||
-		    c->isa_level == MIPS_CPU_ISA_M64R2) {
 #ifdef CONFIG_MIPS_CPU_SCACHE
-			if (mips_sc_init ()) {
-				scache_size = c->scache.ways * c->scache.sets * c->scache.linesz;
-				printk("MIPS secondary cache %ldkB, %s, linesize %d bytes.\n",
-				       scache_size >> 10,
-				       way_string[c->scache.ways], c->scache.linesz);
-			}
-#else
-			if (!(c->scache.flags & MIPS_CACHE_NOT_PRESENT))
-				panic("Dunno how to handle MIPS32 / MIPS64 second level cache");
-#endif
-			return;
-		}
-		sc_present = 0;
+	if (mips_sc_init ()) {
+		scache_size = c->scache.ways * c->scache.sets * c->scache.linesz;
+		printk("MIPS secondary cache %ldkB, %s, linesize %d bytes.\n",
+		       scache_size >> 10,
+		       way_string[c->scache.ways], c->scache.linesz);
 	}
-
-	if (!sc_present)
-		return;
-
-	/* compute a couple of other cache variables */
-	c->scache.waysize = scache_size / c->scache.ways;
-
-	c->scache.sets = scache_size / (c->scache.linesz * c->scache.ways);
-
-	printk("Unified secondary cache %ldkB %s, linesize %d bytes.\n",
-	       scache_size >> 10, way_string[c->scache.ways], c->scache.linesz);
-
-	c->options |= MIPS_CPU_INCLUSIVE_CACHES;
+#else
+	if (!(c->scache.flags & MIPS_CACHE_NOT_PRESENT))
+		panic("Dunno how to handle MIPS32 / MIPS64 second level cache");
+#endif
+	return;
 }
 
-void __init b6k_cache_init(void)
+void __init b5k_cache_init(void)
 {
 	extern void build_clear_page(void);
 	extern void build_copy_page(void);
@@ -612,38 +570,38 @@ void __init b6k_cache_init(void)
 	probe_pcache();
 	setup_scache();
 
-	b6k_blast_dcache_page_setup();
-	b6k_blast_dcache_page_indexed_setup();
-	b6k_blast_dcache_setup();
-	b6k_blast_icache_page_setup();
-	b6k_blast_icache_page_indexed_setup();
-	b6k_blast_icache_setup();
-	b6k_blast_scache_page_setup();
-	b6k_blast_scache_page_indexed_setup();
-	b6k_blast_scache_setup();
+	b5k_blast_dcache_page_setup();
+	b5k_blast_dcache_page_indexed_setup();
+	b5k_blast_dcache_setup();
+	b5k_blast_icache_page_setup();
+	b5k_blast_icache_page_indexed_setup();
+	b5k_blast_icache_setup();
+	b5k_blast_scache_page_setup();
+	b5k_blast_scache_page_indexed_setup();
+	b5k_blast_scache_setup();
 
 	shm_align_mask = PAGE_SIZE-1;
 
-	flush_cache_all		= b6k_flush_cache_all;
-	__flush_cache_all	= b6k___flush_cache_all;
-	flush_cache_mm		= b6k_flush_cache_mm;
-	flush_cache_page	= b6k_flush_cache_page;
-	__flush_icache_page	= b6k_flush_icache_page;
-	flush_cache_range	= b6k_flush_cache_range;
+	flush_cache_all		= b5k_flush_cache_all;
+	__flush_cache_all	= b5k___flush_cache_all;
+	flush_cache_mm		= b5k_flush_cache_mm;
+	flush_cache_page	= b5k_flush_cache_page;
+	__flush_icache_page	= b5k_flush_icache_page;
+	flush_cache_range	= b5k_flush_cache_range;
 
-	flush_cache_sigtramp	= b6k_flush_cache_sigtramp;
-	flush_icache_all	= b6k_flush_icache_all;
-	local_flush_data_cache_page	= local_b6k_flush_data_cache_page;
-	flush_data_cache_page	= b6k_flush_data_cache_page;
-	flush_icache_range	= b6k_flush_icache_range;
+	flush_cache_sigtramp	= b5k_flush_cache_sigtramp;
+	flush_icache_all	= b5k_flush_icache_all;
+	local_flush_data_cache_page	= local_b5k_flush_data_cache_page;
+	flush_data_cache_page	= b5k_flush_data_cache_page;
+	flush_icache_range	= b5k_flush_icache_range;
 
 #ifdef CONFIG_DMA_NONCOHERENT
-	_dma_cache_wback_inv	= b6k_dma_cache_wback_inv;
-	_dma_cache_wback	= b6k_dma_cache_wback_inv;
-	_dma_cache_inv		= b6k_dma_cache_inv;
+	_dma_cache_wback_inv	= b5k_dma_cache_wback_inv;
+	_dma_cache_wback	= b5k_dma_cache_wback_inv;
+	_dma_cache_inv		= b5k_dma_cache_inv;
 #endif
 
 	build_clear_page();
 	build_copy_page();
-	b6k___flush_cache_all();
+	b5k___flush_cache_all();
 }

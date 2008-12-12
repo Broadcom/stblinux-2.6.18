@@ -132,6 +132,8 @@ static int brcm_pci_read_config_dword(struct pci_bus *bus, unsigned int devfn,
 		brcm_pci_sata_read_config_dword(bus, devfn, where, val) :
 		PCIBIOS_FUNC_NOT_SUPPORTED;
     case 0:
+        if(! brcm_pci_enabled)
+		return(PCIBIOS_FUNC_NOT_SUPPORTED);
         break;
     default:
 

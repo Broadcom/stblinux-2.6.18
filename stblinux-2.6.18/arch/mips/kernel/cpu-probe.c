@@ -155,7 +155,7 @@ static inline void check_wait(void)
 	case CPU_BMIPS3300:
 	case CPU_BMIPS4350:
 	case CPU_BMIPS4380:
-	case CPU_BMIPS6200:
+	case CPU_BMIPS5000:
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;
@@ -764,8 +764,8 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
 #elif defined(CONFIG_BMIPS4380)
 	c->cputype = CPU_BMIPS4380;
 	c->tlbsize = 32;
-#elif defined(CONFIG_BMIPS6200)
-	c->cputype = CPU_BMIPS6200;
+#elif defined(CONFIG_BMIPS5000)
+	c->cputype = CPU_BMIPS5000;
 	c->tlbsize = 64;
 #else
 	c->cputype = CPU_BMIPS4380;

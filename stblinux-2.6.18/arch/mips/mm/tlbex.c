@@ -873,7 +873,7 @@ static __init void build_tlb_write_entry(u32 **p, struct label **l,
 	case CPU_BMIPS3300:
 	case CPU_BMIPS4350:
 	case CPU_BMIPS4380:
-	case CPU_BMIPS6200:
+	case CPU_BMIPS5000:
 
 		i_nop(p);
 		tlbw(p);

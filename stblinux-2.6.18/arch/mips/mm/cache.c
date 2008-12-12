@@ -151,8 +151,12 @@ void __init cpu_cache_init(void)
 	}
 	if (cpu_has_4k_cache) {
 		extern void __weak r4k_cache_init(void);
+		extern void __weak b5k_cache_init(void);
 
-		r4k_cache_init();
+		if(r4k_cache_init)
+			r4k_cache_init();
+		if(b5k_cache_init)
+			b5k_cache_init();
 		return;
 	}
 	if (cpu_has_8k_cache) {

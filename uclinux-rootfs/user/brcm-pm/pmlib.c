@@ -73,7 +73,7 @@ struct brcm_pm_priv
 #define SYS_TP1_STAT	"/sys/devices/system/cpu/cpu1/online"
 #define SYS_BASE_FREQ	"/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
 #define SYS_CUR_FREQ	"/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq"
-#define DHCPCD_PIDFILE	"/etc/config/dhcpc/dhcpcd-eth0.pid"
+#define DHCPCD_PIDFILE	"/var/run/dhcpcd-eth0.pid"
 #define DHCPCD_PATH	"/bin/dhcpcd"
 #define IFCONFIG_PATH	"/bin/ifconfig"
 #define HDPARM_PATH	"/sbin/hdparm"
@@ -319,7 +319,7 @@ int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 	{
 		if(st->enet_status)
 		{
-			ret |= run(DHCPCD_PATH, "-H", "eth0", NULL);
+			ret |= run(DHCPCD_PATH, "-Hd", "-L", "/var/run", "eth0", NULL);
 		} else {
 			unsigned int pid;
 

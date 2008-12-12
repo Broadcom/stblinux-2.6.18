@@ -80,9 +80,9 @@ extern unsigned long rac_config0, rac_config1, rac_address_range;
 #define BRCM_CMT_CACHE_WAR_0
 // #define BRCM_CMT_CACHE_WAR_1
 
-#elif defined(CONFIG_SMP) && defined(CONFIG_BMIPS6200)
+#elif defined(CONFIG_SMP) && defined(CONFIG_BMIPS5000)
 
-/* NO global cacheops on BMIPS6200 - TPs are fully coherent */
+/* NO global cacheops on BMIPS5000 - TPs are fully coherent */
 #define BRCM_CMT_CACHE_WAR_0
 #define BRCM_CMT_CACHE_WAR_1
 
@@ -240,7 +240,7 @@ void bcm_local_inv_rac_all(void)
 void bcm_inv_rac_all(void)
 {
 #if defined(CONFIG_MTI_R24K) || defined(CONFIG_MTI_R34K) || \
-	defined(CONFIG_BMIPS6200)
+	defined(CONFIG_BMIPS5000)
 	/* 7325 L2 supports prefetching */
 	r4k_blast_scache();
 	__sync();
@@ -251,7 +251,7 @@ void bcm_inv_rac_all(void)
 EXPORT_SYMBOL(bcm_inv_rac_all);
 
 #if defined(CONFIG_MTI_R24K) || defined(CONFIG_MTI_R34K) || \
-	defined(CONFIG_BMIPS6200)
+	defined(CONFIG_BMIPS5000)
 
 #define BCM_LOCAL_EXTRA_CACHEOP_WAR	__sync()
 
@@ -564,7 +564,7 @@ static inline void local_r4k_flush_cache_all(void * args)
 	case CPU_R12000:
 	case CPU_R14000:
 	case CPU_34K:
-	case CPU_BMIPS6200:
+	case CPU_BMIPS5000:
 		r4k_blast_scache();
 	}
 
@@ -599,7 +599,7 @@ static inline void local_r4k___flush_cache_all(void * args)
 	case CPU_R12000:
 	case CPU_R14000:
 	case CPU_34K:
-	case CPU_BMIPS6200:
+	case CPU_BMIPS5000:
 		r4k_blast_scache();
 	}
 
@@ -742,7 +742,7 @@ static inline void local_r4k_flush_cache_mm(void * args)
 	    current_cpu_data.cputype == CPU_R4400SC ||
 	    current_cpu_data.cputype == CPU_R4400MC ||
 	    current_cpu_data.cputype == CPU_34K	    ||		
-	    current_cpu_data.cputype == CPU_BMIPS6200)
+	    current_cpu_data.cputype == CPU_BMIPS5000)
 		r4k_blast_scache();
 
 	BCM_LOCAL_EXTRA_CACHEOP_WAR;

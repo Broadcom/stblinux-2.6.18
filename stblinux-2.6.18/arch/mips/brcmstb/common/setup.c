@@ -150,6 +150,10 @@ irqreturn_t smtc_timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 		/* If timer interrupt, make it de-assert */
 		write_c0_compare (read_c0_count() - 1);
 
+                vpflags = dvpe();
+                clear_c0_cause(0x100<<7);
+                evpe(vpflags);
+
 		/*
 		 * There are things we only want to do once per tick
 		 * in an "MP" system.   One TC of each VPE will take

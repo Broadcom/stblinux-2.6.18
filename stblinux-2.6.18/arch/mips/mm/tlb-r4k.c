@@ -948,7 +948,7 @@ __setup("ntlb=", set_ntlb);
 
 static bcm_memmap_t bcm_standard_memmap = {
 #if defined(CONFIG_MTI_R34K) || defined(CONFIG_BMIPS4380) || \
-	defined(CONFIG_BMIPS6200)
+	defined(CONFIG_BMIPS5000)
 		// || def(7440b0) but 7440b0 defines its own bcm_memmap
 	.tlb_mask =		PM_64M,
 #else

@@ -305,6 +305,15 @@ do {									\
 	: "=r" (tmp));							\
 } while (0)
 
+#elif defined(CONFIG_BMIPS5000)
+#define instruction_hazard() do { \
+	__asm__ __volatile__( \
+		"sync\n" \
+		"nop ; nop ; nop ; nop ; nop ; nop ; nop ; nop\n" \
+		"nop ; nop ; nop ; nop ; nop ; nop ; nop ; nop\n" \
+		"nop ; nop ; nop ; nop ; nop ; nop ; nop ; nop\n" \
+		"nop ; nop ; nop ; nop ; nop ; nop ; nop ; nop\n"); \
+} while (0)
 #else
 #define instruction_hazard() do { } while (0)
 #endif

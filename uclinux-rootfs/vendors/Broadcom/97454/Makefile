@@ -242,8 +242,6 @@ $(CRAMFSIMG): initramfs_dir
 	cp -f ../common/var/tmp/mountvar.sh $(INITRAMFS_DIR)/var/tmp/.
 	cp -f $(INITRAMFS_DIR)/var/tmp/mountvar.sh $(INITRAMFS_DIR)/etc
 	chmod +x $(INITRAMFS_DIR)/etc/mountvar.sh
-	cp -f ../common/var/tmp/rcS $(INITRAMFS_DIR)/var/tmp/.
-	cp -f $(INITRAMFS_DIR)/var/tmp/rcS $(INITRAMFS_DIR)/etc/init.d/rcS
 	rm -f $(INITRAMFS_DIR)/var/tmp/*
 	cd $(INITRAMFS_DIR)/var; tar -cvf $(INITRAMFS_DIR)/var.img . 2>&1 >/dev/null
 	$(ROOTDIR)/user/cramfs/build/mkcramfs -v -n "Cramfs" $(INITRAMFS_DIR) $(CRAMFSIMG)

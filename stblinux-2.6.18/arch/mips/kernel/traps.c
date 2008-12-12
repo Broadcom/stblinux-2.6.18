@@ -1175,7 +1175,7 @@ void nmi_exception_handler(struct pt_regs *regs)
 #if defined(CONFIG_SMP) && defined(CONFIG_BMIPS4380)
 /* see comments in prom_boot_secondary() */
 #define EXC_BASE	(CAC_BASE + 0x400)
-#elif defined(CONFIG_SMP) && defined(CONFIG_BMIPS6200)
+#elif defined(CONFIG_SMP) && defined(CONFIG_BMIPS5000)
 #define EXC_BASE	(CAC_BASE + 0x1000)
 #else
 #define EXC_BASE	(CAC_BASE)

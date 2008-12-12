@@ -361,20 +361,6 @@ serial_out(struct uart_8250_port *up, int offset, unsigned int value)
 
 #endif
 
-static void serial_out_sync(struct uart_8250_port *up, int offset, int value)
-{
-   switch (up->port.iotype) {
-   case UPIO_MEM:
-   case UPIO_MEM32:
-      serial_out(up, offset, value);
-      serial_in(up, UART_LCR);   /* safe, no side-effects */
-      break;
-   default:
-      serial_out(up, offset, value);
-   }
-}
-
-
 /*
  * We used to support using pause I/O for certain machines.  We
  * haven't supported this for a while, but just in case it's badly
@@ -1096,17 +1082,21 @@ static void transmit_chars(struct uart_8250_port *up);
 static void serial8250_start_tx(struct uart_port *port)
 {
 	struct uart_8250_port *up = (struct uart_8250_port *)port;
+	unsigned char lsr;
 
 	if (!(up->ier & UART_IER_THRI)) {
 		up->ier |= UART_IER_THRI;
 		serial_out(up, UART_IER, up->ier);
-
 		if (up->bugs & UART_BUG_TXEN) {
 			unsigned char lsr, iir;
 			lsr = serial_in(up, UART_LSR);
 			iir = serial_in(up, UART_IIR);
 			if (lsr & UART_LSR_TEMT && iir & UART_IIR_NO_INT)
 				transmit_chars(up);
+		}
+		else { /* by hyun */
+			lsr = serial_in(up, UART_LSR);
+			if (lsr & UART_LSR_TEMT ) transmit_chars(up);
 		}
 	}
 
@@ -1443,12 +1433,6 @@ static void serial_unlink_irq_chain(struct uart_8250_port *up)
 
 	serial_do_unlink(i, up);
 }
-/* Base timer interval for polling */
-static inline int poll_timeout(int timeout)
-{
-   return timeout > 6 ? (timeout / 2 - 2) : 1;
-}
-
 
 /*
  * This function is used to handle ports that do not have an
@@ -1472,44 +1456,6 @@ static void serial8250_timeout(unsigned long data)
 	timeout = up->port.timeout;
 	timeout = timeout > 6 ? (timeout / 2 - 2) : 1;
 	mod_timer(&up->timer, jiffies + timeout);
-}
-static void serial8250_backup_timeout(unsigned long data)
-{
-   struct uart_8250_port *up = (struct uart_8250_port *)data;
-   unsigned int iir, ier = 0;
-
-   /*
-    * Must disable interrupts or else we risk racing with the interrupt
-    * based handler.
-    */
-   if (is_real_interrupt(up->port.irq)) {
-      ier = serial_in(up, UART_IER);
-     serial_out(up, UART_IER, 0);
-   }
-
-   iir = serial_in(up, UART_IIR);
-
-   /*
-    * This should be a safe test for anyone who doesn't trust the
-    * IIR bits on their UART, but it's specifically designed for
-    * the "Diva" UART used on the management processor on many HP
-    * ia64 and parisc boxes.
-    */
-   if ((iir & UART_IIR_NO_INT) && (up->ier & UART_IER_THRI) &&
-       (!uart_circ_empty(&up->port.info->xmit) || up->port.x_char) &&
-       (serial_in(up, UART_LSR) & UART_LSR_THRE)) {
-      iir &= ~(UART_IIR_ID | UART_IIR_NO_INT);
-      iir |= UART_IIR_THRI;
-   }
-
-   if (!(iir & UART_IIR_NO_INT))
-      serial8250_handle_port(up, NULL);
-
-   if (is_real_interrupt(up->port.irq))
-      serial_out(up, UART_IER, ier);
-
-   /* Standard timer interval plus 0.2s to keep the port running */
-   mod_timer(&up->timer, jiffies + poll_timeout(up->port.timeout) + HZ/5);
 }
 
 static unsigned int serial8250_tx_empty(struct uart_port *port)
@@ -1582,7 +1528,6 @@ static void serial8250_break_ctl(struct uart_port *port, int break_state)
 
 static int released_irq = -1;
 
-static inline void wait_for_xmitr(struct uart_8250_port *up);
 static int serial8250_startup(struct uart_port *port)
 {
 	struct uart_8250_port *up = (struct uart_8250_port *)port;
@@ -1657,46 +1602,6 @@ static int serial8250_startup(struct uart_port *port)
 
 		serial_outp(up, UART_LCR, 0);
 	}
-
-   if (is_real_interrupt(up->port.irq)) {
-	  unsigned char iir; 
-      /*
-       * Test for UARTs that do not reassert THRE when the
-       * transmitter is idle and the interrupt has already
-       * been cleared.  Real 16550s should always reassert
-       * this interrupt whenever the transmitter is idle and
-       * the interrupt is enabled.  Delays are necessary to
-       * allow register changes to become visible.
-       */
-      spin_lock_irqsave(&up->port.lock, flags);
-
-#ifdef CONFIG_SERIAL_8250_CONSOLE
-      wait_for_xmitr(up);/*, UART_LSR_THRE);*/
-#endif
-      serial_out_sync(up, UART_IER, UART_IER_THRI);
-      udelay(1); /* allow THRE to set */
-      serial_in(up, UART_IIR);
-      serial_out(up, UART_IER, 0);
-      serial_out_sync(up, UART_IER, UART_IER_THRI);
-      udelay(1); /* allow a working UART time to re-assert THRE */
-      iir = serial_in(up, UART_IIR);
-      serial_out(up, UART_IER, 0);
-
-      spin_unlock_irqrestore(&up->port.lock, flags);
-
-      /*
-       * If the interrupt is not reasserted, setup a timer to
-       * kick the UART on a regular basis.
-       */
-      if (iir & UART_IIR_NO_INT) {
-         pr_debug("ttyS%d - using backup timer\n", port->line);
-         up->timer.function = serial8250_backup_timeout;
-         up->timer.data = (unsigned long)up;
-         mod_timer(&up->timer, jiffies +
-                   poll_timeout(up->port.timeout) + HZ/5);
-      }
-   }
-
 
 	/*
 	 * If the "interrupt" for this port doesn't correspond with any
@@ -1804,9 +1709,10 @@ static void serial8250_shutdown(struct uart_port *port)
 	 * the IRQ chain.
 	 */
 	(void) serial_in(up, UART_RX);
-	del_timer_sync(&up->timer);
-	up->timer.function = serial8250_timeout;
-	if (is_real_interrupt(up->port.irq))
+
+	if (!is_real_interrupt(up->port.irq))
+		del_timer_sync(&up->timer);
+	else
 		serial_unlink_irq_chain(up);
 }
 
@@ -2295,6 +2201,16 @@ static inline void wait_for_xmitr(struct uart_8250_port *up)
 	}
 }
 
+/* added by hyun */
+static void serial8250_console_putchar(struct uart_port *port, int ch)
+{
+   struct uart_8250_port *up = (struct uart_8250_port *)port;
+
+   wait_for_xmitr(up);
+   serial_out(up, UART_TX, ch);
+}
+
+
 /*
  *	Print a string to the serial port trying not to disturb
  *	any possible real use of the port...
@@ -2317,10 +2233,11 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 		serial_out(up, UART_IER, UART_IER_UUE);
 	else
 		serial_out(up, UART_IER, 0);
-
 	/*
 	 *	Now, do each character
 	 */
+#if 0 
+	/* removed by hyun */
 	for (i = 0; i < count; i++, s++) {
 		wait_for_xmitr(up);
 
@@ -2334,15 +2251,18 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 			serial_out(up, UART_TX, 13);
 		}
 	}
+#else 
+	/* added by hyun */
+	uart_console_write(&up->port, s, count, serial8250_console_putchar);
+#endif
 
 	/*
 	 *	Finally, wait for transmitter to become empty
 	 *	and restore the IER
 	 */
 	wait_for_xmitr(up);
-
-	/* enabling the TX interrupt from console_write on buggy UART */
-	ier |= UART_IER_THRI;
+	/* enable TX interrupt by hyun */
+	ier |= UART_IER_THRI;	
 	serial_out(up, UART_IER, ier);
 }
 

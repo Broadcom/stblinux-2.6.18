@@ -13,6 +13,12 @@ mount -t sysfs none /sys
 # Enable hotplug
 echo "/sbin/hotplug" > /proc/sys/kernel/hotplug
 
+if [ -f /etc/mountvar.sh ]; then
+	# Using RO flash filesystem
+	echo "Restore RW directories"
+	/bin/bash /etc/mountvar.sh
+fi
+
 # Mount /dev/pts
 echo "Mount /dev/pts"
 mount -t devpts none /dev/pts
@@ -66,18 +72,13 @@ if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
 
 		ifconfig lo 127.0.0.1 netmask 255.0.0.0
 
+		rm -f /etc/resolv.conf /var/run/dhcpcd-*.pid
 		for ((i=0; i<$interfaces; i++))
 		do
-			rm -f /etc/resolv.conf
-			if [ -f /var/run/dhcpcd-eth$i.pid ]; then
-				rm -f /var/run/dhcpcd-eth$i.pid
-			fi
-			# PR21492 - new dhcpcd use different dir to store *.pid
-			if [ -f /etc/config/dhcpc/dhcpcd-eth$i.pid ]; then
-        			rm -f /etc/config/dhcpc/dhcpcd-eth$i.pid
-			fi
-			echo "dhcpcd -Hd eth$i"
-			dhcpcd -Hd eth$i > /dev/null  &
+			echo "dhcpcd -Hd -L /var/run eth$i"
+			dhcpcd -Hd -L /var/run eth$i > /dev/null &
+			# HACK: dhcpcd doesn't fork until it gets an IP
+			echo $! > /var/run/dhcpcd-eth$i.pid.bak
 		done
 	else
 		netdev=`echo "$netconf" | cut -f1 -d','`
@@ -88,16 +89,10 @@ if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
 			;;
 		dhcp)
 			ifconfig lo 127.0.0.1 netmask 255.0.0.0
-			rm -f /etc/resolv.conf
-			if [ -f /var/run/dhcpcd-${netdev}.pid ]; then
-				rm -f /var/run/dhcpcd-${netdev}.pid
-			fi
-		        # PR21492 - new dhcpcd use different dir to store *.pid
-		        if [ -f /etc/config/dhcpc/dhcpcd-${netdev}.pid ]; then
-		                rm -f /etc/config/dhcpc/dhcpcd-${netdev}.pid
-		        fi
-			echo "dhcpcd -Hd $netdev"
-    			dhcpcd -Hd "$netdev" > /dev/null &
+			rm -f /etc/resolv.conf /var/run/dhcpcd-*.pid
+			echo "dhcpcd -Hd -L /var/run $netdev"
+    			dhcpcd -Hd -L /var/run "$netdev" > /dev/null &
+			echo $! > /var/run/dhcpcd-eth$i.pid.bak
 			;;
 	
 		*)	# If the user specifies the wrong syntax, there is nothing we can do

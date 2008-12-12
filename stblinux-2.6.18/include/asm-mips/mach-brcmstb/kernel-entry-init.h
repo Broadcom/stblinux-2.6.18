@@ -75,14 +75,14 @@ return_from_pci_slave_init:
 
 #ifdef CONFIG_MIPS_BRCM97XXX
 #if defined(CONFIG_SMP) && \
-	(defined(CONFIG_BMIPS4380) || defined(CONFIG_BMIPS6200))
+	(defined(CONFIG_BMIPS4380) || defined(CONFIG_BMIPS5000))
 
 	.extern  g_boot_config
 	# Check to see which TP we are running on.
 #if defined(CONFIG_BMIPS4380)
 	mfc0    $8, $22, 3
 	srl     $8, $8, 31
-#elif defined(CONFIG_BMIPS6200)
+#elif defined(CONFIG_BMIPS5000)
 	# move exception vectors to 8000_1000 (see below)
 	li	$9, 0x80001000
 	mtc0	$9, $15, 1
@@ -137,7 +137,7 @@ InTp1:
 	addu	$8, $9
 	li	$9, 0xa0080800
 	sw	$9, 0($8)	# *(CBA + 0x38000) <- 0xa0080800
-#elif defined(CONFIG_BMIPS6200)
+#elif defined(CONFIG_BMIPS5000)
 	# shift the exception vectors up 4kB to make room for TP1 reset vec
 	# a000_0000 - new BEV TP1 reset vector (formerly bfc0_0000)
 	# 8000_1000 - new !BEV vectors for TP0 and TP1 (formerly 8000_0000)

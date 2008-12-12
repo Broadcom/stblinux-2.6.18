@@ -585,8 +585,6 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
    # Create script to mount var RW
    cp /mnt/flash/var/tmp/mountvar.sh /mnt/flash/etc
    chmod +x /mnt/flash/etc/mountvar.sh
-   # Substitute with new rc.sysinit script
-   cp /mnt/flash/var/tmp/rcS /mnt/flash/etc/init.d/rcS
    rm /mnt/flash/var/tmp/*
    tar -cvf /mnt/flash/var.img . 2>&1 >/dev/null
 
