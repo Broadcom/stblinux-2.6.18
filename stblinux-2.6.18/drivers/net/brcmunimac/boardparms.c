@@ -128,7 +128,7 @@ int BpGetEthernetMacInfo( ETHERNET_MAC_INFO * pEnetInfos, int PhyType )
 	{
 		if(g_MacInfos[i].PhyType == PhyType)
 		{
-			memcpy(pEnetInfos, g_MacInfos[i], sizeof(ETHERNET_MAC_INFO) );
+			memcpy(pEnetInfos, &g_MacInfos[i], sizeof(ETHERNET_MAC_INFO) );
 			nRet = BP_SUCCESS;
 			break;
 		}

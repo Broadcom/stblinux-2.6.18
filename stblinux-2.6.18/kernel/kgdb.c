@@ -312,6 +312,7 @@ int __attribute__ ((weak))
      kgdb_arch_set_breakpoint(unsigned long addr, char *saved_instr)
 {
 	int error = 0;
+
 	if ((error = kgdb_get_mem((char *)addr,
 		saved_instr, BREAK_INSTR_SIZE)) < 0)
 			return error;
@@ -821,6 +822,10 @@ int kgdb_activate_sw_breakpoints(void)
 	for (i = 0; i < MAX_BREAKPOINTS; i++) {
 		if (kgdb_break[i].state != bp_set)
 			continue;
+
+		if (kgdb_break[i].type != bp_breakpoint)
+			continue;
+
 		addr = kgdb_break[i].bpt_addr;
 		if ((error = kgdb_arch_set_breakpoint(addr,
 					kgdb_break[i].saved_instr)))
@@ -839,6 +844,136 @@ int kgdb_activate_sw_breakpoints(void)
         }
 	return 0;
 }
+
+#ifdef CONFIG_MTI_R34K
+int hwWatchCount = 0;
+unsigned int *pWatch = 0;
+
+static int kgdb_set_hw_watchpoint(unsigned long addr)
+{
+	int i, breakno = -1;
+	int error = 0;
+
+	addr &= 0xfffffff8;
+	if ((error = kgdb_validate_break_address(addr)) < 0)
+		return error;
+	for (i = 0; i < MAX_BREAKPOINTS; i++) {
+		if ((kgdb_break[i].state == bp_set) &&
+			(kgdb_break[i].bpt_addr == addr))
+			return -EEXIST;
+	}
+	for (i = 0; i < MAX_BREAKPOINTS; i++) {
+		if (kgdb_break[i].state == bp_removed &&
+				kgdb_break[i].bpt_addr == addr) {
+			breakno = i;
+			break;
+		}
+	}
+
+	if (breakno == -1) {
+		for (i = 0; i < MAX_BREAKPOINTS; i++) {
+			if (kgdb_break[i].state == bp_none) {
+				breakno = i;
+				break;
+			}
+		}
+	}
+	if (breakno == -1)
+		return -E2BIG;
+
+	kgdb_break[breakno].state = bp_set;
+	kgdb_break[breakno].type = bp_write_watchpoint;
+	kgdb_break[breakno].bpt_addr = addr;
+
+	addr |= 1;
+//	printk("setting watchpoint , old value lo: 0x%x, high : 0x%x \r\n", kgdb_show_wplo(), kgdb_show_wphi());
+//	printk("setting watchpoint , old value lo: 0x%x, high : 0x%x \r\n", kgdb_show_wplo1(), kgdb_show_wphi1());
+//	printk("setting watchpoint , old value lo: 0x%x, high : 0x%x \r\n", kgdb_show_wplo2(), kgdb_show_wphi2());
+//	printk("setting watchpoint , old value lo: 0x%x, high : 0x%x \r\n", kgdb_show_wplo3(), kgdb_show_wphi3());
+        kgdb_set_wp(addr,0xc0000000);
+//	printk("setting watchpoint , new value lo: 0x%x, high : 0x%x .......................  \r\n", kgdb_show_wplo(), kgdb_show_wphi());
+//	printk("setting watchpoint , new value lo: 0x%x, high : 0x%x .......................  \r\n", kgdb_show_wplo1(), kgdb_show_wphi1());
+//	printk("setting watchpoint , new value lo: 0x%x, high : 0x%x .......................  \r\n", kgdb_show_wplo2(), kgdb_show_wphi2());
+//	printk("setting watchpoint , new value lo: 0x%x, high : 0x%x .......................  \r\n", kgdb_show_wplo3(), kgdb_show_wphi3());
+	pWatch = (unsigned int *)addr;
+
+	hwWatchCount++;
+	return 0;
+}
+
+static int kgdb_set_hw_rwatchpoint(unsigned long addr)
+{
+	int i, breakno = -1;
+	int error = 0;
+
+	addr &= 0xfffffff8;
+	if ((error = kgdb_validate_break_address(addr)) < 0)
+		return error;
+	for (i = 0; i < MAX_BREAKPOINTS; i++) {
+		if ((kgdb_break[i].state == bp_set) &&
+			(kgdb_break[i].bpt_addr == addr))
+			return -EEXIST;
+	}
+	for (i = 0; i < MAX_BREAKPOINTS; i++) {
+		if (kgdb_break[i].state == bp_removed &&
+				kgdb_break[i].bpt_addr == addr) {
+			breakno = i;
+			break;
+		}
+	}
+
+	if (breakno == -1) {
+		for (i = 0; i < MAX_BREAKPOINTS; i++) {
+			if (kgdb_break[i].state == bp_none) {
+				breakno = i;
+				break;
+			}
+		}
+	}
+	if (breakno == -1)
+		return -E2BIG;
+
+	kgdb_break[breakno].state = bp_set;
+	kgdb_break[breakno].type = bp_read_watchpoint;
+	kgdb_break[breakno].bpt_addr = addr;
+
+	addr |= 2;
+//	printk("setting watchpoint , old value lo: 0x%x, high : 0x%x \r\n", kgdb_show_wplo(), kgdb_show_wphi());
+//	printk("setting watchpoint , old value lo: 0x%x, high : 0x%x \r\n", kgdb_show_wplo1(), kgdb_show_wphi1());
+//	printk("setting watchpoint , old value lo: 0x%x, high : 0x%x \r\n", kgdb_show_wplo2(), kgdb_show_wphi2());
+//	printk("setting watchpoint , old value lo: 0x%x, high : 0x%x \r\n", kgdb_show_wplo3(), kgdb_show_wphi3());
+        kgdb_set_wp(addr,0xc0000000);
+	pWatch = (unsigned int *)addr;
+//	printk("setting watchpoint , new value lo: 0x%x, high : 0x%x .......................  \r\n", kgdb_show_wplo(), kgdb_show_wphi());
+//	printk("setting watchpoint , new value lo: 0x%x, high : 0x%x .......................  \r\n", kgdb_show_wplo1(), kgdb_show_wphi1());
+//	printk("setting watchpoint , new value lo: 0x%x, high : 0x%x .......................  \r\n", kgdb_show_wplo2(), kgdb_show_wphi2());
+//	printk("setting watchpoint , new value lo: 0x%x, high : 0x%x .......................  \r\n", kgdb_show_wplo3(), kgdb_show_wphi3());
+	hwWatchCount++;
+	return 0;
+}
+
+static int kgdb_remove_hw_watchpoint(unsigned long addr)
+{
+	int i;
+
+	addr &= 0xfffffff8;
+
+	for (i = 0; i < MAX_BREAKPOINTS; i++) {
+		if ((kgdb_break[i].state == bp_set) && 
+			((kgdb_break[i].type == bp_write_watchpoint) ||(kgdb_break[i].type == bp_read_watchpoint)) &&
+			(kgdb_break[i].bpt_addr == addr)) {
+			kgdb_break[i].state = bp_removed;
+//	printk("remove watchpoint , old value lo: 0x%x, high : 0x%x \r\n", kgdb_show_wplo2(), kgdb_show_wphi2());
+        		kgdb_set_wp(0,0x80000000);
+//	printk("remove watchpoint , new value lo: 0x%x, high : 0x%x .......................  \r\n", kgdb_show_wplo2(), kgdb_show_wphi2());
+			hwWatchCount--;
+			return 0;
+		}
+	}
+
+	return -ENOENT;
+}
+#endif //CONFIG_MTI_R34K
 
 static int kgdb_set_sw_break(unsigned long addr)
 {
@@ -885,6 +1020,9 @@ int kgdb_deactivate_sw_breakpoints(void)
 	for (i = 0; i < MAX_BREAKPOINTS; i++) {
 		if (kgdb_break[i].state != bp_active)
 			continue;
+		if (kgdb_break[i].type != bp_breakpoint)
+			continue;
+
 		addr = kgdb_break[i].bpt_addr;
 		if ((error = kgdb_arch_remove_breakpoint(addr,
 					kgdb_break[i].saved_instr)))
@@ -907,7 +1045,7 @@ static int kgdb_remove_sw_break(unsigned long addr)
 	int i;
 
 	for (i = 0; i < MAX_BREAKPOINTS; i++) {
-		if ((kgdb_break[i].state == bp_set) &&
+		if ((kgdb_break[i].state == bp_set) && (kgdb_break[i].type == bp_breakpoint)  && 
 			(kgdb_break[i].bpt_addr == addr)) {
 			kgdb_break[i].state = bp_removed;
 			return 0;
@@ -938,6 +1076,10 @@ int remove_all_break(void)
 	for (i = 0; i < MAX_BREAKPOINTS; i++) {
 		if (kgdb_break[i].state != bp_set)
 			continue;
+
+		if (kgdb_break[i].type != bp_breakpoint)
+			continue;
+
 		addr = kgdb_break[i].bpt_addr;
 		if ((error = kgdb_arch_remove_breakpoint(addr,
 					kgdb_break[i].saved_instr)))
@@ -993,6 +1135,7 @@ static void kgdb_msg_write(const char *s, int len)
 	}
 }
 
+
 /*
  * This function does all command procesing for interfacing to gdb.
  *
@@ -1022,6 +1165,7 @@ int kgdb_handle_exception(int ex_vector, int signo, int err_code,
 	struct pt_regs *shadowregs;
 	int processor = smp_processor_id();
 	void *local_debuggerinfo;
+
 
 	/* Panic on recursive debugger calls. */
 	if (atomic_read(&debugger_active) == smp_processor_id() + 1)
@@ -1444,9 +1588,13 @@ int kgdb_handle_exception(int ex_vector, int signo, int err_code,
 				/* Unsupported */
 				if (*bpt_type > '4')
 					break;
-			} else if (*bpt_type != '0' && *bpt_type != '1')
-				/* Unsupported. */
-				break;
+			} 
+#ifndef CONFIG_MTI_R34K
+else if (*bpt_type != '0' && *bpt_type != '1')  
+				/* Unsupported */
+			 	break;
+#endif //CONFIG_MTI_R34K
+
 			/* Test if this is a hardware breakpoint, and
 			 * if we support it. */
 			if (*bpt_type == '1' &&
@@ -1477,6 +1625,16 @@ int kgdb_handle_exception(int ex_vector, int signo, int err_code,
 				error = kgdb_remove_sw_break(addr);
 			else if (remcom_in_buffer[0] == 'z' && *bpt_type == '1')
 				error = kgdb_remove_hw_break(addr);
+#ifdef CONFIG_MTI_R34K
+			else if (remcom_in_buffer[0] == 'Z' && *bpt_type == '2')  
+				error = kgdb_set_hw_watchpoint(addr);
+			else if (remcom_in_buffer[0] == 'z' && *bpt_type == '2')
+				error = kgdb_remove_hw_watchpoint(addr);
+			else if (remcom_in_buffer[0] == 'Z' && *bpt_type == '3')    
+				error = kgdb_set_hw_rwatchpoint(addr);
+			else if (remcom_in_buffer[0] == 'z' && *bpt_type == '3')
+				error = kgdb_remove_hw_watchpoint(addr);
+#endif //CONFIG_MTI_R34K
 			else if (remcom_in_buffer[0] == 'Z')
 				error = kgdb_ops->set_hw_breakpoint(addr,
 								    (int)length,

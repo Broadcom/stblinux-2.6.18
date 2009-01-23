@@ -29,6 +29,8 @@
 #if !defined(_BOARDPARMS_H)
 #define _BOARDPARMS_H
 
+#include <asm/brcmstb/common/brcmstb.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -40,13 +42,13 @@ extern "C" {
 #define BP_BOARD_ID_NOT_SET                     3
 
 /* Values for EthernetMacInfo PhyType. */
-#define BP_ENET_NO_PHY                          0
-#define BP_ENET_INTERNAL_PHY                    1
-#define BP_ENET_EXTERNAL_PHY                    2	/* External 10/100 PHY */
-#define BP_ENET_EXTERNAL_GPHY					3	/* External 1000 PHY, use RGMII*/
-#define BP_ENET_EXTERNAL_GPHY_IBS				4	/* External 1000 PHY, use RGMII, the PHY support in-band signaling*/
-#define BP_ENET_EXTERNAL_MOCA					5	/* External MoCA, use GMII*/
-#define BP_ENET_EXTERNAL_SWITCH                 6
+#define BP_ENET_NO_PHY                          0xFF
+#define BP_ENET_INTERNAL_PHY			BRCM_PHY_TYPE_INT
+#define BP_ENET_EXTERNAL_PHY			BRCM_PHY_TYPE_EXT_MII	/* External 10/100 PHY */
+#define BP_ENET_EXTERNAL_GPHY			BRCM_PHY_TYPE_EXT_GMII	/* External 1000 PHY, use RGMII*/
+#define BP_ENET_EXTERNAL_GPHY_IBS		BRCM_PHY_TYPE_EXT_GMII_IBS	/* External 1000 PHY, use RGMII, the PHY support in-band signaling*/
+#define BP_ENET_EXTERNAL_MOCA			BRCM_PHY_TYPE_MOCA	/* External MoCA, use GMII*/
+#define BP_ENET_EXTERNAL_SWITCH			BRCM_PHY_TYPE_SWITCH
 
 /* Value for Ethernet Switch mode */
 #define BP_ENET_NO_MANAGEMENT_PORT              0

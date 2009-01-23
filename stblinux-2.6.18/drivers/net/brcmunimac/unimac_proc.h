@@ -29,7 +29,7 @@
 #define PROC_GROUP_EPLL		6
 
 /* Function pointer to decode a block of memory for debug.*/
-typedef char * (*display_fn)( char * buf, unsigned long * addr);
+typedef int (*display_fn)( char * buf, unsigned long * addr);
 /* proc entry */
 typedef struct umac_proc_t
 {
@@ -47,6 +47,7 @@ int bcmumac_proc_entry_create(char *path, umacProcEntry * entry);
 int bcmumac_proc_entry_remove(char *path, umacProcEntry * entry);
 
 /* script generated proc entries */
-extern umacProcEntry umac_proc_entries[235];
+extern umacProcEntry umac0_proc_entries[240];
+extern umacProcEntry umac1_proc_entries[240];
 
 #endif /* UNIMAC_PROC_H */

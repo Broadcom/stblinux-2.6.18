@@ -61,6 +61,10 @@ echo "Configure Network interface"
 ###insmod /lib/modules/`uname -r`/kernel/drivers/net/et.o
 # sleep 6
 
+if [ -e /bin/mocad ]; then
+	echo "Starting mocad"
+	mocad &
+fi
 
 # If we boot from NFS, then we don't need the Network, use whatever
 # was set up by NFS, 
@@ -76,7 +80,7 @@ if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
 		for ((i=0; i<$interfaces; i++))
 		do
 			echo "dhcpcd -Hd -L /var/run eth$i"
-			dhcpcd -Hd -L /var/run eth$i > /dev/null &
+			dhcpcd -t 300 -Hd -L /var/run eth$i > /dev/null &
 			# HACK: dhcpcd doesn't fork until it gets an IP
 			echo $! > /var/run/dhcpcd-eth$i.pid.bak
 		done
@@ -91,7 +95,7 @@ if [ -z "`cat /proc/mounts |grep /dev/root |grep '\<nfs\>'`" ]; then
 			ifconfig lo 127.0.0.1 netmask 255.0.0.0
 			rm -f /etc/resolv.conf /var/run/dhcpcd-*.pid
 			echo "dhcpcd -Hd -L /var/run $netdev"
-    			dhcpcd -Hd -L /var/run "$netdev" > /dev/null &
+    			dhcpcd -t 300 -Hd -L /var/run "$netdev" > /dev/null &
 			echo $! > /var/run/dhcpcd-eth$i.pid.bak
 			;;
 	

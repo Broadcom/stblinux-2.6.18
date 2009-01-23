@@ -28,21 +28,21 @@ static int proc_ston(const void *buf, int count, unsigned long *value);
 /*
  * utility find base register based on proc group
  */
-static inline volatile unsigned long * bcmumac_proc2base(const BcmEnet_devctrl * pDevCtrl, const umacProcEntry * entry)
+static inline unsigned long  bcmumac_proc2base(const BcmEnet_devctrl * pDevCtrl, const umacProcEntry * entry)
 {
 	switch(entry->group) {
 		case PROC_GROUP_UMAC:
-			return (volatile unsigned long*)pDevCtrl->umac;
+			return (volatile unsigned long)pDevCtrl->umac;
 		case PROC_GROUP_RBUF:
-			return (volatile unsigned long*)pDevCtrl->txrx_ctrl;
+			return (volatile unsigned long)pDevCtrl->txrx_ctrl;
 		case PROC_GROUP_INTRL2:
-			return (volatile unsigned long*)pDevCtrl->intrl2;
+			return (volatile unsigned long)pDevCtrl->intrl2;
 		case PROC_GROUP_HFB:
-			return (volatile unsigned long*)pDevCtrl->hfb;
+			return (volatile unsigned long)pDevCtrl->hfb;
 		case PROC_GROUP_ISDMA:
-			return (volatile unsigned long*)pDevCtrl->dmaRegs;
+			return (volatile unsigned long)pDevCtrl->dmaRegs;
 		case PROC_GROUP_EPLL:
-			return (volatile unsigned long*)pDevCtrl->epll;
+			return (volatile unsigned long)pDevCtrl->epll;
 		default:
 			return 0;
 	}
@@ -53,29 +53,31 @@ static inline volatile unsigned long * bcmumac_proc2base(const BcmEnet_devctrl *
  */
 static int bcmumac_proc_read(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
-	volatile unsigned long * reg;
+	int result;
+	volatile unsigned long  reg;
 	BcmEnet_devctrl * pDevCtrl;
-	volatile unsigned long * base;
+	volatile unsigned long  base;
 	umacProcEntry * entry = (umacProcEntry *)data;
 	
-	/* If the entry has a "display" function, display it and return. */
-	if (entry->fn != NULL) {
-		entry->fn(page, (unsigned long*)entry->context);
-		*eof = 1;
-		return 0;
-	}
 	pDevCtrl = (BcmEnet_devctrl *)entry->context;
 	base = bcmumac_proc2base(pDevCtrl, entry);
+	/* If the entry has a "display" function, display it and return. */
+	if (entry->fn != NULL) {
+		result = entry->fn(page, (unsigned long*)entry->context);
+		*eof = 1;
+		return result;
+	}
 
 	if(!base) {
 		*eof = 1;
 		return -EINVAL;
 	}
 	reg = base + entry->offset;
-	proc_ntos(page, count, "%u\n", (DEV_RD(reg) >> entry->shift) & entry->mask);
+	//printk("reg=0x%x\n", reg);
+	result = proc_ntos(page, count, "%u\n", (DEV_RD(reg) >> entry->shift) & entry->mask);
 
 	*eof = 1;
-	return 0;
+	return result;
 }
 /*
  * proc write function.
@@ -85,8 +87,8 @@ static int bcmumac_proc_write(struct file *file, const char * buffer, unsigned l
 {
 	umacProcEntry * entry = (umacProcEntry *)data;
 	BcmEnet_devctrl * pDevCtrl = (BcmEnet_devctrl *)entry->context;
-	volatile unsigned long * base = bcmumac_proc2base(pDevCtrl, entry);
-	volatile unsigned long * reg;
+	volatile unsigned long base = bcmumac_proc2base(pDevCtrl, entry);
+	volatile unsigned long reg;
 	unsigned long old, new;
 
 	if(!base) {
@@ -97,8 +99,9 @@ static int bcmumac_proc_write(struct file *file, const char * buffer, unsigned l
 		old = DEV_RD(reg);
 		old &= ~(entry->mask << entry->shift);
 		old |= ((new & entry->mask ) << entry->shift);
+		//printk("writing to 0x%x value=0x%x\n", reg, old);
 		DEV_WR(reg, old);
-		return 0;
+		return count;
 	}
 	return -EINVAL;
 }
@@ -202,8 +205,8 @@ int bcmumac_proc_entry_create(char *path, umacProcEntry * entry)
 				dir_entry->read_proc = bcmumac_proc_read;
 				dir_entry->write_proc = bcmumac_proc_write;
 			}
+			dir_entry->data = entry;
 		}
-		dir_entry->data = entry;
 	}
 	return (dir_entry ? 0: -ENODEV);
 }
@@ -225,7 +228,7 @@ int bcmumac_proc_entry_remove(char *path, umacProcEntry * entry)
 /* convert number to string.*/
 static int proc_ntos(void *buf, int count, const char * format, unsigned long value)
 {
-	return sprintf(buf, format, value);
+	return snprintf(buf, count, format, value);
 }
 /* convert string to number */
 static int proc_ston(const void *buf, int count, unsigned long *value)

@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu Sep  4 18:25:49 2008
- *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
+ * Date:           Generated on         Fri Sep 19 11:38:10 2008
+ *                 MD5 Checksum         67fef82179b40120c9701ed72a065846
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,7 +34,7 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_memc_0_ddr.h $
  * 
- * Hydra_Software_Devel/3   9/5/08 11:24a tdo
+ * Hydra_Software_Devel/4   9/19/08 4:12p tdo
  * PR42663: Sync up RDB
  *
  ***************************************************************************/
@@ -483,33 +483,29 @@
 #define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRRD_NOP_MASK                0x70000000
 #define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRRD_NOP_SHIFT               28
 
-/* MEMC_0_DDR :: DRAM_TIMING_0 :: reserved1 [27:23] */
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved1_MASK               0x0f800000
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved1_SHIFT              23
+/* MEMC_0_DDR :: DRAM_TIMING_0 :: reserved1 [27:24] */
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved1_MASK               0x0f000000
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved1_SHIFT              24
 
-/* MEMC_0_DDR :: DRAM_TIMING_0 :: TRCD_NOP [22:20] */
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRCD_NOP_MASK                0x00700000
+/* MEMC_0_DDR :: DRAM_TIMING_0 :: TRCD_NOP [23:20] */
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRCD_NOP_MASK                0x00f00000
 #define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRCD_NOP_SHIFT               20
 
-/* MEMC_0_DDR :: DRAM_TIMING_0 :: reserved2 [19:19] */
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved2_MASK               0x00080000
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved2_SHIFT              19
-
-/* MEMC_0_DDR :: DRAM_TIMING_0 :: TRP_NOP [18:16] */
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRP_NOP_MASK                 0x00070000
+/* MEMC_0_DDR :: DRAM_TIMING_0 :: TRP_NOP [19:16] */
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRP_NOP_MASK                 0x000f0000
 #define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRP_NOP_SHIFT                16
 
-/* MEMC_0_DDR :: DRAM_TIMING_0 :: reserved3 [15:13] */
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved3_MASK               0x0000e000
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved3_SHIFT              13
+/* MEMC_0_DDR :: DRAM_TIMING_0 :: reserved2 [15:13] */
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved2_MASK               0x0000e000
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved2_SHIFT              13
 
 /* MEMC_0_DDR :: DRAM_TIMING_0 :: TRAS_NOP [12:08] */
 #define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRAS_NOP_MASK                0x00001f00
 #define BCHP_MEMC_0_DDR_DRAM_TIMING_0_TRAS_NOP_SHIFT               8
 
-/* MEMC_0_DDR :: DRAM_TIMING_0 :: reserved4 [07:00] */
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved4_MASK               0x000000ff
-#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved4_SHIFT              0
+/* MEMC_0_DDR :: DRAM_TIMING_0 :: reserved3 [07:00] */
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved3_MASK               0x000000ff
+#define BCHP_MEMC_0_DDR_DRAM_TIMING_0_reserved3_SHIFT              0
 
 /***************************************************************************
  *DRAM_TIMING_1 - DDR-SDRAM Timing Register.

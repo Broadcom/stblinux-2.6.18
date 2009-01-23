@@ -65,7 +65,12 @@ static inline void ehci_qtd_free (struct ehci_hcd *ehci, struct ehci_qtd *qtd)
 
 static void qh_destroy (struct kref *kref)
 {
+#ifdef BRCM_KREF_WAR
+	struct ehci_qh *qh = (void *)KSEG1ADDR(container_of(kref,
+		struct ehci_qh, kref));
+#else
 	struct ehci_qh *qh = container_of(kref, struct ehci_qh, kref);
+#endif
 	struct ehci_hcd *ehci = qh->ehci;
 
 	/* clean qtds first, and know this is not linked */
@@ -89,7 +94,11 @@ static struct ehci_qh *ehci_qh_alloc (struct ehci_hcd *ehci, gfp_t flags)
 		return qh;
 
 	memset (qh, 0, sizeof *qh);
+#ifdef BRCM_KREF_WAR
+	kref_init((void *)KSEG0ADDR(&qh->kref));
+#else
 	kref_init(&qh->kref);
+#endif
 	qh->ehci = ehci;
 	qh->qh_dma = dma;
 	// INIT_LIST_HEAD (&qh->qh_list);
@@ -108,13 +117,21 @@ static struct ehci_qh *ehci_qh_alloc (struct ehci_hcd *ehci, gfp_t flags)
 /* to share a qh (cpu threads, or hc) */
 static inline struct ehci_qh *qh_get (struct ehci_qh *qh)
 {
+#ifdef BRCM_KREF_WAR
+	kref_get((void *)KSEG0ADDR(&qh->kref));
+#else
 	kref_get(&qh->kref);
+#endif
 	return qh;
 }
 
 static inline void qh_put (struct ehci_qh *qh)
 {
+#ifdef BRCM_KREF_WAR
+	kref_put((void *)KSEG0ADDR(&qh->kref), qh_destroy);
+#else
 	kref_put(&qh->kref, qh_destroy);
+#endif
 }
 
 /*-------------------------------------------------------------------------*/

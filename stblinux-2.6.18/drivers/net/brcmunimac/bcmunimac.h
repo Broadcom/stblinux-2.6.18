@@ -30,7 +30,6 @@
 #include <asm/brcmstb/common/brcmstb.h>
 #include "unimac_map.h"
 #include "boardparms.h"
-#include "bchp_clk.h"
 
 #include <linux/spinlock.h>
 #ifdef CONFIG_BCMINTEMAC_NETLINK 
@@ -42,8 +41,10 @@
 /*---------------------------------------------------------------------*/
 
 #define TOTAL_DESC				256		/* total number of Buffer Descriptors */
+//#define TOTAL_DESC				16		/* total number of Buffer Descriptors */
 #define RX_RATIO				1/2		/* ratio of RX descriptors number in total */
 #define EXTRA_TX_DESC			24		/* fine adjustment in TX descriptor number */
+//#define EXTRA_TX_DESC			0
 
 #define DESC_MASK				(TOTAL_DESC - 1)
 #define NR_RX_BDS               ((TOTAL_DESC*RX_RATIO) - EXTRA_TX_DESC)
@@ -63,9 +64,7 @@
 #define DMA_FC_THRESH_LO        5
 #define DMA_FC_THRESH_HI        (NR_RX_BDS / 2)
 
-//#if defined( CONFIG_MIPS_BCM7420) 
 #define UMAC_RX_DESC_OFFSET   	0x2800								/* MAC DMA Rx Descriptor word */
-//#endif
 
 #define UMAC_TX_DESC_OFFSET   	(UMAC_RX_DESC_OFFSET+(8*NR_RX_BDS))	/* MAC DMA Tx Descriptor word */
 
@@ -98,8 +97,8 @@ typedef struct Enet_Tx_CB {
 
 #define BCMUMAC_MAX_DEVS			2
 #define BCMUMAC_NO_PHY_ID			-1
-#define BCMUMAC_INT_PHY_DEV			0	/*which MAC has internal PHY?*/
-#define BCMUMAC_EXT_PHY_DEV			1	/*which MAC has external PHY/MoCA?*/
+#define BCMUMAC_INT_PHY_DEV			1	/*which MAC has internal PHY?*/
+#define BCMUMAC_EXT_PHY_DEV			0	/*which MAC has external PHY/MoCA?*/
 
 /* power management mode */
 #define BCMUMAC_POWER_CABLE_SENSE	0
@@ -121,7 +120,7 @@ typedef struct BcmEnet_devctrl {
     int             nextskb;            /* next free skb in skb_pool */ 
     atomic_t        rxDmaRefill;        /* rxDmaRefill == 1 needs refill rxDma */
 	
-	spitnlock_t	bh_lock;				/* soft IRQ lock */
+	spinlock_t	bh_lock;				/* soft IRQ lock */
 
 	unsigned long base_addr;			/* UNIMAC register start address. */
     volatile uniMacRegs *umac;     		/* UNIMAC register block base address */
@@ -161,8 +160,6 @@ typedef struct BcmEnet_devctrl {
     int             rxBufLen;           /* size of rx buffers for DMA */
 
 
-    uint16          chipId;             /* chip's id */
-    uint16          chipRev;            /* step */
     int             rxIrq;              /* rx dma irq */
     int             phyAddr;            /* 1 - external MII, 0 - internal MII (default after reset) */
     atomic_t        linkState;			/* 1 - linkup, 0 - link down */

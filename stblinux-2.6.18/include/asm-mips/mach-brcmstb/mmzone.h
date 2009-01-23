@@ -92,6 +92,9 @@ extern volatile unsigned long LOWER_RAM_END;
 
 #endif
 
+/* PCI/PCIe address for SCB 2000_0000 is 1000_0000 */
+#define UPPER_RAM_PCI_OFFSET	0x10000000UL
+
 #if defined ( CONFIG_MIPS_BCM7440 )
 
 #define UPPER_RAM_VBASE 0xd8000000UL

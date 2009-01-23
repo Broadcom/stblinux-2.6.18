@@ -361,10 +361,6 @@ static void dio_bio_submit(struct dio *dio)
 	if (dio->is_async && dio->rw == READ)
 		bio_set_pages_dirty(bio);
 
-#if defined (CONFIG_MIPS_BCM_NDVD)
-	set_bit(BIO_DIRECT, &bio->bi_flags);
-#endif
-
 	submit_bio(dio->rw, bio);
 
 	dio->bio = NULL;
@@ -1253,9 +1249,6 @@ __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 				release_i_mutex = 1;
 			}
 
-#if defined (CONFIG_MIPS_BCM_NDVD)
-			set_bit(AS_DIRECT, &mapping->flags);
-#endif
 			retval = filemap_write_and_wait_range(mapping, offset,
 							      end - 1);
 			if (retval) {

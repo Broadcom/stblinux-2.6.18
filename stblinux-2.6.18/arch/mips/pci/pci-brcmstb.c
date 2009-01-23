@@ -30,21 +30,21 @@
 #include <linux/pci.h>
 #include <linux/kernel.h>
 #include <linux/ioport.h>
-#include <asm/delay.h>
+#include <linux/delay.h>
 #include <asm/brcmstb/common/brcmstb.h>
 
 /* external PCI bus */
 static struct resource pci_io_resource = {
 	.name = "ext pci IO space",
 	.start = 0x400,
-	.end = PCI_IO_SIZE,
+	.end = PCI_IO_SIZE - 1,
 	.flags = IORESOURCE_IO,
 };
 
 static struct resource pci_mem_resource = {
 	.name = "ext pci memory space",
 	.start = PCI_MEM_START,
-	.end = PCI_MEM_START + PCI_MEM_SIZE,
+	.end = PCI_MEM_END,
 	.flags = IORESOURCE_MEM,
 };
 
@@ -59,7 +59,7 @@ static struct resource pci_sata_io_resource = {
 static struct resource pci_sata_mem_resource = {
 	.name = "sata pci memory space",
 	.start = PCI_SATA_MEM_START,
-	.end = PCI_SATA_MEM_START + PCI_SATA_MEM_SIZE,
+	.end = PCI_SATA_MEM_END,
 	.flags = IORESOURCE_MEM,
 };
 
@@ -67,8 +67,15 @@ static struct resource pci_sata_mem_resource = {
 static struct resource pcie_mem_resource = {
 	.name = "ext pcie memory space",
 	.start = PCIE_MEM_START,
-	.end = PCIE_MEM_START + PCIE_MEM_SIZE,
+	.end = PCIE_MEM_END,
 	.flags = IORESOURCE_MEM,
+};
+
+static struct resource pcie_dummy_io_resource = {
+	.name = "ext DUMMY pcie IO space",
+	.start = PCI_IO_SIZE,
+	.end = PCI_IO_SIZE + 0x400,
+	.flags = IORESOURCE_IO,
 };
 
 
@@ -91,7 +98,8 @@ struct pci_controller brcmstb_sata_controller = {
 struct pci_controller brcmstb_pcie_controller = {
 	.pci_ops 	= &brcmstb_pci_ops, 
 	/* no IO space supported for PCIe devices */
-	.mem_resource   = &pcie_mem_resource,
+	.io_resource	= &pcie_dummy_io_resource,
+	.mem_resource	= &pcie_mem_resource,
 	.io_map_base	= PCIE_IO_START,
 };
 
@@ -212,6 +220,8 @@ static void brcm_setup_pci_bridge(void)
 static void brcm_setup_pcie_bridge(void)
 {
 #if defined(BRCM_PCIE_SUPPORTED)
+	int i;
+
 	/* reset the bridge and the endpoint device */
 	BDEV_SET(BCHP_HIF_RGR1_SW_RESET_1,
 		BCHP_HIF_RGR1_SW_RESET_1_PCIE_BRIDGE_SW_RESET_MASK |
@@ -245,12 +255,12 @@ static void brcm_setup_pcie_bridge(void)
 	BDEV_WR(BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_HI, 0);
 
 	/* set up 1GB PCIE->SCB memory window */
-	BDEV_WR(BCHP_PCIE_MISC_RC_BAR1_CONFIG_LO, 0x0000000f);
-	BDEV_WR(BCHP_PCIE_MISC_RC_BAR1_CONFIG_HI, 0x00000000);
-	BDEV_WR(MIPS_PCIE_ENDIAN_MODE, CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+	BDEV_WR(BCHP_PCIE_MISC_RC_BAR2_CONFIG_LO, 0x0000000f);
+	BDEV_WR(BCHP_PCIE_MISC_RC_BAR2_CONFIG_HI, 0x00000000);
 
-	/* disable remaining PCIE->SCB memory windows */
-	BDEV_WR(BCHP_PCIE_MISC_RC_BAR2_CONFIG_LO, 0x00000000);
+	/* disable PCIE->GISB window */
+	BDEV_WR(BCHP_PCIE_MISC_RC_BAR1_CONFIG_LO, 0x00000000);
+	/* disable the other PCIE->SCB memory window */
 	BDEV_WR(BCHP_PCIE_MISC_RC_BAR3_CONFIG_LO, 0x00000000);
 
 	/* disable MSI (for now...) */
@@ -259,12 +269,43 @@ static void brcm_setup_pcie_bridge(void)
 	/* set up L2 interrupt masks */
 	BDEV_WR(BCHP_PCIE_INTR2_CPU_CLEAR, 0);
 	BDEV_RD(BCHP_PCIE_INTR2_CPU_CLEAR);
-	BDEV_WR(BCHP_PCIE_INTR2_CPU_SET, 0xff000000);
-	BDEV_RD(BCHP_PCIE_INTR2_CPU_SET);
+	BDEV_WR(BCHP_PCIE_INTR2_CPU_MASK_CLEAR, 0);
+	BDEV_RD(BCHP_PCIE_INTR2_CPU_MASK_CLEAR);
+	BDEV_WR(BCHP_PCIE_INTR2_CPU_MASK_SET, 0xffffffff);
+	BDEV_RD(BCHP_PCIE_INTR2_CPU_MASK_SET);
 
 	/* take the EP device out of reset */
 	BDEV_UNSET(BCHP_HIF_RGR1_SW_RESET_1,
 		BCHP_HIF_RGR1_SW_RESET_1_PCIE_SW_PERST_MASK);
+	BDEV_RD(BCHP_HIF_RGR1_SW_RESET_1);
+
+	/* give the RC/EP time to wake up, before trying to configure RC */
+	for(i = 50; i > 0; i--) {
+		if((BDEV_RD(BCHP_PCIE_MISC_PCIE_STATUS) & 0x30) == 0x30)
+			break;
+		mdelay(1);
+	}
+	if(i == 0) {
+		printk(KERN_INFO "PCI: PCIe link down\n");
+		return;
+	}
+	printk(KERN_INFO "PCI: PCIe link up\n");
+
+	/* enable MEM_SPACE and BUS_MASTER for RC */
+	BDEV_WR(BCHP_PCIE_RC_CFG_TYPE1_STATUS_COMMAND, 0x6);
+
+	/* set base/limit for outbound transactions */
+	BDEV_WR(BCHP_PCIE_RC_CFG_TYPE1_RC_MEM_BASE_LIMIT, 0xbff0a000);
+	/* disable the prefetch range */
+	BDEV_WR(BCHP_PCIE_RC_CFG_TYPE1_RC_PREF_BASE_LIMIT, 0x0000fff0);
+
+	/* set pri/sec bus numbers */
+	BDEV_WR(BCHP_PCIE_RC_CFG_TYPE1_PRI_SEC_BUS_NO, 0x00010100);
+
+	/* PCIE->SCB endian mode */
+	BDEV_WR(BCHP_PCIE_RC_CFG_VENDOR_VENDOR_SPECIFIC_REG1,
+		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
+	BDEV_RD(BCHP_PCIE_RC_CFG_VENDOR_VENDOR_SPECIFIC_REG1);
 #endif
 }
 

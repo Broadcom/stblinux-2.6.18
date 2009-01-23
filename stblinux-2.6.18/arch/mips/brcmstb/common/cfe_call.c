@@ -159,6 +159,10 @@ static int parse_boardname(char *buf)
 	if(strncmp("BCM9745", buf, 7) == 0)
 		brcm_docsis_platform = 1;
 #endif
+#if defined(CONFIG_MIPS_BCM7420)
+	/* BCM97420CBMB */
+	brcm_docsis_platform = 1;
+#endif
 
 #if defined(CONFIG_MIPS_BCM7405)
 	/* autodetect 97405-MSG board (special MII configuration) */

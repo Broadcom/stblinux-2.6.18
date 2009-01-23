@@ -155,7 +155,7 @@ static inline void check_wait(void)
 	case CPU_BMIPS3300:
 	case CPU_BMIPS4350:
 	case CPU_BMIPS4380:
-	case CPU_BMIPS5000:
+	//case CPU_BMIPS5000:
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;

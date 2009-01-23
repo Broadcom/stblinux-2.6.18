@@ -385,6 +385,11 @@ union ehci_shadow {
  * These appear in both the async and (for interrupt) periodic schedules.
  */
 
+#if defined(CONFIG_BMIPS5000)
+#define __DMA_ALIGN__		__attribute__((__aligned__(L1_CACHE_BYTES)))
+#define BRCM_KREF_WAR		1
+#endif
+
 struct ehci_qh {
 	/* first part defined by EHCI spec */
 	__le32			hw_next;	 /* see EHCI 3.6.1 */
@@ -413,8 +418,14 @@ struct ehci_qh {
 	struct ehci_qh		*reclaim;	/* next to reclaim */
 
 	struct ehci_hcd		*ehci;
+#ifdef BRCM_KREF_WAR
+	/* kref: cached access only due to atomic vars */
+	struct kref		kref __DMA_ALIGN__;
+	unsigned		stamp __DMA_ALIGN__;
+#else
 	struct kref		kref;
 	unsigned		stamp;
+#endif
 
 	u8			qh_state;
 #define	QH_STATE_LINKED		1		/* HC sees this */

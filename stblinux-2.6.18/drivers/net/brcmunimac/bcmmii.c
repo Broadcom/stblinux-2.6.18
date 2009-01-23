@@ -39,7 +39,7 @@ typedef struct MII_CONFIG
 {
 	int auto_ne;	/* 1: Auto-negotiated, 0: forced */
 	int can_pause;	/* 1: can do pause, 0: can not do pause*/
-	int lpa;		/* Negotiated Link partner ability value.*/
+	int hcd;		/* negotiated highest common denominitor */
 	int feature;	/* What link feature does this board support.*/
 	char * name;	/* Feature name string */
 }MII_CONFIG;
@@ -47,16 +47,17 @@ typedef struct MII_CONFIG
 /* all possible negotiation result, the SUPPORTED_XXX is defined in ethtool.h*/
 static MII_CONFIG g_mii_configs[] = 
 {
-	{0, 0, LPA_10HALF, SUPPORTED_10baseT_Half, "10BaseT-Half"},
-	{0, 0, LPA_10FULL, SUPPORTED_10baseT_Full, "10BaseT-Full"},
-	{0, 0, LPA_100HALF, SUPPORTED_100baseT_Half, "100BaseT-Half"},
-	{0, 0, LPA_100FULL, SUPPORTED_100baseT_Full, "100BaseT-Full"},
+	{0, 0, LPA_1000HALF, SUPPORTED_1000baseT_Full, "1000BaseT-Full"},
 	{0, 0, LPA_1000FULL, SUPPORTED_1000baseT_Half, "1000BaseT-Half"},
-	{0, 0, LPA_1000HALF, SUPPORTED_1000baseT_Full, "1000BaseT-Full"}
+	{0, 0, MII_BRCM_AUX_AN_HCD_100TX_FULL, SUPPORTED_100baseT_Full, "100BaseTx-Full"},
+	{0, 0, MII_BRCM_AUX_AN_HCD_100TX, SUPPORTED_100baseT_Half, "100BaseTx-Half"},
+	{0, 0, MII_BRCM_AUX_AN_HCD_10T_FULL, SUPPORTED_10baseT_Full, "10BaseT-Full"},
+	{0, 0, MII_BRCM_AUX_AN_HCD_10T, SUPPORTED_10baseT_Half, "10BaseT-Half"}
 };
 /* 
  * mapping inband status regiser value to LPA value(link partner ability)
  * Note that we don't support speed 2500Mbps here.
+ * TODO: Fix me.
  */
 static int	ibs2lpa[] = {
 	LPA_10FULL,
@@ -95,7 +96,10 @@ int mii_read(struct net_device *dev, int phy_id, int location)
 		udelay(20);
 	}
 	if (umac->mdio_cmd & MDIO_READ_FAIL)
+	{
+		TRACE(("MDIO read failure\n"));
 		return 0;
+	}
 	
     return umac->mdio_cmd & 0xffff;
 }
@@ -120,17 +124,20 @@ int mii_probe(unsigned long base_addr)
 	/* 
 	 * Enable RGMII to interface external PHY, disable internal 10/100 MII.
 	 */
-	txrx_ctrl->rgmii_oob_ctrl = RGMII_MODE_EN;
+	//txrx_ctrl->rgmii_oob_ctrl = RGMII_MODE_EN;
 
 	for (i = 0; i < 32; i++) {
 		umac->mdio_cmd = MDIO_RD | (i << MDIO_PMD_SHIFT) | (MII_BMSR << MDIO_REG_SHIFT);
+		udelay(20);
 		/* Start MDIO transaction*/
 		umac->mdio_cmd |= MDIO_START_BUSY;
 		while ( (umac->mdio_cmd & MDIO_START_BUSY) )
-        	;
+		{
+			udelay(20);
+        }
 		if (umac->mdio_cmd & MDIO_READ_FAIL)
 			continue;
-		else
+		else if ((umac->mdio_cmd & 0xffff) != 0x0)
 			return i;
 	}
 	return(BP_ENET_NO_PHY);
@@ -195,7 +202,7 @@ static MII_CONFIG * mii_getconfig(struct net_device *dev)
 				
 				for ( i = 0; i < sizeof(g_mii_configs)/sizeof(MII_CONFIG); i++)
 				{
-					if(g_mii_configs[i].lpa & val) { ret = &g_mii_configs[i]; break;}
+					if(g_mii_configs[i].hcd & val) { ret = &g_mii_configs[i]; break;}
 				}
 				
 			}
@@ -214,7 +221,7 @@ static MII_CONFIG * mii_getconfig(struct net_device *dev)
 		}
 		for( i = 0; i < sizeof(g_mii_configs)/sizeof(MII_CONFIG); i++)
 		{
-			if (g_mii_configs[i].lpa & ibs2lpa[ibs])
+			if (g_mii_configs[i].hcd & ibs2lpa[ibs])
 			{
 				ret = &g_mii_configs[i];
 				break;
@@ -242,10 +249,13 @@ static MII_CONFIG * mii_getconfig(struct net_device *dev)
 	 */
 	
     /* Read the Link Partner Ability */
-    val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_LPA);
+    val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_BRCM_AUX_STAT_SUM);
+	TRACE(("Aux val=0x%x\n", val));
+    //val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_LPA);
+	//TRACE(("%s: MII_LPA = 0x%x\n", __FUNCTION__, val));
 	for(i = 0; i < sizeof(g_mii_configs)/sizeof(MII_CONFIG); i++)
 	{
-		if(g_mii_configs[i].lpa & val)
+		if(g_mii_configs[i].hcd & ((val >> MII_BRCM_AUX_AN_HCD_SHIFT)&MII_BRCM_AUX_AN_HCD_MASK))
 		{
 			ret = &g_mii_configs[i];
 			break;
@@ -273,7 +283,8 @@ static MII_CONFIG * mii_autoconfigure(struct net_device *dev)
     int val;
 	MII_CONFIG * config = NULL;
 
-    TRACE(("mii_autoconfigure\n"));
+    TRACE(("mii_autoconfigure, PhyAddress=0x%x\n", pDevCtrl->EnetInfo.PhyAddress));
+	/* TODO set advertise register */
 
     /* enable and restart autonegotiation */
     val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_BMCR);
@@ -292,6 +303,7 @@ static MII_CONFIG * mii_autoconfigure(struct net_device *dev)
             break;
         }
     }
+	TRACE(("Auto-nego completed, BMSR=0x%x\n", val));
 
     config =  mii_getconfig(dev);
 	if( (config != NULL) && (val & BMSR_ANEGCOMPLETE) )
@@ -312,7 +324,7 @@ void mii_setup(struct net_device *dev)
 
     eMiiConfig = mii_autoconfigure(dev);
 
-	if ( !eMiiConfig | !eMiiConfig->auto_ne) {
+	if ( !eMiiConfig || !eMiiConfig->auto_ne) {
 		printk(KERN_WARNING " Auto-negotiation failed, forcing to default\n");
 		eMiiConfig = &g_mii_configs[3];
 	}
@@ -322,6 +334,7 @@ void mii_setup(struct net_device *dev)
 	 * program UMAC and RGMII block accordingly, if the PHY is 
 	 * not capable of in-band signaling.
 	 */
+	umac->cmd &= ~CMD_HD_EN;
 	if(pDevCtrl->EnetInfo.PhyType == BP_ENET_EXTERNAL_GPHY_IBS ||
 			pDevCtrl->EnetInfo.PhyType == BP_ENET_EXTERNAL_GPHY)
 	{
@@ -337,19 +350,19 @@ void mii_setup(struct net_device *dev)
 		else
 			umac->pause_ctrl &= ~PAUSE_CTRL_EN;
 		/* duplex.*/
-		if(eMiiConfig->lpa == LPA_10HALF ||
-		   eMiiConfig->lpa == LPA_100HALF ||
-		   eMiiConfig->lpa == LPA_1000HALF)
+		if(eMiiConfig->hcd == MII_BRCM_AUX_AN_HCD_10T ||
+		   eMiiConfig->hcd == MII_BRCM_AUX_AN_HCD_100TX ||
+		   eMiiConfig->hcd == LPA_1000HALF)
 		{
 			umac->cmd |= CMD_HD_EN;
 		}
 		/* speed */
 		umac->cmd = umac->cmd & ~(CMD_SPEED_MASK << CMD_SPEED_SHIFT);
-		if(eMiiConfig->lpa == LPA_10HALF || eMiiConfig->lpa == LPA_10FULL)
+		if(eMiiConfig->hcd == MII_BRCM_AUX_AN_HCD_10T || eMiiConfig->hcd == MII_BRCM_AUX_AN_HCD_10T_FULL)
 			umac->cmd = umac->cmd  | (UMAC_SPEED_10 << CMD_SPEED_SHIFT);
-		else if (eMiiConfig->lpa == LPA_100HALF || eMiiConfig->lpa == LPA_100FULL)
+		else if (eMiiConfig->hcd == MII_BRCM_AUX_AN_HCD_100TX || eMiiConfig->hcd == MII_BRCM_AUX_AN_HCD_100TX_FULL)
 			umac->cmd = umac->cmd  | (UMAC_SPEED_100 << CMD_SPEED_SHIFT);
-		else if (eMiiConfig->lpa == LPA_1000HALF || eMiiConfig->lpa == LPA_1000FULL)
+		else if (eMiiConfig->hcd == LPA_1000HALF || eMiiConfig->hcd == LPA_1000FULL)
 			umac->cmd = umac->cmd  | (UMAC_SPEED_1000 << CMD_SPEED_SHIFT);
 
 		printk(KERN_WARNING "Link Parameters: %s\n", eMiiConfig->name);
@@ -381,7 +394,7 @@ int mii_init(struct net_device *dev)
 	volatile rbufRegs * txrx_ctrl;
     int data32;
 
-    printk(KERN_INFO "Config %s Through MDIO", gsPhyType[pDevCtrl->EnetInfo.PhyType] );
+    printk(KERN_INFO "Config %s Through MDIO\n", gsPhyType[pDevCtrl->EnetInfo.PhyType] );
 
     umac = pDevCtrl->umac;
 	txrx_ctrl = pDevCtrl->txrx_ctrl;
@@ -427,6 +440,7 @@ int mii_init(struct net_device *dev)
             break;
 		case BP_ENET_EXTERNAL_MOCA:
 			/* TODO */
+			umac->cmd = umac->cmd  | (UMAC_SPEED_1000 << CMD_SPEED_SHIFT);
 			break;
         default:
             break;

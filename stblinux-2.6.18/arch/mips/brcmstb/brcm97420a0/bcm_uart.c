@@ -114,24 +114,6 @@ unsigned long serial_init(int chan, void *ignored)
 
 	shift = 2;
 
-
-#if 1 /* Enable UARTB */
-if (chan == 1) {
-// MUX for UARTB is: RX: ctrl3: bit 29:27 (001'b) and TX: ctrl4: bit 02:00 (001'b)
-
-#define SUN_TOP_CTRL_PIN_MUX_CTRL_3	(0xb040410c)
-	volatile unsigned long* pSunTopMuxCtrl3 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_3;
-#define SUN_TOP_CTRL_PIN_MUX_CTRL_4	(0xb0404110)
-	volatile unsigned long* pSunTopMuxCtrl4 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_4;
-	
-	*pSunTopMuxCtrl3 &= 0xc7ffffff;	// Clear it
-	*pSunTopMuxCtrl3 |= 0x08000000;  // Write 001'b at 27:29
-
-	*pSunTopMuxCtrl4 &= 0xfffffff8;	// Clear it
-	*pSunTopMuxCtrl4 |= 0x00000001;  // Write 001'b  at 00:02
-}
-#endif
-
 	/* UARTA has already been initialized by the bootloader */
 	if (chan > 0 ) {
 		// Write DLAB, and (8N1) = 0x83

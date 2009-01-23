@@ -37,6 +37,7 @@
 #include <linux/types.h>
 #include <linux/sysfs.h>
 #include <linux/device.h>
+#include <linux/mii.h>
 #include <linux/platform_device.h>
 #include <asm/delay.h>
 #include <asm/brcmstb/common/brcmstb.h>
@@ -282,6 +283,7 @@ static void enet_disable(void)
 	if(! (BDEV_RD(CONTROL) & 0x08)) {
 		if((BDEV_RD(MII_S_C) & 0x3f) == 0)
 			BDEV_WR(MII_S_C, 0x9f);
+		brcm_mii_write(MII_BMCR, BMCR_RESET);
 		brcm_mii_write(0x1f, 0x008b);
 		brcm_mii_write(0x10, 0x01c0);
 		brcm_mii_write(0x14, 0x7000);

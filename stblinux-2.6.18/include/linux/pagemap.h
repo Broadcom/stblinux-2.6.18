@@ -18,9 +18,6 @@
  */
 #define	AS_EIO		(__GFP_BITS_SHIFT + 0)	/* IO error on async write */
 #define AS_ENOSPC	(__GFP_BITS_SHIFT + 1)	/* ENOSPC on async write */
-#if defined (CONFIG_MIPS_BCM_NDVD)
-#define AS_DIRECT	(__GFP_BITS_SHIFT + 2)	/* DIRECT_IO specified on file op */
-#endif
 
 static inline gfp_t mapping_gfp_mask(struct address_space * mapping)
 {

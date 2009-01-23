@@ -22,6 +22,7 @@
 
 #include <asm/brcmstb/common/bcmtypes.h>
 
+#ifdef CONFIG_BRCM_SWITCH
 /****************************************************************************
     Internal PHY registers for BCM switchs(5325/5225)
 ****************************************************************************/
@@ -57,6 +58,28 @@
 /* Advertisement control register. */
 #define ADVERTISE_FDFC                      0x0400  /* MII Flow Control */
 
+extern void mii_enablephyinterrupt(struct net_device *dev, int phy_id);
+extern void mii_clearphyinterrupt(struct net_device *dev, int phy_id);
+#endif /* CONFIG_BRCM_SWITCH */
+
+/* BRCM Aux status summery Register */
+#define MII_BRCM_AUX_STAT_SUM				0x19
+#define MII_BRCM_AUX_FD						0x01
+#define MII_BRCM_AUX_AN						0x10
+#define MII_BRCM_AUX_LINK_UP				0x20
+#define MII_BRCM_AUX_SPEED_100				0x40
+#define MII_BRCM_AUX_LP_AN					0x80
+#define MII_BRCM_AUX_LP_PR					0x100
+#define MII_BRCM_AUX_AN_HCD_MASK			0x03 	/* highest common denominator*/
+#define MII_BRCM_AUX_AN_HCD_SHIFT			0x08
+#define MII_BRCM_AUX_AN_HCD_10T				0X01
+#define MII_BRCM_AUX_AN_HCD_10T_FULL		0x02
+#define MII_BRCM_AUX_AN_HCD_100TX			0x03
+#define MII_BRCM_AUX_AN_HCD_100T4			0x04
+#define MII_BRCM_AUX_AN_HCD_100TX_FULL		0x05
+#define MII_BRCM_AUX_AN_PAUSE				0x800
+#define MII_BRCM_AUX_AN_COMPLETE			0x8000
+
 /****************************************************************************
     Prototypes
 ****************************************************************************/
@@ -67,9 +90,5 @@ extern int mii_probe(unsigned long base_addr);
 extern int mii_read(struct net_device *dev, int phy_id, int location);
 extern void mii_write(struct net_device *dev, int phy_id, int location, int data);
 
-#ifdef CONFIG_BRCM_SWITCH
-extern void mii_enablephyinterrupt(struct net_device *dev, int phy_id);
-extern void mii_clearphyinterrupt(struct net_device *dev, int phy_id);
-#endif /* CONFIG_BRCM_SWITCH */
 
 #endif /* _BCMMII_H_ */

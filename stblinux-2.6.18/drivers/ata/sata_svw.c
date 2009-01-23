@@ -369,7 +369,13 @@ static void brcm_SetPllTxRxCtrl(void __iomem *mmio_base, int port)
 {
 	uint16_t tmp16;
 	//Lower BW
+#ifdef BRCM_75MHZ_SATA_PLL
+	/* use 75Mhz PLL clock */
+	mdio_write_reg(mmio_base, port, 0, 0x2004);
+#else
+	/* use 100Mhz PLL clock */
 	mdio_write_reg(mmio_base, port, 0, 0x1404);
+#endif
 
 	//Change Tx control
 	mdio_write_reg(mmio_base, port, 0xa, 0x0260);
@@ -448,8 +454,8 @@ static void brcm_InitSata_1_5Gb(void __iomem *mmio_base, int port)
 
 #ifdef	AUTO_NEG_SPEED
 	// disable 3G feature
-	tmp32 = readl((void *)(MMIO_OFS + 0xf0 + port * 0x100));
-	writel(tmp32 & 0xfffffbff, (void *)(MMIO_OFS + 0xf0 + port * 0x100));
+	tmp32 = readl(port_mmio + K2_SATA_F0_OFFSET);
+	writel(tmp32 & 0xfffffbff, port_mmio + K2_SATA_F0_OFFSET);
 	udelay(10000);
 #endif
 
@@ -828,6 +834,57 @@ static void k2_sata_tf_load(struct ata_port *ap, const struct ata_taskfile *tf)
 	ata_wait_idle(ap);
 }
 
+#if	defined(CONFIG_MIPS_BCM7420A0)
+static void k2_sata_mmio_data_xfer(struct ata_device *adev, unsigned char *buf,
+                        unsigned int buflen, int write_data)
+{
+        struct ata_port *ap = adev->link->ap;
+        unsigned int i;
+        unsigned int words = buflen >> 1;
+        u16 *buf16 = (u16 *) buf;
+        void __iomem *mmio = (void __iomem *)ap->ioaddr.data_addr;
+	u32 extra_short = 0xffffffff;
+
+        /* Transfer multiple of 2 bytes */
+        if (write_data) {
+                for (i = 0; i < words; i++)
+                        writew(le16_to_cpu(buf16[i]), mmio);
+        } else {
+                for (i = 0; i < words; i++)
+		{
+			u32 tmp;
+
+			if(extra_short == 0xffffffff) {
+				/* each readl gives us the next 2 readw's */
+				tmp = readl(mmio);
+				extra_short = tmp >> 16;
+			} else {
+				tmp = extra_short;
+				extra_short = 0xffffffff;
+			}
+
+			buf16[i] = cpu_to_le16(tmp & 0xFFFF);
+		}
+        }
+
+        /* Transfer trailing 1 byte, if any. */
+        if (unlikely(buflen & 0x01)) {
+                u16 align_buf[1] = { 0 };
+                unsigned char *trailing_buf = buf + buflen - 1;
+
+                if (write_data) {
+                        memcpy(align_buf, trailing_buf, 1);
+                        writew(le16_to_cpu(align_buf[0]), mmio);
+                } else {
+			if(extra_short == 0xffffffff)
+				extra_short = readl(mmio);
+                        align_buf[0] = cpu_to_le16(extra_short & 0xFFFF);
+                        memcpy(trailing_buf, align_buf, 1);
+                }
+        }
+}
+#endif
+ 
 /**
  *	k2_bmdma_setup_mmio - Set up PCI IDE BMDMA transaction (MMIO)
  *	@qc: Info associated with this ATA transaction.
@@ -1927,7 +1984,11 @@ static const struct ata_port_operations k2_sata_ops = {
 	.bmdma_status		= ata_bmdma_status,
 	.tf_load		= k2_sata_tf_load,
 	.exec_command		= ata_exec_command,
+#if	defined(CONFIG_MIPS_BCM7420A0)
+	.data_xfer		= k2_sata_mmio_data_xfer,
+#else
 	.data_xfer		= ata_mmio_data_xfer,
+#endif
 	.host_stop		= ata_pci_host_stop,
 
 	.pmp_attach		= k2_sata_pmp_attach,

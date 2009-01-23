@@ -191,7 +191,7 @@ extern "C" {
 /*-------------------Dma Descriptor defines ------------------------------------*/
 /* reg : none , non-proc export (not for registers ) */
 /* Tx/Rx Dma Descriptor common bits*/
-#define DMA_BUFLENGTH_MASK		0x0fff0000
+#define DMA_BUFLENGTH_MASK		0x0fff
 #define DMA_BUFLENGTH_SHIFT		16
 #define DMA_OWN					0x8000		/* cleared by DMA, set by SW */
 #define DMA_EOP					0x4000		/* last buffer in packet */

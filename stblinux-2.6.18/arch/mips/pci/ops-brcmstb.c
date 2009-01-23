@@ -52,7 +52,7 @@
 	((pci_io_map_base(bus) != PCIE_IO_START) ? \
 		((0x80000000 | ((PCI_SLOT(devfn) & 0x1f) << 11) | \
 			((PCI_FUNC(devfn) & 0x7) << 8) | (reg))) : \
-		((((PCI_SLOT(devfn) & 0x1f) << 15) | \
+		((((1 << 20) | (PCI_SLOT(devfn) & 0x1f) << 15) | \
 			((PCI_FUNC(devfn) & 0x7) << 12) | (reg))))
 
 static void get_pci_cfg_regs(struct pci_bus *bus, unsigned long *idx_reg,
@@ -76,17 +76,36 @@ static void get_pci_cfg_regs(struct pci_bus *bus, unsigned long *idx_reg,
 	}
 }
 
+static int devfn_ok(struct pci_bus *bus, unsigned int devfn)
+{
+	/* SATA is the only device on the bus, with devfn == 0 */
+	if((pci_io_map_base(bus) == PCI_SATA_IO_START) && (devfn != 0))
+		return(0);
+
+#ifdef BRCM_PCIE_SUPPORTED
+	if(pci_io_map_base(bus) == PCIE_IO_START) {
+		/* slots 1-31 don't exist */
+		if(PCI_SLOT(devfn) != 0)
+			return(0);
+
+		/* link up? */
+		if((BDEV_RD(BCHP_PCIE_MISC_PCIE_STATUS) & 0x30) != 0x30)
+			return(0);
+	}
+#endif
+	return(1);	/* OK */
+}
+
 static int brcm_pci_write_config(struct pci_bus *bus, unsigned int devfn,
 	int where, int size, u32 data)
 {
 	u32 val = 0, mask, shift;
 	unsigned long idx_reg, data_reg;
 
-	get_pci_cfg_regs(bus, &idx_reg, &data_reg);
-
-	/* SATA is the only device on the bus, with devfn == 0 */
-	if((pci_io_map_base(bus) == PCI_SATA_IO_START) && (devfn != 0))
+	if(! devfn_ok(bus, devfn))
 		return(PCIBIOS_FUNC_NOT_SUPPORTED);
+
+	get_pci_cfg_regs(bus, &idx_reg, &data_reg);
 
 	BUG_ON(((where & 3) + size) > 4);
 
@@ -114,11 +133,10 @@ static int brcm_pci_read_config(struct pci_bus *bus, unsigned int devfn,
 	u32 val, mask, shift;
 	unsigned long idx_reg, data_reg;
 
-	get_pci_cfg_regs(bus, &idx_reg, &data_reg);
-
-	/* SATA is the only device on the bus, with devfn == 0 */
-	if((pci_io_map_base(bus) == PCI_SATA_IO_START) && (devfn != 0))
+	if(! devfn_ok(bus, devfn))
 		return(PCIBIOS_FUNC_NOT_SUPPORTED);
+
+	get_pci_cfg_regs(bus, &idx_reg, &data_reg);
 
 	BUG_ON(((where & 3) + size) > 4);
 

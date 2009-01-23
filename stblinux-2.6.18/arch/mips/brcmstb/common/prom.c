@@ -307,6 +307,55 @@ static void early_read_int(char *param, int *var)
 	*var = memparse(cp, &cp);
 }
 
+#define PINMUX(reg, field, val) do { \
+	BDEV_WR(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_##reg, \
+		(BDEV_RD(BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_##reg) & \
+		 ~BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_##reg##_##field##_MASK) | \
+		((val) << \
+		 BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_##reg##_##field##_SHIFT)); \
+	} while(0)
+
+static void __init board_pinmux_setup(void)
+{
+#if   defined(CONFIG_MIPS_BCM7420)
+	PINMUX(7, gpio_000, 1);		// ENET LEDs
+	PINMUX(7, gpio_001, 1);
+
+	PINMUX(21, sgpio_02, 1);	// MoCA I2C
+	PINMUX(21, sgpio_03, 1);
+
+	PINMUX(9, gpio_017, 1);		// MoCA LEDs
+	PINMUX(9, gpio_019, 1);
+
+	PINMUX(7, gpio_002, 1);		// RGMII
+	PINMUX(7, gpio_003, 1);
+	PINMUX(7, gpio_004, 1);
+	PINMUX(7, gpio_005, 1);
+	PINMUX(7, gpio_006, 1);
+	PINMUX(7, gpio_007, 1);
+	PINMUX(8, gpio_009, 1);
+	PINMUX(8, gpio_010, 1);
+	PINMUX(8, gpio_011, 1);
+	PINMUX(8, gpio_012, 1);
+	PINMUX(8, gpio_013, 1);
+	PINMUX(8, gpio_014, 1);
+
+	/* set RGMII lines to 2.5V */
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_002, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_003, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_004, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_005, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_006, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_007, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_009, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_010, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_011, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_012, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_013, 1);
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_014, 1);
+#endif
+}
+
 void __init prom_init(void)
 {
 
@@ -320,6 +369,8 @@ void __init prom_init(void)
 
 	/* jipeng - mask out UPG L2 interrupt here */
 	BDEV_WR(BCHP_IRQ0_IRQEN, 0);
+
+	board_pinmux_setup();
 
 	/* Fill in platform information */
 	mips_machgroup = MACH_GROUP_BRCM;
@@ -434,12 +485,15 @@ void __init prom_init(void)
 
 		/* display warning for all 00's, all ff's, or multicast */
 		if(! ok || (gHwAddrs[0][1] & 1)) {
+			u8 fixed_macaddr[] = { 0x00,0x00,0xde,0xad,0xbe,0xef };
 			printk(KERN_WARNING
 				"WARNING: read invalid MAC address "
 				"%02x:%02x:%02x:%02x:%02x:%02x from flash @ 0x%08x\n",
 				gHwAddrs[0][0], gHwAddrs[0][1], gHwAddrs[0][2],
 				gHwAddrs[0][3], gHwAddrs[0][4], gHwAddrs[0][5],
 				FLASH_MACADDR_ADDR);
+			memcpy(&gHwAddrs[0][0], fixed_macaddr,
+				sizeof(fixed_macaddr));
 		}
 #else
 		/* PCI slave mode - no EBI/flash available */

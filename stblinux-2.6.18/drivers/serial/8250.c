@@ -2222,7 +2222,6 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 {
 	struct uart_8250_port *up = &serial8250_ports[co->index];
 	unsigned int ier;
-	int i;
 
 	/*
 	 *	First save the UER then disable the interrupts
@@ -2237,6 +2236,8 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 	 *	Now, do each character
 	 */
 #if 0 
+	{
+	int i;
 	/* removed by hyun */
 	for (i = 0; i < count; i++, s++) {
 		wait_for_xmitr(up);
@@ -2250,6 +2251,7 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 			wait_for_xmitr(up);
 			serial_out(up, UART_TX, 13);
 		}
+	}
 	}
 #else 
 	/* added by hyun */

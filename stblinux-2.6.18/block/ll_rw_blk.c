@@ -298,9 +298,6 @@ static inline void rq_init(request_queue_t *q, struct request *rq)
 	rq->end_io = NULL;
 	rq->end_io_data = NULL;
 	rq->completion_data = NULL;
-#if defined (CONFIG_MIPS_BCM_NDVD)
-	clear_bit(__REQ_DIRECTIO, (unsigned long *)&rq->flags);
-#endif
 }
 
 /**
@@ -1378,23 +1375,9 @@ static inline int ll_new_mergeable(request_queue_t *q,
 
 	if (req->nr_phys_segments + nr_phys_segs > q->max_phys_segments) {
 		req->flags |= REQ_NOMERGE;
-#if defined (CONFIG_MIPS_BCM_NDVD)
-	/* Cannot merge directIO to non-directIO requests */
-	if (q->last_merge) {
-		if (test_bit(__REQ_DIRECTIO, (unsigned long *)&q->last_merge->flags) !=
-			test_bit(__REQ_DIRECTIO, (unsigned long *)&req->flags) ) {
-
-			req->flags |= REQ_NOMERGE;
-			if (req == q->last_merge)
-				q->last_merge = NULL;
-			return 0;
-		}
-	}
-#else
 		if (req == q->last_merge)
 			q->last_merge = NULL;
 		return 0;
-#endif
 	}
 
 	/*
@@ -1415,23 +1398,9 @@ static inline int ll_new_hw_segment(request_queue_t *q,
 	if (req->nr_hw_segments + nr_hw_segs > q->max_hw_segments
 	    || req->nr_phys_segments + nr_phys_segs > q->max_phys_segments) {
 		req->flags |= REQ_NOMERGE;
-#if defined (CONFIG_MIPS_BCM_NDVD)
-	/* Cannot merge directIO to non-directIO requests */
-	if (q->last_merge) {
-		if (test_bit(__REQ_DIRECTIO, (unsigned long *)&q->last_merge->flags) !=
-			test_bit(__REQ_DIRECTIO, (unsigned long *)&req->flags) ) {
-
-			req->flags |= REQ_NOMERGE;
-			if (req == q->last_merge)
-				q->last_merge = NULL;
-			return 0;
-		}
-	}
-#else
 	if (req == q->last_merge)
 		q->last_merge = NULL;
 	return 0;
-#endif
 	}
 
 	/*
@@ -1532,14 +1501,6 @@ static int ll_merge_requests_fn(request_queue_t *q, struct request *req,
 	 */
 	if (req->special || next->special)
 		return 0;
-
-#if defined (CONFIG_MIPS_BCM_NDVD)
-	/* Cannot merge directIO to non-directIO requests */
-	if (test_bit(__REQ_DIRECTIO, (unsigned long *)&req->flags) !=
-		test_bit(__REQ_DIRECTIO, (unsigned long *)&next->flags) ) {
-		return 0;
-	}
-#endif
 
 	/*
 	 * Will it become too large?
@@ -2800,15 +2761,7 @@ static int attempt_merge(request_queue_t *q, struct request *req,
 	 * counts here.
 	 */
 	if (!q->merge_requests_fn(q, req, next))
-#if defined (CONFIG_MIPS_BCM_NDVD)
-	/* Cannot merge directIO to non-directO requests */
-	if (test_bit(__REQ_DIRECTIO, (unsigned long *)&req->flags) !=
-		test_bit(__REQ_DIRECTIO, (unsigned long *)&next->flags) ) {
 		return 0;
-	}
-#else
-		return 0;
-#endif
 
 	/*
 	 * At this point we have either done a back merge
@@ -2940,11 +2893,6 @@ static int __make_request(request_queue_t *q, struct bio *bio)
 			req->nr_sectors = req->hard_nr_sectors += nr_sectors;
 			req->ioprio = ioprio_best(req->ioprio, prio);
 			drive_stat_acct(req, nr_sectors, 0);
-#if defined (CONFIG_MIPS_BCM_NDVD)
-			if (test_bit(BIO_DIRECT, (unsigned long *)&bio->bi_flags)) {
-				set_bit(__REQ_DIRECTIO, (unsigned long *)&req->flags);
-			}
-#endif
 			if (!attempt_back_merge(q, req))
 				elv_merged_request(q, req);
 			goto out;
@@ -2971,11 +2919,6 @@ static int __make_request(request_queue_t *q, struct bio *bio)
 			req->sector = req->hard_sector = sector;
 			req->nr_sectors = req->hard_nr_sectors += nr_sectors;
 			req->ioprio = ioprio_best(req->ioprio, prio);
-#if defined (CONFIG_MIPS_BCM_NDVD)
-			if (test_bit(BIO_DIRECT, (unsigned long *)&bio->bi_flags)) {
-				set_bit(__REQ_DIRECTIO, (unsigned long *)&req->flags);
-			}
-#endif
 			drive_stat_acct(req, nr_sectors, 0);
 			if (!attempt_front_merge(q, req))
 				elv_merged_request(q, req);
@@ -3004,10 +2947,6 @@ get_rq:
 	spin_lock_irq(q->queue_lock);
 	if (elv_queue_empty(q))
 		blk_plug_device(q);
-#if defined (CONFIG_MIPS_BCM_NDVD)
-	if (test_bit(BIO_DIRECT, (unsigned long *)&bio->bi_flags))
-		set_bit(__REQ_DIRECTIO, (unsigned long *)&req->flags);
-#endif
 	add_request(q, req);
 out:
 	if (sync)

@@ -111,6 +111,15 @@ config BRCM_SERIAL
 	  This is a driver which supports Broadcom serial ports 
 	  on Broadcom BCM93730 STB series.
 
+config BRCM_MOCA
+	tristate "Broadcom MoCA support"
+	depends on MIPS_BCM7420
+	help
+	  This is the control path driver used to initialize and configure
+	  the Broadcom MoCA interface.
+
+	  If unsure, say Y.
+
 config SERIAL_CONSOLE
 	bool
 

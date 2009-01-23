@@ -15,26 +15,6 @@ choice
 
 # select BRCM_7XXX_SERIAL THT Now in drivers/char/KConfig
 
-config MIPS_BCM3548AX
-        bool "Support for BCM93548Ax with SPI flash"
-        select MIPS_BRCM97XXX
-        select MIPS_BCM3548A0
-        select MIPS_BCM3548
-        select HW_HAS_PCI
-	select BMIPS4380
-
-
-config MIPS_BCM3548AX_NAND
-        bool "Support for BCM93548Ax with NAND flash"
-        select MIPS_BRCM97XXX
-        select MIPS_BCM3548A0
-        select MIPS_BCM3548
-        select HW_HAS_PCI
-	select BMIPS4380
-	select MTD_BRCMNAND
-	select MTD_BRCMNAND_VERIFY_WRITE
-	select MTD_BLOCK_ROMBLOCK
-
 config MIPS_BCM3548BX_SPI
         bool "Support for BCM93548Bx with SPI flash"
         select MIPS_BRCM97XXX
@@ -1403,14 +1383,6 @@ config MIPS_BRCM97XXX
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 	select SYS_SUPPORTS_KGDB
 	
-config MIPS_BCM3548A0
-	bool
-	depends MIPS_BCM3548AX || MIPS_BCM3548AX_NAND
-
-config MIPS_BCM3548
-	bool
-	depends MIPS_BCM3548A0
-
 config MIPS_BCM3548B0
 	bool
 	depends MIPS_BCM3548BX || MIPS_BCM3548BX_NAND
@@ -1791,7 +1763,7 @@ config BOOT_ELF32
 config MIPS_L1_CACHE_SHIFT
 	int
 	default "4" if MACH_DECSTATION
-	default "7" if SGI_IP27
+	default "7" if SGI_IP27 || BRCM_SCM_L2
 	default "6" if BMIPS4380 
 	default "5"
 

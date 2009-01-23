@@ -1,4 +1,3 @@
-#!/bin/bash
 
 # original codes shill@broadcom.com
 # v3.0 tht patched for 2418SR3
@@ -282,22 +281,59 @@ PATH=".:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
 TERM=linux
 
 #
-# Parse tftp path from command line
+# stbutil help 
 #
 
-if [ $# -ge 1 ]; then
+if [ $# -eq 1 ]; then
     Arg1="$1"
+    if [[ $Arg1 = help || $Arg1 = --help ]]; then
+    TFTP_SERVER=stb-irva-01
+    echo ""
+    echo "stbutil v4.00 - Settop configuration utility"
+    echo "Copyright (C) 2008 Broadcom Corporation"
+    echo ""
+    echo "Usage: stbutil -d USB_DIR -a n"
+    echo ""
+    echo "examples:"
+    echo "  stbutil"
+    echo "  stbutil [tftpserver:[subdir]]"
+    echo "  stbutil -d /mnt/usbhd"
+    echo "  stbutil -d /mnt/usbhd -a1"
+    echo "  stbutil -d /mnt/usbhd -a 1"
+    echo "  Please specify an argument to stbutil to override the default."
+    echo "  With no arguments, flash images will be retrieved from $TFTP_SERVER:$CUR_REL"
+    echo ""
+    exit 0
+    else
+    #
+    # Parse tftp path from command line
+    #
     TFTP_SERVER=`echo "$Arg1" | cut -f 1 -d ':'`
     CUR_REL=`echo "$Arg1" | sed -n '/\:/p' | cut -f 2 -d ':'`
-    if [ -z "$CUR_REL" ]; then
-        # stbutil HOST: -> tftp -g HOST -r IMAGE
-        IMGPFX=""
-        NONFREEPFX=""
-    else
-        # stbutil HOST:PATH -> tftp -g HOST -r PATH/IMAGE
-        IMGPFX="$CUR_REL/"
-        NONFREEPFX="$CUR_REL/"
+        if [ -z "$CUR_REL" ]; then
+            # stbutil HOST: -> tftp -g HOST -r IMAGE
+            IMGPFX=""
+            NONFREEPFX=""
+        else
+            # stbutil HOST:PATH -> tftp -g HOST -r PATH/IMAGE
+            IMGPFX="$CUR_REL/"
+            NONFREEPFX="$CUR_REL/"
+        fi
     fi
+elif [ $# -eq 2 ]; then
+    getopts d: name 
+    USB_DIR=$OPTARG
+elif [ $# -eq 3 -o $# -eq 4 ]; then
+    getopts d: name 
+    Arg1="$name"
+    if [[ $Arg1 = d ]]; then
+        echo "$Arg1"
+        USB_DIR=$OPTARG
+    else
+        echo "Invalid Argument(s)"
+        echo "Try 'stbutil help' for usage"
+        exit 0
+   fi
 else
     # stbutil <no args> -> tftp -g stb-irva-01 -r $CUR_REL/IMAGE
     # or ${RAWVER}-nonfree/IMAGE for nonfree image
@@ -306,41 +342,51 @@ else
     NONFREEPFX="$RAWVER-nonfree/"
 fi
 
-#
-# Show banner and prompt for user selection
-#
-
-echo ""
-echo "stbutil v4.00 - Settop configuration utility"
-echo "Copyright (C) 2008 Broadcom Corporation"
-echo ""
-echo "Usage: stbutil [tftpserver:[subdir]]"
-echo "  Please specify an argument to stbutil to override the default."
-echo "  Flash images will be retrieved from $TFTP_SERVER:$CUR_REL"
-echo ""
-
+if [ $# -le 2 ]; then
 RESPONSE=0
+elif [ $# -eq 3 -o $# -eq 4 ]; then
+getopts a: name 
+    Arg3="$name"
+    if [[ $Arg3 = a ]]; then
+        echo "$Arg3"
+	RESPONSE=$OPTARG
+    else
+        echo "Invalid Argument(s)"
+        echo "Try 'stbutil help' for usage"
+        exit 0
+   fi
+fi
 while :
 do
+if [ $# -le 2 ]; then
    get_choice
 
    read RESPONSE
+fi
    if [ -z "$RESPONSE" ]; then
-	echo "Please enter a value between 0 and 9"
-	continue
+        if [ $# -le 2 ]; then
+	    echo "Please enter a value between 0 and 9"
+	    continue
+        else
+             echo "Invalid Argument(s)"
+             echo "Try 'stbutil help' for usage"
+             exit 0
+        fi
    fi
    case "$RESPONSE" in
    1|2|3|4|5|6|7|8|9|0)
    	;;
    *)
-      echo "Only single digits are accepted"
+      if [ $# -le 2 ]; then
+      echo "Please enter a value between 0 and 9"
       continue
-      ;;
+      else
+          echo "Invalid Argument(s)"
+          echo "Try 'stbutil help' for usage"
+          exit 0
+     fi
+   ;;
    esac
-   if  [ $RESPONSE -lt 0 -o $RESPONSE -gt 9 ]; then
-        echo "Invalid choice"
-	continue
-   fi
 
    if [ $RESPONSE -eq 6 -o $RESPONSE -eq 7 ]; then
      FDEV="/dev/mtd0"
@@ -424,6 +470,7 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
    FDEV="/dev/mtd0"
    MTD_DEV="/dev/mtdblock0"
 
+if [ $# -eq 1 ]; then
    # check connectivity
    echo "ping -c 4 $TFTP_SERVER"
    ping -c 4 $TFTP_SERVER > ping.err 2>&1
@@ -435,6 +482,9 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
       cat ping.err;rm ping.err
       exit 1
    fi
+elif [ $# -ge 2 ]; then
+   test -d ${USB_DIR} || mkdir -p ${USB_DIR}
+fi
 
    FLASH_TYPE=`flash_info "$FDEV" |grep Type|cut -f2 -d ':' | cut -f2 -d' ' `
    ERASE_SIZE=`flash_info "$FDEV" |grep "Erase block" |cut -f2 -d ':' | cut -f2 -d' ' `
@@ -495,8 +545,11 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
 
    # fetch image
 
+if [ $# -eq 1 ]; then
    tftp_fetch $TFTP_SERVER ${IMGPFX}${IMAGE} /tmp/${IMAGE} || exit 2
-
+elif [ $# -ge 2 ]; then
+   cp ${USB_DIR}/${IMGPFX}${IMAGE} /tmp/${IMAGE} || exit 2
+fi
    echo "Erasing $FLASH_TYPE flash with $ERASE_SIZE kB erase sectors on $FDEV..."
    eraseall $ERASE_FLAG "$FDEV"
 

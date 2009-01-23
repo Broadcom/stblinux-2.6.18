@@ -54,10 +54,12 @@
 #include <asm/io.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
+#include <linux/platform_device.h>
 
 #include <linux/mii.h>
 #include <linux/ethtool.h>
 #include <linux/netdevice.h>
+#include <linux/inetdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/ip.h>
@@ -135,8 +137,6 @@ static uint32 bcmumac_rx(void *ptr, uint32 budget);
 // --------------------------------------------------------------------------
 //      Internal routines
 // --------------------------------------------------------------------------
-/* Remove registered netdevice */
-static void bcmumac_init_cleanup(struct net_device *dev);
 /* Allocate and initialize tx/rx buffer descriptor pools */
 static int bcmumac_init_dev(BcmEnet_devctrl *pDevCtrl);
 static int bcmumac_uninit_dev(BcmEnet_devctrl *pDevCtrl);
@@ -169,27 +169,18 @@ static void dumpMem32(uint32 * pMemAddr, int iNumWords);
 #endif
 
 static struct net_device *eth_root_dev = NULL;
-static int g_num_devs = 0;
-static struct net_device *g_devs[BCMUMAC_MAX_DEVS];
-static uint8 g_flash_eaddr[ETH_ALEN];
 static int DmaDescThres = ISDMA_DESC_THRES;
 
-/* UMAC base physical address, platform dependent.*/
-static unsigned long umac_base_addr[BCMUMAC_MAX_DEVS] = {
-	BCHP_EMAC_0_REG_START,
-	BCHP_EMAC_1_REG_START
-};
-
 /* --------------------------------------------------------------------------
-    Name: bcmumac_get_free_txdesc
+    Name: bcmemac_get_free_txdesc
  Purpose: Get Current Available TX desc count
 -------------------------------------------------------------------------- */
-int bcmumac_get_free_txdesc( struct net_device *dev ){
+int bcmemac_get_free_txdesc( struct net_device *dev ){
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     return pDevCtrl->txFreeBds;
 }
 
-struct net_device * bcmumac_get_device(void) {
+struct net_device * bcmemac_get_device(void) {
 	return eth_root_dev;
 }
 /* 
@@ -343,8 +334,9 @@ static int bcmumac_net_open(struct net_device * dev)
     ASSERT(pDevCtrl != NULL);
 
 
-    TRACE(("%s: bcmumac_net_open, umac->cmd=%xul, RxDMA=%ul, rxDma.cfg=%ul\n", 
-                dev->name, pDevCtrl->umac->cmd, pDevCtrl->rxDma, pDevCtrl->rxDma->cfg));
+    TRACE(("%s: bcmumac_net_open, umac->cmd=%lx, RxDMA=%u, rxDma.cfg=%lu\n", 
+                dev->name, pDevCtrl->umac->cmd, (int)pDevCtrl->rxDma,
+		pDevCtrl->rxDma->cfg));
 
     /* disable ethernet MAC while updating its registers */
     pDevCtrl->umac->cmd &= ~(CMD_TX_EN | CMD_RX_EN);
@@ -354,7 +346,7 @@ static int bcmumac_net_open(struct net_device * dev)
 	
     pDevCtrl->rxDma->cfg |= DMA_ENABLE;
 
-	enable_irq(pDevCtrl->rxIrq);
+	//enable_irq(pDevCtrl->rxIrq);
 
     pDevCtrl->timer.expires = jiffies + POLLTIME_10MS;
     add_timer_on(&pDevCtrl->timer, 0);
@@ -389,7 +381,7 @@ static int bcmumac_net_close(struct net_device * dev)
 
     pDevCtrl->umac->cmd &= ~(CMD_RX_EN | CMD_TX_EN);
 
-    disable_irq(pDevCtrl->rxIrq);
+    //disable_irq(pDevCtrl->rxIrq);
 
     del_timer_sync(&pDevCtrl->timer);
 	//del_timer_sync(&pDevCtrl->poll_timer);
@@ -502,6 +494,7 @@ static void tx_reclaim_timer(unsigned long arg)
         atomic_set(&pDevCtrl->rxDmaRefill, 0);
         /* assign packet buffers to all available Dma descriptors */
         bdfilled = assign_rx_buffers(pDevCtrl);
+		TRACE(("%s: bdfilled=%d\n", __FUNCTION__, bdfilled));
     }
 
     /* Reclaim transmit Frames which have been sent out */
@@ -549,10 +542,10 @@ static Enet_Tx_CB *txCb_deq(BcmEnet_devctrl *pDevCtrl)
 }
 
 /* --------------------------------------------------------------------------
- Name: bcmumac_xmit_check
+ Name: bcmemac_xmit_check
  Purpose: Reclaims TX descriptors
 -------------------------------------------------------------------------- */
-int bcmumac_xmit_check(struct net_device * dev)
+int bcmemac_xmit_check(struct net_device * dev)
 {
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
     Enet_Tx_CB *txCBPtr;
@@ -692,7 +685,6 @@ static int bcmumac_net_xmit(struct sk_buff * skb, struct net_device * dev)
         return 1;
     }
 
-    //txCBPtr->nrBds = 1;
     txCBPtr->skb = skb;
 
     /* If we could not queue this packet, free it */
@@ -763,6 +755,7 @@ static int bcmumac_net_xmit(struct sk_buff * skb, struct net_device * dev)
         pDevCtrl->txNextBdPtr = pDevCtrl->txFirstBdPtr;
     }
     else {
+		/* what is this?*/
         pDevCtrl->txNextBdPtr->length_status |= EMAC_SWAP32(0);
         pDevCtrl->txNextBdPtr++;
     }
@@ -787,8 +780,12 @@ static int bcmumac_net_xmit(struct sk_buff * skb, struct net_device * dev)
         pDevCtrl->txCbPtrTail = txCBPtr;
     }
 
+	TRACE(("%s: BdAddr->Length_status=0x%08x BdAddr->address=0x%08x txNextBdPtr=0x%p\n", __FUNCTION__,
+				txCBPtr->BdAddr->length_status,
+				txCBPtr->BdAddr->address,
+				pDevCtrl->txNextBdPtr));
     /* Enable DMA for this channel */
-    //pDevCtrl->txDma->cfg |= DMA_ENABLE;
+    pDevCtrl->txDma->cfg |= DMA_ENABLE;
 
     /* update stats */
     pDevCtrl->stats.tx_bytes += ((skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len);
@@ -811,7 +808,7 @@ err_out:
     Name: bcmumac_xmit_fragment
  Purpose: Send ethernet traffic Buffer DESC and submit to UDMA
 -------------------------------------------------------------------------- */
-int bcmumac_xmit_fragment( int ch, unsigned char *buf, int buf_len, 
+int bcmemac_xmit_fragment( int ch, unsigned char *buf, int buf_len, 
                            unsigned long tx_flags , struct net_device *dev)
 {
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
@@ -886,8 +883,8 @@ int bcmumac_xmit_fragment( int ch, unsigned char *buf, int buf_len,
         pDevCtrl->txCbPtrTail = txCBPtr;
     }
 
-     /* Enable DMA for this channel */
-    //pDevCtrl->txDma->cfg |= DMA_ENABLE;
+    /* Enable DMA for this channel */
+    pDevCtrl->txDma->cfg |= DMA_ENABLE;
 
    /* update stats */
     pDevCtrl->stats.tx_bytes += buf_len; //((skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len);
@@ -900,19 +897,19 @@ int bcmumac_xmit_fragment( int ch, unsigned char *buf, int buf_len,
     return 0;
 }
 
-EXPORT_SYMBOL(bcmumac_xmit_fragment);
+EXPORT_SYMBOL(bcmemac_xmit_fragment);
 
 /* --------------------------------------------------------------------------
-    Name: bcmumac_xmit_multibuf
+    Name: bcmemac_xmit_multibuf
  Purpose: Send ethernet traffic in multi buffers (hdr, buf, tail)
 -------------------------------------------------------------------------- */
-int bcmumac_xmit_multibuf( int ch, unsigned char *hdr, int hdr_len, unsigned char *buf, 
+int bcmemac_xmit_multibuf( int ch, unsigned char *hdr, int hdr_len, unsigned char *buf, 
 		int buf_len, unsigned char *tail, int tail_len, struct net_device *dev)
 {
 	unsigned long flags;
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)dev->priv;
     
-	while(bcmumac_xmit_check(dev));
+	while(bcmemac_xmit_check(dev));
 
     /*
      * Obtain exclusive access to transmitter.  This is necessary because
@@ -923,29 +920,29 @@ int bcmumac_xmit_multibuf( int ch, unsigned char *hdr, int hdr_len, unsigned cha
     /* Header + Optional payload in two parts */
     if((hdr_len> 0) && (buf_len > 0) && (tail_len > 0) && (hdr) && (buf) && (tail)){ 
         /* Send Header */
-        while(bcmumac_xmit_fragment( ch, hdr, hdr_len, DMA_SOP, dev))
-            bcmumac_xmit_check(dev);
+        while(bcmemac_xmit_fragment( ch, hdr, hdr_len, DMA_SOP, dev))
+            bcmemac_xmit_check(dev);
         /* Send First Fragment */  
-        while(bcmumac_xmit_fragment( ch, buf, buf_len, 0, dev))
-            bcmumac_xmit_check(dev);
+        while(bcmemac_xmit_fragment( ch, buf, buf_len, 0, dev))
+            bcmemac_xmit_check(dev);
         /* Send 2nd Fragment */ 	
-        while(bcmumac_xmit_fragment( ch, tail, tail_len, DMA_EOP, dev))
-            bcmumac_xmit_check(dev);
+        while(bcmemac_xmit_fragment( ch, tail, tail_len, DMA_EOP, dev))
+            bcmemac_xmit_check(dev);
     }
     /* Header + Optional payload */
     else if((hdr_len> 0) && (buf_len > 0) && (hdr) && (buf)){
         /* Send Header */
-        while(bcmumac_xmit_fragment( ch, hdr, hdr_len, DMA_SOP, dev))
-            bcmumac_xmit_check(dev);
+        while(bcmemac_xmit_fragment( ch, hdr, hdr_len, DMA_SOP, dev))
+            bcmemac_xmit_check(dev);
         /* Send First Fragment */
-        while(bcmumac_xmit_fragment( ch, buf, buf_len, DMA_EOP, dev))
-            bcmumac_xmit_check(dev);
+        while(bcmemac_xmit_fragment( ch, buf, buf_len, DMA_EOP, dev))
+            bcmemac_xmit_check(dev);
     }
     /* Header Only (includes payload) */
     else if((hdr_len> 0) && (hdr)){ 
         /* Send Header */
-        while(bcmumac_xmit_fragment( ch, hdr, hdr_len, DMA_SOP | DMA_EOP, dev))
-            bcmumac_xmit_check(dev);
+        while(bcmemac_xmit_fragment( ch, hdr, hdr_len, DMA_SOP | DMA_EOP, dev))
+            bcmemac_xmit_check(dev);
     }
     else{
     	spin_unlock_irqrestore(&pDevCtrl->lock, flags);
@@ -959,11 +956,14 @@ int bcmumac_xmit_multibuf( int ch, unsigned char *hdr, int hdr_len, unsigned cha
 static int bcmumac_enet_poll(struct net_device * dev, int * budget)
 {   
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
-    uint32 work_to_do = min(dev->quota, *budget);
+	volatile intrl2Regs * intrl2 = pDevCtrl->intrl2;
+    
+	uint32 work_to_do = min(dev->quota, *budget);
     uint32 work_done;
     uint32 ret_done;
 
     work_done = bcmumac_rx(pDevCtrl, work_to_do);
+	TRACE(("%s: work_done=0x%x\n", __FUNCTION__, work_done));
     ret_done = work_done & ENET_POLL_DONE;
     work_done &= ~ENET_POLL_DONE;
 
@@ -980,10 +980,12 @@ static int bcmumac_enet_poll(struct net_device * dev, int * budget)
 
     /* Reschedule if there are more packets on the DMA ring to be received. */
     if( (((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff) & DMA_OWN) == 0 ) {
+		TRACE(("Reschdule rx\n"));
         netif_rx_reschedule(pDevCtrl->dev, work_done); /* ???? */
     }
     else {
-        enable_irq(pDevCtrl->rxIrq);
+		intrl2->cpu_mask_clear |= UMAC_IRQ_RXDMA_BDONE;
+		TRACE(("%s:Enabling  RXDMA_BDONE interrupt\n", __FUNCTION__));
     }
 
     return 0;
@@ -994,11 +996,12 @@ static int bcmumac_enet_poll(struct net_device * dev, int * budget)
  */
 static void bcmumac_task(BcmEnet_devctrl *pDevCtrl)
 {
-	spinlock_bf(&pDeCtrl->bh_lock);
+	spin_lock_bh(&pDevCtrl->bh_lock);
 
+	TRACE(("%s\n", __FUNCTION__));
 	/* Cable plugged/unplugged event */
-	if (pDevCtrl->irq_stat & UMAC_IRQ_PHY_DET_F) {
-		pDevCtrl->irq_stat &= ~UMAC_IRQ_PHY_DET_F;
+	if (pDevCtrl->irq_stat & UMAC_IRQ_PHY_DET_R) {
+		pDevCtrl->irq_stat &= ~UMAC_IRQ_PHY_DET_R;
 		printk(KERN_CRIT "Cable plugged in UMAC%d powering up\n", pDevCtrl->devnum);
 		bcmumac_power_up(pDevCtrl, BCMUMAC_POWER_CABLE_SENSE);
 		/* restart auto-neg, program speed/duplex/pause info into umac */
@@ -1006,8 +1009,8 @@ static void bcmumac_task(BcmEnet_devctrl *pDevCtrl)
 			mii_setup(pDevCtrl->dev);
 		}
 
-	}else if (pDevCtrl->irq_stat & UMAC_IRQ_PHY_DET_R) {
-		pDevCtrl->irq_stat &= ~UMAC_IRQ_PHY_DET_R;
+	}else if (pDevCtrl->irq_stat & UMAC_IRQ_PHY_DET_F) {
+		pDevCtrl->irq_stat &= ~UMAC_IRQ_PHY_DET_F;
 		printk(KERN_CRIT "Cable unplugged in UMAC%d powering down\n", pDevCtrl->devnum);
 		bcmumac_power_down(pDevCtrl, BCMUMAC_POWER_CABLE_SENSE);
 	}
@@ -1032,12 +1035,11 @@ static void bcmumac_task(BcmEnet_devctrl *pDevCtrl)
 		printk(KERN_CRIT "%s Link UP.\n", pDevCtrl->dev->name);
 		/* Clear soft-copy of irq status*/
 		pDevCtrl->irq_stat &= ~UMAC_IRQ_LINK_UP;
-		/* TODO: Read phy register 0x19 for speed/duplex/pause info.*/
-		/* enable DMA channels */
+#if 0
 		pDevCtrl->dmaRegs->flowctl_ch1_alloc = (DMA_CH1_FLOW_ALLOC_FORCE | 0);
 		pDevCtrl->dmaRegs->flowctl_ch1_alloc = NR_RX_BDS;
-		pDevCtrl->rxDma->cfg = DMA_ENABLE;
-		pDevCtrl->txDma->cfg = DMA_ENABLE;
+#endif
+		pDevCtrl->rxDma->cfg |= DMA_ENABLE;
 		
 #ifdef CONFIG_BCMINTEMAC_NETLINK
 		if(atomic_read(&pDevCtrl->LinkState) == 0) {
@@ -1053,10 +1055,11 @@ static void bcmumac_task(BcmEnet_devctrl *pDevCtrl)
 	{
 		printk(KERN_CRIT "%s Link DOWN.\n", pDevCtrl->dev->name);
 		pDevCtrl->irq_stat &= ~UMAC_IRQ_LINK_DOWN;	/* clear soft-copy of irq status */
-#if 0
-		/* Disable DMA Tx/Rx channels.  */
+		/* Disable DMA Rx channels.  */
 		pDevCtrl->rxDma->cfg &= ~DMA_ENABLE;
-		pDevCtrl->rxDma->cfg |= DMA_PKT_HALT;
+		/* In case there are packets in the Rx descriptor */
+		bcmumac_rx(pDevCtrl, 64);
+#if 0
 		pDevCtrl->txDma->cfg &= ~DMA_ENABLE;
 		pDevCtrl->txDma->cfg |= DMA_PKT_HALT;
 #endif
@@ -1066,7 +1069,7 @@ static void bcmumac_task(BcmEnet_devctrl *pDevCtrl)
 			clear_bit(__LINK_STATE_START, &pDevCtrl->dev->state);
 			netif_carrier_off(pDevCtrl->dev);
 			pDevCtrl->dev->flags &= ~IFF_RUNNING;
-			rtmsg_ifinfo(RTM_NEWLINK, pDevCtrl->dev, IFF_RUNNING);
+			rtmsg_ifinfo(RTM_DELLLINK, pDevCtrl->dev, IFF_RUNNING);
 			set_bit(__LINK_STATE_START, &pDevCtrl->dev->state);
 			rtnl_unlock();
 		}
@@ -1074,7 +1077,7 @@ static void bcmumac_task(BcmEnet_devctrl *pDevCtrl)
 #endif
 	}
 
-	spin_unlock_bf(&pDeCtrl->bh_lock);
+	spin_unlock_bh(&pDevCtrl->bh_lock);
 	/*
 	 * multiple buffer done event */
 	if (pDevCtrl->irq_stat & UMAC_IRQ_DESC_THROT)
@@ -1096,20 +1099,41 @@ static irqreturn_t bcmumac_net_isr(int irq, void * dev_id, struct pt_regs * regs
 	
 	/* Save irq status for bottom-half processing. */
 	pDevCtrl->irq_stat = intrl2->cpu_stat;
+	/* clear inerrupts*/
+	intrl2->cpu_clear |= pDevCtrl->irq_stat;
 
-	if (intrl2->cpu_stat & UMAC_IRQ_RXDMA_BDONE) {
-		/* Rx buffer done */
-		intrl2->cpu_clear |= UMAC_IRQ_RXDMA_BDONE;
+	TRACE(("IRQ=0x%x\n", pDevCtrl->irq_stat));
+	if (pDevCtrl->irq_stat & (UMAC_IRQ_RXDMA_BDONE|UMAC_IRQ_RXDMA_PDONE)) {
 		/*
 		 * We use NAPI(software interrupt throttling, if
 		 * Rx Descriptor throttling is not used.
+		 * Disable interrupt, will be enabled in the poll method.
 		 */
-		disable_irq_nosync(pDevCtrl->rxIrq);	/*??? disable all irqs ?*/
-		netif_rx_schedule(pDevCtrl->dev);
-	}else {
+		pDevCtrl->irq_stat &= (~UMAC_IRQ_RXDMA_BDONE | ~UMAC_IRQ_RXDMA_PDONE);
+		if(!netif_running(pDevCtrl->dev))
+		{
+			/* 
+			 * interface is not up, received broadcast packet.
+			 * if we can't schdule, simply ack the IRQ and wait for next time.
+			 */
+			if(__netif_rx_schedule_prep(pDevCtrl->dev))
+			{
+				intrl2->cpu_mask_set |= UMAC_IRQ_RXDMA_BDONE;
+				TRACE(("%s:Disabling RXDMA_BDONE interrupt\n", __FUNCTION__));
+				__netif_rx_schedule(pDevCtrl->dev);
+			}
+		}else
+		{
+			intrl2->cpu_mask_set |= UMAC_IRQ_RXDMA_BDONE;
+			TRACE(("%s:Disabling RXDMA_BDONE interrupt\n", __FUNCTION__));
+			/* interface is up, received both broadcast and unicast packet*/
+			netif_rx_schedule(pDevCtrl->dev);
+		}
+	}
+	if(pDevCtrl->irq_stat & (~UMAC_IRQ_RXDMA_BDONE|~UMAC_IRQ_RXDMA_PDONE))
+	{
+		/* all other interrupts are handled in bottom half */
 
-		/* all other IRQs are processed in bottom-half */
-		intrl2->cpu_clear |= pDevCtrl->irq_stat;
 		schedule_work(&pDevCtrl->bcmumac_task);
 	}
 
@@ -1131,28 +1155,47 @@ static uint32 bcmumac_rx(void *ptr, uint32 budget)
     int bdfilled;
     uint32 rxpktgood = 0;
     uint32 rxpktprocessed = 0;
+	uint32 rxpkttoprocess = 0;
+	int offset = pDevCtrl->rxDma->descOffset >> 1;	/* offset increment by 2 for each packet? */
 
-	while((pDevCtrl->dmaRegs->enet_isdma_desc_alloc & DMA_DESC_ALLOC_MASK)
+	if(pDevCtrl->rxBdReadPtr > (pDevCtrl->rxFirstBdPtr + offset) )
+	{
+		/* wrapped*/
+		rxpkttoprocess = (uint32)(pDevCtrl->rxLastBdPtr - pDevCtrl->rxBdReadPtr);
+		TRACE(("wrapped rxpkttoprocess=%d\n", rxpkttoprocess));
+		rxpkttoprocess += 1;	/* current rxBdReadPtr need to be processed */
+		rxpkttoprocess += offset;
+	}else
+	{
+		rxpkttoprocess = (uint32)((pDevCtrl->rxFirstBdPtr + offset) - pDevCtrl->rxBdReadPtr) ;
+		TRACE(("no wrap rxpkttoprocess=%d\n", rxpkttoprocess));
+		rxpkttoprocess += 1;	/* current rxBdReadPtr need to be processed */
+	}
+
+	TRACE(("bcmumac_rx: budget=%d pkttoprocess=%d descOffset=%d rxBdReadPtr=0x%x rxFirstBdPtr=0x%x\n", 
+				budget, rxpkttoprocess, pDevCtrl->rxDma->descOffset, pDevCtrl->rxBdReadPtr, pDevCtrl->rxFirstBdPtr));
+
+	while((rxpktprocessed < rxpkttoprocess)
 			&& (rxpktprocessed < budget) )
 	{
-
     	dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff);
-    	loopCount = 0;
 
 		if (dmaFlag & DMA_OWN) {
+			TRACE(("Rx overrun?\n"));
 			break;
 		}
 		rxpktprocessed++;
         /*
-		 * Stop when we hit a buffer with no data, or a BD w/ no buffer.
-		 * This implies that we caught up with DMA, or that we haven't been
+		 * Stop when we hit a buffer with no data, or a BD w/ no buffBCHP_CLK_MISC* This implies that we caught up with DMA, or that we haven't been
 		 * able to fill the buffers.
 		 */
         if ( (pDevCtrl->rxBdReadPtr->address == (uint32) NULL)) {
+			TRACE(("address is NULL\n"));
             break;
         }
 		/* report errors */
         if (dmaFlag & (DMA_RX_CRC_ERROR | DMA_RX_OV | DMA_RX_NO | DMA_RX_LG |DMA_RX_RXER)) {
+			TRACE(("ERROR: dmaFlag=0x%x\n", dmaFlag));
             if (dmaFlag & DMA_RX_CRC_ERROR) {
                 pDevCtrl->stats.rx_crc_errors++;
             }
@@ -1180,6 +1223,7 @@ static uint32 bcmumac_rx(void *ptr, uint32 budget)
 			}
 			/* Advance BD ptr to next in ring */
 			IncRxBDptr(pDevCtrl->rxBdReadPtr, pDevCtrl);
+    		dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff);
 
 			/* process next packet */
 			continue;
@@ -1203,6 +1247,8 @@ static uint32 bcmumac_rx(void *ptr, uint32 budget)
         IncRxBDptr(pDevCtrl->rxBdReadPtr, pDevCtrl);
         /* Recover the SKB pointer saved during assignment.*/
         skb = (struct sk_buff *)*(unsigned long *)(pBuf-4);
+    	
+		dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff);
 
 		if(pDevCtrl->bIPHdrOptimize)
 			skb_pull(skb, 2);
@@ -1229,7 +1275,7 @@ static uint32 bcmumac_rx(void *ptr, uint32 budget)
 
         /* Notify kernel */
         netif_receive_skb(skb);
-        
+        TRACE(("pushed up to kernel\n"));
         if (--budget <= 0) {
             break;
         }
@@ -1269,11 +1315,14 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
 {
     struct sk_buff *skb;
     uint16  bdsfilled=0;
+	int i;
+	
+	TRACE(("%s\n", __FUNCTION__));
 
     /*
      * This function may be called from timer of irq bottom-half.
      */
-	spinlock_bh(&pDevCtrl->bf_lock);
+	spin_lock_bh(&pDevCtrl->bh_lock);
 
     /* loop here for each buffer needing assign */
     for (;;)
@@ -1291,9 +1340,22 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
         /* check if skb is free */
         if (skb_shared(skb) || 
             atomic_read(skb_dataref(skb)) > 1) {
-			/* No free skb avaiable now, set the flag and let the timer function to refill. */
-			atomic_set(&pDevCtrl->rxDmaRefill, 1);
-			break;
+            /* find next free skb */
+            for (i = 0; i < MAX_RX_BUFS; i++) {
+                skb = pDevCtrl->skb_pool[pDevCtrl->nextskb++];
+                if (pDevCtrl->nextskb == MAX_RX_BUFS)
+                    pDevCtrl->nextskb = 0;
+                if ((skb_shared(skb) == 0) && 
+                    atomic_read(skb_dataref(skb)) <= 1) {
+                    /* found a free skb */
+                    break;
+                }
+            }
+			if(i == MAX_RX_BUFS) {
+				/* No free skb avaiable now, set the flag and let the timer function to refill. */
+				atomic_set(&pDevCtrl->rxDmaRefill, 1);
+				break;
+			}
         }
 
         atomic_set(&pDevCtrl->rxDmaRefill, 0);
@@ -1332,18 +1394,25 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
         /* turn on the newly assigned BD for DMA to use */
         if (pDevCtrl->rxBdAssignPtr == pDevCtrl->rxLastBdPtr) {
             pDevCtrl->rxBdAssignPtr->length_status |= EMAC_SWAP32(DMA_OWN | DMA_WRAP);
+			TRACE(("rxBdAssignPtr=0x%08x, length_status=0x%08x address=0x%08x\n", pDevCtrl->rxBdAssignPtr,
+					pDevCtrl->rxBdAssignPtr->length_status ,
+					pDevCtrl->rxBdAssignPtr->address));
             pDevCtrl->rxBdAssignPtr = pDevCtrl->rxFirstBdPtr;
         }
         else {
             pDevCtrl->rxBdAssignPtr->length_status |= EMAC_SWAP32(DMA_OWN);
+			TRACE(("rxBdAssignPtr=0x%08x, length_status=0x%08x address=0x%08x\n", pDevCtrl->rxBdAssignPtr,
+					pDevCtrl->rxBdAssignPtr->length_status ,
+					pDevCtrl->rxBdAssignPtr->address));
             pDevCtrl->rxBdAssignPtr++;
         }
     }
 
-    pDevCtrl->rxDma->cfg |= DMA_ENABLE;
+    //pDevCtrl->rxDma->cfg |= DMA_ENABLE;
 
 	spin_unlock_bh(&pDevCtrl->bh_lock);
 
+	TRACE(("%s return bdsfilled=%d\n", __FUNCTION__, bdsfilled));
     return bdsfilled;
 }
 
@@ -1355,21 +1424,23 @@ static int init_umac(BcmEnet_devctrl *pDevCtrl)
 {
     volatile uniMacRegs *umac;
 	volatile intrl2Regs *intrl2; 
+	struct net_device * dev = pDevCtrl->dev;
 	
 	umac = pDevCtrl->umac;;
 	intrl2 = pDevCtrl->intrl2;
 
-    TRACE(("bcmumacenet: init_umac\n"));
+    TRACE(("bcmumac: init_umac "));
 
     /* disable MAC while updating its registers */
     umac->cmd = 0 ;
-    /* clear tx/rx counter */
-    umac->mib_ctrl = MIB_RESET_RX | MIB_RESET_TX | MIB_RESET_RUNT;
 
     /* issue soft reset, wait for it to complete */
     umac->cmd = CMD_SW_RESET;
-	udelay(100);
-	umac->cmd = ~CMD_SW_RESET;
+	udelay(1000);
+	umac->cmd = 0;
+    /* clear tx/rx counter */
+    umac->mib_ctrl = MIB_RESET_RX | MIB_RESET_TX | MIB_RESET_RUNT;
+	umac->mib_ctrl = 0;
 
 #ifdef MAC_LOOPBACK
 	/* Enable GMII/MII loopback */
@@ -1388,30 +1459,39 @@ static int init_umac(BcmEnet_devctrl *pDevCtrl)
 	 * init rx registers, enable ip header optimization.
 	 */
     if (pDevCtrl->bIPHdrOptimize) {
-        pDevCtrl->txrx_ctrl->rbuf_ctrl = RBUF_ALIGN_2B ;
+        pDevCtrl->txrx_ctrl->rbuf_ctrl |= RBUF_ALIGN_2B ;
     }
+	umac->mac_0 = dev->dev_addr[0] << 24 | dev->dev_addr[1] << 16 | dev->dev_addr[2] << 8 | dev->dev_addr[3];
+	umac->mac_1 = dev->dev_addr[4] << 8 | dev->dev_addr[5];
+	
 #ifdef CONFIG_L4_CSUM
 	umac->rxtx_ctrl->rbuf_ctrl |= RBUF_64B_EN;
 	umac->txrx_ctrl->tbuf_ctrl |= RBUF_64B_EN;
 #endif
-
-	/* Interrupt mask */
-	intrl2->cpu_mask_clear = UMAC_IRQ_LINK_DOWN | UMAC_IRQ_LINK_UP ;
+	/* Mask all interrupts.*/
+	intrl2->cpu_mask_set = 0xFFFFFFFF;
+	intrl2->cpu_clear = 0xFFFFFFFF;
 
 #ifdef CONFIG_UMAC_RX_DESC_THROTTLE
 	intrl2->cpu_mask_clear |= UMAC_IRQ_DESC_THROT;
 #else
 	intrl2->cpu_mask_clear |= UMAC_IRQ_RXDMA_BDONE;
+	TRACE(("%s:Enabling RXDMA_BDONE interrupt\n", __FUNCTION__));
 #endif /* CONFIG_UMAC_RX_DESC_THROTTLE */
     
 	/* Monitor cable plug/unpluged event for internal PHY */
-	if (pDevCtrl->devnum == BCMUMAC_INT_PHY_DEV) {
+	if (pDevCtrl->EnetInfo.PhyType == BP_ENET_INTERNAL_PHY ||
+		pDevCtrl->EnetInfo.PhyType == BP_ENET_EXTERNAL_PHY ||
+		pDevCtrl->EnetInfo.PhyType == BP_ENET_EXTERNAL_GPHY ) 
+	{
 		intrl2->cpu_mask_clear |= UMAC_IRQ_PHY_DET_R | UMAC_IRQ_PHY_DET_F;
+		intrl2->cpu_mask_clear = UMAC_IRQ_LINK_DOWN | UMAC_IRQ_LINK_UP ;
 	}
 
 	/* Enable rx/tx engine.*/
 	umac->cmd |= CMD_TX_EN | CMD_RX_EN;
-	/* TODO: Enable more interrupts in debugging mode ?*/
+	/* promiscous mode for debugging */
+	//umac->cmd |= CMD_PROMISC;
 
 	TRACE(("done init umac\n"));
 
@@ -1424,10 +1504,12 @@ static int init_umac(BcmEnet_devctrl *pDevCtrl)
  */
 static void init_isdma(BcmEnet_devctrl *pDevCtrl)
 {
+#ifdef CONFIG_UMAC_RX_DESC_THROTTLE
 	volatile uniMacRegs * umac = pDevCtrl->umac;
 	int speeds[] = {10, 100, 1000, 2500};
-	int speed_id;
-    TRACE(("bcmumacenet: init_dma\n"));
+	int speed_id = 1;
+#endif
+    TRACE(("bcmumac: init_dma\n"));
 
     /*
      * initialize ISDMA controller register.
@@ -1440,14 +1522,11 @@ static void init_isdma(BcmEnet_devctrl *pDevCtrl)
     pDevCtrl->txDma->cfg = 0;       /* initialize first (will enable later) */
     pDevCtrl->txDma->maxBurst = DMA_MAX_BURST_LENGTH;
 	pDevCtrl->txDma->descPtr = (uint32)CPHYSADDR(pDevCtrl->txFirstBdPtr);
-	/* in B0, not nessesary*/
-	pDevCtrl->txDma->descOffset = (uint32)CPHYSADDR(pDevCtrl->txFirstBdPtr);
 
     /* Rx */
     pDevCtrl->rxDma->cfg = 0; 
     pDevCtrl->rxDma->maxBurst = DMA_MAX_BURST_LENGTH; 
     pDevCtrl->rxDma->descPtr = (uint32)CPHYSADDR(pDevCtrl->rxFirstBdPtr);
-	pDevCtrl->rxDma->descOffset = (uint32)CPHYSADDR(pDevCtrl->rxFirstBdPtr);
 
 #ifdef  CONFIG_UMAC_RX_DESC_THROTTLE
 	/* 
@@ -1473,6 +1552,7 @@ static int init_buffers(BcmEnet_devctrl *pDevCtrl)
     int bdfilled;
     int i;
 
+	TRACE(("%s\n", __FUNCTION__));
     /* set initial state of all BD pointers to top of BD ring */
     pDevCtrl->txCbPtrHead = pDevCtrl->txCbPtrTail = NULL;
 
@@ -1502,7 +1582,7 @@ static int init_buffers(BcmEnet_devctrl *pDevCtrl)
     /* init the next free skb index */
     pDevCtrl->nextskb = 0;
     atomic_set(&pDevCtrl->rxDmaRefill, 0);
-    clear_bit(0, &pDevCtrl->rxbuf_assign_busy);
+    //clear_bit(0, &pDevCtrl->rxbuf_assign_busy);
 
     /* assign packet buffers to all available Dma descriptors */
     bdfilled = assign_rx_buffers(pDevCtrl);
@@ -1511,7 +1591,10 @@ static int init_buffers(BcmEnet_devctrl *pDevCtrl)
     }
     // This avoid depending on flowclt_alloc which may go negative during init
     pDevCtrl->dmaRegs->flowctl_ch1_alloc = DMA_CH1_FLOW_ALLOC_FORCE | bdfilled;
-    TRACE(("init_buffers: %08lx descriptors initialized, from flowctl\n",
+    //pDevCtrl->dmaRegs->enet_isdma_desc_alloc = DMA_CH1_FLOW_ALLOC_FORCE | bdfilled;
+    pDevCtrl->rxDma->cfg |= DMA_ENABLE;
+
+    TRACE(("init_buffers: %d descriptors initialized, from flowctl\n",
     		pDevCtrl->dmaRegs->flowctl_ch1_alloc));
 
     return 0;
@@ -1528,11 +1611,7 @@ static int bcmumac_init_dev(BcmEnet_devctrl *pDevCtrl)
     void *p;
     Enet_Tx_CB *txCbPtr;
 
-#ifdef BCM_LINUX_CPU_ENET_1_IRQ
-    pDevCtrl->rxIrq = pDevCtrl->devnum ? BCM_LINUX_CPU_ENET_1_IRQ : BCM_LINUX_CPU_ENET_IRQ;
-#else
-    pDevCtrl->rxIrq = BCM_LINUX_CPU_ENET_IRQ;
-#endif
+	TRACE(("%s\n", __FUNCTION__));
     /* setup buffer/pointer relationships here */
     pDevCtrl->nrTxBds = NR_TX_BDS;
     pDevCtrl->nrRxBds = NR_RX_BDS;
@@ -1548,10 +1627,11 @@ static int bcmumac_init_dev(BcmEnet_devctrl *pDevCtrl)
 	pDevCtrl->hfb = (unsigned long*)(pDevCtrl->dev->base_addr + UMAC_HFB_OFFSET);
 
     /* init rx/tx dma channels */
-    pDevCtrl->rxDma = &pDevCtrl->dmaRegs->chcfg[UMAC_RX_CHAN];
-    pDevCtrl->txDma = &pDevCtrl->dmaRegs->chcfg[UMAC_TX_CHAN];
+    pDevCtrl->rxDma = &pDevCtrl->dmaRegs->rx_chan;
+    pDevCtrl->txDma = &pDevCtrl->dmaRegs->tx_chan;
     pDevCtrl->rxBds = (DmaDesc *) (pDevCtrl->dev->base_addr + UMAC_RX_DESC_OFFSET);
     pDevCtrl->txBds = (DmaDesc *) (pDevCtrl->dev->base_addr + UMAC_TX_DESC_OFFSET);
+	TRACE(("%s: rxbds=0x%08x txbds=0x%08x\n", __FUNCTION__, pDevCtrl->rxBds, pDevCtrl->txBds));
 	
     /* alloc space for the tx control block pool */
     nrCbs = pDevCtrl->nrTxBds; 
@@ -1565,6 +1645,8 @@ static int bcmumac_init_dev(BcmEnet_devctrl *pDevCtrl)
     pDevCtrl->rxBdAssignPtr = pDevCtrl->rxBdReadPtr =
                 pDevCtrl->rxFirstBdPtr = pDevCtrl->rxBds;
     pDevCtrl->rxLastBdPtr = pDevCtrl->rxFirstBdPtr + pDevCtrl->nrRxBds - 1;
+	TRACE(("%s: rxFirstBdPtr=0x%08x rxLastBdPtr=0x%08x rxBdAssignPtr=0x%08x\n", __FUNCTION__, 
+				pDevCtrl->rxFirstBdPtr, pDevCtrl->rxLastBdPtr, pDevCtrl->rxBdAssignPtr));
 
     /* init the receive buffer descriptor ring */
     for (i = 0; i < pDevCtrl->nrRxBds; i++)
@@ -1609,6 +1691,7 @@ static int bcmumac_init_dev(BcmEnet_devctrl *pDevCtrl)
 	/* init dma registers */
     init_isdma(pDevCtrl);
 
+	TRACE(("%s returned\n", __FUNCTION__));
     /* if we reach this point, we've init'ed successfully */
     return 0;
 }
@@ -1617,63 +1700,65 @@ static int bcmumac_init_dev(BcmEnet_devctrl *pDevCtrl)
 /*
  * display/decode Rx BD status
  */
-char * bcmumac_display_rxbds(char * buf, unsigned long * addr)
+int bcmumac_display_rxbds(char * buf, unsigned long * addr)
 {
 	int i;
 	int len = 0;
 	
-	len = sprintf(buf, "Addr      O L F W FI   B M LG NO RxER CRC OV B_Addr\n");
+	len = sprintf(buf, "Addr      Len O L F W FI   B M LG NO RxER CRC OV B_Addr\n");
 	for ( i = 0 ; i < NR_RX_BDS; i ++) {
-		len += sprintf(buf+len, "0x%08lX %lu %lu %lu %lu 0x%02lX %lu %lu %lu %lu %lu %lu %lu 0x%08lX\n",
-			(unsigned long)addr,
-			(*addr >> 16) & DMA_OWN,
-			(*addr >> 16) & DMA_EOP,
-			(*addr >> 16) & DMA_SOP,
-			(*addr >> 16) & DMA_WRAP,
-			((*addr >> 16) >> DMA_RX_FI_SHIFT) & DMA_RX_FI_MASK,
-			(*addr >> 16) & DMA_RX_BRDCAST,
-			(*addr >> 16) & DMA_RX_MULT,
-			(*addr >> 16) & DMA_RX_LG,
-			(*addr >> 16) & DMA_RX_NO,
-			(*addr >> 16) & DMA_RX_RXER,
-			(*addr >> 16) & DMA_RX_CRC_ERROR,
-			(*addr >> 16) & DMA_RX_OV,
+		len += sprintf(buf+len, "0x%08lX %03lx %1u %1u %1u %1u 0x%02lX %1u %1u %1u %1u %1u %1u %1u 0x%08lX\n",
+			(uint32)addr,
+			(*addr >> DMA_BUFLENGTH_SHIFT)&DMA_BUFLENGTH_MASK,
+			(*addr & DMA_OWN)>0? 1:0,
+			(*addr & DMA_EOP)>0? 1:0,
+			(*addr & DMA_SOP)>0? 1:0,
+			(*addr & DMA_WRAP)>0? 1:0,
+			(*addr >> DMA_RX_FI_SHIFT) & DMA_RX_FI_MASK,
+			(*addr & DMA_RX_BRDCAST)>0? 1:0,
+			(*addr & DMA_RX_MULT)>0? 1:0,
+			(*addr & DMA_RX_LG)>0? 1:0,
+			(*addr & DMA_RX_NO)>0? 1:0,
+			(*addr & DMA_RX_RXER)>0? 1:0,
+			(*addr & DMA_RX_CRC_ERROR)>0? 1:0,
+			(*addr & DMA_RX_OV)>0? 1:0,
 			*(addr+1)
 			),
 		addr += 2;
 	}
-	return buf;
+	return len;
 }
 /*
  * display/decode Tx BD status.
  */
-char * bcmumac_display_txbds(char *buf, unsigned long * addr)
+int bcmumac_display_txbds(char *buf, unsigned long * addr)
 {
 	int i;
 	int len = 0;
-	len = sprintf(buf, "Addr      O L F W UR   A_CRC O_CRC CSUM QTAG B_Addr\n");
+	len = sprintf(buf, "Addr       Len O L F W UR   A_CRC O_CRC CSUM QTAG B_Addr\n");
 	for ( i = 0 ; i < NR_TX_BDS; i ++) {
-		len += sprintf(buf+len, "0x%08lX %lu %lu %lu %lu %lu %lu %lu %lu 0x%02lX 0x%08lX\n",
-			(unsigned long)addr,
-			(*addr >> 16) & DMA_OWN,
-			(*addr >> 16) & DMA_EOP,
-			(*addr >> 16) & DMA_SOP,
-			(*addr >> 16) & DMA_WRAP,
-			(*addr >> 16) & DMA_TX_UNDERRUN,
-			(*addr >> 16) & DMA_TX_APPEND_CRC,
-			(*addr >> 16) & DMA_TX_OW_CRC,
-			(*addr >> 16) & DMA_TX_DO_CSUM,
-			(*addr >> 16) & DMA_TX_QTAG_MASK,
+		len += sprintf(buf+len, "0x%08lX %03lx %1u %1u %1u %1u %1u %1u %1u %1u 0x%02lX 0x%08lX\n",
+			(uint32)addr,
+			(*addr >> DMA_BUFLENGTH_SHIFT)&DMA_BUFLENGTH_MASK,
+			(*addr & DMA_OWN)>0? 1:0,
+			(*addr & DMA_EOP)>0? 1:0,
+			(*addr & DMA_SOP)>0? 1:0,
+			(*addr & DMA_WRAP)>0? 1:0,
+			(*addr & DMA_TX_UNDERRUN)>0? 1:0,
+			(*addr & DMA_TX_APPEND_CRC)>0? 1:0,
+			(*addr & DMA_TX_OW_CRC)>0? 1:0,
+			(*addr & DMA_TX_DO_CSUM)>0? 1:0,
+			*addr & DMA_TX_QTAG_MASK,
 			*(addr+1)
 			),
 		addr += 2;
 	}
-	return buf;
+	return len;
 }
 /*
  * display MDF content
  */
-char * bcmumac_display_mdf(char * buf, unsigned long * addr)
+int  bcmumac_display_mdf(char * buf, unsigned long * addr)
 {
 	int i ;
 	int len = 0;
@@ -1687,12 +1772,12 @@ char * bcmumac_display_mdf(char * buf, unsigned long * addr)
 				(*(addr+1)) & 0xFF
 			   );
 	}
-	return buf;
+	return len;
 }
 /* 
  * disaplay HFB memory content.
  */
-char *bcmumac_display_hfb(char * buf, unsigned long * addr)
+int bcmumac_display_hfb(char * buf, unsigned long * addr)
 {
 	int i;
 	int len = 0;
@@ -1700,17 +1785,23 @@ char *bcmumac_display_hfb(char * buf, unsigned long * addr)
 		len += sprintf(buf+len, "%01lx %04lx\n", (*addr >> 16) & 0xF,
 			*addr & 0xFFFF);
 	}
-	return buf;
+	return len;
 }
 /* 
  * Special proc entries for debug,
  * other entries are generated by perl script.
  */
-umacProcEntry debug_entries[] = {
-	{0, &bcmumac_display_rxbds, 0,0,0,0,0, "uniMacRegs/rxbds"},
-	{0, &bcmumac_display_txbds, 0,0,0,0,0, "uniMacRegs/txbds"},
-	{0, &bcmumac_display_mdf, 0,0,0,0,0, "uniMacRegs/mdf"},
-	{0, &bcmumac_display_hfb, 0,0,0,0,0, "hfb"}
+umacProcEntry umac0_debug_entries[] = {
+	{0, &bcmumac_display_rxbds, 0,S_IRUSR|S_IRGRP|S_IROTH, 0,0,0, "uniMacRegs/rxbds"},
+	{0, &bcmumac_display_txbds, 0,S_IRUSR|S_IRGRP|S_IROTH,0,0,0, "uniMacRegs/txbds"},
+	{0, &bcmumac_display_mdf, 0,S_IRUSR|S_IRGRP|S_IROTH, 0,0,0, "uniMacRegs/mdf"},
+	{0, &bcmumac_display_hfb, 0,S_IRUSR|S_IRGRP|S_IROTH, 0,0,0, "hfb"}
+};
+umacProcEntry umac1_debug_entries[] = {
+	{0, &bcmumac_display_rxbds, 0,S_IRUSR|S_IRGRP|S_IROTH, 0,0,0, "uniMacRegs/rxbds"},
+	{0, &bcmumac_display_txbds, 0,S_IRUSR|S_IRGRP|S_IROTH,0,0,0, "uniMacRegs/txbds"},
+	{0, &bcmumac_display_mdf, 0,S_IRUSR|S_IRGRP|S_IROTH, 0,0,0, "uniMacRegs/mdf"},
+	{0, &bcmumac_display_hfb, 0,S_IRUSR|S_IRGRP|S_IROTH, 0,0,0, "hfb"}
 };
 /*
  * initialize and create proc entries
@@ -1718,19 +1809,41 @@ umacProcEntry debug_entries[] = {
 static void bcmumac_init_proc(BcmEnet_devctrl *pDevCtrl)
 {
 	int i;
-	for (i = 0 ; i < sizeof(umac_proc_entries)/sizeof(umacProcEntry); i++)
+	char filename[32];
+	umacProcEntry * entries ;
+	umacProcEntry * dbg_entries;
+
+	if(pDevCtrl->devnum == 0)
 	{
-		umac_proc_entries->context = (void*)pDevCtrl;
-		if(bcmumac_proc_create_entry("/proc/umacInfo", &umac_proc_entries[i]) < 0)
-			printk(KERN_ERR "%s: Failed to create proc entry for %s\n", __FUNCTION__, 
-					umac_proc_entries[i].name);
+		entries = &umac0_proc_entries[0];
+		dbg_entries = &umac0_debug_entries[0];
+	}else
+	{
+		entries = &umac1_proc_entries[0];
+		dbg_entries = &umac1_debug_entries[0];
 	}
-	for (i = 0 ; i < sizeof(debug_entries)/sizeof(umacProcEntry); i++)
+	
+	sprintf(filename, "/proc/umac%d/", pDevCtrl->devnum);
+	TRACE(("creating proc for %s\n", filename));
+
+	for (i = 0 ; i < sizeof(umac0_proc_entries)/sizeof(umacProcEntry); i++)
 	{
-		debug_entries->context = (void*)pDevCtrl;
-		if(bcmumac_proc_entry_create("/proc/umacInfo", &debug_entries[i]) < 0)
+		entries[i].context = (void*)pDevCtrl;
+		entries[i].fn = NULL;
+		if(bcmumac_proc_entry_create(filename, &entries[i]) < 0)
 			printk(KERN_ERR "%s: Failed to create proc entry for %s\n", __FUNCTION__, 
-					debug_entries[i].name);
+					entries[i].name);
+	}
+	for (i = 0 ; i < sizeof(umac0_debug_entries)/sizeof(umacProcEntry); i++)
+	{
+		if( strstr(dbg_entries[i].name, "rxbds") != NULL)
+			dbg_entries[i].context = (void*)(pDevCtrl->rxFirstBdPtr);
+		else if(strstr(dbg_entries[i].name, "txbds") != NULL)
+			dbg_entries[i].context = (void*)(pDevCtrl->txFirstBdPtr);
+
+		if(bcmumac_proc_entry_create(filename, &dbg_entries[i]) < 0)
+			printk(KERN_ERR "%s: Failed to create proc entry for %s\n", __FUNCTION__, 
+					dbg_entries[i].name);
 	}
 	
 }
@@ -1739,200 +1852,42 @@ static void bcmumac_init_proc(BcmEnet_devctrl *pDevCtrl)
 static void bcmumac_uninit_proc(BcmEnet_devctrl * pDevCtrl)
 {
 	int i;
-	for (i = 0 ; i < sizeof(umac_proc_entries)/sizeof(umacProcEntry); i++)
+	char filename[32];
+	umacProcEntry * entries;
+	umacProcEntry * dbg_entries;
+
+	if(pDevCtrl->devnum == 0)
 	{
-		bcmumac_proc_entry_remove("/proc/umacInfo", umac_proc_entries[i].name);
+		entries = &umac0_proc_entries[0];
+		dbg_entries = &umac0_debug_entries[0];
+	}else
+	{
+		entries = &umac1_proc_entries[0];
+		dbg_entries = &umac1_debug_entries[0];
+	}	
+
+	sprintf(filename, "/proc/umac%d/", pDevCtrl->devnum);
+
+	for (i = 0 ; i < sizeof(umac0_proc_entries)/sizeof(umacProcEntry); i++)
+	{
+		bcmumac_proc_entry_remove(filename, &entries[i]);
 	}
-	for (i = 0 ; i < sizeof(debug_entries)/sizeof(umacProcEntry); i++)
+	for (i = 0 ; i < sizeof(umac0_debug_entries)/sizeof(umacProcEntry); i++)
 	{
-		bcmumac_proc_entry_remove("/proc/umacInfo", debug_entries[i].name);
+		bcmumac_proc_entry_remove(filename, &dbg_entries[i]);
 	}
 }
 #endif	/* USE_PROC */
 
-static void bcmumac_getMacAddr(void)
-{
-	extern int gNumHwAddrs;
-	extern unsigned char* gHwAddrs[];
-	int i;
-	
-   	if (gNumHwAddrs >= 1) {
-		for (i=0; i < 6; i++)
-			g_flash_eaddr[i] = (uint8) gHwAddrs[0][i];
-   	} else {
-		printk(KERN_ERR "%s: No MAC addresses defined\n", __FUNCTION__);
-	}
-}
-/*
- * Setup device structure after allocating netdevice.
- */
-static void bcmumac_dev_setup(struct net_device *dev, int devnum, int phy_id, int phy_type, unsigned long base_addr)
-{
-    int ret;
-    BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
-
-    if (pDevCtrl == NULL) {
-        printk((KERN_ERR CARDNAME ": unable to allocate device context\n"));
-        return;
-    }
-
-    /* initialize the context memory */
-    memset(pDevCtrl, 0, sizeof(BcmEnet_devctrl));
-    /* back pointer to our device */
-    pDevCtrl->dev = dev;
-    pDevCtrl->devnum = devnum;
-    dev->base_addr = base_addr;
-
-    pDevCtrl->chipId = BDEV_RD(BCHP_SUN_TOP_CTRL_PROD_REVISION) >> 16;
-    pDevCtrl->chipRev = BDEV_RD(BCHP_SUN_TOP_CTRL_PROD_REVISION) & 0xffff;
-
-    /* print the ChipID and module version info */
-    if(! devnum) {
-        printk("Broadcom BCM%X P%X Ethernet Network Device ", pDevCtrl->chipId, pDevCtrl->chipRev + 0x10);
-        printk(VER_STR "\n");
-    }
-
-    if( BpGetEthernetMacInfo( &(pDevCtrl->EnetInfo), phy_type) != BP_SUCCESS ) {
-        printk(KERN_DEBUG CARDNAME" Unknown PHY type: %d \n", phy_type);
-        return;
-    }
-    if(phy_id != BP_ENET_NO_PHY) 
-        pDevCtrl->EnetInfo.PhyAddress = phy_id;
-
-	/* L.Sun, Always have IPHdrOptimize */
-	pDevCtrl->bIPHdrOptimize = 1;
-	
-	/* g_flash_eaddr? */
-    memcpy(dev->dev_addr, g_flash_eaddr, ETH_ALEN);
-    /* create a unique address for each interface */
-    dev->dev_addr[4] += devnum;
-
-    if ((ret = bcmumac_init_dev(pDevCtrl))) {
-        bcmumac_uninit_dev(pDevCtrl);
-        return;
-    }
-
-    /* setup the rx irq */
-    /* register the interrupt service handler */
-    /* At this point dev is not initialized yet, so use dummy name */
-    request_irq(pDevCtrl->rxIrq, bcmumac_net_isr, SA_INTERRUPT|SA_SHIRQ, dev->name, pDevCtrl);
-
-    spin_lock_init(&pDevCtrl->lock);
-    /*
-     * Setup the timer for skb reclaim.
-     */
-    init_timer(&pDevCtrl->timer);
-    pDevCtrl->timer.data = (unsigned long)pDevCtrl;
-    pDevCtrl->timer.function = tx_reclaim_timer;
-
-#ifdef DUMP_DATA
-    printk(KERN_INFO CARDNAME ": CPO BRCMCONFIG: %08X\n", read_c0_diag(/*$22*/));
-    printk(KERN_INFO CARDNAME ": CPO MIPSCONFIG: %08X\n", read_c0_config(/*$16*/));
-    printk(KERN_INFO CARDNAME ": CPO MIPSSTATUS: %08X\n", read_c0_status(/*$12*/));
-#endif	
-    ether_setup(dev);
-   	dev->irq                    = pDevCtrl->rxIrq;
-   	dev->open                   = bcmumac_net_open;
-   	dev->stop                   = bcmumac_net_close;
-   	dev->hard_start_xmit        = bcmumac_net_xmit;
-   	dev->tx_timeout             = bcmumac_net_timeout;
-   	dev->watchdog_timeo         = 2*HZ;
-   	dev->get_stats              = bcmumac_net_query;
-	dev->set_mac_address        = bcmumac_set_mac_addr;
-   	dev->set_multicast_list     = bcmumac_set_multicast_list;
-	dev->do_ioctl               = &bcmumac_enet_ioctl;
-    dev->poll                   = bcmumac_enet_poll;
-    dev->weight                 = 64;
-
-	SET_ETHTOOL_OPS(dev, &bcmumac_ethtool_ops);
-    // These are default settings
-    //write_mac_address(dev);
-
-    // Let boot setup info overwrite default settings.
-    netdev_boot_setup_check(dev);
-
-    TRACE(("bcmumacenet: bcmumac_net_probe dev 0x%x\n", (unsigned int)dev));
-
-    SET_MODULE_OWNER(dev);
-}
-
 static void bcmumac_null_setup(struct net_device *dev)
 {
-}
-
-/*
- *      bcmumac_net_probe: - Probe Ethernet and allocate device
- */
-static int __init bcmumac_net_probe(int devnum, int phy_id, unsigned long base_addr)
-{
-    /*static*/ 
-	int probed = 0;
-    int ret;
-    struct net_device *dev = NULL;
-    BcmEnet_devctrl *pDevCtrl;
-	int phy_type = BP_ENET_NO_PHY;
-
-	/*
-	 * 7420 Phy0 is internal phy, phy1 is MOCA.
-	 * This is the place where different board should set different PHY type
-	 */
-#if defined CONFIG_MIPS_BCM7420
-	phy_type = devnum == 0 ? BP_ENET_INTERNAL_PHY : BP_ENET_EXTERNAL_MOCA;
-#else
-	phy_type = devnum == 0 ? BP_ENET_INTERNAL_PHY : BP_ENET_EXTERNAL_MOCA;
-#endif
-
-    if (probed == 0) {
-		/* NOTE: BcmEnet_devctrl struct is allocated with kzalloc */
-        dev = alloc_netdev(sizeof(struct BcmEnet_devctrl), "eth%d", bcmumac_null_setup);
-        if (dev == NULL) {
-            printk(KERN_ERR CARDNAME": Unable to allocate net_device structure!\n");
-            return -ENODEV;
-        }
-        bcmumac_dev_setup(dev, devnum, phy_id, phy_type, base_addr);
-    } else {
-        /* device has already been initialized */
-        return -ENXIO;
-    }
-
-    pDevCtrl = (BcmEnet_devctrl *)netdev_priv(dev);
-
-    if (0 != (ret = register_netdev(dev))) {
-        bcmumac_uninit_dev(pDevCtrl);
-        return ret;
-    }
-
-    pDevCtrl->next_dev = eth_root_dev;
-    eth_root_dev = dev;
-
-	INIT_WORK(&pDevCtrl->bcmumac_task, (void (*)(void *))bcmumac_task, pDevCtrl);
-
-    if(ret == 0) {
-        g_devs[g_num_devs] = dev;
-        g_num_devs++;
-    }
-
-    return ret;
-}
-
-/*
- * Generic cleanup handling data allocated during init. Used when the
- * module is unloaded or if an error occurs during initialization
- */
-static void bcmumac_init_cleanup(struct net_device *dev)
-{
-    TRACE(("%s: bcmumac_init_cleanup\n", dev->name));
-
-#ifdef USE_PROC
-	bcmumac_proc_entry_remove("/proc/umacInfo", debug_entries[i].name);
-#endif
 }
 
 /* Uninitialize tx/rx buffer descriptor pools */
 static int bcmumac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
 {
     Enet_Tx_CB *txCBPtr;
-    int i, devnum __attribute_unused__ = pDevCtrl->devnum;
+    int i;
 
     if (pDevCtrl) {
         /* disable DMA */
@@ -1963,7 +1918,9 @@ static int bcmumac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
             txCb_enq(pDevCtrl, txCBPtr);
         }
 
-        bcmumac_init_cleanup(pDevCtrl->dev);
+#ifdef USE_PROC
+	//bcmumac_proc_entry_remove("/proc/umacInfo", &debug_entries[i]);
+#endif
         /* release allocated receive buffer memory */
         for (i = 0; i < MAX_RX_BUFS; i++) {
             if (pDevCtrl->skb_pool[i] != NULL) {
@@ -2006,6 +1963,188 @@ static int bcmumac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
     return 0;
 }
 /* 
+ * HFB data for ARP request.
+ * In WoL (Magic Packet or ACPI) mode, we need to response
+ * ARP request, so dedicate an HFB to filter the ARP request.
+ */
+static uint32 hfb_arp[] =
+{
+	0x000FFFFF,
+	0x000FFFFF,
+	0x000FFFFF,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x000F0806,
+	0x000F0001,
+	0x000F0800,
+	0x000F0604,
+	0x000F0001,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+#if 0
+	0x000FFFFF,
+	0x000FFFFF,
+	0x000FFFFF,
+#endif
+	0x000F0000,
+	0x000F0000,
+	0x000F0000,
+	0x000F0000,	/* IPDA to be filled.*/
+	0x000F0000	/* IPDA to be filled.*/
+};
+#define HFB_ARP_LEN	21
+/*
+ * Program ACPI pattern into HFB.
+ * Return filter index if succesful.
+ * if user == 1, the data will be copied from user space.
+ */
+static int bcmumac_update_hfb(struct net_device *dev, uint32 *data, int len, int user)
+{
+    BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
+	volatile rbufRegs *txrx_ctrl = pDevCtrl->txrx_ctrl;
+	int filter, offset, count;
+	uint32 * tmp;
+	
+	TRACE(("Updating HFB len=0x%d\n", len));
+	if(txrx_ctrl->rbuf_hfb_ctrl & RBUF_HFB_256B) {
+		if (len > 256)
+			return -EINVAL;
+		count = 8;
+		offset = 256;
+	}else {
+		if (len > 128)
+			return -EINVAL;
+		count = 16;
+		offset = 128;
+	}
+	/* find next unused filter */
+	for (filter = 0; filter < count; filter++) {
+		if(!((txrx_ctrl->rbuf_hfb_ctrl >> (filter + RBUF_HFB_FILTER_EN_SHIFT)) & 0X1))
+			break;
+	}
+	if(filter == count) {
+		printk(KERN_ERR "no unused filter available!\n");
+		return -EINVAL;	/* all filters have been enabled*/
+	}
+	
+	if( user)
+	{
+		if((tmp = kmalloc(len*sizeof(uint32), GFP_KERNEL)) == NULL)
+		{
+			printk(KERN_ERR "%s: Malloc faild\n", __FUNCTION__);
+			return -EFAULT;
+		}
+		/* copy pattern data */
+		if(copy_from_user(tmp, data, len*sizeof(uint32)) != 0)
+		{
+			printk(KERN_ERR "Failed to copy user data: src=%p, dst=%p\n", 
+				data, pDevCtrl->hfb + filter*offset);
+			return -EFAULT;
+		}
+	}else {
+		tmp = data;
+	}
+	/* Copy pattern data into HFB registers.*/
+	for(count = 0; count < len; count++)
+	{
+		pDevCtrl->hfb[filter * offset + count] = *(tmp + count);
+	}
+	if(user)
+	{
+		kfree(tmp);
+	}
+
+	/* set the filter length*/
+	txrx_ctrl->rbuf_fltr_len[3-(filter>>2)] = (len*sizeof(uint32) << RBUF_FLTR_LEN_SHIFT * (filter&0x03));
+	
+	/*enable this filter.*/
+	txrx_ctrl->rbuf_hfb_ctrl |= (1 << (RBUF_HFB_FILTER_EN_SHIFT + filter));
+
+	return filter;
+	
+}
+/*
+ * read ACPI pattern data for a particular filter.
+ */
+static int bcmumac_read_hfb(struct net_device * dev, struct acpi_data * u_data)
+{
+	int filter, offset, count, len;
+	BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
+	volatile rbufRegs *txrx_ctrl = pDevCtrl->txrx_ctrl;
+	unsigned long tmp;
+
+	if(get_user(filter, &(u_data->fltr_index)) ) {
+		printk(KERN_ERR "failed to get user data\n");
+		return -EFAULT;
+	}
+	
+	if(txrx_ctrl->rbuf_hfb_ctrl & RBUF_HFB_256B) {
+		count = 8;
+		offset = 256;
+	}else {
+		count = 16;
+		offset = 128;
+	}
+	if (filter > count)
+		return -EINVAL;
+	
+	/* see if this filter is enabled, if not, return length 0 */
+	if ((txrx_ctrl->rbuf_hfb_ctrl & (filter << RBUF_HFB_FILTER_EN_SHIFT)) == 0) {
+		len = 0;
+		put_user(len , &u_data->count);
+		return 0;
+	}
+	/* check the filter length*/
+	len = RBUF_FLTR_LEN_MASK & (txrx_ctrl->rbuf_fltr_len[filter/4] >> RBUF_FLTR_LEN_SHIFT * (filter%4));
+	/* copy pattern data */
+	tmp = pDevCtrl->hfb[filter * offset];
+	if(copy_to_user(u_data->p_data, &tmp, len)) {
+		printk(KERN_ERR "Failed to copy data to user space: src=%p, dst=%p\n", 
+				pDevCtrl->hfb+filter*offset, u_data->p_data);
+		return -EFAULT;
+	}
+	return 0;
+}
+/*
+ * clear the HFB, disable all filters.
+ */
+static inline void bcmumac_clear_hfb(BcmEnet_devctrl * pDevCtrl)
+{
+	pDevCtrl->txrx_ctrl->rbuf_hfb_ctrl &= ~RBUF_HFB_FILTER_EN_MASK;
+	
+}
+/* utility to get interface ip address in kernel space.*/
+static uint32 bcmumac_getip(struct net_device * dev)
+{
+	struct net_device * pnet_device;
+	uint32 ip = 0;
+	
+	read_lock(&dev_base_lock);
+	/* read all devices */
+	pnet_device = dev_base;
+	while(pnet_device != NULL)
+	{
+		if((netif_running(pnet_device)) && 
+				(pnet_device->ip_ptr != NULL) &&
+				(!strcmp(pnet_device->name, dev->name)) )
+		{
+			struct in_device * pin_dev;
+			pin_dev = (struct in_device *)(pnet_device->ip_ptr);
+			ip = htonl(pin_dev->ifa_list->ifa_address);
+			//ip = *pip;
+			break;
+		}
+		pnet_device = pnet_device->next;
+	}
+	read_unlock(&dev_base_lock);
+	return ip;
+}				
+	
+/* 
  * ethtool function - get WOL (Wake on LAN) settings, 
  * Only Magic Packet Detection is supported through ethtool,
  * the ACPI (Pattern Matching) WOL option is supported in
@@ -2022,10 +2161,12 @@ static void bcmumac_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 	if(umac->mpd_ctrl & MPD_PW_EN)
 	{
 		unsigned short pwd_ms;
+		unsigned long pwd_ls;
 		wol->wolopts |= WAKE_MAGICSECURE;
-		copy_to_user(&wol->sopass[0], &umac->mpd_pw_ls, 4);
+		pwd_ls = umac->mpd_pw_ls;
+		copy_to_user(&wol->sopass[0], &pwd_ls, 4);
 		pwd_ms = umac->mpd_pw_ms & 0xFFFF;
-		copy_to_user(&wol->sopass[4], &umac->mpd_pw_ms, 2);
+		copy_to_user(&wol->sopass[4], &pwd_ms, 2);
 	}else {
 		memset(&wol->sopass[0], 0, sizeof(wol->sopass));
 	}
@@ -2039,18 +2180,40 @@ static int bcmumac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 	BcmEnet_devctrl * pDevCtrl = netdev_priv(dev);
 	volatile uniMacRegs * umac = pDevCtrl->umac;
 	unsigned short msb;
+	uint32 ip;
 
+	TRACE(("%s: wolopts=0x%08x\n", __FUNCTION__, wol->wolopts));
 	if(wol->wolopts & ~(WAKE_MAGIC | WAKE_MAGICSECURE))
 		return -EINVAL;
+
+	if((ip = bcmumac_getip(dev)) == 0)
+	{
+		printk("IP address is not set, can't put in WoL mode\n");
+		return -EINVAL;
+	}else {
+#if 1
+		hfb_arp[HFB_ARP_LEN-2] |= (ip >> 16);
+		hfb_arp[HFB_ARP_LEN-1] |= (ip & 0xFFFF);
+		/* Enable HFB, to response to ARP request.*/
+		if(bcmumac_update_hfb(dev, hfb_arp, HFB_ARP_LEN, 0) < 0)
+		{
+			printk("%s: Unable to update HFB\n", __FUNCTION__);
+			return -EFAULT;
+		} 
+		pDevCtrl->txrx_ctrl->rbuf_hfb_ctrl |= RBUF_HFB_EN;
+#endif
+	}
 	if(wol->wolopts & WAKE_MAGICSECURE)
 	{
+		unsigned long tmp;
 		if(copy_from_user(&msb, &wol->sopass[0], 2)) {
 			return -EFAULT;
 		}
 		umac->mpd_pw_ms = msb;
-		if(copy_from_user(&umac->mpd_pw_ls, &wol->sopass[2], 4)){
+		if(copy_from_user(&tmp, &wol->sopass[2], 4)){
 			return -EFAULT;
 		}
+		umac->mpd_pw_ls = tmp;
 		umac->mpd_ctrl |= MPD_PW_EN;
 	}
 	if(wol->wolopts & WAKE_MAGIC)
@@ -2100,7 +2263,7 @@ static int bcmumac_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
 	else
 		cmd->autoneg = AUTONEG_DISABLE;
 
-	if(pDevCtrl->devnum == BCMUMAC_INT_PHY_DEV)
+	if(pDevCtrl->EnetInfo.PhyType == BP_ENET_INTERNAL_PHY)
 		cmd->transceiver = XCVR_INTERNAL;
 	else
 		cmd->transceiver = XCVR_EXTERNAL;
@@ -2114,7 +2277,7 @@ static int bcmumac_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
 static int bcmumac_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
 {
 	BcmEnet_devctrl * pDevCtrl = netdev_priv(dev);
-	uniMacRegs * umac = pDevCtrl->umac;
+	volatile uniMacRegs * umac = pDevCtrl->umac;
 
 	if(cmd->autoneg == AUTONEG_ENABLE) {
 		mii_setup(dev);
@@ -2124,7 +2287,8 @@ static int bcmumac_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
 		else
 			umac->cmd &= ~CMD_HD_EN;
 
-		if(pDevCtrl->devnum == BCMUMAC_INT_PHY_DEV && cmd->speed == SPEED_1000)
+		if(pDevCtrl->EnetInfo.PhyType == BP_ENET_INTERNAL_PHY &&
+			cmd->speed == SPEED_1000)
 			return -EINVAL;
 		umac->cmd &= CMD_SPEED_MASK;
 		switch(cmd->speed){
@@ -2146,7 +2310,7 @@ static int bcmumac_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
 
 	return 0;
 }
-
+	
 /*
  * ethtool function - get driver info.
  */
@@ -2171,34 +2335,38 @@ static struct ethtool_ops bcmumac_ethtool_ops = {
  */
 static void bcmumac_disable_clocks(BcmEnet_devctrl * pDevCtrl, int mode)
 {
+#if 1
 	int  pm_ctrl;
-#if 0
-	if(pDevCtrl->devnum == BCMUMAC_INT_PHY_DEV)
+	if(pDevCtrl->EnetInfo.PhyType == BP_ENET_INTERNAL_PHY)
 		pm_ctrl = BCHP_CLK_GENET_CLK_PM_CTRL;
 	else
 		pm_ctrl = BCHP_CLK_MOCA_CLK_PM_CTRL;
+	
+	TRACE(("Disabling clocks...\n"));
 	
 	/* common clocks that should be disabled regardless of mode.*/
 	BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_216M_CLK_MASK);
 	BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_ISDMA_27_125M_CLK_MASK);
 	BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_UNIMAC_SYS_TX_27_125M_CLK_MASK);
-	BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_GISB_108M_CLK_MASK);
 	/* 
 	 * Disable RGMII 250M clock, since we don't have external GPHY, 
 	 * in the future, may need to remove this.
 	 */
-	BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_RGMII_250M_CLK_MASK);
+	//BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_RGMII_250M_CLK_MASK);
 	BDEV_RD(pm_ctrl);
 	switch(mode) {
 		case BCMUMAC_POWER_CABLE_SENSE:
-			BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_GMII_TX_27_125M_CLK_MASK);
 			BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_HFB_27_125M_CLK_MASK);
 			BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_UNIMAC_SYS_RX_27_125M_CLK_MASK);
+			BDEV_SET(BCHP_CLK_MISC, BCHP_CLK_MISC_GENET_CLK_SEL_MASK);
+			BDEV_UNSET(BCHP_CLK_MISC, BCHP_CLK_MISC_GENET_GMII_TX_CLK_SEL_MASK);
 			BDEV_RD(pm_ctrl);
 			break;
 		case BCMUMAC_POWER_WOL_MAGIC:
-			BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_HFB_27_125M_CLK_MASK);
-			BDEV_RD(pm_ctrl);
+			BDEV_SET(BCHP_CLK_MISC, BCHP_CLK_MISC_GENET_CLK_SEL_MASK);
+			BDEV_UNSET(BCHP_CLK_MISC, BCHP_CLK_MISC_GENET_GMII_TX_CLK_SEL_MASK);
+			BDEV_RD(BCHP_CLK_MISC);
+			BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_RGMII_250M_CLK_MASK);
 			break;
 		case BCMUMAC_POWER_WOL_ACPI:
 			/* no need to do anything here */
@@ -2207,7 +2375,6 @@ static void bcmumac_disable_clocks(BcmEnet_devctrl * pDevCtrl, int mode)
 			break;
 	}
 #endif
-	TRACE(("Disabling clocks...\n"));
 	
 }
 /*
@@ -2215,9 +2382,9 @@ static void bcmumac_disable_clocks(BcmEnet_devctrl * pDevCtrl, int mode)
  */
 static void bcmumac_enable_clocks(BcmEnet_devctrl * pDevCtrl, int mode)
 {
+#if 1
 	int  pm_ctrl;
-#if 0
-	if(pDevCtrl->devnum == BCMUMAC_INT_PHY_DEV)
+	if(pDevCtrl->EnetInfo.PhyType == BP_ENET_INTERNAL_PHY)
 		pm_ctrl = BCHP_CLK_GENET_CLK_PM_CTRL;
 	else
 		pm_ctrl = BCHP_CLK_MOCA_CLK_PM_CTRL;
@@ -2231,108 +2398,14 @@ static void bcmumac_enable_clocks(BcmEnet_devctrl * pDevCtrl, int mode)
 	 */
 	if(pDevCtrl->EnetInfo.PhyType == BP_ENET_INTERNAL_PHY)
 	{
-		BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_RGMII_250M_CLK_MASK);
-		BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_GMII_27_125M_CLK_MASK);
+		//BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_RGMII_250M_CLK_MASK);
+		//BDEV_SET(pm_ctrl, BCHP_CLK_GENET_CLK_PM_CTRL_DIS_GENET_GMII_TX_27_125M_CLK_MASK);
+		BDEV_UNSET(BCHP_CLK_MISC, BCHP_CLK_MISC_GENET_CLK_SEL_MASK);
+		BDEV_SET(BCHP_CLK_MISC, BCHP_CLK_MISC_GENET_GMII_TX_CLK_SEL_MASK);
 		BDEV_RD(pm_ctrl);
 	}
 #endif
 	TRACE(("Enabling clocks...\n"));
-	
-}
-/*
- * Program ACPI pattern into HFB.
- * Return filter index if succesful.
- */
-static int bcmumac_update_hfb(struct net_device *dev, unsigned long *data, int len)
-{
-    BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
-	volatile rbufRegs *txrx_ctrl = pDevCtrl->txrx_ctrl;
-	int filter, i, offset, count;
-	
-	if(txrx_ctrl->rbuf_hfb_ctrl & RBUF_HFB_256B) {
-		if (len > 256)
-			return -EINVAL;
-		count = 8;
-		offset = 256;
-	}else {
-		if (len > 128)
-			return -EINVAL;
-		count = 16;
-		offset = 128;
-	}
-	/* find next unused filter */
-	for (filter = 0; filter < count; filter++) {
-		if((txrx_ctrl->rbuf_hfb_ctrl >> (filter + RBUF_HFB_FILTER_EN_SHIFT)) & 0X1)
-			break;
-	}
-	if(filter == count) {
-		printk(KERN_ERR "no unused filter available!\n");
-		return -EINVAL;	/* all filters have been enabled*/
-	}
-	
-	/* copy pattern data */
-	if(copy_from_user((pDevCtrl->hfb + filter*offset),
-				data, len*sizeof(unsigned long)) != 0)
-	{
-		printk(KERN_ERR "Failed to copy user data: src=0x%08Xul, dst=0x%08Xul\n", 
-				data, pDevCtrl->hfb + filter*offset);
-		return -EFAULT;
-	}
-	/* set the filter length*/
-	txrx_ctrl->rbuf_fltr_len[filter/4] = (len << RBUF_FLTR_LEN_SHIFT * (filter%4));
-	/*enable this filter.*/
-	txrx_ctrl->rbuf_hfb_ctrl |= (filter << RBUF_HFB_FILTER_EN_SHIFT);
-
-	return filter;
-	
-}
-/*
- * read ACPI pattern data for a particular filter.
- */
-static int bcmumac_read_hfb(struct net_device * dev, struct acpi_data * u_data)
-{
-	int filter, offset, count, len;
-    BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
-	volatile rbufRegs *txrx_ctrl = pDevCtrl->txrx_ctrl;
-
-	if(get_user(filter, &(u_data->fltr_index)) ) {
-		printk(KERN_ERR "failed to get user data\n");
-		return -EFAULT;
-	}
-	
-	if(txrx_ctrl->rbuf_hfb_ctrl & RBUF_HFB_256B) {
-		count = 8;
-		offset = 256;
-	}else {
-		count = 16;
-		offset = 128;
-	}
-	if (filter > count)
-		return -EINVAL;
-	
-	/* see if this filter is enabled, if not, return length 0 */
-	if (txrx_ctrl->rbuf_hfb_ctrl & (filter << RBUF_HFB_FILTER_EN_SHIFT) == 0) {
-		len = 0;
-		put_user(len , &u_data->count);
-		return 0;
-	}
-	/* check the filter length*/
-	len = RBUF_FLTR_LEN_MASK & (txrx_ctrl->rbuf_fltr_len[filter/4] >> RBUF_FLTR_LEN_SHIFT * (filter%4));
-	/* copy pattern data */
-	if(copy_to_user(u_data->p_data, pDevCtr->hfb + filter*offset, len)) {
-		printk(KERN_ERR "Failed to copy data to user space: src=0x%08Xul, dst=0x%08Xul\n", 
-				pDevCtrl->hfb+filter*offset, u_data->p_data);
-		return -EFAULT;
-	}
-	return 0;
-}
-/*
- * clear the HFB, disable all filters.
- */
-static inline void bcmumac_clear_hfb(BcmEnet_devctrl * pDevCtrl)
-{
-	pDevCtrl->txrx_ctrl->rbuf_hfb_ctrl &= ~RBUF_HFB_FILTER_EN_MASK;
-	
 }
 /*
  * Power down the unimac, based on mode.
@@ -2346,8 +2419,8 @@ static void bcmumac_power_down(BcmEnet_devctrl *pDevCtrl, int mode)
 			pDevCtrl->txrx_ctrl->ephy_pwr_mgmt |= EXT_PWR_DOWN_PHY |
 				EXT_PWR_DOWN_DLL |
 				EXT_PWR_DOWN_BIAS;
-			pDevCtrl->txrx_ctrl->rgmii_oob_ctrl |= RGMII_MODE_EN;
-			bcmumac_disable_clocks(pDevCtrl, mode);
+			pDevCtrl->txrx_ctrl->rgmii_oob_ctrl &= ~RGMII_MODE_EN;
+			//bcmumac_disable_clocks(pDevCtrl, mode);
 			break;
 		case BCMUMAC_POWER_WOL_MAGIC:
 			pDevCtrl->umac->mpd_ctrl |= MPD_EN;
@@ -2362,8 +2435,9 @@ static void bcmumac_power_down(BcmEnet_devctrl *pDevCtrl, int mode)
 			}
 			/* Service Rx BD untill empty */
 			/* put umac in 27Mhz clock, how?*/
-			bcmumac_disable_clocks(pDevCtrl, mode);
+			//bcmumac_disable_clocks(pDevCtrl, mode);
 			pDevCtrl->intrl2->cpu_mask_clear |= UMAC_IRQ_MPD_R;
+			pDevCtrl->intrl2->cpu_mask_clear |= UMAC_IRQ_HFB_MM | UMAC_IRQ_HFB_SM;
 			break;
 		case BCMUMAC_POWER_WOL_ACPI:
 			bcmumac_clear_hfb(pDevCtrl);
@@ -2394,20 +2468,20 @@ static void bcmumac_power_up(BcmEnet_devctrl *pDevCtrl, int mode)
 			pDevCtrl->txrx_ctrl->ephy_pwr_mgmt |= PHY_RESET;
 			pDevCtrl->txrx_ctrl->ephy_pwr_mgmt &= ~EXT_PWR_DOWN_DLL;
 			pDevCtrl->txrx_ctrl->ephy_pwr_mgmt &= ~EXT_PWR_DOWN_PHY;
+			pDevCtrl->txrx_ctrl->ephy_pwr_mgmt &= ~EXT_PWR_DOWN_BIAS;
 			udelay(1);
 			pDevCtrl->txrx_ctrl->ephy_pwr_mgmt &= ~PHY_RESET;
-			udelay(200);
-			bcmumac_enable_clocks(pDevCtrl, mode);
-			//mii_setup(pDevCtrl->dev);
+			udelay(1);
+			//bcmumac_enable_clocks(pDevCtrl, mode);
 			break;
 		case BCMUMAC_POWER_WOL_MAGIC:
 			pDevCtrl->umac->mpd_ctrl &= ~MPD_EN;
-			bcmumac_enable_clocks(pDevCtrl, mode);
+			//bcmumac_enable_clocks(pDevCtrl, mode);
 			break;
 		case BCMUMAC_POWER_WOL_ACPI:
 			pDevCtrl->txrx_ctrl->rbuf_hfb_ctrl &= ~RBUF_ACPI_EN;
 			bcmumac_clear_hfb(pDevCtrl);
-			bcmumac_enable_clocks(pDevCtrl, mode);
+			//bcmumac_enable_clocks(pDevCtrl, mode);
 			break;
 		default:
 			break;
@@ -2421,7 +2495,7 @@ static int bcmumac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     struct mii_ioctl_data *mii;
     unsigned long flags;
-	struct acpi_data u_data;
+    struct acpi_data *u_data;
     int val = 0;
 
     /* we can add sub-command in ifr_data if we need to in the future */
@@ -2457,7 +2531,7 @@ static int bcmumac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		break;
 	case SIOCSPATTERN:
 		u_data = (struct acpi_data *)rq->ifr_data;
-		val =  bcmumac_update_hfb(dev, (unsigned long *)u_data->p_data, u_data->count)
+		val =  bcmumac_update_hfb(dev, (unsigned long *)u_data->p_data, u_data->count,1 );
 		if(val >= 0)
 			put_user(val, &u_data->fltr_index);
 		break;
@@ -2473,88 +2547,164 @@ static int bcmumac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
     return val;       
 }
 
-static int __init bcmumac_module_init(void)
+static int bcmumac_probe(struct platform_device *pdev)
 {
-    int status = 0;
-	int phy_id = BP_ENET_NO_PHY;
-	int i;
-	unsigned long base_addr;
-	struct resource * res;
+	struct resource *mres, *ires;
+	void __iomem *base;
+	int phy_id, err;
+	struct bcmumac_platform_data *cfg = pdev->dev.platform_data;
+	BcmEnet_devctrl *pDevCtrl;
+	struct net_device *dev;
 
-    bcmumac_getMacAddr();
+	mres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	ires = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if(! mres || ! ires) {
+		printk(KERN_ERR "%s: can't get resources\n", __FUNCTION__);
+		return(-EIO);
+	}
 
-#if defined(CONFIG_BCMINTEMAC_7038_EXTMII)
-    /* set up pinmux (same code for EMAC_0 or EMAC_1) */
-    BDEV_WR_ARRAY(MII_PINMUX_SETUP);
-#endif
+	base = ioremap(mres->start, mres->end - mres->start + 1);
+	TRACE(("%s: base=0x%x\n", __FUNCTION__, base));
 
-    TRACE(("bcmumac_module_init\n"));
+	if(! base) {
+		printk(KERN_ERR "%s: can't ioremap\n", __FUNCTION__);
+		return(-EIO);
+	}
 
-	/* Probe the PHY */
-	for ( i = 0; i < BCMUMAC_MAX_DEVS; i++)
-	{
-		if(umac_base_addr[i] != 0)
-		{
-			/*
-			 * standard linux io address scheme, map the physical to virtual
-			 * so mii_probe can access the mdio registers.
-			 */
-			if(( res = request_region(umac_base_addr[i], UMAC_IOMAP_SIZE, "UMACIO")) == NULL)
-			{
-				printk("Faild to request region: base=0x%08x size=0x%08x\n", 
-						umac_base_addr[i], UMAC_IOMAP_SIZE);
-				return -ENODEV;
-			}else if ((base_addr = (unsigned long)ioremap(umac_base_addr[i], UMAC_IOMAP_SIZE)) == NULL)
-			{
-				printk("Failed to ioremap: physical addr=0x%08lx size=0x%08x\n",
-						umac_base_addr[i], UMAC_IOMAP_SIZE);
-				release_region(umac_base_addr[i], UMAC_IOMAP_SIZE);
-				return -ENODEV;
-			}
-			if( (phy_id = mii_probe(base_addr)) != BP_ENET_NO_PHY)
-			{
-				printk("bcmumac: detected PHY at address %d on UMAC%d\n", phy_id, i);
-				status = bcmumac_net_probe(i, phy_id, base_addr);
-			}else
-			{
-				printk("bcmumac: no PHY detected on UMAC%d , disabling\n", i);
-			}
+	phy_id = cfg->phy_id;
+	if(phy_id == BRCM_PHY_ID_AUTO) {
+		phy_id = mii_probe((unsigned long)base);
+		if(phy_id == BP_ENET_NO_PHY) {
+			printk(KERN_INFO
+				"bcmumac: no PHY detected for device %d\n",
+				pdev->id);
+			err = -ENODEV;
+			goto bad;
+		} else {
+			printk(KERN_INFO
+				"bcmumac: found PHY at ID %d for device %d\n",
+				phy_id, pdev->id);
 		}
 	}
-	TRACE(("bcmumac_module_init done\n"));
-						
-	return status;
+
+	dev = alloc_netdev(sizeof(*pDevCtrl), "eth%d", bcmumac_null_setup);
+	if(dev == NULL) {
+		printk(KERN_ERR "bcmumac: can't allocate netdev\n");
+		err = -ENOMEM;
+		goto bad;
+	}
+
+	ether_setup(dev);
+	dev->base_addr = (unsigned long)base;
+	memcpy(dev->dev_addr, cfg->macaddr, 6);
+	dev->irq                    = ires->start;
+
+	dev->open                   = bcmumac_net_open;
+	dev->stop                   = bcmumac_net_close;
+	dev->hard_start_xmit        = bcmumac_net_xmit;
+	dev->tx_timeout             = bcmumac_net_timeout;
+	dev->watchdog_timeo         = 2*HZ;
+	dev->get_stats              = bcmumac_net_query;
+	dev->set_mac_address        = bcmumac_set_mac_addr;
+	dev->set_multicast_list     = bcmumac_set_multicast_list;
+	dev->do_ioctl               = &bcmumac_enet_ioctl;
+	dev->poll                   = bcmumac_enet_poll;
+	dev->weight                 = 64;
+	SET_ETHTOOL_OPS(dev, &bcmumac_ethtool_ops);
+	SET_MODULE_OWNER(dev);
+
+	// Let boot setup info override default settings.
+	netdev_boot_setup_check(dev);
+
+	pDevCtrl = (BcmEnet_devctrl *)netdev_priv(dev);
+	pDevCtrl->dev = dev;
+	pDevCtrl->devnum = pdev->id;
+	pDevCtrl->phyAddr = phy_id;
+	pDevCtrl->rxIrq = ires->start;
+	pDevCtrl->bIPHdrOptimize = 1;
+	pDevCtrl->EnetInfo.PhyAddress = phy_id;
+
+	init_timer(&pDevCtrl->timer);
+	pDevCtrl->timer.data = (unsigned long)pDevCtrl;
+	pDevCtrl->timer.function = tx_reclaim_timer;
+
+	spin_lock_init(&pDevCtrl->lock);
+	INIT_WORK(&pDevCtrl->bcmumac_task, (void (*)(void *))bcmumac_task, pDevCtrl);
+
+	if(BpGetEthernetMacInfo(&pDevCtrl->EnetInfo, cfg->phy_type) != BP_SUCCESS) {
+		printk(KERN_ERR "%s: Unknown PHY type: %d\n", __FUNCTION__,
+			cfg->phy_type);
+		err = -EINVAL;
+		goto bad;
+	}
+
+	err = bcmumac_init_dev(pDevCtrl);
+	if(err < 0)
+		goto bad;
+
+	dev_set_drvdata(&pdev->dev, pDevCtrl);
+	request_irq(pDevCtrl->rxIrq, bcmumac_net_isr, SA_INTERRUPT|SA_SHIRQ, dev->name, pDevCtrl);
+
+	err = register_netdev(dev);
+	if(err != 0) {
+		bcmumac_uninit_dev(pDevCtrl);
+		goto bad;
+	}
+	pDevCtrl->next_dev = eth_root_dev;
+	eth_root_dev = dev;
+
+	bcmumac_init_proc(pDevCtrl);
+
+	return(0);
+
+bad:
+	iounmap(base);
+	return(err);
 }
 
-static void __exit bcmumac_module_cleanup(void)
+static int bcmumac_remove(struct platform_device *pdev)
 {
-	int i;
-    BcmEnet_devctrl *pDevCtrl;
-	
-	for(i = 0; i < g_num_devs; i++) {
-		pDevCtrl = netdev_priv(g_devs[i]);
-		
-		if (pDevCtrl->base_addr != 0) {
-			iounmap(pDevCtrl->base_addr);
-			release_region(pDevCtrl->base_addr, UMAC_IOMAP_SIZE);
-		}
-		bcmumac_uninit_dev(pDevCtrl);
-	}
-	eth_root_dev = NULL;
-    TRACE(("bcmumac: bcmumac_module_cleanup\n"));
+	BcmEnet_devctrl *pDevCtrl = dev_get_drvdata(&pdev->dev);
+
+	bcmumac_uninit_dev(pDevCtrl);
+	iounmap((void __iomem *)pDevCtrl->base_addr);
+
+	return(0);
+}
+
+static struct platform_driver bcmumac_plat_drv = {
+	.probe =		bcmumac_probe,
+	.remove =		bcmumac_remove,
+	.driver = {
+		.name =		"bcmumac",
+		.owner =	THIS_MODULE,
+	},
+};
+
+static int bcmumac_module_init(void)
+{
+	platform_driver_register(&bcmumac_plat_drv);
+	return(0);
+}
+
+static void bcmumac_module_cleanup(void)
+{
+	platform_driver_unregister(&bcmumac_plat_drv);
 }
 
 int isEnetConnected(char *pn)
 {
-    BcmEnet_devctrl *pDevCtrl = netdev_priv(bcmumac_get_device());
+	BcmEnet_devctrl *pDevCtrl = netdev_priv(bcmemac_get_device());
 	return atomic_read(&pDevCtrl->linkState); 
 }
 
 module_init(bcmumac_module_init);
 module_exit(bcmumac_module_cleanup);
 
-EXPORT_SYMBOL(bcmumac_get_free_txdesc);
-EXPORT_SYMBOL(bcmumac_get_device);
-EXPORT_SYMBOL(bcmumac_xmit_multibuf);
+MODULE_LICENSE("GPL");
+
+EXPORT_SYMBOL(bcmemac_get_free_txdesc);
+EXPORT_SYMBOL(bcmemac_get_device);
+EXPORT_SYMBOL(bcmemac_xmit_multibuf);
 EXPORT_SYMBOL(isEnetConnected);
-EXPORT_SYMBOL(bcmumac_xmit_check);
+EXPORT_SYMBOL(bcmemac_xmit_check);

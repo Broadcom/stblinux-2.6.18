@@ -91,8 +91,6 @@
 #define SCS0_OFS				0x280
 #define SCS1_OFS				0x2c0
 #define BM_OFS					0x300
-#define MMIO_OFS				0xb0510000 
-#define PCI_SATA_PHYS_REG_BASE	(0xb0520000 + PCS0_OFS)
 
 #define DRAM_SIZE (256*1024*1024)
 

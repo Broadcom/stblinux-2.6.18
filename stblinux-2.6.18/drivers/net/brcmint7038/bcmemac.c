@@ -421,14 +421,8 @@ static int bcmemac_net_open(struct net_device * dev)
     pDevCtrl->rxDma->cfg |= DMA_ENABLE;
 
     atomic_inc(&pDevCtrl->devInUsed);
+    pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= DMA_DONE;
 
-    /* Are we previously closed by bcmemac_net_close, which set InUsed to -1 */
-    if (0 == atomic_read(&pDevCtrl->devInUsed)) {
-        atomic_inc(&pDevCtrl->devInUsed);
-        enable_irq(pDevCtrl->rxIrq);
-        pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= 0x2;
-    }
-	
     if(!timer_pending(&pDevCtrl->timer)) {
     	pDevCtrl->timer.expires = jiffies + POLLTIME_10MS;
 	add_timer_on(&pDevCtrl->timer, 0);
@@ -491,20 +485,14 @@ static int bcmemac_net_close(struct net_device * dev)
 
     MOD_DEC_USE_COUNT;
 
-    atomic_dec(&pDevCtrl->devInUsed);
-
     pDevCtrl->rxDma->cfg &= ~DMA_ENABLE;
-
     pDevCtrl->emac->config |= EMAC_DISABLE;           
 
-    if (0 == atomic_read(&pDevCtrl->devInUsed)) {
-        atomic_set(&pDevCtrl->devInUsed, -1); /* Mark interrupt disable */
-		pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~0x2;
-        disable_irq(pDevCtrl->rxIrq);
-    }
+    atomic_dec(&pDevCtrl->devInUsed);
+    pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~DMA_DONE;
 
     del_timer_sync(&pDevCtrl->timer);
-	del_timer_sync(&pDevCtrl->poll_timer);
+    del_timer_sync(&pDevCtrl->poll_timer);
 
     /* free the skb in the txCbPtrHead */
     while (pDevCtrl->txCbPtrHead)  {
@@ -643,8 +631,7 @@ static void tx_reclaim_timer(unsigned long arg)
                     unsigned long v = mii_read(pDevCtrl->dev, pDevCtrl->EnetInfo.ucPhyAddress, MII_AUX_CTRL_STATUS);
                     if( (v & MII_AUX_CTRL_STATUS_FULL_DUPLEX) != 0) {
                         pDevCtrl->emac->txControl |= EMAC_FD;
-                        pDevCtrl->dmaRegs->flowctl_ch1_alloc = (IUDMA_CH1_FLOW_ALLOC_FORCE | 0);
-                        pDevCtrl->dmaRegs->flowctl_ch1_alloc = NR_RX_BDS;
+                        pDevCtrl->dmaRegs->flowctl_ch1_alloc = (IUDMA_CH1_FLOW_ALLOC_FORCE | NR_RX_BDS);
                         pDevCtrl->rxDma->cfg |= DMA_ENABLE;
                     }
                     else
@@ -1195,10 +1182,8 @@ static int bcmemac_enet_poll(struct net_device * dev, int * budget)
     /* Reschedule if there are more packets on the DMA ring to be received. */
     if( (((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff) & DMA_OWN) == 0 ) {
         netif_rx_reschedule(pDevCtrl->dev, work_done);
-    }
-    else {
-        enable_irq(pDevCtrl->rxIrq);
-        pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= 0x2;
+    } else {
+        pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= DMA_DONE;
     }
 #endif
 
@@ -1213,9 +1198,12 @@ static irqreturn_t bcmemac_net_isr(int irq, void * dev_id, struct pt_regs * regs
 {
     BcmEnet_devctrl *pDevCtrl = dev_id;
 
-    pDevCtrl->rxDma->intStat = DMA_DONE;  // clr interrupt
-    pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~0x2;
-    disable_irq_nosync(pDevCtrl->rxIrq);
+    /*
+     * Disable IRQ and use NAPI polling loop.  IRQ will be re-enabled after all
+     * packets are processed.
+     */
+    pDevCtrl->rxDma->intStat = DMA_DONE;            // clr interrupt
+    pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~DMA_DONE;
     netif_rx_schedule(pDevCtrl->dev);
 
     return IRQ_HANDLED;
@@ -2695,8 +2683,9 @@ static void bcmemac_dev_setup(struct net_device *dev, int devnum, int phy_id)
     /* setup the rx irq */
     /* register the interrupt service handler */
     /* At this point dev is not initialized yet, so use dummy name */
+    pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk = 0;
+
     request_irq(pDevCtrl->rxIrq, bcmemac_net_isr, SA_INTERRUPT|SA_SHIRQ, dev->name, pDevCtrl);
-    pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= 0x2;
 
     spin_lock_init(&pDevCtrl->lock);
     atomic_set(&pDevCtrl->devInUsed, 0);
@@ -2803,7 +2792,6 @@ static int __init bcmemac_net_probe(int devnum, int phy_id)
 
 #ifdef CONFIG_BCMINTEMAC_NETLINK
 	INIT_WORK(&pDevCtrl->link_change_task, (void (*)(void *))bcmemac_link_change_task, pDevCtrl);
-        printk("init link_change_task\n");
 #endif
 
     if(ret == 0) {
@@ -2923,8 +2911,7 @@ static int bcmemac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
         /* free the irq */
         if (pDevCtrl->rxIrq)
         {
-            pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~0x2;
-            disable_irq(pDevCtrl->rxIrq);
+            pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk = 0;
             free_irq(pDevCtrl->rxIrq, pDevCtrl);
         }
 
@@ -2976,9 +2963,6 @@ static int bcmemac_uninit_dev(BcmEnet_devctrl *pDevCtrl)
         sprintf(proc_name, PROC_ENTRY_NAME);
         remove_proc_entry(proc_name, NULL);
 #endif
-		/* Quick fix for PR37075, force the usage count to 0*/
-		if(atomic_read(&pDevCtrl->devInUsed) < 0)
-			atomic_set(&pDevCtrl->devInUsed, 0);
 
         if (pDevCtrl->dev) {
             if (pDevCtrl->dev->reg_state != NETREG_UNINITIALIZED)

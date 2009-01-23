@@ -36,7 +36,7 @@ extern "C" {
 #define UMAC_TXRX_REG_OFFSET		0x0800	/* TxRx Control registerS offset */
 #define UMAC_INTRL2_REG_OFFSET		0x0a00	/* INT2R registerS offset */
 #define UMAC_EPLL_REG_OFFSET		0x3800	/* EPLL registers offset */
-#define UMAC_HFB_OFFSET				0x1000	/* Hardware filiter block offset */
+#define UMAC_HFB_OFFSET				0x1000	/* Hardware filter block offset */
 #define UMAC_IOMAP_SIZE				0x4000
 
 /* 64B Rx Status Block */
@@ -81,7 +81,7 @@ typedef struct DmaChannel
   unsigned long descPtr;				/* (10) RO isdma base descriptor pointer */
   unsigned long descOffset;				/* (14) RO current descriptor offset the channel is pointing to*/
   /* Unused words */
-  unsigned long unused0[27];
+  unsigned long unused0[26];
 } DmaChannel;
 
 /*
@@ -121,7 +121,8 @@ typedef struct DmaRegs
     unsigned long unused1[43];
 
     /* Per channel registers/state ram */
-    DmaChannel chcfg[2];					   /* (100) Channel configuration */  
+    DmaChannel rx_chan;						   /* (100) Rx Channel configuration */
+	DmaChannel tx_chan;						   /* (180) Tx Channel configuration */
 } DmaRegs;
 
 /*
@@ -205,33 +206,35 @@ typedef struct uniMacRegs {
 	unsigned long mac_1;				/* (0x10) RW */
 	unsigned long max_frame_len;		/* (0x14) RW Maximum frame length, also used in Tx */
 	unsigned long pause_quant;			/* (0x18) RW bit time for pause frame.*/
-	unsigned long unused0[10];			
+	unsigned long unused0[9];			
 	unsigned long sdf_offset;			/* (0x40) RW EFM preamble length, 5B to 16B */
 	unsigned long mode;					/* (0x44) RO Mode */
-	unsigned long frm_tag0;				/* (0x44) RW outer tag.*/
-	unsigned long frm_tab1;				/* (0x48) RW inner tag.*/
+	unsigned long frm_tag0;				/* (0x48) RW outer tag.*/
+	unsigned long frm_tag1;				/* (0x4c) RW inner tag.*/
+	unsigned long unused10[3];
 	unsigned long tx_ipg_len;			/* (0x5c) RW inter-packet gap length. */
-	unsigned long unused1[173];
+	unsigned long unused1[172];
 	unsigned long macsec_tx_crc;		/* (0x310) RW */
 	unsigned long macsec_ctrl;			/* (0x314) RW macsec control register */
 	unsigned long ts_status;			/* (0x318) RO  Timestamp status */
 	unsigned long ts_data;				/* (0x31c) RO Timestamp data.*/
-	unsigned long unused2[5];
+	unsigned long unused2[4];
 	unsigned long pause_ctrl;			/* (0x330) RW Tx Pause control */
 	unsigned long tx_flush;				/* (0x334) RW Flush Tx engine. */
 	unsigned long rxfifo_status;		/* (0x338) RO */
 	unsigned long txfifo_status;		/* (0x33c) RO */
 	unsigned long ppp_ctrl;				/* (0x340) RW ppp control.*/
 	unsigned long ppp_refresh_ctrl;		/* (0x344) RW ppp refresh control.*/
-	unsigned long tx_pause_prb[4];		/* (0x348 - 0x354) RW */
-	unsigned long rx_pause_prb[4];		/* (0x358 - 0x364) RW */
+	unsigned long unused11[4];			/* (0x348 - 0x354) RW tx_pause_prb not used here */
+	unsigned long unused12[4];			/* (0x358 - 0x364) RW rx_pause_prb not used here*/
+	unsigned long unused13[38];
 	UniMacRSV rsv;						/* (0x400 - 0x470) Receive Status Vector */
-	unsigned long unused3[4];
+	unsigned long unused3[3];
 	UniMacTSV tsv;						/* (0x480 - 0x4f0) Transmit Status Vector */
-	unsigned long unused4[8];			/* Ignore RUNT sutff for now! */
-	unsigned long unused5[29];
+	unsigned long unused4[7];			/* Ignore RUNT sutff for now! */
+	unsigned long unused5[28];
 	unsigned long mib_ctrl;				/* (0x580) RW Mib control register */
-	unsigned long unused6[32];
+	unsigned long unused6[31];
 	unsigned long pkpu_ctrl;			/* (0x600) RW backpressure control register.*/
 	unsigned long mac_rxerr_mask;		/* (0x604) RW  */
 	unsigned long max_pkt_size;			/* (0x608) RW max packet size, default 1518 bytes */
@@ -243,9 +246,9 @@ typedef struct uniMacRegs {
 	unsigned long mpd_ctrl;				/* (0x620) RW Magic packet control */
 	unsigned long mpd_pw_ms;			/* (0x624) RW Magic packet password 47:32*/
 	unsigned long mpd_pw_ls;			/* (0x628) RW Magic packet password 31:0*/
-	unsigned long unused8[6];
+	unsigned long unused8[5];
 	unsigned long mdf_ctrl;				/* (0x650) RW MAC DA filter control*/
-	unsigned long mdf_addr[34];			/* (0x654 - 0x6d8) Desination MAC address registers */
+	unsigned long mdf_addr[33];			/* (0x654 - 0x6d8) Desination MAC address registers */
 
 }uniMacRegs;
 

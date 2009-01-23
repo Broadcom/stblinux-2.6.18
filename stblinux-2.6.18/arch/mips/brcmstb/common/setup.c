@@ -37,6 +37,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
 #include <linux/mtd/partitions.h>
+#include <linux/bmoca.h>
 #include <asm/addrspace.h>
 #include <asm/irq.h>
 #include <asm/reboot.h>
@@ -91,12 +92,10 @@ static void brcm_machine_restart(char *command)
 	 */
 
 	/* enable chip reset, then do it */
-	BDEV_SET(BCHP_SUN_TOP_CTRL_RESET_CTRL,
-		BCHP_SUN_TOP_CTRL_RESET_CTRL_master_reset_en_MASK);
+	BDEV_WR_F(SUN_TOP_CTRL_RESET_CTRL, master_reset_en, 1);
 	BDEV_RD(BCHP_SUN_TOP_CTRL_RESET_CTRL);
 
-	BDEV_SET(BCHP_SUN_TOP_CTRL_SW_RESET,
-		BCHP_SUN_TOP_CTRL_SW_RESET_chip_master_reset_MASK);
+	BDEV_WR_F(SUN_TOP_CTRL_SW_RESET, chip_master_reset, 1);
 	BDEV_RD(BCHP_SUN_TOP_CTRL_SW_RESET);
 
 	udelay(10);
@@ -124,19 +123,12 @@ static __init void brcm_time_init(void)
 	extern unsigned int mips_hpt_frequency;
 	unsigned int GetMIPSFreq(void);
 	volatile unsigned int countValue;
-	unsigned int mipsFreq4Display;
-	char msg[133];
-
 
 	/* Set the counter frequency */
-    	//mips_counter_frequency = CPU_CLOCK_RATE/2;
-
     	countValue = GetMIPSFreq(); // Taken over 1/8 sec.
     	mips_hpt_frequency = countValue * 8;
-    	mipsFreq4Display = (mips_hpt_frequency/1000000) * 1000000;
-    	sprintf(msg, "mips_counter_frequency = %d from Calibration, = %d from header(CPU_MHz/2)\n", 
-		mipsFreq4Display, CPU_CLOCK_RATE/2);
-	uart_puts(msg);
+    	printk("Found MIPS counter frequency: %d Mhz\n",
+		(mips_hpt_frequency + 500000) / 1000000);
 
 }
 
@@ -276,8 +268,8 @@ EXPORT_SYMBOL(get_upper_membase);
 
 static struct resource bcmspi_resources[] = {
 	[0] = {
-		.start	= BCHP_PHYSICAL_OFFSET + BCHP_MSPI_REG_START,
-		.end	= BCHP_PHYSICAL_OFFSET + BCHP_MSPI_REG_END,
+		.start	= BPHYSADDR(BCHP_MSPI_REG_START),
+		.end	= BPHYSADDR(BCHP_MSPI_REG_END),
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
@@ -287,8 +279,8 @@ static struct resource bcmspi_resources[] = {
 	},
 #ifdef BCHP_BSPI_REG_START
 	[2] = {
-		.start	= BCHP_PHYSICAL_OFFSET + BCHP_BSPI_REG_START,
-		.end	= BCHP_PHYSICAL_OFFSET + BCHP_BSPI_REG_END,
+		.start	= BPHYSADDR(BCHP_BSPI_REG_START),
+		.end	= BPHYSADDR(BCHP_BSPI_REG_END),
 		.flags	= IORESOURCE_MEM,
 	},
 #endif
@@ -370,3 +362,166 @@ static int __init bcmspi_initcall(void)
 device_initcall(bcmspi_initcall);
 
 #endif /* CONFIG_SPI_BCM7XXX || CONFIG_SPI_BCM7XXX_MODULE */
+
+#ifdef BRCM_MOCA_SUPPORTED
+
+static void moca_bogus_release(struct device *dev)
+{
+}
+
+static struct moca_platform_data moca_data = {
+	.macaddr_hi =		0x00000102,
+	.macaddr_lo =		0x03040000,
+
+	.enet_name =		"BCMUNIMAC",
+	.enet_id =		1,
+
+	.bcm3450_i2c_base =	BPHYSADDR(BCHP_BSCB_REG_START),
+	.bcm3450_i2c_addr =	0x70,
+};
+
+static struct resource moca_resources[] = {
+	[0] = {
+		.start =	BPHYSADDR(BRCM_MOCA_REG_START),
+		.end =		BPHYSADDR(BRCM_MOCA_REG_END),
+		.flags =	IORESOURCE_MEM,
+	},
+	[1] = {
+		.start =	BCM_LINUX_MOCA_IRQ,
+		.end =		BCM_LINUX_MOCA_IRQ,
+		.flags =	IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device moca_plat_dev = {
+	.name =			"bmoca",
+	.id =			0,
+	.num_resources =	ARRAY_SIZE(moca_resources),
+	.resource =		moca_resources,
+	.dev = {
+		.platform_data = &moca_data,
+		.release =	moca_bogus_release,
+	},
+};
+
+#endif /* BRCM_MOCA_SUPPORTED */
+
+#ifdef BRCM_UMAC_0_SUPPORTED
+
+static void umac_0_bogus_release(struct device *dev)
+{
+}
+
+static struct bcmumac_platform_data umac_0_data = {
+	.phy_type =		BRCM_PHY_TYPE_INT,
+	.phy_id =		1,
+};
+
+static struct resource umac_0_resources[] = {
+	[0] = {
+		.start =	BPHYSADDR(BRCM_UMAC_0_REG_START),
+		.end =		BPHYSADDR(BRCM_UMAC_0_REG_END),
+		.flags =	IORESOURCE_MEM,
+	},
+	[1] = {
+		.start =	BCM_LINUX_CPU_ENET_IRQ,
+		.end =		BCM_LINUX_CPU_ENET_IRQ,
+		.flags =	IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device umac_0_plat_dev = {
+	.name =			"bcmumac",
+	.id =			0,
+	.num_resources =	ARRAY_SIZE(umac_0_resources),
+	.resource =		umac_0_resources,
+	.dev = {
+		.platform_data = &umac_0_data,
+		.release =	umac_0_bogus_release,
+	},
+};
+
+#endif /* BRCM_UMAC_0_SUPPORTED */
+
+#ifdef BRCM_UMAC_1_SUPPORTED
+
+static void umac_1_bogus_release(struct device *dev)
+{
+}
+
+static struct bcmumac_platform_data umac_1_data = {
+	.phy_type =		BRCM_PHY_TYPE_MOCA,
+	.phy_id =		BRCM_PHY_ID_NONE,
+};
+
+static struct resource umac_1_resources[] = {
+	[0] = {
+		.start =	BPHYSADDR(BRCM_UMAC_1_REG_START),
+		.end =		BPHYSADDR(BRCM_UMAC_1_REG_END),
+		.flags =	IORESOURCE_MEM,
+	},
+	[1] = {
+		.start =	BCM_LINUX_CPU_ENET_1_IRQ,
+		.end =		BCM_LINUX_CPU_ENET_1_IRQ,
+		.flags =	IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device umac_1_plat_dev = {
+	.name =			"bcmumac",
+	.id =			1,
+	.num_resources =	ARRAY_SIZE(umac_1_resources),
+	.resource =		umac_1_resources,
+	.dev = {
+		.platform_data = &umac_1_data,
+		.release =	umac_1_bogus_release,
+	},
+};
+
+#endif /* BRCM_UMAC_1_SUPPORTED */
+
+#if defined(BRCM_UMAC_0_SUPPORTED) || defined(BRCM_MOCA_SUPPORTED)
+
+static int __init umac_moca_initcall(void)
+{
+	u8 mac[6];
+	extern unsigned char *gHwAddrs[];
+	unsigned long flags;
+
+	spin_lock_irqsave(&g_magnum_spinlock, flags);
+#if defined(BRCM_UMAC_0_SUPPORTED)
+	BDEV_WR_F(SUN_TOP_CTRL_SW_RESET, enet_sw_reset, 0);
+#endif
+#if defined(BRCM_MOCA_SUPPORTED)
+	BDEV_WR_F(SUN_TOP_CTRL_SW_RESET, moca_sw_reset, 0);
+	BDEV_WR_F(MOCA_HOSTMISC_SW_RESET, moca_enet_reset, 0);
+#endif
+	BDEV_RD(BCHP_SUN_TOP_CTRL_SW_RESET);
+	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
+
+	memcpy(mac, gHwAddrs[0], 6);
+
+#if defined(BRCM_UMAC_0_SUPPORTED)
+	memcpy(&umac_0_data.macaddr, mac, 6);
+	platform_device_register(&umac_0_plat_dev);
+	mac[4]++;
+#endif
+
+#if defined(BRCM_UMAC_1_SUPPORTED)
+	memcpy(&umac_1_data.macaddr, mac, 6);
+	platform_device_register(&umac_1_plat_dev);
+	mac[4]++;
+#endif
+
+#if defined(BRCM_MOCA_SUPPORTED)
+	mac_to_u32(&moca_data.macaddr_hi, &moca_data.macaddr_lo, mac);
+	platform_device_register(&moca_plat_dev);
+	mac[4]++;
+#endif
+
+	return(0);
+}
+
+device_initcall(umac_moca_initcall);
+
+#endif /* defined(BRCM_UMAC_0_SUPPORTED) || defined(BRCM_MOCA_SUPPORTED) */

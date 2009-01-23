@@ -423,6 +423,18 @@ void local_timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	update_process_times(user_mode(regs));
 }
 
+int null_perf_irq(struct pt_regs *regs)
+{
+	return 0;
+}
+
+int (*perf_irq)(struct pt_regs *regs) = null_perf_irq;
+
+EXPORT_SYMBOL(null_perf_irq);
+EXPORT_SYMBOL(perf_irq);
+
+extern int performance_enabled;
+
 /*
  * High-level timer interrupt service routines.  This function
  * is set as irqaction->handler and is invoked through do_IRQ.
@@ -440,6 +452,13 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	/* Update timerhi/timerlo for intra-jiffy calibration. */
 	timerhi += count < timerlo;			/* Wrap around */
 	timerlo = count;
+
+#if defined(CONFIG_OPROFILE) && defined(CONFIG_MTI_R34K)
+	if ((performance_enabled) && (perf_irq != null_perf_irq) && (read_c0_cause() & (1 << 26)))
+	{
+               perf_irq(regs);
+       }
+#endif
 
 	/*
 	 * call the generic timer interrupt handling
@@ -517,16 +536,6 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 
 	return IRQ_HANDLED;
 }
-
-int null_perf_irq(struct pt_regs *regs)
-{
-	return 0;
-}
-
-int (*perf_irq)(struct pt_regs *regs) = null_perf_irq;
-
-EXPORT_SYMBOL(null_perf_irq);
-EXPORT_SYMBOL(perf_irq);
 
 asmlinkage void ll_timer_interrupt(int irq, struct pt_regs *regs)
 {

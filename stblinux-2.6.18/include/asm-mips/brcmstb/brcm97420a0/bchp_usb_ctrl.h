@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu Sep  4 18:06:18 2008
- *                 MD5 Checksum         b2212171e610d78d317adc76ed35c6de
+ * Date:           Generated on         Mon Nov 24 15:21:23 2008
+ *                 MD5 Checksum         826ad271a1dc15746c695f8a9f9095f9
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -34,8 +34,8 @@
  *
  * $brcm_Log: /magnum/basemodules/chp/7420/rdb/a0/bchp_usb_ctrl.h $
  * 
- * Hydra_Software_Devel/4   9/5/08 11:50a tdo
- * PR42663: Sync up RDB
+ * Hydra_Software_Devel/5   11/24/08 4:24p tdo
+ * PR42663: Update 7420 RDB header files
  *
  ***************************************************************************/
 
@@ -614,8 +614,12 @@
 #define BCHP_USB_CTRL_USB_TESTCTL_DCNT_EN_MASK                     0x00100000
 #define BCHP_USB_CTRL_USB_TESTCTL_DCNT_EN_SHIFT                    20
 
-/* USB_CTRL :: USB_TESTCTL :: DCNT_SEL [19:16] */
-#define BCHP_USB_CTRL_USB_TESTCTL_DCNT_SEL_MASK                    0x000f0000
+/* USB_CTRL :: USB_TESTCTL :: SPEED_SEL [19:19] */
+#define BCHP_USB_CTRL_USB_TESTCTL_SPEED_SEL_MASK                   0x00080000
+#define BCHP_USB_CTRL_USB_TESTCTL_SPEED_SEL_SHIFT                  19
+
+/* USB_CTRL :: USB_TESTCTL :: DCNT_SEL [18:16] */
+#define BCHP_USB_CTRL_USB_TESTCTL_DCNT_SEL_MASK                    0x00070000
 #define BCHP_USB_CTRL_USB_TESTCTL_DCNT_SEL_SHIFT                   16
 
 /* USB_CTRL :: USB_TESTCTL :: TESTCTL_SPARE1 [15:08] */

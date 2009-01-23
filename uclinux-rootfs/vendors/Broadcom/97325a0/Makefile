@@ -76,7 +76,7 @@ ifdef CONFIG_SQUASHFS
 FSIMG += $(SQUASHFSIMG)
 endif
 ifdef CONFIG_OPROFILE
-BMIPS_DIR=mips/bcm4350
+BMIPS_DIR=mips/34K
 TARGET_PREFIX=/usr/local/share/oprofile/
 BUILD_PREFIX=$(ROOTDIR)/romfs/$(TARGET_PREFIX)
 OPROFILE_DIR=$(ROOTDIR)/user/oprofile

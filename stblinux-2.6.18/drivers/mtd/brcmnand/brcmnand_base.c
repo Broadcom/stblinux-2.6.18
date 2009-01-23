@@ -96,6 +96,9 @@ extern int gNumNand;
 /* The Chip Select [0..7] for the NAND chips from gNumNand above, only applicable to v1.0+ NAND controller */
 extern int* gNandCS;
 
+// If wr_preempt_en is enabled, need to disable IRQ during NAND I/O
+int wr_preempt_en = 0;
+
 #define DRIVER_NAME	"brcmnand"
 
 #define HW_AUTOOOB_LAYOUT_SIZE		32 /* should be enough */
@@ -496,6 +499,14 @@ static const unsigned char ffchars[] = {
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 48 */
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 64 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 80 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 96 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 112 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 128 */
 };
 
 static unsigned char eccmask[128]; // Will be initialized during probe
@@ -795,194 +806,6 @@ if (gdebug) printk("%s: flash=%p, len=%d, src=%p\n", __FUNCTION__, flash, len, s
 
 //#define uint8_t unsigned char
 
-static void  brcmnand_Hamming_ecc(uint8_t *data, uint8_t *ecc_code)
-{
-
-    int i,j;
-    uint8_t o_ecc[24],temp[10];
-    unsigned long pre_ecc;
-
-#if 0
-    // THT Use this block if there is a need for endian swapping
-    uint32_t i_din[128];
-    uint32_t* p32 = (uint32_t*) data; //  alignment guaranteed by caller.
-    
-	
-    for(i=0;i<128;i++) {
-        //i_din[i/4] = (long)(data[i+3]<<24 | data[i+2]<<16 | data[i+1]<<8 | data[i]);
-        i_din[i] = /*le32_to_cpu */(p32[i]);
-        //printk( "i_din[%d] = 0x%08.8x\n", i/4, i_din[i/4] );
-    }
-
-#else
-    // THT: No need to copy.  "data" is guaranteed to be DW-aligned by caller.
-    uint32_t* i_din = (uint32_t*) data;
-    
-#endif
-
-    memset(o_ecc, 0, sizeof(o_ecc));
-
-    for(i=0;i<128;i++){
-        memset(temp, 0, sizeof(temp));
-        
-        for(j=0;j<32;j++){
-            temp[0]^=((i_din[i]& 0x55555555)>>j)&0x1;
-            temp[1]^=((i_din[i]& 0xAAAAAAAA)>>j)&0x1;
-            temp[2]^=((i_din[i]& 0x33333333)>>j)&0x1;
-            temp[3]^=((i_din[i]& 0xCCCCCCCC)>>j)&0x1;
-            temp[4]^=((i_din[i]& 0x0F0F0F0F)>>j)&0x1;
-            temp[5]^=((i_din[i]& 0xF0F0F0F0)>>j)&0x1;
-            temp[6]^=((i_din[i]& 0x00FF00FF)>>j)&0x1;
-            temp[7]^=((i_din[i]& 0xFF00FF00)>>j)&0x1;
-            temp[8]^=((i_din[i]& 0x0000FFFF)>>j)&0x1;
-            temp[9]^=((i_din[i]& 0xFFFF0000)>>j)&0x1;
-        }
-
-        for(j=0;j<10;j++)
-            o_ecc[j]^=temp[j];
-            
-        //o_ecc[0]^=temp[0];//P1'
-        //o_ecc[1]^=temp[1];//P1
-        //o_ecc[2]^=temp[2];//P2'
-        //o_ecc[3]^=temp[3];//P2
-        //o_ecc[4]^=temp[4];//P4'
-        //o_ecc[5]^=temp[5];//P4
-        //o_ecc[6]^=temp[6];//P8'
-        //o_ecc[7]^=temp[7];//P8
-        //o_ecc[8]^=temp[8];//P16'
-        //o_ecc[9]^=temp[9];//P16
-        
-        if(i%2){
-            for(j=0;j<32;j++)
-                o_ecc[11]^=(i_din[i]>>j)&0x1;//P32
-        }
-        else{
-            for(j=0;j<32;j++)
-                o_ecc[10]^=(i_din[i]>>j)&0x1;//P32'
-        }
-                
-        if((i&0x3)<2){
-            for(j=0;j<32;j++)
-                o_ecc[12]^=(i_din[i]>>j)&0x1;//P64'
-        }
-        else{
-            for(j=0;j<32;j++)
-                o_ecc[13]^=(i_din[i]>>j)&0x1;//P64
-        }
-        
-        if((i&0x7)<4){
-            for(j=0;j<32;j++)
-                o_ecc[14]^=(i_din[i]>>j)&0x1;//P128'
-        }
-        else{
-            for(j=0;j<32;j++)
-                o_ecc[15]^=(i_din[i]>>j)&0x1;//P128
-        }
-        
-        if((i&0xF)<8){
-            for(j=0;j<32;j++)
-                o_ecc[16]^=(i_din[i]>>j)&0x1;//P256'
-        }
-        else{
-            for(j=0;j<32;j++)
-                o_ecc[17]^=(i_din[i]>>j)&0x1;//P256
-        }
-        
-        if((i&0x1F)<16){
-            for(j=0;j<32;j++)
-                o_ecc[18]^=(i_din[i]>>j)&0x1;//P512'
-        }
-        else{
-            for(j=0;j<32;j++)
-                o_ecc[19]^=(i_din[i]>>j)&0x1;//P512
-        }
-        
-        if((i&0x3F)<32){
-            for(j=0;j<32;j++)
-                o_ecc[20]^=(i_din[i]>>j)&0x1;//P1024'
-        }
-        else{
-            for(j=0;j<32;j++)
-                o_ecc[21]^=(i_din[i]>>j)&0x1;//P1024
-        }
-        
-        if((i&0x7F)<64){
-            for(j=0;j<32;j++)
-                o_ecc[22]^=(i_din[i]>>j)&0x1;//P2048'
-        }
-        else{
-            for(j=0;j<32;j++)
-                o_ecc[23]^=(i_din[i]>>j)&0x1;//P2048
-        }
-        // print intermediate value
-        pre_ecc = 0;
-        for(j=23;j>=0;j--) {
-            pre_ecc = (pre_ecc << 1) | (o_ecc[j] ? 1 : 0 ); 
-        }
-//        printf( "pre_ecc[%d] = 0x%06.6x\n", i, pre_ecc );
-    }
-    //xprintf("P16':%x P16:%x P8':%x P8:%x\n",o_ecc[8],o_ecc[9],o_ecc[6],o_ecc[7]);
-    //xprintf("P1':%x P1:%x P2':%x P2:%x\n",o_ecc[0],o_ecc[1],o_ecc[2],o_ecc[3]);
- // ecc_code[0] = ~(o_ecc[13]<<7 | o_ecc[12]<<6 | o_ecc[11]<<5 | o_ecc[10]<<4 | o_ecc[9]<<3 | o_ecc[8]<<2 | o_ecc[7]<<1 | o_ecc[6]);
- // ecc_code[1] = ~(o_ecc[21]<<7 | o_ecc[20]<<6 | o_ecc[19]<<5 | o_ecc[18]<<4 | o_ecc[17]<<3 | o_ecc[16]<<2 | o_ecc[15]<<1 | o_ecc[14]);
- // ecc_code[2] = ~(o_ecc[5]<<7 | o_ecc[4]<<6 | o_ecc[3]<<5 | o_ecc[2]<<4 | o_ecc[1]<<3 | o_ecc[0]<<2 | o_ecc[23]<<1 | o_ecc[22]);
-
-    ecc_code[0] = (o_ecc[ 7]<<7 | o_ecc[ 6]<<6 | o_ecc[ 5]<<5 | o_ecc[ 4]<<4 | o_ecc[ 3]<<3 | o_ecc[ 2]<<2 | o_ecc[ 1]<<1 | o_ecc[ 0]);
-    ecc_code[1] = (o_ecc[15]<<7 | o_ecc[14]<<6 | o_ecc[13]<<5 | o_ecc[12]<<4 | o_ecc[11]<<3 | o_ecc[10]<<2 | o_ecc[ 9]<<1 | o_ecc[ 8]);
-    ecc_code[2] = (o_ecc[23]<<7 | o_ecc[22]<<6 | o_ecc[21]<<5 | o_ecc[20]<<4 | o_ecc[19]<<3 | o_ecc[18]<<2 | o_ecc[17]<<1 | o_ecc[16]);
-    // printf("BROADCOM          ECC:0x%02X 0x%02X 0x%02X \n",ecc_code[0],ecc_code[1],ecc_code[2]);
-        //xprintf("BROADCOM          ECC:0x%02X 0x%02X 0x%02X \n",test[0],test[1],test[2]);
-}
-
-/*
- * Workaround for Hamming ECC when correctable error is in the ECC bytes.
- * Returns 0 if error was in data (no action needed), 1 if error was in ECC (use uncorrected data instead)
- */
-static int brcmnand_Hamming_WAR(struct mtd_info* mtd, loff_t offset, void* buffer,
-	u_char* inp_hwECC, u_char* inoutp_swECC)
-{
-	struct brcmnand_chip* chip = mtd->priv;
-	static uint32_t ucdata[128];
-	u_char* uncorr_data = (u_char*) ucdata;
-	uint32_t acc, acc0;
-	
-	int ret = 0;
-	
-	/* Disable ECC */
-	acc = brcmnand_ctrl_read(BCHP_NAND_ACC_CONTROL);
-	acc0 = acc & ~(BCHP_NAND_ACC_CONTROL_RD_ECC_EN_MASK | BCHP_NAND_ACC_CONTROL_RD_ECC_BLK0_EN_MASK);
-	brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc0);
-
-	// Reread the uncorrected buffer.
-	brcmnand_from_flash_memcpy32(chip, uncorr_data, offset, mtd->eccsize);
-
-	// Calculate Hamming Codes
-	brcmnand_Hamming_ecc(uncorr_data, inoutp_swECC);
-
-	// Compare ecc0 against ECC from HW
-	if ((inoutp_swECC[0] == inp_hwECC[0] && inoutp_swECC[1] == inp_hwECC[1] && 
-		inoutp_swECC[2] == inp_hwECC[2])
-		|| (inoutp_swECC[0] == 0x0 && inoutp_swECC[1] == 0x0 && inoutp_swECC[2] == 0x0 &&
-		     inp_hwECC[0] == 0xff && inp_hwECC[1] == 0xff && inp_hwECC[2] == 0xff)) {
-		// Error was in data bytes, correction made by HW is good, 
-		// or block was erased and no data written to it yet,
-		// send corrected data.
-		// printk("CORR error was handled properly by HW\n");
-		ret = 0;
-	}
-	else { // Error was in ECC, send uncorrected data
-		memcpy(buffer, uncorr_data, 512);
-	
-		ret = 1;
-		printk("CORR error was handled by SW at offset %0llx, HW=%02x%02x%02x, SW=%02x%02x%02x\n", 
-			offset, inp_hwECC[0], inp_hwECC[1], inp_hwECC[2],
-			inoutp_swECC[0], inoutp_swECC[1], inoutp_swECC[2]);
-	}
-	// Restore acc
-	brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc);
-	return ret;
-}
-
 
 #ifdef CONFIG_MTD_BRCMNAND_EDU
 /*
@@ -1155,7 +978,7 @@ static int brcmnand_wait(struct mtd_info *mtd, int state, uint32_t* pStatus)
 			return 0;
 		}
 
-		if (state != FL_READING)
+		if (state != FL_READING && (!wr_preempt_en))
 			cond_resched();
 		//touch_softlockup_watchdog();
 	}
@@ -1203,7 +1026,7 @@ static int brcmnand_cache_is_valid(struct mtd_info* mtd,  int state, loff_t offs
 			//}
 			//return BRCMNAND_SUCCESS;
 		}
-		if (state != FL_READING)
+		if (state != FL_READING && (!wr_preempt_en))
 			cond_resched();
 
 	}
@@ -1279,7 +1102,7 @@ static int brcmnand_spare_is_valid(struct mtd_info* mtd,  int state, int raw)
 			}
 			return 1;
 		}
-		if (state != FL_READING)
+		if (state != FL_READING && !wr_preempt_en)
 			cond_resched();
 	}
 
@@ -1422,6 +1245,247 @@ brcmnand_transfer_oob(struct brcmnand_chip *chip, uint8_t *oob,
 }
 
 
+
+static void  brcmnand_Hamming_ecc(uint8_t *data, uint8_t *ecc_code)
+{
+
+    int i,j;
+    uint8_t o_ecc[24],temp[10];
+    unsigned long pre_ecc;
+
+#if 0
+    // THT Use this block if there is a need for endian swapping
+    uint32_t i_din[128];
+    uint32_t* p32 = (uint32_t*) data; //  alignment guaranteed by caller.
+    
+	
+    for(i=0;i<128;i++) {
+        //i_din[i/4] = (long)(data[i+3]<<24 | data[i+2]<<16 | data[i+1]<<8 | data[i]);
+        i_din[i] = /*le32_to_cpu */(p32[i]);
+        //printk( "i_din[%d] = 0x%08.8x\n", i/4, i_din[i/4] );
+    }
+
+#else
+    // THT: No need to copy.  "data" is guaranteed to be DW-aligned by caller.
+    uint32_t* i_din = (uint32_t*) data;
+    
+#endif
+
+    memset(o_ecc, 0, sizeof(o_ecc));
+
+    for(i=0;i<128;i++){
+        memset(temp, 0, sizeof(temp));
+        
+        for(j=0;j<32;j++){
+            temp[0]^=((i_din[i]& 0x55555555)>>j)&0x1;
+            temp[1]^=((i_din[i]& 0xAAAAAAAA)>>j)&0x1;
+            temp[2]^=((i_din[i]& 0x33333333)>>j)&0x1;
+            temp[3]^=((i_din[i]& 0xCCCCCCCC)>>j)&0x1;
+            temp[4]^=((i_din[i]& 0x0F0F0F0F)>>j)&0x1;
+            temp[5]^=((i_din[i]& 0xF0F0F0F0)>>j)&0x1;
+            temp[6]^=((i_din[i]& 0x00FF00FF)>>j)&0x1;
+            temp[7]^=((i_din[i]& 0xFF00FF00)>>j)&0x1;
+            temp[8]^=((i_din[i]& 0x0000FFFF)>>j)&0x1;
+            temp[9]^=((i_din[i]& 0xFFFF0000)>>j)&0x1;
+        }
+
+        for(j=0;j<10;j++)
+            o_ecc[j]^=temp[j];
+            
+        //o_ecc[0]^=temp[0];//P1'
+        //o_ecc[1]^=temp[1];//P1
+        //o_ecc[2]^=temp[2];//P2'
+        //o_ecc[3]^=temp[3];//P2
+        //o_ecc[4]^=temp[4];//P4'
+        //o_ecc[5]^=temp[5];//P4
+        //o_ecc[6]^=temp[6];//P8'
+        //o_ecc[7]^=temp[7];//P8
+        //o_ecc[8]^=temp[8];//P16'
+        //o_ecc[9]^=temp[9];//P16
+        
+        if(i%2){
+            for(j=0;j<32;j++)
+                o_ecc[11]^=(i_din[i]>>j)&0x1;//P32
+        }
+        else{
+            for(j=0;j<32;j++)
+                o_ecc[10]^=(i_din[i]>>j)&0x1;//P32'
+        }
+                
+        if((i&0x3)<2){
+            for(j=0;j<32;j++)
+                o_ecc[12]^=(i_din[i]>>j)&0x1;//P64'
+        }
+        else{
+            for(j=0;j<32;j++)
+                o_ecc[13]^=(i_din[i]>>j)&0x1;//P64
+        }
+        
+        if((i&0x7)<4){
+            for(j=0;j<32;j++)
+                o_ecc[14]^=(i_din[i]>>j)&0x1;//P128'
+        }
+        else{
+            for(j=0;j<32;j++)
+                o_ecc[15]^=(i_din[i]>>j)&0x1;//P128
+        }
+        
+        if((i&0xF)<8){
+            for(j=0;j<32;j++)
+                o_ecc[16]^=(i_din[i]>>j)&0x1;//P256'
+        }
+        else{
+            for(j=0;j<32;j++)
+                o_ecc[17]^=(i_din[i]>>j)&0x1;//P256
+        }
+        
+        if((i&0x1F)<16){
+            for(j=0;j<32;j++)
+                o_ecc[18]^=(i_din[i]>>j)&0x1;//P512'
+        }
+        else{
+            for(j=0;j<32;j++)
+                o_ecc[19]^=(i_din[i]>>j)&0x1;//P512
+        }
+        
+        if((i&0x3F)<32){
+            for(j=0;j<32;j++)
+                o_ecc[20]^=(i_din[i]>>j)&0x1;//P1024'
+        }
+        else{
+            for(j=0;j<32;j++)
+                o_ecc[21]^=(i_din[i]>>j)&0x1;//P1024
+        }
+        
+        if((i&0x7F)<64){
+            for(j=0;j<32;j++)
+                o_ecc[22]^=(i_din[i]>>j)&0x1;//P2048'
+        }
+        else{
+            for(j=0;j<32;j++)
+                o_ecc[23]^=(i_din[i]>>j)&0x1;//P2048
+        }
+        // print intermediate value
+        pre_ecc = 0;
+        for(j=23;j>=0;j--) {
+            pre_ecc = (pre_ecc << 1) | (o_ecc[j] ? 1 : 0 ); 
+        }
+//        printf( "pre_ecc[%d] = 0x%06.6x\n", i, pre_ecc );
+    }
+    //xprintf("P16':%x P16:%x P8':%x P8:%x\n",o_ecc[8],o_ecc[9],o_ecc[6],o_ecc[7]);
+    //xprintf("P1':%x P1:%x P2':%x P2:%x\n",o_ecc[0],o_ecc[1],o_ecc[2],o_ecc[3]);
+ // ecc_code[0] = ~(o_ecc[13]<<7 | o_ecc[12]<<6 | o_ecc[11]<<5 | o_ecc[10]<<4 | o_ecc[9]<<3 | o_ecc[8]<<2 | o_ecc[7]<<1 | o_ecc[6]);
+ // ecc_code[1] = ~(o_ecc[21]<<7 | o_ecc[20]<<6 | o_ecc[19]<<5 | o_ecc[18]<<4 | o_ecc[17]<<3 | o_ecc[16]<<2 | o_ecc[15]<<1 | o_ecc[14]);
+ // ecc_code[2] = ~(o_ecc[5]<<7 | o_ecc[4]<<6 | o_ecc[3]<<5 | o_ecc[2]<<4 | o_ecc[1]<<3 | o_ecc[0]<<2 | o_ecc[23]<<1 | o_ecc[22]);
+
+    ecc_code[0] = (o_ecc[ 7]<<7 | o_ecc[ 6]<<6 | o_ecc[ 5]<<5 | o_ecc[ 4]<<4 | o_ecc[ 3]<<3 | o_ecc[ 2]<<2 | o_ecc[ 1]<<1 | o_ecc[ 0]);
+    ecc_code[1] = (o_ecc[15]<<7 | o_ecc[14]<<6 | o_ecc[13]<<5 | o_ecc[12]<<4 | o_ecc[11]<<3 | o_ecc[10]<<2 | o_ecc[ 9]<<1 | o_ecc[ 8]);
+    ecc_code[2] = (o_ecc[23]<<7 | o_ecc[22]<<6 | o_ecc[21]<<5 | o_ecc[20]<<4 | o_ecc[19]<<3 | o_ecc[18]<<2 | o_ecc[17]<<1 | o_ecc[16]);
+    // printf("BROADCOM          ECC:0x%02X 0x%02X 0x%02X \n",ecc_code[0],ecc_code[1],ecc_code[2]);
+        //xprintf("BROADCOM          ECC:0x%02X 0x%02X 0x%02X \n",test[0],test[1],test[2]);
+}
+
+// THT PR50928: if wr_preempt is disabled, enable it to clear error
+static int brcmnand_handle_ctrl_timeout(struct mtd_info* mtd, int retry)
+{
+	uint32_t acc;
+	// First check to see if WR_PREEMPT is disabled
+	acc = brcmnand_ctrl_read(BCHP_NAND_ACC_CONTROL);
+	if (retry <= 2 && 0 == (acc & BCHP_NAND_ACC_CONTROL_WR_PREEMPT_EN_MASK)) {
+		acc != BCHP_NAND_ACC_CONTROL_WR_PREEMPT_EN_MASK;
+		brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc);
+		printk("Turn on WR_PREEMPT_EN\n");
+		return 1;
+	}
+	return 0;
+}
+
+
+/*
+ * Workaround for Hamming ECC when correctable error is in the ECC bytes.
+ * Returns 0 if error was in data (no action needed), 1 if error was in ECC (use uncorrected data instead)
+ */
+static int brcmnand_Hamming_WAR(struct mtd_info* mtd, loff_t offset, void* buffer,
+	u_char* inp_hwECC, u_char* inoutp_swECC)
+{
+	struct brcmnand_chip* chip = mtd->priv;
+	static uint32_t ucdata[128];
+	u_char* uncorr_data = (u_char*) ucdata;
+	uint32_t acc, acc0;
+	int valid;
+	unsigned long irqflags;
+	
+	int ret = 0, retries=2;
+	
+	/* Disable ECC */
+	acc = brcmnand_ctrl_read(BCHP_NAND_ACC_CONTROL);
+	acc0 = acc & ~(BCHP_NAND_ACC_CONTROL_RD_ECC_EN_MASK | BCHP_NAND_ACC_CONTROL_RD_ECC_BLK0_EN_MASK);
+	brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc0);
+
+	while (retries >= 0) {
+		// Resubmit the read-op
+		if (wr_preempt_en) {
+			local_irq_save(irqflags);
+		}
+
+		chip->ctrl_writeAddr(chip, offset, 0);
+		PLATFORM_IOFLUSH_WAR();
+		chip->ctrl_write(BCHP_NAND_CMD_START, OP_PAGE_READ);
+
+		// Wait until cache is filled up
+		valid = brcmnand_select_cache_is_valid(mtd, FL_READING, offset);
+
+		if (wr_preempt_en) {
+			local_irq_restore(irqflags);
+		}	
+
+		if (valid ==  BRCMNAND_TIMED_OUT) {
+			//Read has timed out 
+			ret = -ETIMEDOUT;
+			retries--;
+			// THT PR50928: if wr_preempt is disabled, enable it to clear error
+			wr_preempt_en = brcmnand_handle_ctrl_timeout(mtd, retries);
+			continue;  /* Retry */
+		}
+		else {
+			ret = 0;
+			break;
+		}
+	}
+
+	if (retries < 0) {
+		return ret;
+	}
+
+	// Reread the uncorrected buffer.
+	brcmnand_from_flash_memcpy32(chip, uncorr_data, offset, mtd->eccsize);
+
+	// Calculate Hamming Codes
+	brcmnand_Hamming_ecc(uncorr_data, inoutp_swECC);
+
+	// Compare ecc0 against ECC from HW
+	if ((inoutp_swECC[0] == inp_hwECC[0] && inoutp_swECC[1] == inp_hwECC[1] && 
+		inoutp_swECC[2] == inp_hwECC[2])
+		|| (inoutp_swECC[0] == 0x0 && inoutp_swECC[1] == 0x0 && inoutp_swECC[2] == 0x0 &&
+		     inp_hwECC[0] == 0xff && inp_hwECC[1] == 0xff && inp_hwECC[2] == 0xff)) {
+		// Error was in data bytes, correction made by HW is good, 
+		// or block was erased and no data written to it yet,
+		// send corrected data.
+		// printk("CORR error was handled properly by HW\n");
+		ret = 0;
+	}
+	else { // Error was in ECC, send uncorrected data
+		memcpy(buffer, uncorr_data, 512);
+	
+		ret = 1;
+		printk("CORR error was handled by SW at offset %0llx, HW=%02x%02x%02x, SW=%02x%02x%02x\n", 
+			offset, inp_hwECC[0], inp_hwECC[1], inp_hwECC[2],
+			inoutp_swECC[0], inoutp_swECC[1], inoutp_swECC[2]);
+	}
+	// Restore acc
+	brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc);
+	return ret;
+}
 
 
 
@@ -1667,6 +1731,7 @@ out:
 #else // NO EDU PRESENT OR EDU DISABLED
 
 
+
 					
 
 /**
@@ -1688,12 +1753,13 @@ static int brcmnand_posted_read_cache(struct mtd_info* mtd,
 {
 	struct brcmnand_chip* chip = mtd->priv;
 	loff_t sliceOffset = offset & (~ (mtd->eccsize - 1));
-	int i, ret;
-	int retries = 2, done = 0;
+	int i, ret = 0;
+	int retries = 5, done = 0, valid;
+	
 	static uint32_t oob0[4]; // Sparea Area to handle ECC workaround, aligned on DW boundary
 	uint32_t* p32 = (uint32_t*) (oobarea ? oobarea : &oob0[0]);
 	u_char* p8 = (u_char*) p32;
-	
+	unsigned long irqflags;
 
 if (gdebug > 3 ) {
 printk("%s: offset=%0llx, oobarea=%p\n", __FUNCTION__, offset, oobarea);}
@@ -1705,14 +1771,22 @@ printk("%s: offset=%0llx, oobarea=%p\n", __FUNCTION__, offset, oobarea);}
 			return -EINVAL;
 		}
 
+		if (wr_preempt_en) {
+			local_irq_save(irqflags);
+		}
+
 
 		chip->ctrl_writeAddr(chip, sliceOffset, 0);
 		PLATFORM_IOFLUSH_WAR();
 		chip->ctrl_write(BCHP_NAND_CMD_START, OP_PAGE_READ);
 
 		// Wait until cache is filled up
-		ret = brcmnand_select_cache_is_valid(mtd, FL_READING, offset);
-		switch (ret) {
+		valid = brcmnand_select_cache_is_valid(mtd, FL_READING, offset);
+
+		if (wr_preempt_en) {
+			local_irq_restore(irqflags);
+		}
+		switch (valid) {
 		case BRCMNAND_CORRECTABLE_ECC_ERROR: /* Success, no errors */
 		case BRCMNAND_SUCCESS:
 			if (buffer) {
@@ -1720,7 +1794,7 @@ printk("%s: offset=%0llx, oobarea=%p\n", __FUNCTION__, offset, oobarea);}
 			}
 
 #ifndef DEBUG_HW_ECC
-			if (oobarea || (ret == BRCMNAND_CORRECTABLE_ECC_ERROR)) 
+			if (oobarea || (valid == BRCMNAND_CORRECTABLE_ECC_ERROR)) 
 #endif
 			{
 				PLATFORM_IOFLUSH_WAR();
@@ -1732,7 +1806,7 @@ if (gdebug) {printk("%s: offset=%0llx, oob=\n", __FUNCTION__, sliceOffset); prin
 
 #ifndef DEBUG_HW_ECC // Comment out for debugging
 			/* Make sure error was not in ECC bytes */
-			if (ret == BRCMNAND_CORRECTABLE_ECC_ERROR && 
+			if (valid == BRCMNAND_CORRECTABLE_ECC_ERROR && 
 				chip->ecclevel == BRCMNAND_ECC_HAMMING) 
 #endif
 
@@ -1829,10 +1903,11 @@ if (gdebug > 3 ) {printk("<-- %s: ret -EBADMSG\n", __FUNCTION__);}
 			
 		case BRCMNAND_TIMED_OUT:
 			//Read has timed out 
-			printk(KERN_ERR "brcmnand_cache_is_valid returns 0\n");
 			ret = -ETIMEDOUT;
-			done = 1;
-			break;
+			retries--;
+			// THT PR50928: if wr_preempt is disabled, enable it to clear error
+			wr_preempt_en = brcmnand_handle_ctrl_timeout(mtd, retries);
+			continue;  /* Retry */
 
 		default:
 			BUG_ON(1);
@@ -1841,6 +1916,15 @@ if (gdebug > 3 ) {printk("<-- %s: ret -EBADMSG\n", __FUNCTION__);}
 			done = 1;
 			break; 
 		}
+	}
+
+	if (wr_preempt_en) {
+		uint32_t acc;
+		
+		acc = brcmnand_ctrl_read(BCHP_NAND_ACC_CONTROL);
+	
+		acc &= ~BCHP_NAND_ACC_CONTROL_WR_PREEMPT_EN_MASK;
+		brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc);
 	}
 
 if (gdebug > 3 ) {
@@ -1870,8 +1954,9 @@ static int brcmnand_posted_read_oob(struct mtd_info* mtd,
 {
 	struct brcmnand_chip* chip = mtd->priv;
 	loff_t sliceOffset = offset & (~(mtd->eccsize - 1));
-	int i, ret, done = 0;
+	int i, ret = 0, valid, done = 0;
 	int retries = 5;
+	unsigned long irqflags;
 	
 //char msg[20];
 
@@ -1889,11 +1974,20 @@ printk("-->%s: offset=%0llx\n", __FUNCTION__,  offset); }
 			return -EINVAL;
 		}
 
+		if (wr_preempt_en) {
+			local_irq_save(irqflags);
+		}
+
 		chip->ctrl_writeAddr(chip, sliceOffset, 0);
 		chip->ctrl_write(BCHP_NAND_CMD_START, OP_SPARE_AREA_READ);
 
 		// Wait until spare area is filled up
-		switch (brcmnand_spare_is_valid(mtd, FL_READING, raw)) {
+
+		valid = brcmnand_spare_is_valid(mtd, FL_READING, raw);
+		if (wr_preempt_en) {
+			local_irq_restore(irqflags);
+		}
+		switch (valid) {
 		case 1:
 			if (oobarea) {
 				uint32_t* p32 = (uint32_t*) oobarea;
@@ -1917,10 +2011,12 @@ if (gdebug > 3 ) {printk("%s: ret = -EBADMSG\n", __FUNCTION__);}
 			break;
 			
 		case 0:
-			//Read has timed out or read found bad block. TBD: Find out which is which
+			//Read has timed out 
 			ret = -ETIMEDOUT;
-			done = 1;
-			break;
+			retries--;
+			// THT PR50928: if wr_preempt is disabled, enable it to clear error
+			wr_preempt_en = brcmnand_handle_ctrl_timeout(mtd, retries);
+			continue;  /* Retry */
 			
 		default:
 			BUG_ON(1);
@@ -1930,6 +2026,14 @@ if (gdebug > 3 ) {printk("%s: ret = -EBADMSG\n", __FUNCTION__);}
 			break; /* Should never gets here */
 		}
 
+	}	
+	if (wr_preempt_en) {
+		uint32_t acc;
+		
+		acc = brcmnand_ctrl_read(BCHP_NAND_ACC_CONTROL);
+	
+		acc &= ~BCHP_NAND_ACC_CONTROL_WR_PREEMPT_EN_MASK;
+		brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc);
 	}	
 
 if (gdebug > 3 ) {
@@ -2260,7 +2364,8 @@ static int brcmnand_get_device(struct mtd_info *mtd, int new_state)
 			set_current_state(TASK_UNINTERRUPTIBLE);
 			add_wait_queue(&chip->wq, &wait);
 			spin_unlock(&chip->chip_lock);
-			schedule();
+			if (!wr_preempt_en)
+				schedule();
 			remove_wait_queue(&chip->wq, &wait);
 		}
 
@@ -2801,6 +2906,8 @@ static int brcmnand_do_read_oob(struct mtd_info *mtd, loff_t from,
 	while(1) {
 //		sndcmd = chip->ecc.read_oob(mtd, chip, page, sndcmd);
 		ret = chip->read_page_oob(mtd, chip->oob_poi, realpage);
+		if (ret < 0)
+			break;
 
 		buf = brcmnand_transfer_oob(chip, buf, ops);
 
@@ -2844,7 +2951,7 @@ static int brcmnand_do_read_oob(struct mtd_info *mtd, loff_t from,
 	}
 
 	ops->retlen = ops->len;
-	return 0;
+	return ret;
 }
 
 
@@ -5446,12 +5553,13 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
  	 */
 #if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_3_0
 
-	if (NAND_IS_MLC(chip)) {
+	{
 		volatile unsigned long acc_control, org_acc_control;
 		int csi = 0; // Index into chip->CS array
+		unsigned long eccLevel;
 		
 		org_acc_control = acc_control = brcmnand_ctrl_read(BCHP_NAND_ACC_CONTROL);
-		printk("ACC_CONTROL for MLC NAND: %08lx\n", acc_control);
+		
 
 		/*
 		 * For now, we only support same ECC level for both block0 and other blocks
@@ -5459,6 +5567,8 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 		// Verify BCH-4 ECC: Handle CS0 block0
 //		if (chip->CS[csi] == 0) 
 		{
+			eccLevel = (acc_control & BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_MASK) >> 
+				BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_SHIFT;
 			if (((acc_control & BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_MASK) != 
 				BCHP_NAND_ACC_CONTROL_0_BCH_4) ||
 				((acc_control & BCHP_NAND_ACC_CONTROL_ECC_LEVEL_MASK) != 
@@ -5466,9 +5576,10 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 			{
 				acc_control &= ~(BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_MASK|
 					BCHP_NAND_ACC_CONTROL_ECC_LEVEL_MASK);
-				acc_control |= BCHP_NAND_ACC_CONTROL_0_BCH_4 | BCHP_NAND_ACC_CONTROL_N_BCH_4;
+				acc_control |= (eccLevel <<  BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_SHIFT) | 
+					(eccLevel << BCHP_NAND_ACC_CONTROL_ECC_LEVEL_SHIFT);
 				brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc_control );
-				printk("Corrected ECC to BCH-4: ACC_CONTROL = %08lx from %08lx\n", acc_control, org_acc_control);
+				printk("Corrected ECC to ECC on block-0: ACC_CONTROL = %08lx from %08lx\n", acc_control, org_acc_control);
 			}
 			csi++; // Look at next CS
 		}
@@ -5485,7 +5596,20 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 			}	
 		}
 #endif
+		/* For MLC, we only support BCH-4 */
+		if (NAND_IS_MLC(chip)) {
+			if (eccLevel == BRCMNAND_ECC_HAMMING) {
+				printk(KERN_INFO "Only BCH-4 or better is supported on MLC flash\n");
 		chip->ecclevel = BRCMNAND_ECC_BCH_4;
+				acc_control &= ~(BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_MASK|
+					BCHP_NAND_ACC_CONTROL_ECC_LEVEL_MASK);
+				acc_control |= (BRCMNAND_ECC_BCH_4 <<  BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_SHIFT) | 
+					(BRCMNAND_ECC_BCH_4 << BCHP_NAND_ACC_CONTROL_ECC_LEVEL_SHIFT);
+				brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc_control );
+				printk("Corrected ECC to BCH-4 for MLC flashes: ACC_CONTROL = %08lx from %08lx\n", acc_control, org_acc_control);
+			}
+			chip->ecclevel = eccLevel;
+		
 
 		/* Set FAST_PGM_RDIN, PARTIAL_PAGE_EN  to {0, 0} for NOP=1 */
 		if (acc_control & BCHP_NAND_ACC_CONTROL_FAST_PGM_RDIN_MASK) 
@@ -5506,17 +5630,45 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 		brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc_control );
 		printk("Disable WR_PREEMPT and PAGE_HIT_EN: ACC_CONTROL = %08lx\n", acc_control);
 #endif
-	}else {   
-	 	/* SLC will use Hamming for now, so nothing need to be done here,
-	 	 * Just print out ACC_CONTROL to catch any erronous straps
+			printk("ACC_CONTROL for MLC NAND: %08lx\n", acc_control);
+		}
+		else {   
+		 	/* SLC may use Hamming but can also use BCH-4.
+		 	 * But for now, only Hamming code is supported.
 	 	 */
-		volatile unsigned long acc_control;
 		
-		acc_control = brcmnand_ctrl_read(BCHP_NAND_ACC_CONTROL);
-		printk("ACC_CONTROL for SLC NAND: %08lx\n", acc_control);
+			/*
+			 * For SLC,  just print out ACC_CONTROL to catch any erronous straps
+		 	 */
+			printk("ACC_CONTROL for SLC NAND: %08lx, eccLevel=%d\n", 
+				acc_control, eccLevel);
+			if (eccLevel != BRCMNAND_ECC_HAMMING) {
+				printk(KERN_INFO "Only Hamming ECC is supported on SLC flash - for now\n");
+				eccLevel  = BRCMNAND_ECC_HAMMING;
+				acc_control &= ~(BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_MASK|
+					BCHP_NAND_ACC_CONTROL_ECC_LEVEL_MASK);
+				acc_control |= (BRCMNAND_ECC_HAMMING <<  BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_SHIFT) | 
+					(BRCMNAND_ECC_HAMMING << BCHP_NAND_ACC_CONTROL_ECC_LEVEL_SHIFT);
+
+#if 0 //def CONFIG_MTD_BRCMNAND_EDU
+				acc_control &= ~(BCHP_NAND_ACC_CONTROL_FAST_PGM_RDIN_MASK|BCHP_NAND_ACC_CONTROL_PARTIAL_PAGE_EN_MASK);
+#endif
+				brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc_control );
+				printk("Corrected ECC to Hamming for SLC flashes: ACC_CONTROL = %08lx from %08lx\n", acc_control, org_acc_control);
+			}
+// For 3556, disable WR_PREEMPT
+#ifdef CONFIG_MIPS_BCM3548
+			acc_control &= ~(BCHP_NAND_ACC_CONTROL_WR_PREEMPT_EN_MASK);
+			brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc_control );
+
+			printk("Disable WR_PREEMPT: ACC_CONTROL = %08lx from %08lx\n", acc_control, org_acc_control);
+#endif					
+			chip->ecclevel = eccLevel;
+		}
 	}
 #endif // Version 3.0+
 #endif // Version 1.0+
+
 
 PRINTK("%s 10\n", __FUNCTION__);
 

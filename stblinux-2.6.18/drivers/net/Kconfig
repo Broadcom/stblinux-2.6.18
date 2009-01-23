@@ -230,6 +230,14 @@ config BCMINTEMAC_7038_EXTMII
 
 	  If unsure, say N.
 
+config BCMUMAC
+	tristate "Broadcom UniMAC support"
+	depends on NET_ETHERNET
+	depends on MIPS_BCM7420
+	select CRC32
+	help
+	  Broadcom internal GEMAC controller.
+
 source "drivers/net/arm/Kconfig"
 
 config MACE

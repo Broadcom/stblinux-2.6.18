@@ -124,7 +124,9 @@ DEVICES = \
 	loop6,b,7,6		loop7,b,7,7		loop8,b,7,8 \
 	loop9,b,7,9		loop10,b,7,10		loop11,b,7,11 \
 	loop12,b,7,12		loop13,b,7,13		loop14,b,7,14 \
-	loop15,b,7,15
+	loop15,b,7,15 \
+	\
+	bmoca0,c,234,0
 # PR12239 - Remove Broadcom specific device nodes from root filesystem
 
 all:

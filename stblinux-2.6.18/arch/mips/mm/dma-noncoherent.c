@@ -16,6 +16,42 @@
 #include <asm/cache.h>
 #include <asm/cacheflush.h>
 #include <asm/io.h>
+#include <asm/brcmstb/common/brcmstb.h>
+
+#if defined(CONFIG_PCI) && defined(CONFIG_DISCONTIGMEM)
+#include <linux/pci.h>
+#include <mmzone.h>
+#endif
+
+static unsigned long brcm_pci_fixup(struct device *dev, unsigned long phys)
+{
+#if defined(CONFIG_PCI) && defined(CONFIG_DISCONTIGMEM)
+	struct pci_dev *pdev;
+	unsigned long pci_base;
+
+	if(unlikely(dev == NULL))
+		return(phys);
+
+	if(phys < UPPER_RAM_BASE)
+		return(phys);
+
+	if(likely(dev->bus != &pci_bus_type))
+		return(phys);
+
+	pdev = to_pci_dev(dev);
+	if(pdev == NULL)
+		return(phys);
+
+	pci_base = pci_io_map_base(pdev->bus);
+	if(pci_base != PCI_IO_START && pci_base != PCIE_IO_START)
+		return(phys);
+
+	/* NOTE: this will need to be updated for HIGHMEM */
+	return(phys - (UPPER_RAM_BASE - UPPER_RAM_PCI_OFFSET));
+#else
+	return(phys);
+#endif
+}
 
 /*
  * Warning on the terminology - Linux calls an uncached area coherent;
@@ -36,7 +72,7 @@ void *dma_alloc_noncoherent(struct device *dev, size_t size,
 
 	if (ret != NULL) {
 		memset(ret, 0, size);
-		*dma_handle = virt_to_phys(ret);
+		*dma_handle = brcm_pci_fixup(dev, virt_to_phys(ret));
 	}
 
 	return ret;
@@ -107,7 +143,7 @@ dma_addr_t dma_map_single(struct device *dev, void *ptr, size_t size,
 
 	__dma_sync(addr, size, direction);
 
-	return virt_to_phys(ptr);
+	return brcm_pci_fixup(dev, virt_to_phys(ptr));
 }
 
 EXPORT_SYMBOL(dma_map_single);
@@ -140,8 +176,8 @@ int dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
 		addr = (unsigned long) page_address(sg->page);
 		if (addr) {
 			__dma_sync(addr + sg->offset, sg->length, direction);
-			sg->dma_address = (dma_addr_t)page_to_phys(sg->page)
-					  + sg->offset;
+			sg->dma_address = (dma_addr_t)brcm_pci_fixup(dev,
+				page_to_phys(sg->page) + sg->offset);
 		}
 	}
 
@@ -160,7 +196,7 @@ dma_addr_t dma_map_page(struct device *dev, struct page *page,
 	addr = (unsigned long) page_address(page) + offset;
 	dma_cache_wback_inv(addr, size);
 
-	return page_to_phys(page) + offset;
+	return(brcm_pci_fixup(dev, page_to_phys(page) + offset));
 }
 
 EXPORT_SYMBOL(dma_map_page);

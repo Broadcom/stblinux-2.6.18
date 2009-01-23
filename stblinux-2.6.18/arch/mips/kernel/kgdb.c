@@ -50,7 +50,8 @@ static struct hard_trap_info {
 	{ 13, SIGTRAP },	/* trap */
 	{ 14, SIGSEGV },	/* virtual instruction cache coherency */
 	{ 15, SIGFPE },		/* floating point exception */
-	{ 23, SIGSEGV },	/* watch */
+	{ 23, SIGTRAP },	/* watch */
+/*	{ 23, SIGSEGV },	 watch */
 	{ 31, SIGSEGV },	/* virtual data cache coherency */
 	{ 0, 0}			/* Must be last */
 };

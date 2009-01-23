@@ -360,17 +360,7 @@ static int sr_init_command(struct scsi_cmnd * SCpnt)
 		SCpnt->sc_data_direction = DMA_TO_DEVICE;
  	 	cd->cdi.media_written = 1;
 	} else if (rq_data_dir(SCpnt->request) == READ) {
-#if defined (CONFIG_MIPS_BCM_NDVD)
-		if (test_bit(__REQ_DIRECTIO, &SCpnt->request->flags))
-		{
-			SCpnt->cmnd[0] = READ_12;
-		}
-		else {
 		SCpnt->cmnd[0] = READ_10;
-		}
-#else
-		SCpnt->cmnd[0] = READ_10;
-#endif
 		SCpnt->sc_data_direction = DMA_FROM_DEVICE;
 	} else {
 		blk_dump_rq_flags(SCpnt->request, "Unknown sr command");

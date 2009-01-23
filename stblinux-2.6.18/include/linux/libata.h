@@ -73,7 +73,7 @@ extern int dma_write_wa_needed;
 #undef	writew
 #define	writew(val, mem)	*((volatile u16 *)(mem)) = cpu_to_le16((u16)(val))
 #endif
-	
+
 /*
  * compile-time options: to be removed as soon as all the drivers are
  * converted to the new debugging mechanism

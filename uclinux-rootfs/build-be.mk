@@ -39,7 +39,7 @@ unexport $(shell test -f config/cleanenv.pl && \
 # PLATFORMS=$(BCM7XXX) $(VENOM)
 
 # THT For 2.6.18-2.0 we only support a few platforms
-CHIPS=7400d0 7400d0-smp 7401c0 7118a0 7403a0 97401c0-sw1 7405a0 7405a0-smp 7038c0 7325a0 7325a0-smtc 7335a0 7335a0-smp 7405b0 7405b0-smp # 97398 7400a0 7400a0-smp 7318 # 7400d0-smp-nand
+CHIPS=7400d0 7400d0-smp 7401c0 7118a0 7403a0 97401c0-sw1 7405a0 7405a0-smp 7038c0 7325a0 7325a0-smtc 7335a0 7335a0-smp 7405b0 7405b0-smp 7420a0 # 97398 7400a0 7400a0-smp 7318 # 7400d0-smp-nand
 PLATFORMS=$(addsuffix _be,$(CHIPS))
 # THT Must define the NAND platforms separately, since we want -be to precede -nand, as -nand does not really define a new platform
 NAND_PLATFORMS = 7400d0_be-nand 7401c0_be-nand 7118a0_be-nand # 7400d0-smp-be-nand
