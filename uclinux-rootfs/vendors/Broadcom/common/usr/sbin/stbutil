@@ -470,7 +470,7 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
    FDEV="/dev/mtd0"
    MTD_DEV="/dev/mtdblock0"
 
-if [ $# -eq 1 ]; then
+if [ $# -le 1 ]; then
    # check connectivity
    echo "ping -c 4 $TFTP_SERVER"
    ping -c 4 $TFTP_SERVER > ping.err 2>&1
@@ -532,7 +532,13 @@ fi
             BLOCKSIZE="-${ERASE_SIZE}k"
 	    ;;
 	 MLC)
-	    BLOCKSIZE="-mlc-${ERASE_SIZE}k"
+	    if [ $ERASE_SIZE -eq 16 -o $ERASE_SIZE -eq 128 ]; then
+	    	# SLC using BCH-4 ECC
+		BLOCKSIZE="-bch4-${ERASE_SIZE}k"
+	    else
+	    	# True MLC flash types.
+	    	BLOCKSIZE="-mlc-${ERASE_SIZE}k"
+	    fi
 	    ;;
 	 esac
       fi
@@ -545,7 +551,7 @@ fi
 
    # fetch image
 
-if [ $# -eq 1 ]; then
+if [ $# -le 1 ]; then
    tftp_fetch $TFTP_SERVER ${IMGPFX}${IMAGE} /tmp/${IMAGE} || exit 2
 elif [ $# -ge 2 ]; then
    cp ${USB_DIR}/${IMGPFX}${IMAGE} /tmp/${IMAGE} || exit 2

@@ -3009,7 +3009,7 @@ static int bcmemac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     struct mii_ioctl_data *mii;
     unsigned long flags;
-    int val = 0;
+    int val = -EOPNOTSUPP;
 
     BCMEMAC_POWER_ON(dev);
 
@@ -3025,6 +3025,7 @@ static int bcmemac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
         mii = (struct mii_ioctl_data *)&rq->ifr_data;
         mii->val_out = mii_read(dev, mii->phy_id & 0x1f, mii->reg_num & 0x1f);
         spin_unlock_irqrestore(&pDevCtrl->lock, flags);
+	val = 0;
         break;
 
     case SIOCSMIIREG:       /* Write MII PHY register. */
@@ -3032,13 +3033,14 @@ static int bcmemac_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
         mii = (struct mii_ioctl_data *)&rq->ifr_data;
         mii_write(dev, mii->phy_id & 0x1f, mii->reg_num & 0x1f, mii->val_in);
         spin_unlock_irqrestore(&pDevCtrl->lock, flags);
+	val = 0;
         break;
 
     case SIOCETHTOOL:
         return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
     }
 
-    return val;       
+    return val;
 }
 
 static int __init bcmemac_module_init(void)

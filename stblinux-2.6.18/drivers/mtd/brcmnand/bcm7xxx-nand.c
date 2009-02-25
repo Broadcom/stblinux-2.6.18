@@ -294,6 +294,9 @@ bcm7XXX_nand_parts[i].name, bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].of
 
 }
 
+
+static void* gPageBuffer;
+
 static int __devinit brcmnanddrv_probe(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -303,13 +306,21 @@ static int __devinit brcmnanddrv_probe(struct device *dev)
 	int err = 0;
 	int numParts = 0;
 
+	gPageBuffer = NULL;
 	info = kmalloc(sizeof(struct brcmnand_info), GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
 
 	memset(info, 0, sizeof(struct brcmnand_info));
 
-	info->brcmnand.buffers = kmalloc(sizeof(struct nand_buffers), GFP_DMA);
+#ifndef CONFIG_MTD_BRCMNAND_EDU
+	gPageBuffer = kmalloc(sizeof(struct nand_buffers), GFP_KERNEL);
+	info->brcmnand.buffers = (struct nand_buffers*) gPageBuffer;
+#else
+	/* Align on 512B boundary for efficient DMA transfer */
+	gPageBuffer = kmalloc(sizeof(struct nand_buffers) + 511, GFP_DMA);
+	info->brcmnand.buffers = (struct nand_buffers*) (((unsigned int) gPageBuffer+511) & (~511));
+#endif
 	if (!info->brcmnand.buffers) {
 		kfree(info);
 		return -ENOMEM;
@@ -350,8 +361,10 @@ static int __devinit brcmnanddrv_probe(struct device *dev)
 
 
 out_free_info:
-	kfree(info);
 
+	if (gPageBuffer)
+		kfree(gPageBuffer);
+	kfree(info);
 	return err;
 }
 
@@ -373,7 +386,7 @@ static int __devexit brcmnanddrv_remove(struct device *dev)
 		brcmnand_release(&info->mtd);
 		//release_mem_region(res->start, size);
 		//iounmap(info->brcmnand.base);
-		kfree(info->brcmnand.buffers);
+		kfree(gPageBuffer);
 		kfree(info);
 	}
 

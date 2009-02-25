@@ -35,6 +35,10 @@
 #include <asm/brcmstb/brcm97440b0/bchp_ebi.h>  // For CS registers
 #endif
 
+#ifdef CONFIG_MIPS_BCM7601B0
+#include <asm/brcmstb/brcm97601b0/bchp_ebi.h>  // For CS registers
+#endif
+
 /*
  * Conversion between Kernel Kconfig and Controller version number
  */
@@ -50,13 +54,16 @@
 
 /* Supporting MLC NAND */
 #define CONFIG_MTD_BRCMNAND_VERS_3_0		6
-#define CONFIG_MTD_BRCMNAND_VERS_3_1		7
+#define CONFIG_MTD_BRCMNAND_VERS_3_1_0		7	/* RDB reads as 3.0 */
+#define CONFIG_MTD_BRCMNAND_VERS_3_1_1		8	/* RDB reads as 3.0 */
+#define CONFIG_MTD_BRCMNAND_VERS_3_2		9	
+#define CONFIG_MTD_BRCMNAND_VERS_3_3		10	
 
 #define BRCMNAND_VERSION(major, minor)	((major<<8) | minor)
 
 
 #if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
-#define MAX_NAND_CS	8
+#define MAX_NAND_CS	8 // Upper limit, actual limit varies depending on platfrom
 
 #else
 #define MAX_NAND_CS	1
@@ -390,7 +397,7 @@ struct brcmnand_chip {
 
 	uint32_t (*ctrl_read) (uint32_t command);
 	void (*ctrl_write) (uint32_t command, uint32_t val);
-	void (*ctrl_writeAddr)(struct brcmnand_chip* chip, loff_t addr, int cmdEndAddr);
+	uint32_t (*ctrl_writeAddr)(struct brcmnand_chip* chip, loff_t addr, int cmdEndAddr);
 
 	/*
 	 * THT: Private methods exported to BBT, equivalent to the methods defined in struct ecc_nand_ctl
@@ -471,7 +478,7 @@ struct brcmnand_chip {
 	int			eccOobSize; // # of oob byte per ECC steps, always 16
 	
 	struct nand_buffers* buffers; // THT 2.6.18-5.3: Changed to pointer to accomodate EDU
-#define BRCMNAND_OOBBUF(buffers) (&buffers->databuf[NAND_MAX_PAGESIZE])
+#define BRCMNAND_OOBBUF(pbuf) (&((pbuf)->databuf[NAND_MAX_PAGESIZE]))
 	//struct nand_hw_control hwcontrol;
 
 	struct mtd_oob_ops ops;

@@ -56,11 +56,21 @@
 #include <glob.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+
+#include <linux/types.h>
+#include <linux/sockios.h>
+#include <linux/ethtool.h>
+#include <linux/if.h>
+
 #include <pmlib.h>
 
 struct brcm_pm_priv
 {
 	struct brcm_pm_state	last_state;
+	struct brcm_pm_cfg	cfg;
+	int			has_eth1;
 };
 
 #define BUF_SIZE	64
@@ -73,7 +83,10 @@ struct brcm_pm_priv
 #define SYS_TP1_STAT	"/sys/devices/system/cpu/cpu1/online"
 #define SYS_BASE_FREQ	"/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"
 #define SYS_CUR_FREQ	"/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq"
-#define DHCPCD_PIDFILE	"/var/run/dhcpcd-eth0.pid"
+#define DHCPCD_PID0_A	"/var/run/dhcpcd-eth0.pid"
+#define DHCPCD_PID0_B	"/var/run/dhcpcd-eth0.pid.bak"
+#define DHCPCD_PID1_A	"/var/run/dhcpcd-eth1.pid"
+#define DHCPCD_PID1_B	"/var/run/dhcpcd-eth1.pid.bak"
 #define DHCPCD_PATH	"/bin/dhcpcd"
 #define IFCONFIG_PATH	"/bin/ifconfig"
 #define HDPARM_PATH	"/sbin/hdparm"
@@ -168,6 +181,36 @@ static int run(char *prog, ...)
 	return(0);
 }
 
+static int brcm_pm_eth1_check(void)
+{
+	struct ifreq ifr;
+	struct ethtool_drvinfo drvinfo;
+	int ret = 0;
+	int fd;
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if(fd < 0)
+		return(0);
+
+	memset(&ifr, 0, sizeof(ifr));
+	memset(&drvinfo, 0, sizeof(drvinfo));
+
+	drvinfo.cmd = ETHTOOL_GDRVINFO;
+	ifr.ifr_data = (caddr_t)&drvinfo;
+	strcpy(ifr.ifr_name, "eth1");
+
+	if(ioctl(fd, SIOCETHTOOL, &ifr) == 0) {
+		if(strcmp(drvinfo.driver, "BCMINTMAC") == 0)
+			ret = 1;
+		if(strcmp(drvinfo.driver, "BCMUNIMAC") == 0)
+			ret = 1;
+	}
+
+	close(fd);
+
+	return(ret);
+}
+
 void *brcm_pm_init(void)
 {
 	struct brcm_pm_priv *ctx;
@@ -186,6 +229,8 @@ void *brcm_pm_init(void)
 	if(brcm_pm_get_status(ctx, &ctx->last_state) != 0)
 		goto bad_free;
 	
+	ctx->has_eth1 = brcm_pm_eth1_check();
+	
 	return(ctx);
 
 bad_free:
@@ -197,6 +242,22 @@ bad:
 void brcm_pm_close(void *vctx)
 {
 	free(vctx);
+}
+
+int brcm_pm_get_cfg(void *vctx, struct brcm_pm_cfg *cfg)
+{
+	struct brcm_pm_priv *ctx = vctx;
+
+	*cfg = ctx->cfg;
+	return(0);
+}
+
+int brcm_pm_set_cfg(void *vctx, struct brcm_pm_cfg *cfg)
+{
+	struct brcm_pm_priv *ctx = vctx;
+
+	ctx->cfg = *cfg;
+	return(0);
 }
 
 int brcm_pm_get_status(void *vctx, struct brcm_pm_state *st)
@@ -317,15 +378,44 @@ int brcm_pm_set_status(void *vctx, struct brcm_pm_state *st)
 
 	if(CHANGED(enet_status))
 	{
+		unsigned int pid;
+
 		if(st->enet_status)
 		{
-			ret |= run(DHCPCD_PATH, "-Hd", "-L", "/var/run", "eth0", NULL);
+			if(ctx->cfg.use_dhcp) {
+				if(sysfs_get(DHCPCD_PID0_A, &pid) == 0) {
+					kill(pid, SIGKILL);
+					unlink(DHCPCD_PID0_A);
+				}
+				ret |= run(DHCPCD_PATH, "-Hd", "-L",
+					"/var/run", "eth0", NULL);
+				
+				if(ctx->has_eth1) {
+					if(sysfs_get(DHCPCD_PID1_A, &pid) == 0) {
+						kill(pid, SIGKILL);
+						unlink(DHCPCD_PID1_A);
+					}
+					ret |= run(DHCPCD_PATH, "-Hd", "-L",
+						"/var/run", "eth1", NULL);
+				}
+			} else {
+				ret |= sysfs_set(SYS_ENET_STAT, 1);
+			}
 		} else {
-			unsigned int pid;
-
-			if(sysfs_get(DHCPCD_PIDFILE, &pid) == 0)
+			if(ctx->cfg.use_dhcp &&
+			   ((sysfs_get(DHCPCD_PID0_A, &pid) == 0) ||
+			    (sysfs_get(DHCPCD_PID0_B, &pid) == 0)))
 				kill(pid, SIGTERM);
 			ret |= run(IFCONFIG_PATH, "eth0", "down", NULL);
+
+			if(ctx->has_eth1) {
+				if(ctx->cfg.use_dhcp &&
+				   ((sysfs_get(DHCPCD_PID1_A, &pid) == 0) ||
+				    (sysfs_get(DHCPCD_PID1_B, &pid) == 0)))
+					kill(pid, SIGTERM);
+				ret |= run(IFCONFIG_PATH, "eth1", "down", NULL);
+			}
+
 			ret |= sysfs_set(SYS_ENET_STAT, 0);
 		}
 		ctx->last_state.enet_status = st->enet_status;

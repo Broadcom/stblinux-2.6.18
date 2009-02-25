@@ -254,6 +254,7 @@ bool 'dhcpd(ISC)' 		CONFIG_USER_DHCP_ISC_SERVER_DHCPD
 bool 'dhclient(ISC)' 		CONFIG_USER_DHCP_ISC_CLIENT_DHCP
 bool 'diald'			CONFIG_USER_DIALD_DIALD
 bool 'discard'			CONFIG_USER_DISCARD_DISCARD
+bool 'dmalloc'			CONFIG_USER_DMALLOC_DMALLOC
 bool 'dnsmasq'			CONFIG_USER_DNSMASQ_DNSMASQ
 bool 'ethattach'		CONFIG_USER_ETHATTACH_ETHATTACH
 bool 'epi_ttcp'			CONFIG_USER_EPI_TTCP
@@ -395,15 +396,6 @@ bool 'squid'			CONFIG_USER_SQUID_SQUID
 bool 'ssh'			CONFIG_USER_SSH_SSH
 bool 'sshd'			CONFIG_USER_SSH_SSHD
 bool 'ssh-keygen'		CONFIG_USER_SSH_SSHKEYGEN
-if [ "$CONFIG_USER_SSH_SSHD" = "y" ]; then
-	define_bool CONFIG_LIB_LIBSSL y
-fi
-if [ "$CONFIG_USER_SSH_SSH" = "y" ]; then
-	define_bool CONFIG_LIB_LIBSSL y
-fi
-if [ "CONFIG_USER_SSH_SSHKEYGEN" = "y" ]; then
-	define_bool CONFIG_LIB_LIBSSL y
-fi
 
 bool 'stp'			CONFIG_USER_STP_STP
 bool 'tcpd'			CONFIG_USER_TCPWRAP_TCPD
@@ -460,13 +452,6 @@ bool 'Broadcom wireless support'	CONFIG_USER_WIRELESS_SUPPORT
 
 comment 'Wireless-tools'
 bool 'wireless_tools support'	CONFIG_USER_WIRELESS_TOOLS
-if [ "$CONFIG_USER_WIRELESS_TOOLS" = "y" ]; then
-	bool 'iwconfig'	CONFIG_USER_WIRELESS_TOOLS_IWCONFIG
-	bool 'iwgetid'	CONFIG_USER_WIRELESS_TOOLS_IWGETID
-	bool 'iwlist'	CONFIG_USER_WIRELESS_TOOLS_IWLIST
-	bool 'iwpriv'	CONFIG_USER_WIRELESS_TOOLS_IWPRIV
-	bool 'iwspy'	CONFIG_USER_WIRELESS_TOOLS_IWSPY
-fi
 
 endmenu
 

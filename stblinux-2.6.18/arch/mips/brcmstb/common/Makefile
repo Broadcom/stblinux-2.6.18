@@ -46,6 +46,8 @@ obj-$(CONFIG_CPU_FREQ_BRCM) += cpufreq.o
 
 # new platform-agnostic IRQ and RAC support
 obj-$(CONFIG_MIPS_BCM7405B0) += irq.o rac.o
+obj-$(CONFIG_MIPS_BCM7405D0) += irq.o rac.o
 obj-$(CONFIG_MIPS_BCM7335) += irq.o rac.o
+obj-$(CONFIG_MIPS_BCM7336) += irq.o rac.o
 obj-$(CONFIG_MIPS_BCM3548) += irq.o rac.o
 obj-$(CONFIG_MIPS_BCM7420) += irq.o

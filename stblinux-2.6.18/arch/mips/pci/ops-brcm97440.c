@@ -52,7 +52,7 @@
 
 
 /* Since the following is not defined in any of our header files. */
-#if defined (CONFIG_MIPS_BCM7440)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601B0)
 /* ADT - The PCI I/O base address for 97440A0 and 97440B0 is 0xF8000000       */
 #define MIPS_PCI_XCFG_INDEX     0xf8600004
 #define MIPS_PCI_XCFG_DATA      0xf8600008
@@ -327,9 +327,16 @@ static int brcm_pci_write_config(struct pci_bus *bus, unsigned int devfn, int wh
 	return -1;
 }
 
+#ifdef CONFIG_MIPS_BCM7601B0
+struct pci_ops bcm7601_pci_ops = {
+	.read = brcm_pci_read_config,
+	.write = brcm_pci_write_config,
+};
+#else
 struct pci_ops bcm7440_pci_ops = {
 	.read = brcm_pci_read_config,
 	.write = brcm_pci_write_config,
 };
+#endif
 
 

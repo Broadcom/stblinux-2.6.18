@@ -62,7 +62,7 @@ extern void mii_enablephyinterrupt(struct net_device *dev, int phy_id);
 extern void mii_clearphyinterrupt(struct net_device *dev, int phy_id);
 #endif /* CONFIG_BRCM_SWITCH */
 
-/* BRCM Aux status summery Register */
+/* BRCM EPHY Aux status summery Register */
 #define MII_BRCM_AUX_STAT_SUM				0x19
 #define MII_BRCM_AUX_FD						0x01
 #define MII_BRCM_AUX_AN						0x10
@@ -79,7 +79,9 @@ extern void mii_clearphyinterrupt(struct net_device *dev, int phy_id);
 #define MII_BRCM_AUX_AN_HCD_100TX_FULL		0x05
 #define MII_BRCM_AUX_AN_PAUSE				0x800
 #define MII_BRCM_AUX_AN_COMPLETE			0x8000
-
+/* BRCM GPHY Aux status summery register bits ?? */
+#define MII_BRCM_AUX_GPHY_TX_PAUSE			0
+#define MII_BRCM_AUX_GPHY_RX_PAUSE			1
 /****************************************************************************
     Prototypes
 ****************************************************************************/

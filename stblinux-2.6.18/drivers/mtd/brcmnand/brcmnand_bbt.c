@@ -1127,7 +1127,8 @@ int brcmnand_scan_bbt (struct mtd_info *mtd, struct nand_bbt_descr *bd)
 	/* Allocate memory (2bit per block) */
 //printk("brcmnand_scan_bbt: Allocating %d byte buffer\n", len);
 
-	this->bbt = (uint8_t*) BRCMNAND_malloc (len);
+// We don't read/write the BBT frequently, so let it default to not use DMA to avoid OOM
+	this->bbt = (uint8_t*) vmalloc (len);
 
 	if (!this->bbt) 
 	{
@@ -1145,7 +1146,7 @@ int brcmnand_scan_bbt (struct mtd_info *mtd, struct nand_bbt_descr *bd)
 	if (!td) {
 		if ((res = brcmnand_memory_bbt(mtd, bd))) {
 			printk (KERN_ERR "brcmnand_bbt: Can't scan flash and build the RAM-based BBT\n");
-			BRCMNAND_free(this->bbt);
+			vfree(this->bbt);
 			this->bbt = NULL;
 		}
 		return res;
@@ -1156,12 +1157,12 @@ int brcmnand_scan_bbt (struct mtd_info *mtd, struct nand_bbt_descr *bd)
 //printk("%s: len before OOB = %08x\n", __FUNCTION__, len);
 	len += (len >> this->page_shift) * (mtd->oobsize);
 //printk("%s: Inc OOB - Allocating %08x byte buffer\n", __FUNCTION__, len);
-	buf = BRCMNAND_malloc (len);
+	buf = vmalloc (len);
 	if (!buf) {
 		printk (KERN_ERR "%s: Out of memory 2, bbt_erase_shift=%d, len=%dx\n", 
 			__FUNCTION__, this->bbt_erase_shift, len  );
 		
-		BRCMNAND_free (this->bbt);
+		vfree (this->bbt);
 		
 		this->bbt = NULL;
 		return -ENOMEM;
@@ -1183,7 +1184,7 @@ int brcmnand_scan_bbt (struct mtd_info *mtd, struct nand_bbt_descr *bd)
 	if (md)
 		mark_bbt_region (mtd, md);
 
-	BRCMNAND_free (buf);
+	vfree (buf);
 	return res;
 }
 
@@ -1213,7 +1214,7 @@ DEBUG(MTD_DEBUG_LEVEL3, "-->%s offs=%0llx\n", __FUNCTION__, offs);
 	/* Allocate a temporary buffer for one eraseblock incl. oob */
 	len = (1 << this->bbt_erase_shift);
 	len += (len >> this->page_shift) * mtd->oobsize;
-	buf = BRCMNAND_malloc (len);
+	buf = vmalloc (len);
 	if (!buf) {
 		printk (KERN_ERR "brcmnand_update_bbt: Out of memory\n");
 		return -ENOMEM;
@@ -1246,7 +1247,7 @@ DEBUG(MTD_DEBUG_LEVEL3, "-->%s offs=%0llx\n", __FUNCTION__, offs);
 	}
 
 out:
-	BRCMNAND_free (buf);
+	vfree (buf);
 	return res;
 }
 
@@ -1292,7 +1293,7 @@ static struct nand_bbt_descr largepage_flashbased = {
 };
 
 /* 2K & 4K page MLC NAND use same pattern */
-static struct nand_bbt_descr mlc_flashbased = {
+static struct nand_bbt_descr bch4_flashbased = {
 	.options = NAND_BBT_SCAN2NDPAGE,
 	.offs = 0,
 	.len = 1,
@@ -1337,7 +1338,28 @@ static struct nand_bbt_descr bbt_mirror_descr = {
 	.pattern = mirror_pattern
 };
 
-static struct nand_bbt_descr bbt_mlc_main_descr = {
+/* SLC flash using BCH-4 ECC, SM & Large page use same descriptor template */
+static struct nand_bbt_descr bbt_slc_bch4_main_descr = {
+	.options = NAND_BBT_LASTBLOCK | NAND_BBT_CREATE | NAND_BBT_WRITE
+		| NAND_BBT_2BIT | NAND_BBT_VERSION /* | NAND_BBT_PERCHIP */,
+	.offs =	1, /* THT: Changed from 8 */
+	.len = 4,
+	.veroffs = 6,  /* THT: Changed from 12 */
+	.maxblocks = 8,
+	.pattern = bbt_pattern
+};
+
+static struct nand_bbt_descr bbt_slc_bch4_mirror_descr = {
+	.options = NAND_BBT_LASTBLOCK | NAND_BBT_CREATE | NAND_BBT_WRITE
+		| NAND_BBT_2BIT | NAND_BBT_VERSION /* | NAND_BBT_PERCHIP */,
+	.offs =	1, 
+	.len = 4,
+	.veroffs = 6,  
+	.maxblocks = 8,
+	.pattern = mirror_pattern
+};
+
+static struct nand_bbt_descr bbt_bch4_main_descr = {
 	.options = NAND_BBT_LASTBLOCK | NAND_BBT_CREATE | NAND_BBT_WRITE
 		| NAND_BBT_2BIT | NAND_BBT_VERSION /*| NAND_BBT_PERCHIP */,
 	.offs =	1, 
@@ -1347,7 +1369,7 @@ static struct nand_bbt_descr bbt_mlc_main_descr = {
 	.pattern = bbt_pattern
 };
 
-static struct nand_bbt_descr bbt_mlc_mirror_descr = {
+static struct nand_bbt_descr bbt_bch4_mirror_descr = {
 	.options = NAND_BBT_LASTBLOCK | NAND_BBT_CREATE | NAND_BBT_WRITE
 		| NAND_BBT_2BIT | NAND_BBT_VERSION /* | NAND_BBT_PERCHIP */,
 	.offs =	1, /* THT: Changed from 8 */
@@ -1768,7 +1790,7 @@ int brcmnand_default_bbt (struct mtd_info *mtd)
 
 	/* Is a flash based bad block table requested ? */
 	if (this->options & NAND_USE_FLASH_BBT) {
-		if (!NAND_IS_MLC(this)) {
+		if (this->ecclevel == BRCMNAND_ECC_HAMMING) {
 			/* Use the default pattern descriptors */
 			if (!this->bbt_td) {
 				this->bbt_td = &bbt_main_descr;
@@ -1777,17 +1799,33 @@ int brcmnand_default_bbt (struct mtd_info *mtd)
 			if (!this->badblock_pattern) {
 				this->badblock_pattern = (mtd->writesize > 512) ? &largepage_flashbased : &smallpage_flashbased;
 			}
+printk("%s: bbt_td = bbt_main_descr\n", __FUNCTION__);
 		}
-		else { // MLC
+		else if (NAND_IS_MLC(this)) { // MLC 
 			/* Use the default pattern descriptors */
 			if (!this->bbt_td) {
-				this->bbt_td = &bbt_mlc_main_descr;
-				this->bbt_md = &bbt_mlc_mirror_descr;
+				this->bbt_td = &bbt_bch4_main_descr;
+				this->bbt_md = &bbt_bch4_mirror_descr;
 			}
 			if (!this->badblock_pattern) {
 				// 2K & 4K MLC NAND use same pattern
-				this->badblock_pattern = &mlc_flashbased;
+				this->badblock_pattern = &bch4_flashbased;
 			}
+printk("%s: bbt_td = bbt_bch4_main_descr\n", __FUNCTION__);
+		}
+		else {/* SLC flashes using BCH-4 ECC */
+			/* Small & Large SLC NAND use the same template */
+
+			if (!this->bbt_td) {
+				this->bbt_td = &bbt_slc_bch4_main_descr;
+				this->bbt_md = &bbt_slc_bch4_mirror_descr;
+			}
+			if (!this->badblock_pattern) {
+				this->badblock_pattern = (mtd->writesize > 512) ? &bch4_flashbased : &smallpage_flashbased;
+			}
+printk("%s: bbt_td = bbt_slc_bch4_main_descr\n", __FUNCTION__);	
+			
+			
 		}
 	} else {
 		/* MLC memory based not supported */

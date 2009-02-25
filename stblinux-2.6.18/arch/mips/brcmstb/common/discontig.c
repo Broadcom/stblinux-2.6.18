@@ -72,7 +72,7 @@ void __init brcm_numa_init(void)
 	else
 		numnodes = NR_NODES;
 
-#if defined (CONFIG_MIPS_BCM7440)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
 	int i;
 	for (i = 0; i < MAX_NR_NODES; i++) {
 		if (i < numnodes)

@@ -38,7 +38,10 @@
 typedef struct MII_CONFIG
 {
 	int auto_ne;	/* 1: Auto-negotiated, 0: forced */
-	int can_pause;	/* 1: can do pause, 0: can not do pause*/
+	int pause;		/* Pause capability */
+#define NO_PAUSE	0
+#define TX_PAUSE	1
+#define RX_PAUSE	2
 	int hcd;		/* negotiated highest common denominitor */
 	int feature;	/* What link feature does this board support.*/
 	char * name;	/* Feature name string */
@@ -47,8 +50,8 @@ typedef struct MII_CONFIG
 /* all possible negotiation result, the SUPPORTED_XXX is defined in ethtool.h*/
 static MII_CONFIG g_mii_configs[] = 
 {
-	{0, 0, LPA_1000HALF, SUPPORTED_1000baseT_Full, "1000BaseT-Full"},
-	{0, 0, LPA_1000FULL, SUPPORTED_1000baseT_Half, "1000BaseT-Half"},
+	{0, 0, LPA_1000FULL, SUPPORTED_1000baseT_Full, "1000BaseT-Full"},
+	{0, 0, LPA_1000HALF, SUPPORTED_1000baseT_Half, "1000BaseT-Half"},
 	{0, 0, MII_BRCM_AUX_AN_HCD_100TX_FULL, SUPPORTED_100baseT_Full, "100BaseTx-Full"},
 	{0, 0, MII_BRCM_AUX_AN_HCD_100TX, SUPPORTED_100baseT_Half, "100BaseTx-Half"},
 	{0, 0, MII_BRCM_AUX_AN_HCD_10T_FULL, SUPPORTED_10baseT_Full, "10BaseT-Full"},
@@ -87,6 +90,8 @@ int mii_read(struct net_device *dev, int phy_id, int location)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     volatile uniMacRegs *umac = pDevCtrl->umac;
 
+	if(phy_id == BRCM_PHY_ID_NONE)
+		return (0x782d);
     umac->mdio_cmd = MDIO_RD | (phy_id << MDIO_PMD_SHIFT) | (location << MDIO_REG_SHIFT);
 	/* Start MDIO transaction*/
 	umac->mdio_cmd |= MDIO_START_BUSY;
@@ -110,6 +115,8 @@ void mii_write(struct net_device *dev, int phy_id, int location, int val)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     volatile uniMacRegs *umac = pDevCtrl->umac;
 
+	if(phy_id == BRCM_PHY_ID_NONE)
+		return;
     umac->mdio_cmd = MDIO_WR | (phy_id << MDIO_PMD_SHIFT ) | (location << MDIO_REG_SHIFT) | (0xffff & val);
 	umac->mdio_cmd |= MDIO_START_BUSY;
     while ( (umac->mdio_cmd & MDIO_START_BUSY) )
@@ -119,12 +126,13 @@ void mii_write(struct net_device *dev, int phy_id, int location, int val)
 int mii_probe(unsigned long base_addr)
 {
 	volatile uniMacRegs *umac = (volatile uniMacRegs *)base_addr;
+	volatile rbufRegs * txrx_ctrl = (volatile rbufRegs*)(base_addr + UMAC_TXRX_REG_OFFSET) ;
 	int i;
 
 	/* 
 	 * Enable RGMII to interface external PHY, disable internal 10/100 MII.
 	 */
-	//txrx_ctrl->rgmii_oob_ctrl = RGMII_MODE_EN;
+	txrx_ctrl->rgmii_oob_ctrl |= RGMII_MODE_EN;
 
 	for (i = 0; i < 32; i++) {
 		umac->mdio_cmd = MDIO_RD | (i << MDIO_PMD_SHIFT) | (MII_BMSR << MDIO_REG_SHIFT);
@@ -194,11 +202,12 @@ static MII_CONFIG * mii_getconfig(struct net_device *dev)
 		 * GPHY should have extended status register
 		 */
 		val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_BMSR);
-		if (val & BMSR_ESTATEN) {
+		if (val & BMSR_ERCAP) {
 			val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_ESTATUS);
 			if (val & (ESTATUS_1000_TFULL | ESTATUS_1000_THALF) ) {
 				/* Read 1000base-T status register to find out link partner's ability*/
 				val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_STAT1000);
+				TRACE(("MII_STAT1000=0x%x\n", val));
 				
 				for ( i = 0; i < sizeof(g_mii_configs)/sizeof(MII_CONFIG); i++)
 				{
@@ -232,13 +241,14 @@ static MII_CONFIG * mii_getconfig(struct net_device *dev)
 	{
 		/* 
 		 * For external GPHY(with or without inband signaling)
-		 * read the pause capability.
+		 * read brcm aux status summer for pause resolution.
 		 */
-		val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_LPA);
-		if(val & LPA_PAUSE_CAP)
-			ret->can_pause = 1;
-		else
-			ret->can_pause = 0;
+		//val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_LPA);
+    	val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_BRCM_AUX_STAT_SUM);
+		if(val & MII_BRCM_AUX_GPHY_RX_PAUSE)
+			ret->pause |= RX_PAUSE;
+		if(val & MII_BRCM_AUX_GPHY_TX_PAUSE)
+			ret->pause |= TX_PAUSE;
 
 		return ret;
 	}
@@ -251,8 +261,6 @@ static MII_CONFIG * mii_getconfig(struct net_device *dev)
     /* Read the Link Partner Ability */
     val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_BRCM_AUX_STAT_SUM);
 	TRACE(("Aux val=0x%x\n", val));
-    //val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_LPA);
-	//TRACE(("%s: MII_LPA = 0x%x\n", __FUNCTION__, val));
 	for(i = 0; i < sizeof(g_mii_configs)/sizeof(MII_CONFIG); i++)
 	{
 		if(g_mii_configs[i].hcd & ((val >> MII_BRCM_AUX_AN_HCD_SHIFT)&MII_BRCM_AUX_AN_HCD_MASK))
@@ -265,10 +273,7 @@ static MII_CONFIG * mii_getconfig(struct net_device *dev)
 	{
 		val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_LPA);
 		if(val & LPA_PAUSE_CAP)
-			ret->can_pause = 1;
-		else
-			ret->can_pause = 0;
-
+			ret->pause = TX_PAUSE | RX_PAUSE;
 		return ret;
 	}
 
@@ -292,8 +297,15 @@ static MII_CONFIG * mii_autoconfigure(struct net_device *dev)
     mii_write(dev, pDevCtrl->EnetInfo.PhyAddress, MII_BMCR, val);
 
     /* wait for it to finish */
-    for (i = 0; i < 2000; i++) {
-        mdelay(1);
+    for (i = 0; i < 400; i++) {
+		if (pDevCtrl->mii_pid != 0)
+		{
+			/* we are in thread, we can go into sleep.*/
+			msleep(10);
+		}else
+		{
+        	mdelay(10);
+		}
         val = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_BMSR);
 #if defined(CONFIG_BCM5325_SWITCH) && (CONFIG_BCM5325_SWITCH == 1)
         if ((val & BMSR_ANEGCOMPLETE) || ((val & BMSR_LSTATUS) == 0)) { 
@@ -303,7 +315,10 @@ static MII_CONFIG * mii_autoconfigure(struct net_device *dev)
             break;
         }
     }
-	TRACE(("Auto-nego completed, BMSR=0x%x\n", val));
+	if(i == 400)
+		TRACE(("Auto-nego timedout!\n"));
+	else
+		TRACE(("Auto-nego completed, BMSR=0x%x\n", val));
 
     config =  mii_getconfig(dev);
 	if( (config != NULL) && (val & BMSR_ANEGCOMPLETE) )
@@ -335,20 +350,17 @@ void mii_setup(struct net_device *dev)
 	 * not capable of in-band signaling.
 	 */
 	umac->cmd &= ~CMD_HD_EN;
-	if(pDevCtrl->EnetInfo.PhyType == BP_ENET_EXTERNAL_GPHY_IBS ||
-			pDevCtrl->EnetInfo.PhyType == BP_ENET_EXTERNAL_GPHY)
-	{
-		txrx_ctrl->rgmii_oob_ctrl = RGMII_MODE_EN;
-	}
 	if(pDevCtrl->EnetInfo.PhyType != BP_ENET_EXTERNAL_GPHY_IBS)
 	{
 		txrx_ctrl->rgmii_oob_ctrl &= ~OOB_DISABLE;
 		txrx_ctrl->rgmii_oob_ctrl |= RGMII_LINK;
 		/* pause control*/
-		if(eMiiConfig->can_pause)
-			umac->pause_ctrl |= PAUSE_CTRL_EN;
-		else
-			umac->pause_ctrl &= ~PAUSE_CTRL_EN;
+		if((eMiiConfig->pause & RX_PAUSE) == 0)
+			umac->cmd |= CMD_RX_PAUSE_IGNORE;
+			//umac->pause_ctrl |= PAUSE_CTRL_EN;
+		else if ((eMiiConfig->pause & TX_PAUSE) == 0)
+			umac->cmd |= CMD_TX_PAUSE_IGNORE;
+			//umac->pause_ctrl &= ~PAUSE_CTRL_EN;
 		/* duplex.*/
 		if(eMiiConfig->hcd == MII_BRCM_AUX_AN_HCD_10T ||
 		   eMiiConfig->hcd == MII_BRCM_AUX_AN_HCD_100TX ||
@@ -392,7 +404,7 @@ int mii_init(struct net_device *dev)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     volatile uniMacRegs *umac;
 	volatile rbufRegs * txrx_ctrl;
-    int data32;
+    int data32, advertise;
 
     printk(KERN_INFO "Config %s Through MDIO\n", gsPhyType[pDevCtrl->EnetInfo.PhyType] );
 
@@ -408,38 +420,45 @@ int mii_init(struct net_device *dev)
             mii_setup(dev);
             break;
         case BP_ENET_EXTERNAL_GPHY:
+			txrx_ctrl->rgmii_oob_ctrl |= RGMII_MODE_EN;
+			txrx_ctrl->rgmii_oob_ctrl |= (1 << 16);	/* Don't shift tx clock by 90 degree */
 			/* Find out if the external PHY is really GPHY, advertise 1000 ability if it is*/
 			data32 = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_BMSR);
-			if (data32 & BMSR_ESTATEN) {
+			if (data32 & BMSR_ERCAP) {
 				data32 = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_ESTATUS);
-				if (data32 & (ESTATUS_1000_TFULL | ESTATUS_1000_THALF) ) {
-					/* Advertise 1000T-Full/Half capability */
-					data32 = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_CTRL1000);
-					data32 |= ADVERTISE_1000FULL | ADVERTISE_1000HALF;
-					mii_write(dev, pDevCtrl->EnetInfo.PhyAddress, MII_CTRL1000, data32);
-				}
+				advertise = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_CTRL1000);
+				
+				if (data32 & ESTATUS_1000_TFULL)
+					advertise |= ADVERTISE_1000FULL;
+				else if (data32 & ESTATUS_1000_THALF)
+					advertise |= ADVERTISE_1000HALF;
+
+				mii_write(dev, pDevCtrl->EnetInfo.PhyAddress, MII_CTRL1000, advertise);
 			}
             mii_setup(dev);
             break;
 		case BP_ENET_EXTERNAL_GPHY_IBS:
+			txrx_ctrl->rgmii_oob_ctrl |= RGMII_MODE_EN;
+			txrx_ctrl->rgmii_oob_ctrl |= (1 << 16);
 			/* Use in-band signaling for auto config.*/
 			txrx_ctrl->rgmii_oob_ctrl |= OOB_DISABLE;
 			umac->cmd |= CMD_AUTO_CONFIG;
 			/* Advertise 1000Base capability, neccesary?*/
 			data32 = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_BMSR);
-			if (data32 & BMSR_ESTATEN) {
+			if (data32 & BMSR_ERCAP) {
 				data32 = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_ESTATUS);
-				if (data32 & (ESTATUS_1000_TFULL | ESTATUS_1000_THALF) ) {
-					/* Advertise 1000T-Full/Half capability */
-					data32 = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_CTRL1000);
-					data32 |= ADVERTISE_1000FULL | ADVERTISE_1000HALF;
-					mii_write(dev, pDevCtrl->EnetInfo.PhyAddress, MII_CTRL1000, data32);
-				}
+				advertise = mii_read(dev, pDevCtrl->EnetInfo.PhyAddress, MII_CTRL1000);
+				
+				if (data32 & ESTATUS_1000_TFULL)
+					advertise |= ADVERTISE_1000FULL;
+				else if (data32 & ESTATUS_1000_THALF)
+					advertise |= ADVERTISE_1000HALF;
+
+				mii_write(dev, pDevCtrl->EnetInfo.PhyAddress, MII_CTRL1000, advertise);
 			}
             mii_setup(dev);
             break;
 		case BP_ENET_EXTERNAL_MOCA:
-			/* TODO */
 			umac->cmd = umac->cmd  | (UMAC_SPEED_1000 << CMD_SPEED_SHIFT);
 			break;
         default:

@@ -139,7 +139,7 @@ struct inode * udf_new_inode (struct inode *dir, int mode, int * err)
 	else
 	{
 		UDF_I_EFE(inode) = 0;
-#if defined ( CONFIG_MIPS_BCM97438 ) || defined (CONFIG_MIPS_BCM7440 )
+#if defined ( CONFIG_MIPS_BCM97438 ) || defined (CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601)
                 UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct fileEntry), GFP_KERNEL|GFP_DMA);
 #else
 

@@ -53,12 +53,20 @@ extern void EDU_get_status(void);
 extern uint32_t EDU_volatileRead(uint32_t);
 extern void EDU_volatileWrite(uint32_t, uint32_t);
 
-extern uint32_t EDU_poll(uint32_t, uint32_t, uint32_t);
+extern int EDU_poll(uint32_t, uint32_t, uint32_t, uint32_t);
 
 extern void EDU_init(void);
 extern int EDU_write(volatile const void*, uint32_t);
 extern int EDU_read(volatile void*, uint32_t);
 
 extern uint32_t EDU_get_error_status_register(void);
+
+// Returns 0 on Done, 1 on Timeout
+extern int EDU_poll_for_done(void);
+
+// THT: Write until done clears
+extern void EDU_reset_done(void);
+
+extern void EDU_waitForNoPendingAndActiveBit(void);
 
 #endif // _EDUPROTO_H_

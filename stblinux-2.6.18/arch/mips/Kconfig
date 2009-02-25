@@ -111,14 +111,6 @@ config MIPS_BCM7118CX_NAND
 	select MTD_BRCMNAND_VERIFY_WRITE
 	select MTD_BLOCK_ROMBLOCK
 
-config MIPS_BCM7405AX
-        bool "Support for BCM97405Ax with NOR flash"
-        select MIPS_BRCM97XXX
-        select MIPS_BCM7405A0
-        select MIPS_BCM7405
-        select HW_HAS_PCI
-	select BMIPS4380
-
 config MIPS_BCM7405BX
         bool "Support for BCM97405Bx with NOR flash"
         select MIPS_BRCM97XXX
@@ -127,12 +119,20 @@ config MIPS_BCM7405BX
         select HW_HAS_PCI
 	select BMIPS4380
 
+config MIPS_BCM7405DX
+        bool "Support for BCM97405Dx with NOR flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7405D0
+        select MIPS_BCM7405
+        select HW_HAS_PCI
+	select BMIPS4380
+
 config MIPS_BCM97459BX
 	bool "Support for BCM97459Bx with NOR flash"
 	select MIPS_BRCM97XXX
 	select MIPS_BCM97459B0
-	select MIPS_BCM7405B0
 	select MIPS_BCM7405
+	select MIPS_BCM7405B0
 	select HW_HAS_PCI
 	select BMIPS4380
 	select MTD_ECM_PARTITION
@@ -141,6 +141,17 @@ config MIPS_BCM7405BX_NAND
         bool "Support for BCM97405Bx with NAND flash"
         select MIPS_BRCM97XXX
         select MIPS_BCM7405B0
+        select MIPS_BCM7405
+        select HW_HAS_PCI
+	select BMIPS4380
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
+
+config MIPS_BCM7405DX_NAND
+        bool "Support for BCM97405Dx with NAND flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7405D0
         select MIPS_BCM7405
         select HW_HAS_PCI
 	select BMIPS4380
@@ -161,11 +172,19 @@ config MIPS_BCM97459BX_NAND
 	select MTD_BLOCK_ROMBLOCK
 	select MTD_ECM_PARTITION
 	
-config MIPS_BCM7335AX
+config MIPS_BCM7335BX
         bool "Support for BCM97335Ax with NOR flash"
         select MIPS_BRCM97XXX
-        select MIPS_BCM7335A0
+        select MIPS_BCM7335B0
         select MIPS_BCM7335
+        select HW_HAS_PCI
+	select BMIPS4380
+
+config MIPS_BCM7336AX
+        bool "Support for BCM97336Ax with NOR flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7336A0
+        select MIPS_BCM7336
         select HW_HAS_PCI
 	select BMIPS4380
 
@@ -340,14 +359,26 @@ config MIPS_BCM7403AX_NAND
 	select MTD_BLOCK_ROMBLOCK
 	select BMIPS3300
 
-config MIPS_BCM7325AX
+config MIPS_BCM7325BX
 	bool "Support for BCM97325Ax with NOR flash"
 	select MIPS_BRCM97XXX
-	select MIPS_BCM7325A0
+	select MIPS_BCM7325B0
 	select MIPS_BCM7325
 	select HW_HAS_PCI
 	select MTI_R34K
 	select BRCM_SCM_L2
+
+config MIPS_BCM7325BX_NAND
+	bool "Support for BCM97325Ax|Bx with NAND flash"
+	select MIPS_BRCM97XXX
+	select MIPS_BCM7325B0
+	select MIPS_BCM7325
+	select HW_HAS_PCI
+	select MTI_R34K
+	select BRCM_SCM_L2
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
 
 config MIPS_BCM7440BX
 	bool "Support for BCM97440Bx with NOR flash"
@@ -378,6 +409,20 @@ config MIPS_BCM7443AX
 	select HW_HAS_PCI
 	select MTI_R24K
 	#select MIPS_CPU_SCACHE
+
+config MIPS_BCM7601BX_NAND
+	bool "Support for BCM97601Bx with NAND flash"
+	select MIPS_BRCM97XXX
+	select MIPS_BCM7601B0
+	select MIPS_BCM7601
+	select MTI_R24K
+       #select MIPS_CPU_SCACHE
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
+	select HW_HAS_PCI
+
+#     select BRCM_COMMON_PCI
 
 config MIPS_MTX1
 	bool "4G Systems MTX-1 board"
@@ -1228,7 +1273,7 @@ config BRCM_COMMON_PCI
 	bool "Use common Broadcom STB PCI code"
 	default n
 	depends on EXPERIMENTAL && (MIPS_BCM7405B0 || MIPS_BCM7420 || \
-		MIPS_BCM7325)
+		MIPS_BCM7325 || MIPS_BCM7405D0)
 	help
 	  Enable the new, but sparsely tested, PCI code for Broadcom STB
 	  platforms.
@@ -1377,7 +1422,8 @@ config MIPS_BRCM97XXX
 	# select SWAP_IO_SPACE_L
 	select BRCM_7XXX_SERIAL if ! (MIPS_BCM7400 || MIPS_BCM7440 || \
 		MIPS_BCM7443 || MIPS_BCM7118 || MIPS_BCM7405 || \
-		MIPS_BCM7325 || MIPS_BCM7335 || MIPS_BCM7420)
+		MIPS_BCM7325 || MIPS_BCM7335 || MIPS_BCM7420 || \
+		MIPS_BCM7601 || MIPS_BCM7336)
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
@@ -1552,27 +1598,35 @@ config MIPS_BCM7118C0
 config MIPS_BCM7405B0
         bool
 	depends MIPS_BCM7405BX || MIPS_BCM7405BX_NAND || \
-		MIPS_BCM97459BX || MIPS_BCM97459BX_NAND
+		MIPS_BCM97459BX || MIPS_BCM97459BX_NAND 
+
+config MIPS_BCM7405D0
+        bool
+        depends MIPS_BCM7405DX || MIPS_BCM7405DX_NAND
 
 config MIPS_BCM97459B0
 	bool
 	depends MIPS_BCM97459BX || MIPS_BCM97459BX_NAND
 
-config MIPS_BCM7405A0
-        bool
-        depends MIPS_BCM7405AX
-
 config MIPS_BCM7405
         bool
-        depends MIPS_BCM7405A0 || MIPS_BCM7405B0
+        depends MIPS_BCM7405D0 || MIPS_BCM7405B0
 
-config MIPS_BCM7335A0
+config MIPS_BCM7335B0
 	bool
-	depends MIPS_BCM7335AX
+	depends MIPS_BCM7335BX
 
 config MIPS_BCM7335
 	bool
-	depends MIPS_BCM7335A0
+	depends MIPS_BCM7335B0
+
+config MIPS_BCM7336A0
+	bool
+	depends MIPS_BCM7336AX
+
+config MIPS_BCM7336
+	bool
+	depends MIPS_BCM7336A0
 
 config MIPS_BCM7420A0
 	bool
@@ -1582,9 +1636,9 @@ config MIPS_BCM7420
 	bool
 	depends MIPS_BCM7420A0
 
-config MIPS_BCM7325A0
+config MIPS_BCM7325B0
        bool
-       depends MIPS_BCM7325AX
+       depends MIPS_BCM7325BX || MIPS_BCM7325BX_NAND
 
 config MIPS_BCM7325
         bool
@@ -1608,6 +1662,14 @@ config MIPS_BCM7443A0
 config MIPS_BCM7443
 	bool
  	depends MIPS_BCM7443A0
+
+config MIPS_BCM7601
+	bool
+	depends MIPS_BCM7601B0
+
+config MIPS_BCM7601B0
+	bool
+	depends MIPS_BCM7601BX_NAND
 
 config MIPS_BRCM
 	bool
@@ -1800,7 +1862,7 @@ config TOSHIBA_BOARDS
 config SYS_SUPPORTS_PM
 	bool
 	depends on MIPS_BCM7400D0 || MIPS_BCM7405 || MIPS_BCM7335 || \
-		MIPS_BCM3548 || MIPS_BCM7325
+		MIPS_BCM3548 || MIPS_BCM7325 || MIPS_BCM7336
 	default y
 
 config SYS_SUPPORTS_CPUFREQ
@@ -2448,7 +2510,7 @@ config ARCH_FLATMEM_ENABLE
 
 config ARCH_DISCONTIGMEM_ENABLE
 	bool
-	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0 || MIPS_BCM3563C0 || MIPS_BCM7440B0
+	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0 || MIPS_BCM3563C0 || MIPS_BCM7440B0 || MIPS_BCM7601B0 || MIPS_BCM7336
 	help
 	  Say Y to upport efficient handling of discontiguous physical memory,
 	  for architectures which are either NUMA (Non-Uniform Memory Access)

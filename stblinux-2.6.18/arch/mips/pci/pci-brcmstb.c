@@ -254,7 +254,7 @@ static void brcm_setup_pcie_bridge(void)
 		PCIE_MEM_START + 0x18000000);
 	BDEV_WR(BCHP_PCIE_MISC_CPU_2_PCIE_MEM_WIN3_HI, 0);
 
-	/* set up 1GB PCIE->SCB memory window */
+	/* set up 1GB PCIE->SCB memory window on BAR2 */
 	BDEV_WR(BCHP_PCIE_MISC_RC_BAR2_CONFIG_LO, 0x0000000f);
 	BDEV_WR(BCHP_PCIE_MISC_RC_BAR2_CONFIG_HI, 0x00000000);
 
@@ -302,8 +302,8 @@ static void brcm_setup_pcie_bridge(void)
 	/* set pri/sec bus numbers */
 	BDEV_WR(BCHP_PCIE_RC_CFG_TYPE1_PRI_SEC_BUS_NO, 0x00010100);
 
-	/* PCIE->SCB endian mode */
-	BDEV_WR(BCHP_PCIE_RC_CFG_VENDOR_VENDOR_SPECIFIC_REG1,
+	/* PCIE->SCB endian mode for BAR2 */
+	BDEV_WR_F(PCIE_RC_CFG_VENDOR_VENDOR_SPECIFIC_REG1, ENDIAN_MODE_BAR2,
 		CPU2PCI_CPU_PHYS_MEM_WIN_BYTE_ALIGN);
 	BDEV_RD(BCHP_PCIE_RC_CFG_VENDOR_VENDOR_SPECIFIC_REG1);
 #endif

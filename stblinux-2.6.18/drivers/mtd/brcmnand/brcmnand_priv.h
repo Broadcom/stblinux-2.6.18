@@ -33,8 +33,8 @@
 #include <linux/mtd/brcmnand.h> 
 #include <asm/brcmstb/common/brcmstb.h>
 
-#if 0 //def CONFIG_MTD_BRCMNAND_EDU
-#define BRCMNAND_malloc(size) kmalloc(size, GFP_KERNEL)
+#if defined( CONFIG_MTD_BRCMNAND_EDU )
+#define BRCMNAND_malloc(size) kmalloc(size, GFP_DMA)
 #define BRCMNAND_free(addr) kfree(addr)
 #else
 #define BRCMNAND_malloc(size) vmalloc(size)

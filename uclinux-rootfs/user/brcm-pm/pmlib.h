@@ -71,8 +71,16 @@ struct brcm_pm_state
 	int ddr_timeout;	/* 0=no PM, >0 = timeout for self-refresh */
 };
 
+struct brcm_pm_cfg
+{
+	int use_dhcp;		/* stop/start dhcpcd */
+};
+
 void *brcm_pm_init(void);
 void brcm_pm_close(void *);
+
+int brcm_pm_get_cfg(void *ctx, struct brcm_pm_cfg *);
+int brcm_pm_set_cfg(void *ctx, struct brcm_pm_cfg *);
 
 int brcm_pm_get_status(void *ctx, struct brcm_pm_state *);
 int brcm_pm_set_status(void *ctx, struct brcm_pm_state *);

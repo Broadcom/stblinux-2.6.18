@@ -194,7 +194,8 @@ config BCMINTEMAC_7038
 	depends on MIPS_BCM7038 || MIPS_BCM7401 || MIPS_BCM7400 \
 		|| MIPS_BCM7402 || MIPS_BCM7402S || MIPS_BCM7440 \
 		|| MIPS_BCM7402B0S || MIPS_BCM7403 || MIPS_BCM7405 \
-		|| MIPS_BCM7325 || MIPS_BCM7335 || MIPS_BCM3548
+		|| MIPS_BCM7325 || MIPS_BCM7335 || MIPS_BCM3548 \
+		|| MIPS_BCM7601 || MIPS_BCM7336
 	select CRC32
 	help 
 	  Broadcom Internal MAC 100 Mbps Ethernet controller 
@@ -215,13 +216,13 @@ config BCMINTEMAC_7038_STREAMING
 config BCMINTEMAC_7038_EXTMII
 	bool "Use external MII interface"
 	depends on BCMINTEMAC_7038 && (MIPS_BCM7405 || MIPS_BCM7335 || \
-		MIPS_BCM7325)
+		MIPS_BCM7325 || MIPS_BCM7336)
 	default n
 	help
 	  Say Y to use the external MII interface.
 
 	  On chips that only have one EMAC (7325), this disables the internal
-	  PHY.  On chips that have two EMACs (7405, 7335) this connects
+	  PHY.  On chips that have two EMACs (7405, 7335, 7336) this connects
 	  EMAC_0 to the internal PHY, and EMAC_1 to the MII pins.
 
 	  This is typically used to connect HPNA or MoCA devices.  For an

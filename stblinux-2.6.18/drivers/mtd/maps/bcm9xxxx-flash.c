@@ -179,7 +179,7 @@ struct map_info bcm9XXXX_map
 
 static struct mtd_partition bcm9XXXX_parts[] = {
 
-#if defined( CONFIG_MIPS_BCM7440 )
+#if defined( CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601) 
 
 #define DEFAULT_SIZE_MB 64 /* 64MB flash */
 

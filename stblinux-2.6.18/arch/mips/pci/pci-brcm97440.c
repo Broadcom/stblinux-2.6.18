@@ -73,6 +73,31 @@ static struct resource pci_sata_mem_resource = {
 };
 
 
+#ifdef CONFIG_MIPS_BCM7601B0 
+extern struct pci_ops bcm7601_pci_ops; 
+
+struct pci_controller bcm7601_controller = {
+	.pci_ops 		= &bcm7601_pci_ops, 
+	.io_resource 	= &pci_io_resource, 
+	.mem_resource   = &pci_mem_resource,
+};
+
+// same as Primary extern struct pci_ops bcm7038_sata_pci_ops; 
+
+struct pci_controller bcm7601_sata_controller = {
+	.pci_ops 		= &bcm7601_pci_ops, 
+	.io_resource 	= &pci_sata_io_resource, 
+	.mem_resource   = &pci_sata_mem_resource,
+};
+
+static void brcm97601_pci_init(void)
+{
+	register_pci_controller(&bcm7601_controller);
+	register_pci_controller(&bcm7601_sata_controller);
+}
+
+arch_initcall(brcm97601_pci_init);
+#else
 extern struct pci_ops bcm7440_pci_ops; 
 
 struct pci_controller bcm7440_controller = {
@@ -96,6 +121,7 @@ static void brcm97440_pci_init(void)
 }
 
 arch_initcall(brcm97440_pci_init);
+#endif
 
 
 

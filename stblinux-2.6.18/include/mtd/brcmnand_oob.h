@@ -78,8 +78,18 @@ static struct nand_ecclayout brcmnand_oob_16 = {
 			 * for 16 bit bus width, byte 4 is also not used.  If we only use byte-width chip, (We did)
 			 * then we can also use byte 4 as free bytes.
 			 */
+};
 
-
+/* Small page with BCH-4 */
+static struct nand_ecclayout brcmnand_oob_bch4_512 = {
+	.eccbytes	= 7,
+	.eccpos		= {
+		9,10,11,12,13,14,15
+		},
+	.oobfree	= { 	{.offset=0, .length=5}, 
+				{.offset=7,.length=2}, /* Byte 5 (6th byte) used for BI */
+				{.offset=0, .length=0}		/* End marker */
+			   }
 };
 
 /*
@@ -112,7 +122,7 @@ static struct nand_ecclayout brcmnand_oob_bch4_4k = {
 };
 
 /*
- * 2K page MLC with BCH-4 ECC, uses 7 ECC bytes per 512B ECC step
+ * 2K page SLC/MLC with BCH-4 ECC, uses 7 ECC bytes per 512B ECC step
  */
 static struct nand_ecclayout brcmnand_oob_bch4_2k = {
 	.eccbytes	= 7*8,  /* 7*8 = 56 bytes */
@@ -131,6 +141,8 @@ static struct nand_ecclayout brcmnand_oob_bch4_2k = {
 	            		{.offset=0, .length=0}			/* End marker */
 			}
 };
+
+
 
 #else
 /* MLC not supported in 2.6.12 */
@@ -173,9 +185,9 @@ static struct nand_oobinfo brcmnand_oob_16 = {
 			 * for 16 bit bus width, byte 4 is also not used.  If we only use byte-width chip, (We did)
 			 * then we can also use byte 4 as free bytes.
 			 */
-
-
 };
+
+
 #endif /* 2.6.17 or earlier */
 #endif
 

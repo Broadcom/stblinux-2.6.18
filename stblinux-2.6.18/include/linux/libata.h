@@ -39,7 +39,7 @@
 
 // jipeng - old sata core require this workaround
 #if ! defined(CONFIG_MIPS_BCM7405) && ! defined(CONFIG_MIPS_BCM7335) && \
-	! defined(CONFIG_MIPS_BCM7420)
+	! defined(CONFIG_MIPS_BCM7420) && ! defined(CONFIG_MIPS_BCM7336)
 #define	SATA_SVW_BRCM_WA
 #endif
 

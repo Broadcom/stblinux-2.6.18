@@ -185,7 +185,9 @@ int smp_call_function (void (*func) (void *info), void *info, int retry,
 	 * Can die spectacularly if this CPU isn't yet marked online
 	 */
 	BUG_ON(!cpu_online(cpu));
+#ifndef CONFIG_KGDB 
 	BUG_ON(in_interrupt());
+#endif
 
 	if (!cpus)
 		return 0;

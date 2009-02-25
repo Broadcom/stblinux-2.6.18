@@ -43,6 +43,44 @@
 #include <linux/mtd/brcmnand.h> 
 #include "brcmnand_priv.h"
 
+#define EDU_DEBUG
+
+#ifdef EDU_DEBUG
+int edu_debug;
+#define PRINTK printk
+
+#else
+int edu_debug = 0;
+#define PRINTK(...)
+#endif
+
+extern int gdebug;
+/*
+ * Returns 1 if OK
+ *		0 otherwise
+ */
+int EDU_buffer_OK(volatile void* vaddr)
+{
+	unsigned long addr = (unsigned long) vaddr;
+
+	if (addr & 0x3) {
+		// Must be DW-aligned
+		return 0;
+	}
+	else if (!(addr & KSEG0)) { 
+		// User Space
+		return 0;
+	}
+
+	// TBD: Since we only enable block for MEM0, we should make sure that the physical
+	// address falls in MEM0.
+	
+	else if (addr >= VMALLOC_START && addr < VMALLOC_END) {
+		// VM Address
+		return 0;
+	}
+	return 1;
+}
 
 
 /*
@@ -53,7 +91,10 @@
 static unsigned long EDU_virt_to_phys(volatile void* vaddr)
 {
 	unsigned long addr = (unsigned long) vaddr;
-	
+	unsigned long paddr;
+static unsigned long save_addr;
+
+if (edu_debug > 3) printk("-->%s: addr=%08lx\n", __FUNCTION__, addr);
 	if (!(addr & KSEG0)) { 
 		printk(KERN_ERR "brcmnand EDU: User Space buffers %08lx are not currently supported\n", addr);
 		/* THT: Note to self: http://lwn.net/Articles/28548/ */
@@ -63,15 +104,35 @@ static unsigned long EDU_virt_to_phys(volatile void* vaddr)
 	
 	/* If not VM addresses, use the regular function */
 	else if (addr < VMALLOC_START || addr > VMALLOC_END) {
-		return virt_to_phys(vaddr);
+
+	// TBD: Since we only enable block for MEM0 (see EDU_init()), we should make sure that the physical
+	// address falls in MEM0.
+		paddr =  virt_to_phys(vaddr);
+
+if ((edu_debug > 3) /*|| ((0 == (addr & 0xFFF)) && save_addr != addr) */) 
+{printk("paddr= virt_to_phys(vaddr=%08x) = %08lx\n", addr, paddr);
+}
+if (edu_debug > 3) {show_stack(current,NULL);dump_stack();}
+
+save_addr = addr;
+		
 	}
 	
-	// Buffers allocated by vmalloc(): We have to find the physical page */
+	// Buffers allocated by vmalloc(): We have to find the physical page, error out for now */
 	else {
+#if 1
+		printk(KERN_ERR "%s: Cannot use vmalloc() memory for DMA, addr=%p\n", __FUNCTION__, vaddr);
+		BUG();
+		goto error_out;
+#else
+/* ******************** WARNINGS ****************** * 
+ *	Cannot use these codes unless we lock down the page
+ *    We also don't know if EDU can DMA over the page.
+ *************************************************/
 		unsigned long start; // Page start address
 		unsigned long pa = 0UL;
 		unsigned long pageOffset; // Offset from page start address
-		struct vm_area_struct* vma;
+		//struct vm_area_struct* vma;
 		pgd_t *pgd;
 		pud_t *pud;
 		pmd_t *pmd;
@@ -79,17 +140,17 @@ static unsigned long EDU_virt_to_phys(volatile void* vaddr)
 		struct page *page;
 		unsigned long pfn;
 		
-		//unsigned long flags;
+		unsigned long flags;
 
 		start = (addr & PAGE_MASK);
 		pageOffset = addr - start;
-//printk("Calling find_extend_vma, start=%08lx\n", start);
+if (edu_debug > 3) printk("--> %s start=%08lx\n", __FUNCTION__, start);
 //		vma = find_vma(current->mm, start);
-		//local_irq_save(flags);
-//printk("find_vma returns %p\n", vma);
+		local_irq_save(flags);
+//PRINTK("find_vma returns %p\n", vma);
 
-//printk("Calling pgd_offset, current-=%p\n", current);
-//printk("Calling pgd_offset, current->mm=%p\n", current->mm);
+//PRINTK("Calling pgd_offset, current-=%p\n", current);
+//PRINTK("Calling pgd_offset, current->mm=%p\n", current->mm);
 		if (current->mm) {
 			pgd = pgd_offset(current->mm, start);
 		}
@@ -97,47 +158,61 @@ static unsigned long EDU_virt_to_phys(volatile void* vaddr)
 			// If not find it in the kernel page table
 			pgd = pgd_offset_k(start);
 		}
-//printk("pgd=%08x\n", pgd->pgd);
+//PRINTK("pgd=%08x\n", pgd->pgd);
 		pud = pud_offset(pgd, start);
-//printk("pud=%08x\n", pud->pgd);
+//PRINTK("pud=%08x\n", pud->pgd);
 		pmd = pmd_offset(pud, start);
-//printk("pnd=%08x\n", pmd->pud.pgd);
+//PRINTK("pnd=%08x\n", pmd->pud.pgd);
 		pte = pte_offset(pmd, start);
 
 #if 0
-printk("Calling vm_normal_page, pte=%08lx\n", pte->pte);
+PRINTK("Calling vm_normal_page, pte=%08lx\n", pte->pte);
 		page = vm_normal_page(vma, start, *pte);
 
-printk("page=%p\n", page);
+PRINTK("page=%p\n", page);
 		if (page) {
 			// get_page(page);
 			pa = page_to_phys(page);
-printk("PA=%08lx\n", pa);
+PRINTK("PA=%08lx\n", pa);
 		}
 		else {
-			printk(KERN_ERR "brcmnand EDU: Unable to find page mapped to %08lx\n", addr);
+			PRINTK(KERN_ERR "brcmnand EDU: Unable to find page mapped to %08lx\n", addr);
 			goto error_out;
 		}
 #else
-//printk("Calling pte_pfn(pte=%08lx)\n", pte->pte);
+//PRINTK("Calling pte_pfn(pte=%08lx)\n", pte->pte);
 		pfn = pte_pfn(*pte);
-//printk("pfn=%08lx\n", pfn);
+//PRINTK("pfn=%08lx\n", pfn);
 		pa = pfn << PAGE_SHIFT;
+
+/* ******************** WARNINGS ****************** * 
+ *	Cannot use this codes unless we lock down the page
+ *************************************************/
+
 #endif
 
-		//local_irq_restore(flags);
+		local_irq_restore(flags);
 
-		return (pa + pageOffset);
+		paddr =  (pa + pageOffset);
+
+if (edu_debug > 3) printk("paddr= VMA() = %08lx\n", paddr);
+#endif // if VM address
 	}
+
+	return paddr;
+
+
 
 error_out:
 	return 0UL;
+
+
 }
 
 
 
 /*************************************** Internals *******************************************/
-
+#ifdef EDU_DEBUG
 void EDU_get_status(void)
 {
     uint32_t rd_data;
@@ -171,15 +246,26 @@ void EDU_get_status(void)
     printk("INFO: NAND CTRL BCHP_NAND_INTFC_STATUS = 0x%08x\n",rd_data);
 }
 
-#if 0  // DO NOT DELETE, MAY BE USEFUL!!!
+#else
+#define EDU_get_status()
+#endif
 
-void EDU_poll_for_done()
+#if 1 //def EDU_DEBUG  // DO NOT DELETE, MAY BE USEFUL!!!
+
+void print_NandCtrl_Status(void);
+
+// Returns 0 on Done, 1 on Timeout
+int EDU_poll_for_done(void)
 {
         uint32_t rd_data=0, i=0; 
         unsigned long timeout;
-        
+
+int saveDbgLvl = edu_debug;
+
         __sync();
         rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE);
+
+//edu_debug = 0;
 
         timeout = jiffies + msecs_to_jiffies(3000); // 3 sec timeout for now (testing)
         while ((rd_data & 0x00000003) == 0x00000000) 
@@ -190,23 +276,47 @@ void EDU_poll_for_done()
                 i++;
                 if(!time_before(jiffies, timeout))
                 {
-                   printk("EDU_poll_for_done timeout at 3 SECONDS with i= 0x%.08x!\n", (int)i);
-                   return;
+                   PRINTK("EDU_poll_for_done timeout at 3 SECONDS with i= 0x%.08x!\n", (int)i);
+//edu_debug = saveDbgLvl;
+                   return 1;
                 }
         }
-        return;
+//edu_debug = saveDbgLvl;
+        return 0;
+}
+
+// THT: Write until done clears
+void EDU_reset_done(void)
+{
+	volatile uint32_t rd_data;
+
+int saveDbgLvl = edu_debug;
+
+	rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE);
+
+//edu_debug = 0;
+	while (rd_data & 0x3) {		
+		// Each Write decrement DONE by 1
+		EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0);
+		__sync();
+		rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE);
+	} 
+//edu_debug = saveDbgLvl;
 }
 
 
-void EDU_waitForNoPendingAndActiveBit()
+void EDU_waitForNoPendingAndActiveBit(void)
 {
-        uint32_t rd_data=0, i=0; 
+        volatile uint32_t rd_data=0, i=0; 
         unsigned long timeout;
-        
-        //printk("Start Polling!\n");
+
+int saveDbgLvl = edu_debug;
+
+        //PRINTK("Start Polling!\n");
         __sync();
         rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_STATUS);
 
+//edu_debug = 0;
         timeout = jiffies + msecs_to_jiffies(3000); // 3 sec timeout for now (testing)
         while ((rd_data & 0x00000003) != 0x00000000) /* && (i<cnt) */ 
         {
@@ -216,10 +326,12 @@ void EDU_waitForNoPendingAndActiveBit()
                 i++;
                 if(!time_before(jiffies, timeout))
                 {
-                   printk("EDU_waitForNoPendingAndActiveBit timeout at 3 SECONDS with i= 0x%.08x!\n", (int)i);
+                   PRINTK("EDU_waitForNoPendingAndActiveBit timeout at 3 SECONDS with i= 0x%.08x!\n", (int)i);
+//edu_debug = saveDbgLvl;
                    return;
                 }
         }
+//edu_debug = saveDbgLvl;
         return;
 }
 
@@ -293,62 +405,94 @@ uint16_t EDU_checkNandCacheAndBuffer(uint32_t buffer, int length)
 // Poll a register until the reg has the expected value.
 // a timeout read count. The value reflects how many reads
 // the routine check the register before is gives up.
+/*
+ * THT: Changed to return if (data & mask) != 0
+ * This way, we can return faster if there is a (un) correctable error.
+ *
+ * returns 0 on timedout,
+ * Read data on success or error.
+ */
 
-uint32_t EDU_poll(uint32_t address, uint32_t expect, uint32_t mask)
+
+int EDU_poll(uint32_t address, uint32_t expect, uint32_t error, uint32_t mask)
 {
         uint32_t rd_data=0, i=0; 
+	int ret;
         unsigned long timeout;
+	 //int retry = 0;
+int saveDbgLvl = edu_debug;
         
-        //printk("Start Polling!\n");
+if (edu_debug)         PRINTK("Start Polling addr=%08x, expect=%08x, mask=%08x, error=%08x!\n", 
+	address, expect, mask, error);
         __sync();
         rd_data = EDU_volatileRead(address);
-
-        timeout = jiffies + msecs_to_jiffies(3000); // 3 sec timeout for now (testing)
-        while ((rd_data & mask) != (expect & mask)) /* && (i<cnt) */ 
+//edu_debug = 0;
+	  
+        timeout = jiffies + msecs_to_jiffies(1000); // 3 sec timeout for now (testing)
+ // Testing 1 2 3       
+// 	 while ( 0 == ((rd_data & mask) & (expect | error)) ) /* && (i<cnt) */ 
+// 	 while ((rd_data & mask) != (expect & mask)) /* && (i<cnt) */
+	 while (((rd_data & mask) != (expect & mask)) && !((rd_data & mask) & error))
         {
-         
-                __sync(); //PLATFORM_IOFLUSH_WAR();
+         	   if ( 0 /*(i %1000000) == 1 */) 
+			   {PRINTK("Polling addr=%08x, expect=%08x, mask=%08x!\n", address, expect, mask);
+			    PRINTK("EDU_poll read: %08x\n", rd_data);}
+			  
+                //__sync(); //PLATFORM_IOFLUSH_WAR();
                 rd_data = EDU_volatileRead(address);
                 
                 // JR+ 2008-02-01 Allow other tasks to run while waiting
+                //cond_resched();
                 cond_resched();
                 // JR- 2008-02-01 Allow other tasks to run while waiting
                 
                 i++;
                 if(!time_before(jiffies, timeout))
                 {
-                   printk("EDU_poll timeout at 3 SECONDS (just for testing) with i= 0x%.08x!\n", (int)i);
-                   printk("DBG> EDU_poll (0x%.08x, 0x%.08x, 0x%.08x);\n",address, expect, mask);
-                   return(rd_data);
+                   PRINTK("EDU_poll timeout at 3 SECONDS (just for testing) with i= 0x%.08x!\n", (int)i);
+                   PRINTK("DBG> EDU_poll (A=0x%.08x, X=0x%.08x, E=0x%.08x, M=0x%.08x, R=0x%.08x;\n",
+				   	address, expect, error, mask, rd_data);
+			EDU_get_status();
+                   return 0;
                 }
         }
   
-        //printk("DBG> EDU_poll (0x%.08x, 0x%.08x, 0x%.08x);\n",address, expect, mask);
-        //printk("DBG> EDU_poll i= 0x%.08x!\n", i);
-        //printk("\n");
-        //printk("End Polling! Number of passes: %d\n", i);
-   
-        return(rd_data);
+        //PRINTK("DBG> EDU_poll (0x%.08x, 0x%.08x, 0x%.08x);\n",address, expect, mask);
+        //PRINTK("DBG> EDU_poll i= 0x%.08x!\n", i);
+        //PRINTK("\n");
+        //PRINTK("End Polling! Number of passes: %d\n", i);
+
+	return rd_data;
+
 }
 
 
 void EDU_issue_command(uint32_t dram_addr, uint32_t ext_addr,uint8 cmd)
 {
 
+#if 0
+    // THT: Wait for previous command to complete
+    uint32_t status;
+
+    status = EDU_volatileRead(EDU_BASE_ADDRESS + EDU_STATUS);
+    while (status & 
+ #endif   
+    
+
     EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DRAM_ADDR, dram_addr);
     //EDU_volatileWrite(EDU_PATCH_GLOBAL_REG_RBUS_START + CPU_REGISTER_ADDRESS + EDU_DRAM_ADDR, dram_addr);        
-    //printk("\tINFO: EDU_DRAM_ADDR = 0x%08x\n",dram_addr);
+    //PRINTK("\tINFO: EDU_DRAM_ADDR = 0x%08x\n",dram_addr);
 
     EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_EXT_ADDR, ext_addr);
     //EDU_volatileWrite(EDU_PATCH_GLOBAL_REG_RBUS_START + CPU_REGISTER_ADDRESS + EDU_EXT_ADDR, ext_addr);
-    //printk("\tINFO: EDU_EXT_ADDR = 0x%08x\n",ext_addr);
+    //PRINTK("\tINFO: EDU_EXT_ADDR = 0x%08x\n",ext_addr);
 
     EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_CMD, cmd);
     //EDU_volatileWrite(EDU_PATCH_GLOBAL_REG_RBUS_START + CPU_REGISTER_ADDRESS + EDU_CMD, cmd);
     //if (cmd == 1)
-        //printk("\tINFO: EDU_CMD = READ operation\n");
+        //PRINTK("\tINFO: EDU_CMD = READ operation\n");
     //if (cmd == 0)
-       //printk("\tINFO: EDU_CMD = WRITE operation\n");
+       //PRINTK("\tINFO: EDU_CMD = WRITE operation\n");
 }
 
 
@@ -357,6 +501,7 @@ uint32_t EDU_volatileRead(uint32_t addr)
         volatile uint32_t* pAddr;
         
         pAddr = (volatile uint32_t *)addr;
+	 if (edu_debug > 3) printk("%08x = EDU_volRead(%08x)\n", *pAddr, addr);
         
         return *(uint32_t *)pAddr;
 }
@@ -366,6 +511,7 @@ void EDU_volatileWrite(uint32_t addr, uint32_t data)
         volatile uint32_t* pAddr;
 
         pAddr = (volatile uint32_t *)addr;
+	 if (edu_debug > 3) printk("EDU_volWrite(addr=%08x, data=%08x\n", addr, data);
         *pAddr = (volatile uint32_t)data;
        
 }
@@ -383,22 +529,37 @@ uint32_t EDU_get_error_status_register(void)
 void EDU_init(void)
 {
 	
-printk("-->%s:\n", __FUNCTION__);
+PRINTK("-->%s:\n", __FUNCTION__);
 
+//edu_debug = 4;
         EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_CONFIG, EDU_CONFIG_VALUE);
 
         EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_LENGTH, EDU_LENGTH_VALUE);
+
+ #ifdef CONFIG_MIPS_BCM7440
+ // THT: *** Caution: These hard-coded values only work on 7440bx
  
         // Writing to PCI control register (Init PCI Window is now Here)
 
         EDU_volatileWrite(0xb0000128, 0x00000001);
         EDU_volatileWrite(0xb040600c, 0x00010000);
+#elif defined( CONFIG_MIPS_BCM3548 )
+	// Make sure that RTS grant some cycle to EDU, or we have to steal some
+	{
+		volatile unsigned long* MEMC_0_1_CLIENT_INFO_45 = (volatile unsigned long*) KSEG1ADDR(0x101610b8);
+
+		/* Bits 08-20 are all 1 == Blocked */
+		if (((*MEMC_0_1_CLIENT_INFO_45) & 0x001fff00) == 0x001fff00) {
+			printk("%s: MEMC_0_1_CLIENT_INFO_45 = %08lx overwritten.  Please fix your RTS\n", __FUNCTION__, * MEMC_0_1_CLIENT_INFO_45);
+			*MEMC_0_1_CLIENT_INFO_45 = 0x001a92bc;
+		}
+	}
+#endif
 
         // Clear the interrupt for next time
         EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, BCHP_HIF_INTR2_CPU_CLEAR_NAND_UNC_INTR_MASK); 
-
-	//external_physical_device_address = EDU_volatileRead(EDU_BASE_ADDRESS + BCHP_NAND_CMD_ADDRESS);
-	//return external_physical_device_address;
+PRINTK("<--%s:\n", __FUNCTION__);
+//edu_debug = 0;
 }
 
 /*
@@ -410,46 +571,70 @@ int EDU_write(volatile const void* virtual_addr_buffer, uint32_t external_physic
 	uint32_t  phys_mem;
 	// uint32_t  rd_data;
 
+edu_debug = gdebug;
 	phys_mem = EDU_virt_to_phys((void *)virtual_addr_buffer);
 	if (!phys_mem) {
 		return (-1);
 	}
+
+//edu_debug = 4;
 	
-//printk("EDU_write: vBuff: %p physDev: %08x, PA=%08x\n", 
+//PRINTK("EDU_write: vBuff: %p physDev: %08x, PA=%08x\n", 
 //virtual_addr_buffer, external_physical_device_address, phys_mem);
 
 
 	EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR);
 
-	EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000); 
+	//EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000); 
+	EDU_reset_done();
 	EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_ERR_STATUS, 0x00000000); 
-	
-	dma_cache_wback_inv((unsigned long) virtual_addr_buffer, 512);
+
+	EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_LENGTH, EDU_LENGTH_VALUE);
+
+	//EDU_waitForNoPendingAndActiveBit();
+
+
+	dma_cache_wback((unsigned long) virtual_addr_buffer, 512);
+
 	EDU_issue_command(phys_mem, external_physical_device_address, 0); /* 1: Is a Read, 0 Is a Write */
 
 //      rd_data = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, HIF_INTR2_EDU_DONE, HIF_INTR2_EDU_DONE);
 //      EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
 
+//edu_debug = 0;
 	return 0;
 }
 
 
 /*
- * THT: 07/31/08: This does not work.  One has to write the 512B Array from the NAND controller into 
- * the EXT registers for it to work.  Will fix it when I come back.
+ * Returns 0 on success
+ * INTR2_Status on error.
  */
 int EDU_read(volatile void* virtual_addr_buffer, uint32_t external_physical_device_address)
 {
         uint32_t  phys_mem;
         // uint32_t  rd_data;
+        int ret;
+		
 
+static int toggle;
+static int save_debug;
+
+#if 0
+edu_debug = gdebug;
+if (external_physical_device_address == 0x1f7fc400) {toggle=1; save_debug=gdebug; gdebug = edu_debug = 4; }
+//else if (external_physical_device_address < 0x1f7fc600 && toggle) {gdebug = edu_debug = save_debug;toggle=0;}
+if (toggle) edu_debug = 4;
+#endif
+
+//PRINTK("--> %s: vAddr=%p, ext=%08x\n", __FUNCTION__, virtual_addr_buffer, external_physical_device_address);
 	phys_mem = EDU_virt_to_phys((void *)virtual_addr_buffer);
 	if (!phys_mem) {
 		return (-1);
 	}
 
-//printk("EDU_read: vBuff: %p physDev: %08x, PA=%08x\n", 
-//virtual_addr_buffer, external_physical_device_address, phys_mem);
+if (edu_debug) PRINTK("EDU_read: vBuff: %p physDev: %08x, PA=%08x\n", 
+virtual_addr_buffer, external_physical_device_address, phys_mem);
 
         EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR);
 
@@ -457,30 +642,55 @@ int EDU_read(volatile void* virtual_addr_buffer, uint32_t external_physical_devi
 
         if( (EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE) && 0x00000003) > 1)
         {
-                printk("EDU_DONE > 1!!!\n");
+                PRINTK("EDU_DONE > 1!!!\n");
         }
 #endif
-        EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
+        //EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
+        EDU_reset_done();
 
 #if 0
         if( (EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE) && 0x00000003) != 0)
         {
-                printk("EDU_DONE != 0!!!\n");
+                PRINTK("EDU_DONE != 0!!!\n");
         }
 #endif
         EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_ERR_STATUS, 0x00000000);
 #if 0
         if( EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_ERR_STATUS) != 0)
         {
-                printk("EDU_ERR_STATUS != 0!!!\n");
+                PRINTK("EDU_ERR_STATUS != 0!!!\n");
         }
 
 #endif
-        dma_cache_inv((unsigned long) virtual_addr_buffer, 512);
+#if 1 //ndef CONFIG_BMIPS4380
+	 dma_cache_inv((unsigned long) virtual_addr_buffer, EDU_LENGTH_VALUE);
+#else
+	{
+		extern void (*flush_cache_all)(void);
 
+		flush_cache_all();
+	}
+#endif
+        
+	 EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_LENGTH, EDU_LENGTH_VALUE);
+
+	 EDU_waitForNoPendingAndActiveBit();
+	  
+
+	  
+//PRINTK("----> Before EDU\n"); print_NandCtrl_Status();EDU_get_status();
         EDU_issue_command(phys_mem, external_physical_device_address, 1); /* 1: Is a Read, 0 Is a Write */
+//PRINTK("<---- After EDU\n");print_NandCtrl_Status();EDU_get_status();
+#if 1
+        ret = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, 
+        	HIF_INTR2_EDU_DONE, 
+        	HIF_INTR2_EDU_ERR, 
+        	HIF_INTR2_EDU_DONE_MASK);
+#else
+        ret = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, 
+        	HIF_INTR2_EDU_DONE, HIF_INTR2_EDU_ERR, HIF_INTR2_EDU_DONE);
 
-        EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, HIF_INTR2_EDU_DONE, HIF_INTR2_EDU_DONE);
+#endif
 
 #if 0
 // TEST TEST TEST TEST
@@ -488,5 +698,8 @@ int EDU_read(volatile void* virtual_addr_buffer, uint32_t external_physical_devi
         EDU_checkNandCacheAndBuffer(virtual_addr_buffer, 512);
 // TEST TEST TEST TEST
 #endif
-        return 0;
+if (edu_debug) PRINTK("<-- %s ret=%08x\n", __FUNCTION__, ret);
+//edu_debug = 0;
+if (edu_debug > 3 && ret) {show_stack(current,NULL);dump_stack();}
+        return ret;
 } 

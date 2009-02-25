@@ -799,7 +799,7 @@ static void k2_sata_tf_load(struct ata_port *ap, const struct ata_taskfile *tf)
 		if (tf->ctl & ATA_NIEN) {
 			void __iomem *port_mmio = PORT_MMIO(ap);
 			u32 simr = readl(port_mmio + K2_SATA_SIMR_OFFSET);
-#if defined (CONFIG_MIPS_BCM7440)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
 			mask = 0xa0000000;
 #else
 			mask = 0x80000000;
@@ -2068,7 +2068,7 @@ static int k2_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 	probe_ent->dev = pci_dev_to_dev(pdev);
 	INIT_LIST_HEAD(&probe_ent->node);
 
-#ifdef	CONFIG_MIPS_BCM7440	
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
 	mmio_base = (void __iomem *)pci_resource_start(pdev, 5);
 #else
 	mmio_base = pci_iomap(pdev, 5, 0);

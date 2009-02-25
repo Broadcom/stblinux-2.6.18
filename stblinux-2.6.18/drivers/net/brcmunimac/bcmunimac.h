@@ -43,8 +43,8 @@
 #define TOTAL_DESC				256		/* total number of Buffer Descriptors */
 //#define TOTAL_DESC				16		/* total number of Buffer Descriptors */
 #define RX_RATIO				1/2		/* ratio of RX descriptors number in total */
-#define EXTRA_TX_DESC			24		/* fine adjustment in TX descriptor number */
-//#define EXTRA_TX_DESC			0
+//#define EXTRA_TX_DESC			24		/* fine adjustment in TX descriptor number */
+#define EXTRA_TX_DESC			0
 
 #define DESC_MASK				(TOTAL_DESC - 1)
 #define NR_RX_BDS               ((TOTAL_DESC*RX_RATIO) - EXTRA_TX_DESC)
@@ -121,6 +121,7 @@ typedef struct BcmEnet_devctrl {
     atomic_t        rxDmaRefill;        /* rxDmaRefill == 1 needs refill rxDma */
 	
 	spinlock_t	bh_lock;				/* soft IRQ lock */
+	volatile unsigned long rxbuf_assign_busy;
 
 	unsigned long base_addr;			/* UNIMAC register start address. */
     volatile uniMacRegs *umac;     		/* UNIMAC register block base address */
@@ -166,6 +167,7 @@ typedef struct BcmEnet_devctrl {
 	int				bIPHdrOptimize;
 	int				irq_stat;			/* software copy of irq status, for botom half processing */
 	struct work_struct bcmumac_task;	/* bottom half work */
+	int				mii_pid;			/* mii thread pid */
     
 	ETHERNET_MAC_INFO EnetInfo;
     int             devnum;				/* 0=EMAC_0, 1=EMAC_1 */

@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.18-6.1
-# Thu Sep 25 13:49:18 2008
+# Linux kernel version: 2.6.18-6.5
+# Fri Jan 30 12:06:07 2009
 #
 CONFIG_MIPS=y
 
@@ -23,7 +23,7 @@ CONFIG_MIPS_BCM3548BX_SPI=y
 # CONFIG_MIPS_BCM97459BX is not set
 # CONFIG_MIPS_BCM7405BX_NAND is not set
 # CONFIG_MIPS_BCM97459BX_NAND is not set
-# CONFIG_MIPS_BCM7335AX is not set
+# CONFIG_MIPS_BCM7335BX is not set
 # CONFIG_MIPS_BCM7420AX is not set
 # CONFIG_MIPS_BCM97456DX is not set
 # CONFIG_MIPS_BCM7400DX is not set
@@ -41,10 +41,12 @@ CONFIG_MIPS_BCM3548BX_SPI=y
 # CONFIG_MIPS_BCM7454 is not set
 # CONFIG_MIPS_BCM7403AX is not set
 # CONFIG_MIPS_BCM7403AX_NAND is not set
-# CONFIG_MIPS_BCM7325AX is not set
+# CONFIG_MIPS_BCM7325BX is not set
+# CONFIG_MIPS_BCM7325BX_NAND is not set
 # CONFIG_MIPS_BCM7440BX is not set
 # CONFIG_MIPS_BCM7440BX_NAND is not set
 # CONFIG_MIPS_BCM7443AX is not set
+# CONFIG_MIPS_BCM7601BX_NAND is not set
 # CONFIG_MIPS_MTX1 is not set
 # CONFIG_MIPS_BOSPORUS is not set
 # CONFIG_MIPS_PB1000 is not set
@@ -117,8 +119,8 @@ CONFIG_SYS_SUPPORTS_BIG_ENDIAN=y
 CONFIG_SYS_SUPPORTS_LITTLE_ENDIAN=y
 CONFIG_IRQ_CPU=y
 CONFIG_MIPS_BRCM97XXX=y
-CONFIG_MIPS_BCM3548=y
 CONFIG_MIPS_BCM3548B0=y
+CONFIG_MIPS_BCM3548=y
 # CONFIG_BMIPS3300 is not set
 CONFIG_BMIPS4380=y
 # CONFIG_BMIPS5000 is not set
@@ -408,6 +410,7 @@ CONFIG_TCP_CONG_BIC=y
 # CONFIG_IRDA is not set
 # CONFIG_BT is not set
 # CONFIG_IEEE80211 is not set
+CONFIG_WIRELESS_EXT=y
 
 #
 # Device Drivers
@@ -626,7 +629,15 @@ CONFIG_BCMINTEMAC_7038_STREAMING=y
 #
 # Wireless LAN (non-hamradio)
 #
-# CONFIG_NET_RADIO is not set
+CONFIG_NET_RADIO=y
+CONFIG_NET_WIRELESS_RTNETLINK=y
+
+#
+# Obsolete Wireless cards support (pre-802.11)
+#
+# CONFIG_STRIP is not set
+# CONFIG_USB_ZD1201 is not set
+# CONFIG_HOSTAP is not set
 
 #
 # Wan interfaces
@@ -1181,42 +1192,11 @@ CONFIG_SYS_SUPPORTS_KGDB=y
 #
 # CONFIG_KEYS is not set
 # CONFIG_SECURITY is not set
-# CONFIG_SECURITY_NETWORK is not set
-# CONFIG_SECURITY_CAPABILITIES is not set
-# CONFIG_SECURITY_ROOTPLUG is not set
-# CONFIG_SECURITY_SECLVL is not set
-# CONFIG_SECURITY_DIGSIG is not set
-# CONFIG_SECURITY_DIGSIG_DEBUG is not set
-# CONFIG_SECURITY_SELINUX is not set
 
 #
 # Cryptographic options
 #
 # CONFIG_CRYPTO is not set
-# CONFIG_CRYPTO_HMAC is not set
-# CONFIG_CRYPTO_NULL is not set
-# CONFIG_CRYPTO_MD4 is not set
-# CONFIG_CRYPTO_MD5 is not set
-# CONFIG_CRYPTO_SHA1 is not set
-# CONFIG_CRYPTO_SHA256 is not set
-# CONFIG_CRYPTO_SHA512 is not set
-# CONFIG_CRYPTO_WP512 is not set
-# CONFIG_CRYPTO_TGR192 is not set
-# CONFIG_CRYPTO_DES is not set
-# CONFIG_CRYPTO_BLOWFISH is not set
-# CONFIG_CRYPTO_TWOFISH is not set
-# CONFIG_CRYPTO_SERPENT is not set
-# CONFIG_CRYPTO_AES is not set
-# CONFIG_CRYPTO_CAST5 is not set
-# CONFIG_CRYPTO_CAST6 is not set
-# CONFIG_CRYPTO_TEA is not set
-# CONFIG_CRYPTO_ARC4 is not set
-# CONFIG_CRYPTO_KHAZAD is not set
-# CONFIG_CRYPTO_ANUBIS is not set
-# CONFIG_CRYPTO_DEFLATE is not set
-# CONFIG_CRYPTO_MICHAEL_MIC is not set
-# CONFIG_CRYPTO_CRC32C is not set
-# CONFIG_CRYPTO_TEST is not set
 
 #
 # Hardware crypto devices

@@ -1052,7 +1052,7 @@ static void udf_fill_inode(struct inode *inode, struct buffer_head *bh)
 	{
 		UDF_I_EFE(inode) = 1;
 		UDF_I_USE(inode) = 0;
-#if defined ( CONFIG_MIPS_BCM97438 ) || defined ( CONFIG_MIPS_BCM7440 )
+#if defined ( CONFIG_MIPS_BCM97438 ) || defined ( CONFIG_MIPS_BCM7440 ) || defined (CONFIG_MIPS_BCM7601)
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct extendedFileEntry), GFP_KERNEL|GFP_DMA);
 #else
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct extendedFileEntry), GFP_KERNEL);
@@ -1063,7 +1063,7 @@ static void udf_fill_inode(struct inode *inode, struct buffer_head *bh)
 	{
 		UDF_I_EFE(inode) = 0;
 		UDF_I_USE(inode) = 0;
-#if defined ( CONFIG_MIPS_BCM97438 ) || defined ( CONFIG_MIPS_BCM7440 )
+#if defined ( CONFIG_MIPS_BCM97438 ) || defined ( CONFIG_MIPS_BCM7440 ) || defined (CONFIG_MIPS_BCM7601)
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct fileEntry), GFP_KERNEL|GFP_DMA);
 #else
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct fileEntry), GFP_KERNEL);
@@ -1077,7 +1077,7 @@ static void udf_fill_inode(struct inode *inode, struct buffer_head *bh)
 		UDF_I_LENALLOC(inode) =
 			le32_to_cpu(
 				((struct unallocSpaceEntry *)bh->b_data)->lengthAllocDescs);
-#if defined ( CONFIG_MIPS_BCM97438 ) || defined ( CONFIG_MIPS_BCM7440 )
+#if defined ( CONFIG_MIPS_BCM97438 ) || defined ( CONFIG_MIPS_BCM7440 ) || defined (CONFIG_MIPS_BCM7601)
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct unallocSpaceEntry), GFP_KERNEL|GFP_DMA);
 #else
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct unallocSpaceEntry), GFP_KERNEL);

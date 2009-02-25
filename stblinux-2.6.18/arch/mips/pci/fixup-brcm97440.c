@@ -83,7 +83,24 @@ extern int SATA_TX_PRE;
 #define SATA_MEM_BASE	KSEG1ADDR(CPU2PCI_PCI_SATA_PHYS_MEM_WIN0_BASE)
 
 
+#ifdef CONFIG_MIPS_BCM7601B0
+static char irq_tab_brcm97601b0[] __initdata = {
+//[slot]  = IRQ
+  [PCI_DEVICE_ID_SATA] = BCM_LINUX_SATA_IRQ,    /* SATA controller */
 
+  [PCI_DEVICE_ID_EXT]  = BCM_LINUX_EXT_PCI_IRQ, /* On-board PCI slot */
+  //[PCI_DEVICE_ID_MINI] = BCM_LINUX_MINI_PCI_IRQ,					    
+  //[PCI_DEVICE_ID_1394] = BCM_LINUX_1394_IRQ,                 
+};
+
+int __init pcibios_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
+{
+#ifdef DEBUG    
+    printk(KERN_INFO "pcibios_map_irq: slot %d pin %d IRQ %d\n", slot, pin, irq_tab_brcm97401a0[slot]);
+#endif	
+    return irq_tab_brcm97601b0[slot];
+}
+#else
 static char irq_tab_brcm97440a0[] __initdata = {
 //[slot]  = IRQ
   [PCI_DEVICE_ID_SATA] = BCM_LINUX_SATA_IRQ,    /* SATA controller */
@@ -101,6 +118,7 @@ int __init pcibios_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 #endif	
     return irq_tab_brcm97440a0[slot];
 }
+#endif
 
 /* Do platform specific device initialization at pci_enable_device() time */
 int pcibios_plat_dev_init(struct pci_dev *dev)

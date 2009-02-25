@@ -198,7 +198,8 @@ void __init plat_mem_setup(void)
 	|| defined( CONFIG_MIPS_BCM7118 )  \
         || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7405 ) \
 	|| defined( CONFIG_MIPS_BCM7335 ) || defined( CONFIG_MIPS_BCM7325 ) \
-	|| defined( CONFIG_MIPS_BCM3548 ) || defined( CONFIG_MIPS_BCM7420 )
+	|| defined( CONFIG_MIPS_BCM3548 ) || defined( CONFIG_MIPS_BCM7420 ) \
+	|| defined( CONFIG_MIPS_BCM7336 )
 	
 	set_io_port_base(0xf0000000);  /* start of PCI IO space. */
 #elif defined( CONFIG_MIPS_BCM7329 )
@@ -206,7 +207,7 @@ void __init plat_mem_setup(void)
 #elif defined ( CONFIG_BCM93730 )
 	set_io_port_base(KSEG1ADDR(0x13000000));
 
-#elif defined( CONFIG_MIPS_BCM7440 )
+#elif defined( CONFIG_MIPS_BCM7440 ) || defined (CONFIG_MIPS_BCM7601)
 	set_io_port_base(PCI_IO_WIN_BASE);  /* 0xf8000000 in boardmap.h. */
 #else
        
@@ -224,14 +225,13 @@ void __init plat_mem_setup(void)
 	board_time_init = brcm_time_init;
  	panic_timeout = 180;
 
-#if defined( CONFIG_MIPS_BCM7440B0 ) || defined( CONFIG_MIPS_BCM7325A0 ) \
-	|| defined( CONFIG_MIPS_BCM7443A0 ) 
+#if defined( CONFIG_MIPS_BCM7440B0 ) || defined( CONFIG_MIPS_BCM7325B0 ) \
+	|| defined( CONFIG_MIPS_BCM7443A0 ) || defined (CONFIG_MIPS_BCM7601)
 	
     // Set externalize IO sync bit (CP0 $16, sel 7, bit 8)
 	{
         uint32_t extIO = __read_32bit_c0_register($16, 7);
-
-        __write_32bit_c0_register($16, 7, extIO | 0x100);
+(16, 7, extIO | 0x100);
         extIO = __read_32bit_c0_register($16, 7);
 	}
 
@@ -407,16 +407,20 @@ static struct platform_device moca_plat_dev = {
 #endif /* BRCM_MOCA_SUPPORTED */
 
 #ifdef BRCM_UMAC_0_SUPPORTED
-
 static void umac_0_bogus_release(struct device *dev)
 {
 }
-
+#ifdef BRCM_UMAC_0_GPHY
+static struct bcmumac_platform_data umac_0_data = {
+	.phy_type = 	BRCM_PHY_TYPE_EXT_GMII,
+	.phy_id = 		BRCM_PHY_ID_AUTO,
+};
+#else
 static struct bcmumac_platform_data umac_0_data = {
 	.phy_type =		BRCM_PHY_TYPE_INT,
 	.phy_id =		1,
 };
-
+#endif /* BRCM_UMAC_0_GPHY */
 static struct resource umac_0_resources[] = {
 	[0] = {
 		.start =	BPHYSADDR(BRCM_UMAC_0_REG_START),

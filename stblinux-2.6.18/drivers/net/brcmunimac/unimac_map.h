@@ -55,6 +55,7 @@ typedef struct RxStatus
 #define RSB_EOP				0x4000
 #define RSB_LENGTH_MASK		0xFFF
 #define RSB_LENGTH_SHIFT	16
+#define RSB_EXT_STATUS_MASK	0x1FFFFF
 #define RSB_CSUM_MASK		0xFFFF
 #define RSB_FILTER_IDX_MASK	0xFFFF
 
@@ -274,7 +275,7 @@ typedef struct rbufRegs
 	unsigned long tbuf_endian_ctrl;		/* (9c) tx buffer endianess control*/
 	unsigned long tbuf_bp_mc;			/* (a0) tx buffer backpressure mask and control*/
 	unsigned long tbuf_pkt_rdy_thld;	/* (a4) threshold for PKT_RDY , for jumbo frame, default 0x7C*/
-	unsigned long unused1[3];
+	unsigned long unused1[2];
 	unsigned long rgmii_oob_ctrl;		/* (b0) RGMII OOB control register */
 	unsigned long rgmii_ib_status;		/* (b4) RGMII inBand status register*/
 	unsigned long rgmii_led_ctrl;		/* (b8) RGMII LED control register */

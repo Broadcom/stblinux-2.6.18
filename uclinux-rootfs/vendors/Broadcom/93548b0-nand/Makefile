@@ -35,6 +35,8 @@ JFFSFILE  = jffs.img
 JFFS2FILE = jffs2-128k.img
 JFFS2_16K_FILE = jffs2-16k.img
 JFFS2_512K_FILE = jffs2-512k.img
+JFFS2_BCH4_16K_FILE = jffs2-bch4-16k.img
+JFFS2_BCH4_128K_FILE = jffs2-bch4-128k.img
 JFFS2_MLC_256K_FILE = jffs2-mlc-256k.img
 JFFS2_MLC_512K_FILE = jffs2-mlc-512k.img
 YAFFSFILE = yaffs-frm-cramfs.img
@@ -44,6 +46,8 @@ INITRDIMG = $(INITRDDIR)/$(PLATFORM)/ramdisk.gz
 JFFSIMG   = $(IMAGEDIR)/$(PLATFORM)/$(JFFSFILE)
 JFFS2IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2FILE)
 JFFS2_16K_IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_16K_FILE)
+JFFS2_BCH4_128K_IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_BCH4_128K_FILE)
+JFFS2_BCH4_16K_IMG  = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_BCH4_16K_FILE)
 JFFS2_512K_IMG = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_512K_FILE)
 JFFS2_MLC_256K_IMG = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_MLC_256K_FILE)
 JFFS2_MLC_512K_IMG = $(IMAGEDIR)/$(PLATFORM)/$(JFFS2_MLC_512K_FILE)
@@ -280,6 +284,21 @@ ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2_16K_IMG} ${JFFS2_16K_IMG}.nosummary
 	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_16K_IMG}.nosummary -o $(JFFS2_16K_IMG) -e 16KiB
 endif
+	# For SLC using BCH-4 ECC:
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o $(JFFS2_BCH4_16K_IMG) -N --squash --verbose --little-endian \
+		--eraseblock=16KiB  --pagesize=512 \
+		-d $(INITRAMFS_DIR)
+ifdef CONFIG_JFFS2_SUMMARY
+	mv ${JFFS2_BCH4_16K_IMG} ${JFFS2_BCH4_16K_IMG}.nosummary
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_BCH4_16K_IMG}.nosummary -o $(JFFS2_BCH4_16K_IMG) -e 16KiB
+endif
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o $(JFFS2_BCH4_128K_IMG) -N --squash --verbose --little-endian \
+		--eraseblock=128KiB   \
+		-d $(INITRAMFS_DIR)
+ifdef CONFIG_JFFS2_SUMMARY
+	mv ${JFFS2_BCH4_128K_IMG} ${JFFS2_BCH4_128K_IMG}.nosummary
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_BCH4_128K_IMG}.nosummary -o $(JFFS2_BCH4_128K_IMG) -e 128KiB
+endif
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o ${JFFS2_512K_IMG} -N --squash --verbose --little-endian \
 		--eraseblock=512KiB  --pagesize=512 \
 		-d $(INITRAMFS_DIR)
@@ -305,6 +324,7 @@ ifdef CONFIG_JFFS2_SUMMARY
 	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_MLC_256K_IMG}.nosummary \
 		-o $(JFFS2_MLC_256K_IMG) -e 256KiB
 endif
+
 
 $(JFFSIMG):
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs -o $(JFFSIMG) -d $(ROMFSDIR)

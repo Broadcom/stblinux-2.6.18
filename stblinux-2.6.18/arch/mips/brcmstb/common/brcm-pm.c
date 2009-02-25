@@ -43,6 +43,14 @@
 #include <asm/brcmstb/common/brcmstb.h>
 #include <asm/brcmstb/common/brcm-pm.h>
 
+#if defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_MIPS_BCM7335) \
+	|| defined(CONFIG_MIPS_BCM7336)
+/* EREF clock also controls the frontend on these chips */
+#define EREF_OK			0
+#else
+#define EREF_OK			1
+#endif
+
 static atomic_t usb_count = ATOMIC_INIT(1);
 static atomic_t enet_count = ATOMIC_INIT(1);
 static atomic_t sata_count = ATOMIC_INIT(1);
@@ -214,7 +222,7 @@ static void enet_enable(void)
 
 	spin_lock_irqsave(&g_magnum_spinlock, flags);
 
-#if defined(BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK)
+#if EREF_OK && defined(BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK)
 	BDEV_UNSET(BCHP_VCXO_CTL_MISC_EREF_CTRL,
 		BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK);
 	BDEV_RD(BCHP_VCXO_CTL_MISC_EREF_CTRL);
@@ -335,7 +343,7 @@ static void enet_disable(void)
 	BDEV_RD(BCHP_CLK_PM_CTRL_2);
 #endif
 
-#if defined(BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK)
+#if EREF_OK && defined(BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK)
 	BDEV_SET(BCHP_VCXO_CTL_MISC_EREF_CTRL,
 		BCHP_VCXO_CTL_MISC_EREF_CTRL_POWERDOWN_MASK);
 	BDEV_RD(BCHP_VCXO_CTL_MISC_EREF_CTRL);
@@ -527,17 +535,18 @@ DECLARE_PM_UNREGISTER(brcm_pm_unregister_ohci, ohci);
  * API FOR USER PROGRAMS
  */
 
-#define DECLARE_PM_SHOW(_func, _expr) \
+#define DECLARE_PM_SHOW(_func, _cb, _expr) \
 	static ssize_t _func(struct device *dev, \
 		struct device_attribute *attr, char *buf) \
 		{ \
-			return(sprintf(buf, "%d\n", (_expr))); \
+			return(sprintf(buf, "%d\n", (_cb) ? (_expr) : -1)); \
 		}
 
-DECLARE_PM_SHOW(usb_show, atomic_read(&usb_count) ? 1 : 0);
-DECLARE_PM_SHOW(enet_show, atomic_read(&enet_count));
-DECLARE_PM_SHOW(sata_show, atomic_read(&sata_count));
-DECLARE_PM_SHOW(ddr_show, ddr_get());
+DECLARE_PM_SHOW(usb_show, ehci_off_cb || ohci_off_cb,
+	atomic_read(&usb_count) ? 1 : 0);
+DECLARE_PM_SHOW(enet_show, enet_off_cb, atomic_read(&enet_count));
+DECLARE_PM_SHOW(sata_show, sata_off_cb, atomic_read(&sata_count));
+DECLARE_PM_SHOW(ddr_show, (void *)1, ddr_get());
 
 static ssize_t ddr_store(struct device *dev, struct device_attribute *attr,
 	const char *buf, size_t n)

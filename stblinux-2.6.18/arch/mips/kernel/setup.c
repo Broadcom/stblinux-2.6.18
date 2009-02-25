@@ -114,9 +114,17 @@ extern unsigned long g_board_RAM_size;
 #define LOWER_RAM_END 0x10000000 /* 256MB */
 #endif
 
+/*
+ * Use 32MB RAM for Linux, unless EDU is enabled, in which case,
+ * we need larger RAM because the NAND driver must allocate
+ * huge buffers for DMA at run time
+ */
+#ifdef CONFIG_MTD_BRCMNAND_EDU
+#define LINUX_MIN_MEM   48 // MB
 
+#else
 #define LINUX_MIN_MEM   32  // MB
-
+#endif
 
 int linux_min_mem = 18;
 EXPORT_SYMBOL(linux_min_mem);
@@ -591,7 +599,7 @@ static inline void parse_cmdline_early(void)
 	unsigned long start_at, mem_size;
 	int len = 0;
 	int usermem = 0;
-#if defined (CONFIG_MIPS_BCM7440)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
 	int retVal;
 	phys_t rsvdSize;
 	phys_t pgStructSize = sizeof(struct page);
@@ -645,14 +653,14 @@ static inline void parse_cmdline_early(void)
 				usermem = 1;
 			}
 			mem_size = memparse(from + 4, &from);
-#if defined (CONFIG_MIPS_BCM7440)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
 			upper_mem_ram_size = 0;
 #endif
 
 			switch (*from) {
 			case '@':
 				start_at = memparse(from + 1, &from);
-#if defined (CONFIG_MIPS_BCM7440)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
 				if (mmap_defaulted) {
 					/*
 					** This combination of boot parameters will surely cause
@@ -671,7 +679,7 @@ static inline void parse_cmdline_early(void)
 			case '$':
 			case '#': /* CFE will interprete $, so non-conformant alternate syntax is supported */
 				start_at = memparse(from + 1, &from);
-#if defined (CONFIG_MIPS_BCM7440)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
 				{
 					if (mmap_defaulted) {
 						/*
@@ -959,7 +967,7 @@ static inline void bootmem_init(void)
 	bootmap_size = init_bootmem(first_usable_pfn, max_low_pfn);
 
 
-#elif defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0)
+#elif defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0) || defined (CONFIG_MIPS_BCM7601)
 	{
 	   int ddr, node;
 
@@ -1081,7 +1089,7 @@ static inline void bootmem_init(void)
 #ifndef CONFIG_DISCONTIGMEM
 		free_bootmem(PFN_PHYS(curr_pfn), PFN_PHYS(size));
 
-#elif defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0)
+#elif defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0) || defined (CONFIG_MIPS_BCM7601)
 		{
 			unsigned long paddr = PFN_PHYS(curr_pfn);
 			int node;
@@ -1118,7 +1126,7 @@ static inline void bootmem_init(void)
 	firstUsableAddr = PFN_PHYS(first_usable_pfn) + bootmap_size;
 
 #elif defined(CONFIG_DISCONTIGMEM) && \
-	(defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0))
+	(defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0)) || defined (CONFIG_MIPS_BCM7601)
 	/*
 	 * reserve the memory bitmaps so they can't be allocated
 	 */

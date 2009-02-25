@@ -1,7 +1,7 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 18
-EXTRAVERSION =-6.4
+EXTRAVERSION =-6.5
 NAME=Avast! A bilge rat!
 
 # *DOCUMENTATION*
@@ -992,6 +992,9 @@ MRPROPER_FILES += .config .config.old include/asm .version .old_version \
                   include/linux/utsrelease.h                            \
 		  include/linux/dwarf2-defs.h				\
 		  Module.symvers tags TAGS cscope*
+# jipeng - need remove linux, modules/, usr/intiramfs.dev and usr/initramfs_data_nodev.cpio
+MRPROPER_DIRS  += modules
+MRPROPER_FILES += linux usr/initramfs.dev usr/initramfs_data_nodev.cpio 
 
 # clean - Delete most, but leave enough to build external modules
 #

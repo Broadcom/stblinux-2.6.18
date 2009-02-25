@@ -24,9 +24,7 @@ static const char rcsid[] = "$BINDId: ns_name.c,v 8.15 2000/03/30 22:53:46 vixie
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 
-#define _LIBC
 #include <errno.h>
-#undef _LIBC
 #include <resolv.h>
 #include <string.h>
 #include <ctype.h>

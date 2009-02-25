@@ -140,7 +140,7 @@ unsigned long (* __get_discontig_RAM_size) (void) = __default_get_discontig_RAM_
 EXPORT_SYMBOL(__get_discontig_RAM_size);
 
 #if defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7325 ) || \
-	defined( CONFIG_MIPS_BCM7440 )
+	defined( CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601)
 #define CONSOLE_KARGS " console=uart,mmio,0x10400b00,115200n8"
 
 #else
@@ -317,6 +317,7 @@ static void early_read_int(char *param, int *var)
 
 static void __init board_pinmux_setup(void)
 {
+#if ! defined(CONFIG_MIPS_BRCM_SIM)
 #if   defined(CONFIG_MIPS_BCM7420)
 	PINMUX(7, gpio_000, 1);		// ENET LEDs
 	PINMUX(7, gpio_001, 1);
@@ -339,6 +340,8 @@ static void __init board_pinmux_setup(void)
 	PINMUX(8, gpio_012, 1);
 	PINMUX(8, gpio_013, 1);
 	PINMUX(8, gpio_014, 1);
+	PINMUX(20, gpio_108, 4);	/*RGMII SDC/SDL */
+	PINMUX(20, gpio_109, 5);
 
 	/* set RGMII lines to 2.5V */
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_002, 1);
@@ -353,7 +356,8 @@ static void __init board_pinmux_setup(void)
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_012, 1);
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_013, 1);
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_014, 1);
-#endif
+#endif /* CONFIG_MIPS_BCM7420 */
+#endif /* ! CONFIG_MIPS_BRCM_SIM */
 }
 
 void __init prom_init(void)
@@ -554,7 +558,7 @@ void __init prom_init(void)
 	  else {
 #if defined(CONFIG_BMIPS4380) || defined(CONFIG_BMIPS5000)
 		par_val = 0xff;		/* default: keep CFE setting */
-#elif !defined(CONFIG_MIPS_BCM7325A0)	/* no RAC in 7325A0 */
+#elif !defined(CONFIG_MIPS_BCM7325B0)	/* no RAC in 7325B0 */
 		par_val = 0x03;		/* set default to I/D RAC on */
 #endif
 		par_val2 = (get_RAM_size()-1) & 0xffff0000;
@@ -765,7 +769,7 @@ void __init prom_init(void)
 			add_memory_region(0, g_board_RAM_size, BOOT_MEM_RAM);
 		}
 		else {
-#if defined (CONFIG_MIPS_BCM7440B0)
+#if defined (CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM7601)
 			/*
 			** On the 7440B0, Memory Region 0
 			** is split into a DMA region sized

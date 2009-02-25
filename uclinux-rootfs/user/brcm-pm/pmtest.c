@@ -49,6 +49,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <getopt.h>
+
 #include <pmlib.h>
 
 void usage(void)
@@ -64,6 +66,9 @@ void usage(void)
 	printf("  cpu 4        set CPU clock to BASE/4\n");
 	printf("  ddr 64       enable DDR self-refresh after 64 idle cycles\n");
 	printf("  ddr 0        disable DDR self-refresh\n");
+	printf("\n");
+	printf("options:\n");
+	printf("  -d <0|1>     disable/enable DHCP on ENET\n");
 	exit(1);
 }
 
@@ -76,19 +81,41 @@ void fatal(char *str)
 int main(int argc, char **argv)
 {
 	struct brcm_pm_state state;
+	struct brcm_pm_cfg cfg;
 	void *brcm_pm_ctx;
-	int val;
+	int val, use_dhcp = 1, ret;
+	char *cmd, *arg;
 
-	if(argc < 2)
+	while((ret = getopt(argc, argv, "d:h")) != -1) {
+		switch(ret) {
+			case 'd':
+				use_dhcp = atoi(optarg);
+				break;
+			case 'h':
+			default:
+				usage();
+				break;
+		}
+	}
+
+	if(optind >= argc)
 		usage();
+	cmd = argv[optind];
+	optind++;
 
 	brcm_pm_ctx = brcm_pm_init();
 	if(! brcm_pm_ctx)
 		fatal("can't open PM context");
 	if(brcm_pm_get_status(brcm_pm_ctx, &state) != 0)
 		fatal("can't get PM state");
+	
+	if(brcm_pm_get_cfg(brcm_pm_ctx, &cfg) != 0)
+		fatal("can't get PM config");
+	cfg.use_dhcp = use_dhcp;
+	if(brcm_pm_set_cfg(brcm_pm_ctx, &cfg) != 0)
+		fatal("can't set PM config");
 
-	if(! strcmp(argv[1], "status"))
+	if(! strcmp(cmd, "status"))
 	{
 		printf("usb:          %d\n", state.usb_status);
 		printf("enet:         %d\n", state.enet_status);
@@ -101,11 +128,13 @@ int main(int argc, char **argv)
 		return(0);
 	}
 
-	if(argc < 3)
+	if(optind >= argc)
 		usage();
-	val = atoi(argv[2]);
+	arg = argv[optind];
+	optind++;
+	val = atoi(arg);
 
-	if(! strcmp(argv[1], "usb"))
+	if(! strcmp(cmd, "usb"))
 	{
 		state.usb_status = val;
 		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
@@ -113,7 +142,7 @@ int main(int argc, char **argv)
 		return(0);
 	}
 
-	if(! strcmp(argv[1], "enet"))
+	if(! strcmp(cmd, "enet"))
 	{
 		state.enet_status = val;
 		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
@@ -121,7 +150,7 @@ int main(int argc, char **argv)
 		return(0);
 	}
 
-	if(! strcmp(argv[1], "sata"))
+	if(! strcmp(cmd, "sata"))
 	{
 		state.sata_status = val;
 		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
@@ -129,7 +158,7 @@ int main(int argc, char **argv)
 		return(0);
 	}
 
-	if(! strcmp(argv[1], "tp1"))
+	if(! strcmp(cmd, "tp1"))
 	{
 		state.tp1_status = val;
 		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
@@ -137,7 +166,7 @@ int main(int argc, char **argv)
 		return(0);
 	}
 
-	if(! strcmp(argv[1], "cpu"))
+	if(! strcmp(cmd, "cpu"))
 	{
 		state.cpu_divisor = val;
 		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
@@ -145,7 +174,7 @@ int main(int argc, char **argv)
 		return(0);
 	}
 
-	if(! strcmp(argv[1], "ddr"))
+	if(! strcmp(cmd, "ddr"))
 	{
 		state.ddr_timeout = val;
 		if(brcm_pm_set_status(brcm_pm_ctx, &state) != 0)
