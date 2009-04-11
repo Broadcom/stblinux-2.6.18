@@ -41,10 +41,10 @@
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/version.h>
-#include <linux/bmoca.h>
 #include <asm/io.h>
 #include <asm/semaphore.h>
 #include <asm/scatterlist.h>
+#include <linux/bmoca.h>
 
 #define DRV_VERSION		0x00000001
 
@@ -65,6 +65,13 @@
 #if ! MOCA6816 || ! NATIVE
 #include <asm/brcmstb/common/brcmstb.h>
 #endif
+
+#ifdef CONFIG_BRCM_PM
+#include <asm/brcmstb/common/brcm-pm.h>
+#endif
+
+#define MOCA_ENABLE		1
+#define MOCA_DISABLE		0
 
 /* offsets from the start of the MoCA core */
 #define OFF_DATA_MEM		0x00000000
@@ -115,7 +122,7 @@
 #define NUM_CORE_MSG		8
 #define NUM_HOST_MSG		8
 
-#define MAX_FW_PAGES		(DATA_MEM_SIZE >> PAGE_SHIFT)
+#define MAX_FW_PAGES		((DATA_MEM_SIZE >> PAGE_SHIFT) + 1)
 #define MAX_LAB_PRINTF		104
 
 #ifdef CONFIG_CPU_LITTLE_ENDIAN
@@ -160,7 +167,6 @@ struct moca_priv_data {
 	unsigned int		mbx_offset;
 	struct page		*fw_pages[MAX_FW_PAGES];
 	struct scatterlist	fw_sg[MAX_FW_PAGES];
-	struct mutex		copy_mutex;
 	struct completion	copy_complete;
 
 	struct list_head	host_msg_free_list;
@@ -175,15 +181,17 @@ struct moca_priv_data {
 	wait_queue_head_t	core_msg_wq;
 
 	spinlock_t		list_lock;
-	struct mutex		mbx_mutex;
+	struct mutex		dev_mutex;
 	int			host_mbx_busy;
 	int			host_resp_pending;
 	int			core_req_pending;
 	int			assert_pending;
 	int			wdt_pending;
 
+	int			enabled;
 	int			running;
-	atomic_t		refcount;
+
+	int			refcount;
 	unsigned long		start_time;
 };
 
@@ -256,8 +264,15 @@ static void moca_hw_reset(struct moca_priv_data *priv)
 }
 
 /* called any time we start/restart/stop MoCA */
-static void moca_hw_init(struct moca_priv_data *priv)
+static void moca_hw_init(struct moca_priv_data *priv, int action)
 {
+#ifdef CONFIG_BRCM_PM
+	if((action == MOCA_ENABLE) && ! priv->enabled) {
+		brcm_pm_moca_enable(priv->minor);
+		priv->enabled = 1;
+	}
+#endif
+
 	moca_hw_reset(priv);
 	udelay(1);
 
@@ -265,8 +280,9 @@ static void moca_hw_init(struct moca_priv_data *priv)
 	MOCA_UNSET(priv->base + OFF_SW_RESET, (1 << 1));
 	MOCA_RD(priv->base + OFF_SW_RESET);
 
-	/* clear junk out of GP0 */
+	/* clear junk out of GP0/GP1 */
 	MOCA_WR(priv->base + OFF_GP0, 0xffffffff);
+	MOCA_WR(priv->base + OFF_GP1, 0x0);
 
 	/* enable DMA completion interrupts */
 	MOCA_WR(priv->base + OFF_RINGBELL, 0);
@@ -275,6 +291,13 @@ static void moca_hw_init(struct moca_priv_data *priv)
 
 	/* set up activity LED for 50% duty cycle */
 	MOCA_WR(priv->base + OFF_LED_CTRL, 0x40004000);
+
+#ifdef CONFIG_BRCM_PM
+	if((action == MOCA_DISABLE) && priv->enabled) {
+		brcm_pm_moca_disable(priv->minor);
+		priv->enabled = 0;
+	}
+#endif
 }
 
 static void moca_ringbell(struct moca_priv_data *priv, u32 mask)
@@ -357,10 +380,8 @@ static void moca_write_mem(struct moca_priv_data *priv,
 	}
 
 	pa = dma_map_single(&priv->pdev->dev, src, len, DMA_TO_DEVICE);
-	mutex_lock(&priv->copy_mutex);
 	moca_m2m_xfer(priv, dst_offset + OFF_DATA_MEM, (u32)pa,
 		len | M2M_WRITE);
-	mutex_unlock(&priv->copy_mutex);
 	dma_unmap_single(&priv->pdev->dev, pa, len, DMA_TO_DEVICE);
 }
 
@@ -377,9 +398,7 @@ static void moca_read_mem(struct moca_priv_data *priv,
 	}
 
 	pa = dma_map_single(&priv->pdev->dev, dst, len, DMA_FROM_DEVICE);
-	mutex_lock(&priv->copy_mutex);
 	moca_m2m_xfer(priv, (u32)pa, src_offset + OFF_DATA_MEM, len | M2M_READ);
-	mutex_unlock(&priv->copy_mutex);
 	dma_unmap_single(&priv->pdev->dev, pa, len, DMA_FROM_DEVICE);
 }
 
@@ -388,70 +407,122 @@ static void moca_write_sg(struct moca_priv_data *priv,
 {
 	int j;
 	uintptr_t addr = OFF_DATA_MEM + dst_offset;
-	u32 c;
 
 	dma_map_sg(&priv->pdev->dev, sg, nents, DMA_TO_DEVICE);
 
-	mutex_lock(&priv->copy_mutex);
-	c = read_c0_count();
 	for(j = 0; j < nents; j++) {
 		moca_m2m_xfer(priv, addr, (u32)sg[j].dma_address,
 			sg[j].length | M2M_WRITE);
 
 		addr += sg[j].length;
 	}
-	c = read_c0_count() - c;
-	mutex_unlock(&priv->copy_mutex);
+
+	dma_unmap_sg(&priv->pdev->dev, sg, nents, DMA_TO_DEVICE);
+}
+
+static void moca_read_sg(struct moca_priv_data *priv,
+	u32 src_offset, struct scatterlist *sg, int nents)
+{
+	int j;
+	uintptr_t addr = OFF_DATA_MEM + src_offset;
+
+	dma_map_sg(&priv->pdev->dev, sg, nents, DMA_TO_DEVICE);
+
+	for(j = 0; j < nents; j++) {
+		moca_m2m_xfer(priv, (u32)sg[j].dma_address, addr,
+			sg[j].length | M2M_READ);
+
+		addr += sg[j].length;
+		SetPageDirty(sg[j].page);
+	}
 
 	dma_unmap_sg(&priv->pdev->dev, sg, nents, DMA_TO_DEVICE);
 }
 
 #endif
 
-static int moca_write_img(struct moca_priv_data *priv, unsigned long img_addr)
+static void moca_put_pages(struct moca_priv_data *priv, int pages)
 {
-	int i, ret;
-	struct moca_fw_img img;
-	unsigned int pages, len;
+	int i;
 
-	if(copy_from_user(&img, (void __user *)img_addr, sizeof(img)))
-		return(-EFAULT);
-
-	pages = (img.img_len + PAGE_SIZE - 1) >> PAGE_SHIFT;
-	if(pages > (DATA_MEM_SIZE >> PAGE_SHIFT))
-		return(-EINVAL);
-	len = (img.img_len + 3) & ~3;
-	if(len < 4)
-		return(-EINVAL);
-	if((unsigned long)img.img & ~PAGE_MASK)
-		return(-EINVAL);
-
-	down_read(&current->mm->mmap_sem);
-	ret = get_user_pages(current, current->mm,
-		(unsigned long)img.img, pages, 0, 0, priv->fw_pages, NULL);
-	up_read(&current->mm->mmap_sem);
-	if(ret < 0)
-		return(ret);
-	if(ret < pages) {
-		pages = ret;
-		ret = -EFAULT;
-		goto out_unmap;
-	}
-
-	for(i = 0; i < pages; i++) {
-		priv->fw_sg[i].page = priv->fw_pages[i];
-		priv->fw_sg[i].offset = 0;
-		priv->fw_sg[i].length = len > PAGE_SIZE ? PAGE_SIZE : len;
-		len -= PAGE_SIZE;
-	}
-
-	moca_write_sg(priv, 0, priv->fw_sg, pages);
-	ret = 0;
-
-out_unmap:
 	for(i = 0; i < pages; i++)
 		page_cache_release(priv->fw_pages[i]);
+}
 
+static int moca_get_pages(struct moca_priv_data *priv, unsigned long addr,
+	int size, unsigned int moca_addr, int write)
+{
+	unsigned int pages, chunk_size;
+	int ret, i;
+
+	if((addr & 3) || (size & 3) || (moca_addr & 3))
+		return(-EINVAL);
+	if((size <= 0) || (size > DATA_MEM_SIZE))
+		return(-EINVAL);
+	if(moca_addr >= OFF_CNTL_MEM) {
+		if((moca_addr >= CNTL_MEM_END) ||
+			((moca_addr + size) > CNTL_MEM_END))
+			return(-EINVAL);
+	} else {
+		if((moca_addr >= DATA_MEM_END) ||
+			((moca_addr + size) > DATA_MEM_END))
+			return(-EINVAL);
+	}
+#if M2M_64_WAR
+	if(((addr & 7) != (moca_addr & 7)) || (size < 32))
+		return(-EINVAL);
+#endif
+
+	pages = ((addr & ~PAGE_MASK) + size + PAGE_SIZE - 1) >> PAGE_SHIFT;
+
+	down_read(&current->mm->mmap_sem);
+	ret = get_user_pages(current, current->mm, addr & PAGE_MASK, pages,
+		write, 0, priv->fw_pages, NULL);
+	up_read(&current->mm->mmap_sem);
+
+	if(ret < 0)
+		return(ret);
+	BUG_ON((ret > MAX_FW_PAGES) || (pages == 0));
+
+	if(ret < pages) {
+		printk(KERN_WARNING "%s: get_user_pages returned %d, "
+			"expecting %d\n", __FUNCTION__, ret, pages);
+		moca_put_pages(priv, ret);
+		return(-EFAULT);
+	}
+
+	chunk_size = PAGE_SIZE - (addr & ~PAGE_MASK);
+	if(size < chunk_size)
+		chunk_size = size;
+
+	priv->fw_sg[0].page = priv->fw_pages[0];
+	priv->fw_sg[0].offset = addr & ~PAGE_MASK;
+	priv->fw_sg[0].length = chunk_size;
+	size -= chunk_size;
+
+	for(i = 1; i < pages; i++) {
+		priv->fw_sg[i].page = priv->fw_pages[i];
+		priv->fw_sg[i].offset = 0;
+		priv->fw_sg[i].length = size > PAGE_SIZE ? PAGE_SIZE : size;
+		size -= PAGE_SIZE;
+	}
+	return(ret);
+}
+
+static int moca_write_img(struct moca_priv_data *priv, unsigned long xfer_uaddr)
+{
+	struct moca_xfer x;
+	int pages;
+
+	if(copy_from_user(&x, (void __user *)xfer_uaddr, sizeof(x)))
+		return(-EFAULT);
+	
+	pages = moca_get_pages(priv, (unsigned long)x.buf, x.len, 0, 0);
+	if(pages < 0)
+		return(pages);
+
+	moca_write_sg(priv, 0, priv->fw_sg, pages);
+	moca_put_pages(priv, pages);
 	moca_start_mips(priv);
 
 	return(0);
@@ -491,7 +562,7 @@ static void moca_msg_reset(struct moca_priv_data *priv)
 	spin_unlock_bh(&priv->list_lock);
 }
 
-static struct list_head *detach_head(struct moca_priv_data *priv,
+static struct list_head *moca_detach_head(struct moca_priv_data *priv,
 	struct list_head *h)
 {
 	struct list_head *r = NULL;
@@ -506,8 +577,8 @@ static struct list_head *detach_head(struct moca_priv_data *priv,
 	return(r);
 }
 
-static void attach_tail(struct moca_priv_data *priv, struct list_head *elem,
-	struct list_head *list)
+static void moca_attach_tail(struct moca_priv_data *priv,
+	struct list_head *elem, struct list_head *list)
 {
 	spin_lock_bh(&priv->list_lock);
 	list_add_tail(elem, list);
@@ -525,7 +596,7 @@ static int moca_recvmsg(struct moca_priv_data *priv, uintptr_t offset,
 	int err = -ENOMEM;
 	u32 *reply = priv->core_resp_buf;
 
-	ml = detach_head(priv, &priv->core_msg_free_list);
+	ml = moca_detach_head(priv, &priv->core_msg_free_list);
 	if(ml == NULL) {
 		msg = "no entries left on core_msg_free_list";
 		goto bad;
@@ -596,7 +667,7 @@ static int moca_recvmsg(struct moca_priv_data *priv, uintptr_t offset,
 		u32 str_addr = be32_to_cpu(m->data[2]) & 0x1fffffff;
 
 		m->len = 8 + str_len;
-#ifdef M2M_64_WAR
+#if M2M_64_WAR
 		if(str_addr & 0x7) {
 			int offset = (str_addr & 0x7) >> 2;
 			moca_read_mem(priv, &m->data[4], str_addr & ~0x7,
@@ -627,7 +698,7 @@ static int moca_recvmsg(struct moca_priv_data *priv, uintptr_t offset,
 		moca_ringbell(priv, H2M_RESP);
 	}
 
-	attach_tail(priv, ml, &priv->core_msg_pend_list);
+	moca_attach_tail(priv, ml, &priv->core_msg_pend_list);
 	wake_up(&priv->core_msg_wq);
 
 	return(0);
@@ -636,12 +707,12 @@ bad:
 	printk(KERN_WARNING "%s: %s\n", __FUNCTION__, msg);
 
 	if(ml)
-		attach_tail(priv, ml, &priv->core_msg_free_list);
+		moca_attach_tail(priv, ml, &priv->core_msg_free_list);
 
 	return(err);
 }
 
-static int h2m_sanity_check(struct moca_host_msg *m)
+static int moca_h2m_sanity_check(struct moca_host_msg *m)
 {
 	unsigned int w, num_ies;
 	u32 data;
@@ -672,7 +743,7 @@ static int moca_sendmsg(struct moca_priv_data *priv)
 	if(priv->host_mbx_busy == 1)
 		return(-1);
 
-	ml = detach_head(priv, &priv->host_msg_pend_list);
+	ml = moca_detach_head(priv, &priv->host_msg_pend_list);
 	if(ml == NULL)
 		return(-EAGAIN);
 	m = list_entry(ml, struct moca_host_msg, chain);
@@ -681,7 +752,7 @@ static int moca_sendmsg(struct moca_priv_data *priv)
 		m->data, m->len);
 	
 	moca_ringbell(priv, H2M_REQ);
-	attach_tail(priv, ml, &priv->host_msg_free_list);
+	moca_attach_tail(priv, ml, &priv->host_msg_free_list);
 	wake_up(&priv->host_msg_wq);
 
 	return(0);
@@ -692,7 +763,7 @@ static int moca_wdt(struct moca_priv_data *priv)
 	struct list_head *ml = NULL;
 	struct moca_core_msg *m;
 
-	ml = detach_head(priv, &priv->core_msg_free_list);
+	ml = moca_detach_head(priv, &priv->core_msg_free_list);
 	if(ml == NULL) {
 		printk(KERN_WARNING
 			"%s: no entries left on core_msg_free_list\n",
@@ -710,7 +781,7 @@ static int moca_wdt(struct moca_priv_data *priv)
 	m->data[1] = cpu_to_be32(MOCA_IE_WDT << 16);
 	m->len = 8;
 
-	attach_tail(priv, ml, &priv->core_msg_pend_list);
+	moca_attach_tail(priv, ml, &priv->core_msg_pend_list);
 	wake_up(&priv->core_msg_wq);
 
 	return(0);
@@ -738,6 +809,7 @@ static void moca_work_handler(void *arg)
 
 	if((mask & (M2H_REQ | M2H_RESP)) && priv->mbx_offset == -1) {
 		uintptr_t base = MOCA_RD(priv->base + OFF_GP0) & 0x1fffffff;
+
 		if((base == 0) || (base > CNTL_MEM_END) || (base & 7)) {
 			printk(KERN_WARNING "%s: can't get mailbox base\n",
 				__FUNCTION__);
@@ -746,7 +818,7 @@ static void moca_work_handler(void *arg)
 		priv->mbx_offset = base;
 	}
 
-	mutex_lock(&priv->mbx_mutex);
+	mutex_lock(&priv->dev_mutex);
 
 	/* fatal events */
 	if(mask & M2H_ASSERT) {
@@ -766,7 +838,7 @@ static void moca_work_handler(void *arg)
 		priv->core_req_pending = 0;
 		priv->host_resp_pending = 0;
 		priv->host_mbx_busy = 1;
-		mutex_unlock(&priv->mbx_mutex);
+		mutex_unlock(&priv->dev_mutex);
 		wake_up(&priv->core_msg_wq);
 		return;
 	}
@@ -787,7 +859,7 @@ static void moca_work_handler(void *arg)
 			moca_sendmsg(priv);
 		}
 	}
-	mutex_unlock(&priv->mbx_mutex);
+	mutex_unlock(&priv->dev_mutex);
 
 	moca_enable_irq(priv);
 }
@@ -938,7 +1010,9 @@ static int moca_file_open(struct inode *inode, struct file *file)
 	
 	file->private_data = priv = minor_tbl[minor];
 
-	atomic_inc(&priv->refcount);
+	mutex_lock(&priv->dev_mutex);
+	priv->refcount++;
+	mutex_unlock(&priv->dev_mutex);
 	return(0);
 }
 
@@ -946,13 +1020,56 @@ static int moca_file_release(struct inode *inode, struct file *file)
 {
 	struct moca_priv_data *priv = file->private_data;
 
-	if(atomic_dec_and_test(&priv->refcount) && priv->running) {
+	mutex_lock(&priv->dev_mutex);
+	priv->refcount--;
+	if(priv->refcount == 0 && priv->running == 1) {
 		/* last user closed the device */
-		mutex_lock(&priv->mbx_mutex);
 		moca_msg_reset(priv);
-		moca_hw_init(priv);
-		mutex_unlock(&priv->mbx_mutex);
+		moca_hw_init(priv, MOCA_DISABLE);
 	}
+	mutex_unlock(&priv->dev_mutex);
+	return(0);
+}
+
+static int moca_ioctl_readmem(struct moca_priv_data *priv,
+	unsigned long xfer_uaddr)
+{
+	struct moca_xfer x;
+	int pages;
+
+	if(copy_from_user(&x, (void __user *)xfer_uaddr, sizeof(x)))
+		return(-EFAULT);
+	
+	pages = moca_get_pages(priv,
+		(unsigned long)x.buf, x.len, x.moca_addr, 1);
+	if(pages < 0)
+		return(pages);
+
+	moca_read_sg(priv, x.moca_addr, priv->fw_sg, pages);
+	moca_put_pages(priv, pages);
+
+	return(0);
+}
+
+static int moca_ioctl_get_drv_info(struct moca_priv_data *priv,
+	unsigned long arg)
+{
+	struct moca_kdrv_info info;
+	struct moca_platform_data *pd = priv->pdev->dev.platform_data;
+
+	info.version = DRV_VERSION;
+	info.uptime = (jiffies - priv->start_time) / HZ;
+	info.refcount = priv->refcount;
+	info.gp1 = priv->running ? MOCA_RD(priv->base + OFF_GP1) : 0;
+
+	memcpy(info.enet_name, pd->enet_name, IFNAMSIZ);
+	info.enet_id = pd->enet_id;
+	info.macaddr_hi = pd->macaddr_hi;
+	info.macaddr_lo = pd->macaddr_lo;
+
+	if(copy_to_user((void *)arg, &info, sizeof(info)))
+		return(-EFAULT);
+	
 	return(0);
 }
 
@@ -962,12 +1079,12 @@ static long moca_file_ioctl(struct file *file, unsigned int cmd,
 	struct moca_priv_data *priv = file->private_data;
 	long ret = -ENOTTY;
 
-	mutex_lock(&priv->mbx_mutex);
+	mutex_lock(&priv->dev_mutex);
 	switch(cmd) {
 		case MOCA_IOCTL_START:
 			ret = 0;
 			moca_msg_reset(priv);
-			moca_hw_init(priv);
+			moca_hw_init(priv, MOCA_ENABLE);
 			moca_3450_init(priv);
 			moca_irq_status(priv, FLUSH_IRQ);
 			ret = moca_write_img(priv, arg);
@@ -978,31 +1095,17 @@ static long moca_file_ioctl(struct file *file, unsigned int cmd,
 			break;
 		case MOCA_IOCTL_STOP:
 			moca_msg_reset(priv);
-			moca_hw_init(priv);
+			moca_hw_init(priv, MOCA_DISABLE);
 			ret = 0;
 			break;
-		case MOCA_IOCTL_GET_DRV_INFO: {
-			struct moca_kdrv_info info;
-			struct moca_platform_data *pd =
-				priv->pdev->dev.platform_data;
-
-			info.version = DRV_VERSION;
-			info.uptime = (jiffies - priv->start_time) / HZ;
-			info.refcount = atomic_read(&priv->refcount);
-
-			memcpy(info.enet_name, pd->enet_name, IFNAMSIZ);
-			info.enet_id = pd->enet_id;
-			info.macaddr_hi = pd->macaddr_hi;
-			info.macaddr_lo = pd->macaddr_lo;
-
-			if(copy_to_user((void *)arg, &info, sizeof(info)))
-				ret = -EFAULT;
-			else
-				ret = 0;
+		case MOCA_IOCTL_READMEM:
+			ret = moca_ioctl_readmem(priv, arg);
 			break;
-		}
+		case MOCA_IOCTL_GET_DRV_INFO:
+			ret = moca_ioctl_get_drv_info(priv, arg);
+			break;
 	}
-	mutex_unlock(&priv->mbx_mutex);
+	mutex_unlock(&priv->dev_mutex);
 
 	return(ret);
 }
@@ -1024,7 +1127,7 @@ static ssize_t moca_file_read(struct file *file, char __user *buf,
 	do {
 		__set_current_state(TASK_INTERRUPTIBLE);
 
-		ml = detach_head(priv, &priv->core_msg_pend_list);
+		ml = moca_detach_head(priv, &priv->core_msg_pend_list);
 		if(ml != NULL) {
 			m = list_entry(ml, struct moca_core_msg, chain);
 			ret = 0;
@@ -1062,7 +1165,7 @@ static ssize_t moca_file_read(struct file *file, char __user *buf,
 		 * we just freed up space for another message, so if there was
 		 * a backlog, clear it out
 		 */
-		mutex_lock(&priv->mbx_mutex);
+		mutex_lock(&priv->dev_mutex);
 		if(priv->assert_pending)
 			if(moca_recvmsg(priv, CORE_REQ_OFFSET, CORE_REQ_SIZE,
 				0) != -ENOMEM)
@@ -1078,7 +1181,7 @@ static ssize_t moca_file_read(struct file *file, char __user *buf,
 			if(moca_recvmsg(priv, HOST_RESP_OFFSET,
 				HOST_RESP_SIZE, 0) != -ENOMEM)
 				priv->host_resp_pending = 0;
-		mutex_unlock(&priv->mbx_mutex);
+		mutex_unlock(&priv->dev_mutex);
 	}
 
 	return(ret);
@@ -1100,7 +1203,7 @@ static ssize_t moca_file_write(struct file *file, const char __user *buf,
 	do {
 		__set_current_state(TASK_INTERRUPTIBLE);
 
-		ml = detach_head(priv, &priv->host_msg_free_list);
+		ml = moca_detach_head(priv, &priv->host_msg_free_list);
 		if(ml != NULL) {
 			m = list_entry(ml, struct moca_host_msg, chain);
 			ret = 0;
@@ -1128,25 +1231,25 @@ static ssize_t moca_file_write(struct file *file, const char __user *buf,
 		ret = -EFAULT;
 		goto bad;
 	}
-	ret = h2m_sanity_check(m);
+	ret = moca_h2m_sanity_check(m);
 	if(ret < 0) {
 		ret = -EINVAL;
 		goto bad;
 	}
 
-	attach_tail(priv, ml, &priv->host_msg_pend_list);
+	moca_attach_tail(priv, ml, &priv->host_msg_pend_list);
 
-	mutex_lock(&priv->mbx_mutex);
+	mutex_lock(&priv->dev_mutex);
 	if(priv->running)
 		moca_sendmsg(priv);
 	else
 		ret = -EIO;
-	mutex_unlock(&priv->mbx_mutex);
+	mutex_unlock(&priv->dev_mutex);
 
 	return(ret);
 
 bad:
-	attach_tail(priv, ml, &priv->host_msg_free_list);
+	moca_attach_tail(priv, ml, &priv->host_msg_free_list);
 
 	return(ret);
 }
@@ -1204,8 +1307,7 @@ static int moca_probe(struct platform_device *pdev)
 	init_completion(&priv->copy_complete);
 	
 	spin_lock_init(&priv->list_lock);
-	mutex_init(&priv->mbx_mutex);
-	mutex_init(&priv->copy_mutex);
+	mutex_init(&priv->dev_mutex);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
 	INIT_WORK(&priv->work, moca_work_handler);
 #else
@@ -1247,9 +1349,10 @@ static int moca_probe(struct platform_device *pdev)
 		err = -EIO;
 		goto bad2;
 	}
+	moca_hw_init(priv, MOCA_ENABLE);
 	moca_disable_irq(priv);
-	atomic_set(&priv->refcount, 0);
 	moca_msg_reset(priv);
+	moca_hw_init(priv, MOCA_DISABLE);
 
 	printk(KERN_INFO "bmoca: adding minor #%d at base 0x%08x, IRQ %d, "
 		"I2C 0x%08lx/0x%02x\n", priv->minor, mres->start, ires->start,

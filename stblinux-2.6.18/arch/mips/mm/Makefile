@@ -9,7 +9,8 @@ obj-$(CONFIG_32BIT)		+= ioremap.o pgtable-32.o
 obj-$(CONFIG_64BIT)		+= pgtable-64.o
 obj-$(CONFIG_HIGHMEM)		+= highmem.o
 
-ifdef CONFIG_BMIPS5000_BROKEN
+ifeq ($(CONFIG_BMIPS5000)$(CONFIG_MIPS_BCM7420A0),y)
+# only works on 7420b0 or higher
 obj-$(CONFIG_CPU_MIPS32)	+= c-b5k.o cex-gen.o pg-r4k.o tlb-r4k.o
 else
 obj-$(CONFIG_CPU_MIPS32)	+= c-r4k.o cex-gen.o pg-r4k.o tlb-r4k.o

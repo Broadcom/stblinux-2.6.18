@@ -1,5 +1,5 @@
 /***************************************************************************
- *     Copyright (c) 1999-2007, Broadcom Corporation
+ *     Copyright (c) 1999-2008, Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -21,21 +21,21 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Mon Jul 23 11:52:18 2007
- *                 MD5 Checksum         61f9c4d8dcdcd06017506dddbf23f434
+ * Date:           Generated on         Wed Jan  9 08:55:11 2008
+ *                 MD5 Checksum         847dc12a9d71c4c68a648bbf19a883e3
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
  *                 unknown              unknown
- *                 Perl Interpreter     5.008004
+ *                 Perl Interpreter     5.008008
  *                 Operating System     linux
  *
  * Revision History:
  *
- * $brcm_Log: /magnum/basemodules/chp/7400/rdb/d0/bchp_timer.h $
+ * $brcm_Log: /magnum/basemodules/chp/7400/rdb/e0/bchp_timer.h $
  * 
- * Hydra_Software_Devel/1   7/23/07 4:33p maivu
- * PR 32842: Initial revision
+ * Hydra_Software_Devel/1   1/9/08 11:46a rpan
+ * PR38572: Initial revision.
  *
  ***************************************************************************/
 

@@ -284,20 +284,23 @@ ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2_16K_IMG} ${JFFS2_16K_IMG}.nosummary
 	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_16K_IMG}.nosummary -o $(JFFS2_16K_IMG) -e 16KiB
 endif
-	# For SLC using BCH-4 ECC:
-	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o $(JFFS2_BCH4_16K_IMG) -N --squash --verbose --little-endian \
+	# For SLC using BCH-4 ECC, use MLC format, i.e. with -n flag and no -N flag.
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -n -o $(JFFS2_BCH4_16K_IMG) --squash --verbose --little-endian \
 		--eraseblock=16KiB  --pagesize=512 \
 		-d $(INITRAMFS_DIR)
 ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2_BCH4_16K_IMG} ${JFFS2_BCH4_16K_IMG}.nosummary
-	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_BCH4_16K_IMG}.nosummary -o $(JFFS2_BCH4_16K_IMG) -e 16KiB
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_BCH4_16K_IMG}.nosummary \
+		-o $(JFFS2_BCH4_16K_IMG) -e 16KiB
 endif
-	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o $(JFFS2_BCH4_128K_IMG) -N --squash --verbose --little-endian \
-		--eraseblock=128KiB   \
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -n -o $(JFFS2_BCH4_128K_IMG) \
+		--squash --verbose --little-endian \
+		--eraseblock=128KiB   --pagesize=2048\
 		-d $(INITRAMFS_DIR)
 ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2_BCH4_128K_IMG} ${JFFS2_BCH4_128K_IMG}.nosummary
-	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_BCH4_128K_IMG}.nosummary -o $(JFFS2_BCH4_128K_IMG) -e 128KiB
+	$(ROOTDIR)/user/mtd-utils/build/sumtool -l -i ${JFFS2_BCH4_128K_IMG}.nosummary \
+		-o $(JFFS2_BCH4_128K_IMG) -e 128KiB
 endif
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -o ${JFFS2_512K_IMG} -N --squash --verbose --little-endian \
 		--eraseblock=512KiB  --pagesize=512 \
@@ -308,7 +311,7 @@ ifdef CONFIG_JFFS2_SUMMARY
 endif
 	# For MLC, build with no -N flag and with -n flag (no clean marker)
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -n -o ${JFFS2_MLC_512K_IMG} \
-	--squash --verbose -e 512KiB --little-endian --pagesize=4096  \
+		--squash --verbose -e 512KiB --little-endian --pagesize=4096  \
 		-d $(INITRAMFS_DIR)
 ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2_MLC_512K_IMG} ${JFFS2_MLC_512K_IMG}.nosummary

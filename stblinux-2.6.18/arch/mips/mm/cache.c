@@ -112,6 +112,25 @@ void __flush_dcache_page(struct page *page)
 
 EXPORT_SYMBOL(__flush_dcache_page);
 
+/* PR51957: fix cache coherence in get_user_pages() */
+void __flush_anon_page(struct page *page, unsigned long vmaddr)
+{
+	unsigned long addr = (unsigned long) page_address(page);
+
+	if (pages_do_alias(addr, vmaddr)) {
+		if (page_mapped(page) && !Page_dcache_dirty(page)) {
+			void *kaddr;
+
+			kaddr = kmap_coherent(page, vmaddr);
+			flush_data_cache_page((unsigned long)kaddr);
+			kunmap_coherent(page);
+		} else
+			flush_data_cache_page(addr);
+	}
+}
+
+EXPORT_SYMBOL(__flush_anon_page);
+
 void __update_cache(struct vm_area_struct *vma, unsigned long address,
 	pte_t pte)
 {

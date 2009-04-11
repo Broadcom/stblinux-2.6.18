@@ -302,7 +302,7 @@ static void jffs2_calc_trigger_levels(struct jffs2_sb_info *c)
 	c->nospc_dirty_size = c->sector_size + res;
 	//c->nospc_dirty_size = c->sector_size + (c->flash_size / 100);
 
-	dbg_fsbuild("JFFS2 trigger levels (size %lu KiB, block size %d KiB, %d blocks)\n",
+	dbg_fsbuild("JFFS2 trigger levels (size %llu KiB, block size %d KiB, %d blocks)\n",
 		  c->flash_size >> 10 , c->sector_size / 1024, c->nr_blocks);
 	dbg_fsbuild("Blocks required to allow deletion:    %d (%d KiB)\n",
 		  c->resv_blocks_deletion, c->resv_blocks_deletion*c->sector_size/1024);
@@ -314,7 +314,7 @@ static void jffs2_calc_trigger_levels(struct jffs2_sb_info *c)
 		  c->resv_blocks_gcmerge, c->resv_blocks_gcmerge*c->sector_size/1024);
 	dbg_fsbuild("Blocks required to GC bad blocks:     %d (%d KiB)\n",
 		  c->resv_blocks_gcbad, c->resv_blocks_gcbad*c->sector_size/1024);
-	dbg_fsbuild("Amount of dirty space required to GC: %d bytes\n",
+	dbg_fsbuild("Amount of dirty space required to GC: %llu bytes\n",
 		  c->nospc_dirty_size);
 }
 

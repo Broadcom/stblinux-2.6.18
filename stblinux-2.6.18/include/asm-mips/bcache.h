@@ -18,6 +18,7 @@ struct bcache_ops {
 	void (*bc_disable)(void);
 	void (*bc_wback_inv)(unsigned long page, unsigned long size);
 	void (*bc_inv)(unsigned long page, unsigned long size);
+	void (*bc_flush_prefetch)(unsigned long addr, unsigned long size);
 };
 
 extern void indy_sc_init(void);
@@ -47,6 +48,11 @@ static inline void bc_inv(unsigned long page, unsigned long size)
 	bcops->bc_inv(page, size);
 }
 
+static inline void bc_flush_prefetch(unsigned long addr, unsigned long size)
+{
+	bcops->bc_flush_prefetch(addr, size);
+}
+
 #else /* !defined(CONFIG_BOARD_SCACHE) */
 
 /* Not R4000 / R4400 / R4600 / R5000.  */
@@ -55,6 +61,7 @@ static inline void bc_inv(unsigned long page, unsigned long size)
 #define bc_disable() do { } while (0)
 #define bc_wback_inv(page, size) do { } while (0)
 #define bc_inv(page, size) do { } while (0)
+#define bc_flush_prefetch(addr, size) do { } while (0)
 
 #endif /* !defined(CONFIG_BOARD_SCACHE) */
 

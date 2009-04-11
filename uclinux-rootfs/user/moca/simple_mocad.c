@@ -59,7 +59,7 @@
 
 static int			moca_fd;
 static struct moca_kdrv_info	kdrv_info;
-static struct moca_fw_img	fw_img;
+static struct moca_xfer		fw_img;
 static int			link_state = 0;
 
 #define BUF_SIZE		512
@@ -133,6 +133,7 @@ static void run_moca(void)
 		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xf9,
+		0x00, 0x00, 0x00, 0x00
 	};
 	uint8_t trace_enable_cmd[] = {
 		0x01, 0x00, 0x00, 0x01, 0x20, 0x17, 0x00, 0x04,
@@ -209,9 +210,9 @@ int main(int argc, char **argv)
 	fd = open("/etc/moca/mocacore.bin", O_RDONLY);
 	if(fd < 0)
 		die("Can't open firmware image");
-	fw_img.img_len = lseek(fd, 0, SEEK_END);
-	fw_img.img = mmap(NULL, fw_img.img_len, PROT_READ, MAP_SHARED, fd, 0);
-	if(fw_img.img == NULL)
+	fw_img.len = lseek(fd, 0, SEEK_END);
+	fw_img.buf = mmap(NULL, fw_img.len, PROT_READ, MAP_SHARED, fd, 0);
+	if(fw_img.buf == NULL)
 		die("Can't mmap firmware image");
 	close(fd);
 

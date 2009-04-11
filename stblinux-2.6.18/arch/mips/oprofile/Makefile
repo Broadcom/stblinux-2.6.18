@@ -18,3 +18,4 @@ oprofile-$(CONFIG_MIPS_BCM7038)		+= op_model_brcm7038.o
 oprofile-$(CONFIG_BMIPS3300)		+= op_model_brcm3300.o
 oprofile-$(CONFIG_BMIPS4350)		+= op_model_brcm4350.o
 oprofile-$(CONFIG_BMIPS4380)		+= op_model_brcm4380.o
+oprofile-$(CONFIG_BMIPS5000)		+= op_model_brcm5000.o

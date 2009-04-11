@@ -76,7 +76,7 @@
 #define ASSERT(x)       if (x); else ERROR(("assert: "__FILE__" line %d\n", __LINE__)); 
 #endif
 
-#if defined(DUMP_TRACE)
+#if defined(CONFIG_BCMUMAC_DUMP_TRACE)
 #define TRACE(x)        printk x
 #else
 #define TRACE(x)

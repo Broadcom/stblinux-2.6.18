@@ -1,7 +1,19 @@
-/**
- * @par Copyright Information:
- *      Copyright (C) 2007, Broadcom Corporation.
- *      All Rights Reserved.
+/*
+ *  Copyright (c) 2005-2009 Broadcom Corp.
+ *  
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  *
  * @file eduproto.h
  * @author Jean Roberge
@@ -12,6 +24,7 @@
 #ifndef _EDUPROTO_H_
 #define _EDUPROTO_H_
 
+#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/module.h>
@@ -30,6 +43,8 @@
 #include <asm/bug.h>
 
 #include <linux/mtd/brcmnand.h> 
+
+#include "edu.h"	// For EDU_USE_ISR
 
 /******************************************************************************
 * Prototyping
@@ -53,7 +68,13 @@ extern void EDU_get_status(void);
 extern uint32_t EDU_volatileRead(uint32_t);
 extern void EDU_volatileWrite(uint32_t, uint32_t);
 
-extern int EDU_poll(uint32_t, uint32_t, uint32_t, uint32_t);
+#ifdef CONFIG_MTD_BRCMNAND_USE_ISR
+extern uint32_t ISR_wait_for_completion(void);
+
+#else
+extern uint32_t EDU_poll(uint32_t, uint32_t, uint32_t, uint32_t);
+#endif
+
 
 extern void EDU_init(void);
 extern int EDU_write(volatile const void*, uint32_t);

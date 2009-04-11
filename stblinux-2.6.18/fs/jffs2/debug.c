@@ -322,14 +322,14 @@ __jffs2_dbg_dump_block_lists_nolock(struct jffs2_sb_info *c)
 {
 	printk(JFFS2_DBG_MSG_PREFIX " dump JFFS2 blocks lists:\n");
 
-	printk(JFFS2_DBG "flash_size: %#08x\n",		c->flash_size);
-	printk(JFFS2_DBG "used_size: %#08x\n",		c->used_size);
-	printk(JFFS2_DBG "dirty_size: %#08x\n",		c->dirty_size);
-	printk(JFFS2_DBG "wasted_size: %#08x\n",	c->wasted_size);
-	printk(JFFS2_DBG "unchecked_size: %#08x\n",	c->unchecked_size);
-	printk(JFFS2_DBG "free_size: %#08x\n",		c->free_size);
-	printk(JFFS2_DBG "erasing_size: %#08x\n",	c->erasing_size);
-	printk(JFFS2_DBG "bad_size: %#08x\n",		c->bad_size);
+	printk(JFFS2_DBG "flash_size: %#llx\n",		c->flash_size);
+	printk(JFFS2_DBG "used_size: %#llx\n",		c->used_size);
+	printk(JFFS2_DBG "dirty_size: %#llx\n",		c->dirty_size);
+	printk(JFFS2_DBG "wasted_size: %#llx\n",	c->wasted_size);
+	printk(JFFS2_DBG "unchecked_size: %#llx\n",	c->unchecked_size);
+	printk(JFFS2_DBG "free_size: %#llx\n",		c->free_size);
+	printk(JFFS2_DBG "erasing_size: %#llx\n",	c->erasing_size);
+	printk(JFFS2_DBG "bad_size: %#llx\n",		c->bad_size);
 	printk(JFFS2_DBG "sector_size: %#08x\n",	c->sector_size);
 	printk(JFFS2_DBG "jffs2_reserved_blocks size: %#08x\n",
 				c->sector_size * c->resv_blocks_write);

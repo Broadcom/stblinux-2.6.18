@@ -155,7 +155,9 @@ static inline void check_wait(void)
 	case CPU_BMIPS3300:
 	case CPU_BMIPS4350:
 	case CPU_BMIPS4380:
-	//case CPU_BMIPS5000:
+#ifndef CONFIG_MIPS_BCM7420A0
+	case CPU_BMIPS5000:
+#endif
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;
@@ -747,6 +749,11 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
         c->options = MIPS_CPU_TLB | MIPS_CPU_4KEX | MIPS_CPU_COUNTER |
 		MIPS_CPU_DIVEC | MIPS_CPU_4K_CACHE | MIPS_CPU_LLSC;
 	c->isa_level = MIPS_CPU_ISA_M32R1;
+
+#ifdef CONFIG_MIPS_BCM7420A0
+	/* PR53626, PR53627: LL/SC hang on 7420Ax */
+	c->options &= ~MIPS_CPU_LLSC;
+#endif
 
         /* Test for other generic proc options */
         config1 = read_c0_config1();

@@ -343,13 +343,8 @@ static int ehci_hcd_brcm_init_each (int ehci_id)
 	}
 
 	// Set up dma_mask for our platform device
-	// Overwrite whatever value it was set to.
-	if (1) {
-		extern phys_t upper_memory;
-
-		plat_dev[ehci_id]->dev.dma_mask = &plat_dev[ehci_id]->dev.coherent_dma_mask; 
-		plat_dev[ehci_id]->dev.coherent_dma_mask = (u64)  ( upper_memory - 1UL);
-	}
+	plat_dev[ehci_id]->dev.dma_mask = &plat_dev[ehci_id]->dev.coherent_dma_mask; 
+	plat_dev[ehci_id]->dev.coherent_dma_mask = DMA_32BIT_MASK;
 
 	err = driver_register(&ehci_hcd_brcm_driver[ehci_id]);
 	if (err) {

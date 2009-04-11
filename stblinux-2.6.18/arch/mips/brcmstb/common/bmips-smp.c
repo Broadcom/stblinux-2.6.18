@@ -91,10 +91,18 @@ static irqreturn_t brcm_smp_call_interrupt(int irq, void *dev_id, struct pt_regs
 	return IRQ_HANDLED;
 }
 
+#if defined(CONFIG_BMIPS4380)
+static DEFINE_SPINLOCK(ipi_lock);
+#endif
+
 static irqreturn_t brcm_reschedule_call_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
 #if defined(CONFIG_BMIPS4380)
+	unsigned long flags;
+
+	spin_lock_irqsave(&ipi_lock, flags);
 	clear_c0_cause(C_SW1);
+	spin_unlock_irqrestore(&ipi_lock, flags);
 #elif defined(CONFIG_BMIPS5000)
 	write_c0_brcm_action(0x2000 | (raw_smp_processor_id() << 9) | (1 << 8));
 #endif
@@ -158,8 +166,6 @@ void __init plat_prepare_cpus(unsigned int max_cpus)
 }
 
 #if defined(CONFIG_BMIPS4380)
-static DEFINE_SPINLOCK(ipi_lock);
-
 void core_send_ipi(int cpu, unsigned int action)
 {
 	unsigned long flags;
@@ -210,9 +216,9 @@ static void tp1_entry(void)
 	"	li	%1, 0x20000000\n"
 	"	or	%0, %1\n"
 	"	mtc0	%0, $12\n"
-	"	nop\n"
-	"	nop\n"
-	"	nop\n"
+	"	ssnop\n"
+	"	ssnop\n"
+	"	ssnop\n"
 	"	mtc1	$0, $f0\n"
 	"	mtc1	$0, $f1\n"
 	"	mtc1	$0, $f2\n"
@@ -259,6 +265,17 @@ static void tp1_entry(void)
 	"1:	cache	0x08, 0(%0)\n"
 	"	addiu	%0, 64\n"
 	"	bne	%0, %1, 1b\n"
+#endif
+
+#ifdef CONFIG_BMIPS5000
+	/* set local CP0 CONFIG to make kseg0 cacheable, write-back */
+	"	mfc0	%0, $16\n"
+	"	ori	%0, 0x7\n"
+	"	xori	%0, 0x4\n"
+	"	mtc0	%0, $16\n"
+	"	ssnop\n"
+	"	ssnop\n"
+	"	ssnop\n"
 #endif
 
 	/* jump to kernel_entry */
@@ -326,6 +343,7 @@ void prom_boot_secondary(int cpu, struct task_struct *idle)
 	DEV_WR(KSEG0 + 8, 0x03400008);			  // jr k0
 	DEV_WR(KSEG0 + 12, 0x00000000);			  // nop
 
+	dma_cache_wback(KSEG0, 16);
 	flush_icache_range(KSEG0, KSEG0 + 16);
 
 	printk("TP%d: prom_boot_secondary: Kick off 2nd CPU...\n",

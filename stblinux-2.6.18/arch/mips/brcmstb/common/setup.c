@@ -363,6 +363,7 @@ device_initcall(bcmspi_initcall);
 
 #endif /* CONFIG_SPI_BCM7XXX || CONFIG_SPI_BCM7XXX_MODULE */
 
+#if	defined(CONFIG_BCMUMAC) || defined(CONFIG_BCMUMAC_MODULE)
 #ifdef BRCM_MOCA_SUPPORTED
 
 static void moca_bogus_release(struct device *dev)
@@ -529,3 +530,4 @@ static int __init umac_moca_initcall(void)
 device_initcall(umac_moca_initcall);
 
 #endif /* defined(BRCM_UMAC_0_SUPPORTED) || defined(BRCM_MOCA_SUPPORTED) */
+#endif	/* CONFIG_BCMUMAC */

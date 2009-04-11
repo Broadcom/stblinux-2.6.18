@@ -6181,6 +6181,11 @@ int ata_scsi_release(struct Scsi_Host *shost)
 
 	kfree(ap->pmp_link);
 
+#ifdef  CONFIG_SATA_SVW_PMP_HOTPLUG
+	ata_unique_id--;
+	DPRINTK("unique_id %d\n", ata_unique_id);
+#endif
+
 	DPRINTK("EXIT\n");
 	return 1;
 }

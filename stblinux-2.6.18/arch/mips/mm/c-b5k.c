@@ -115,23 +115,23 @@ void cache_printstats(struct seq_file *m)
 
 static void (* b5k_blast_scache)(void);
 
-void bcm_inv_rac_all(void)
-{
-	__sync();
-	b5k_blast_scache();
-}
-EXPORT_SYMBOL(bcm_inv_rac_all);
-
 /*
  * Dummy cache handling routines for machines without boardcaches
  */
 static void cache_noop(void) {}
 
+void brcm_inv_prefetch(unsigned long addr, unsigned long size)
+{
+	bc_flush_prefetch(addr, size);
+}
+EXPORT_SYMBOL(brcm_inv_prefetch);
+
 static struct bcache_ops no_sc_ops = {
 	.bc_enable = (void *)cache_noop,
 	.bc_disable = (void *)cache_noop,
 	.bc_wback_inv = (void *)cache_noop,
-	.bc_inv = (void *)cache_noop
+	.bc_inv = (void *)cache_noop,
+	.bc_flush_prefetch = (void *)cache_noop,
 };
 
 struct bcache_ops *bcops = &no_sc_ops;
@@ -397,6 +397,7 @@ static void b5k_flush_cache_page(struct vm_area_struct *vma,
 	 */
 	CACHE_ENTER(page);
 	CACHE_EXIT(page);
+	instruction_hazard();
 }
 
 static inline void local_b5k_flush_data_cache_page(void * addr)
@@ -544,17 +545,14 @@ static void __init setup_scache(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 
-#ifdef CONFIG_MIPS_CPU_SCACHE
 	if (mips_sc_init ()) {
 		scache_size = c->scache.ways * c->scache.sets * c->scache.linesz;
 		printk("MIPS secondary cache %ldkB, %s, linesize %d bytes.\n",
 		       scache_size >> 10,
 		       way_string[c->scache.ways], c->scache.linesz);
+	} else {
+		panic("c-b5k cache functions require L2 enabled");
 	}
-#else
-	if (!(c->scache.flags & MIPS_CACHE_NOT_PRESENT))
-		panic("Dunno how to handle MIPS32 / MIPS64 second level cache");
-#endif
 	return;
 }
 

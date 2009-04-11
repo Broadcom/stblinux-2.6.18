@@ -35,7 +35,7 @@ config MTD_BRCMNAND_VERSION
 	help
 		Version number of the controller.
 		Value	Maj.Min Platform
-			0		0.0			7400A0
+		0	0.0	7400A0
 		1	0.1	7401Cx, 7400B0, 7118A0, 7403 * 7451, 7452, 3563
 		2	1.0	7440B0, 7405a0 (also 7118C0 running as 1.0 in 2.6.12)
 		3	2.0	7325
@@ -61,9 +61,19 @@ config MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
 config MTD_BRCMNAND_EDU
 	bool "Enable Broadcom NAND EDU"
 	default n
-	depends on MTD_BRCMNAND && (MIPS_BCM7440B0 || MIPS_BCM3548B0)
+	select MTD_BRCMNAND_USE_ISR
+	depends on MTD_BRCMNAND && (MIPS_BCM7440B0 || MIPS_BCM3548B0 || MIPS_BCM7601 || MIPS_BCM7420)
 	help
 	   Enable DMA capability of the NAND controller.  
 	   Currently only present on the following chips:
-	   7440bx, 7440cx, 3548b0, 7443a0
+	   7440bx, 7440cx, 3548b0, 7601 and 7420
+	   
+#
 
+
+config MTD_BRCMNAND_USE_ISR
+	bool "Enable Broadcom NAND ISR"
+	default n
+	depends on MTD_BRCMNAND_EDU 
+	help
+	   Use Interrupt Service Routine instead of polling mode

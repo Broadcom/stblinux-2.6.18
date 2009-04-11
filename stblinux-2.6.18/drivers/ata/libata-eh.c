@@ -267,6 +267,14 @@ void ata_scsi_error(struct Scsi_Host *host)
 
 #endif
 					{
+#ifdef	CONFIG_MIPS_BRCM97XXX
+                                                /* reduce retries since it is unrecoverable */
+                                                if(qc->tf.command == ATA_CMD_READ || qc->tf.command == ATA_CMD_READ_EXT)
+						{
+							if (!(qc->result_tf.command &  ATA_ERR))
+                                                	scmd->retries = scmd->allowed;
+						}
+#endif
 					/* which hasn't failed yet, timeout */
 					qc->err_mask |= AC_ERR_TIMEOUT;
 					qc->flags |= ATA_QCFLAG_FAILED;

@@ -1889,14 +1889,6 @@ static int k2_power_on(void *arg)
 	return(0);
 }
 
-static int k2_sata_hp_poll(struct ata_port *ap)
-{
-	/* don't check for hotplug events while the HW is sleeping */
-	if(SLEEP_FLAG(ap->host) == K2_SLEEPING)
-		return(0);
-	return(sata_std_hp_poll(ap));
-}
-
 static void k2_sata_remove_one(struct pci_dev *pdev)
 {
 	struct device *dev = pci_dev_to_dev(pdev);
@@ -1909,6 +1901,110 @@ static void k2_sata_remove_one(struct pci_dev *pdev)
 }
 
 #endif /* CONFIG_BRCM_PM */
+
+#ifdef	CONFIG_SATA_SVW_PMP_HOTPLUG
+static int k2_pmp_hp_poll(struct ata_port *ap)
+{
+	unsigned long state = (unsigned long)ap->hp_poll_data;
+	struct ata_link *link = &ap->link;
+	u32 serror = 0;
+	int rc = 0;
+	struct ata_device *dev = ap->link.device;
+	u32 link_stat = 0;
+
+#ifdef	CONFIG_BRCM_PM
+	/* don't check for hotplug events while the HW is sleeping */
+	if(SLEEP_FLAG(ap->host) == K2_SLEEPING)
+		return(0);
+#endif /* CONFIG_BRCM_PM */
+
+	if(ap->nr_pmp_links && ap->ops->pmp_read)
+	{
+		u32 perror = 0;
+		rc = ap->ops->pmp_write(dev, SATA_PMP_CTRL_PORT, SATA_PMP_GSCR_ERROR_EN, SERR_PHYRDY_CHG);
+		if (!rc)
+		{
+			rc = ap->ops->pmp_read(dev, SATA_PMP_CTRL_PORT, SATA_PMP_GSCR_ERROR, &serror);
+			if(serror) {
+				link_stat = serror;
+				serror = SERR_PHYRDY_CHG;
+
+				rc = ap->ops->pmp_write(dev, SATA_PMP_CTRL_PORT, SATA_PMP_GSCR_ERROR_EN, SERR_DEV_XCHG);
+				if (!rc)
+				{
+					rc = ap->ops->pmp_read(dev, SATA_PMP_CTRL_PORT, SATA_PMP_GSCR_ERROR, &perror);
+					if(perror) {
+						link_stat |= perror;
+						perror = SERR_DEV_XCHG;
+						serror |= perror;
+					}			
+				}
+			}
+		}
+		else
+		DPRINTK("failed to write reg 33\n");
+	}
+	else
+	return(sata_std_hp_poll(ap));
+
+	serror &= SERR_PHYRDY_CHG | SERR_DEV_XCHG;
+	
+	switch (state) {
+	case 0:
+		if (serror) {
+			unsigned int n=0;
+			struct ata_link *link;
+			if(link_stat)	DPRINTK("state 0, link_stat 0x%08x\n", link_stat);
+
+			ata_port_for_each_link(link, ap)
+			{
+				sata_scr_write(link, SCR_ERROR, 0xffffffff);
+				n++;
+			}
+
+			if((link_stat & 1) || (link_stat & 2))
+			state = 1;
+		}
+		break;
+
+	case 1:
+		if (!serror)
+			rc = 1;
+		else
+		{
+			unsigned int n=0;
+			struct ata_link *link;
+			if(link_stat)	DPRINTK("state 1, link_stat 0x%08x\n", link_stat);
+
+			ata_port_for_each_link(link, ap)
+			{
+				sata_scr_write(link, SCR_ERROR, 0xffffffff);
+				n++;
+			}
+		}
+		break;
+	}
+
+	ap->hp_poll_data = (void *)state;
+
+	if(serror)
+	DPRINTK("EXIT rc %d, ap->hp_poll_data %p, serror 0x%08x\n", rc, ap->hp_poll_data, serror);
+
+	return rc;
+}
+#else	/* !CONFIG_SATA_SVW_PMP_HOTPLUG */
+static int k2_pmp_hp_poll(struct ata_port *ap)
+{
+#ifdef	CONFIG_BRCM_PM
+	/* don't check for hotplug events while the HW is sleeping */
+	if(SLEEP_FLAG(ap->host) == K2_SLEEPING)
+		return(0);
+#endif /* CONFIG_BRCM_PM */
+
+	return(sata_std_hp_poll(ap));
+}
+#endif
+
 
 /*
  * Driver initialization
@@ -1946,11 +2042,7 @@ static const struct ata_port_operations k2_sata_ops = {
 	.check_status		= k2_stat_check_status,
 	.port_disable		= ata_port_disable,
 	.hp_poll_activate	= sata_std_hp_poll_activate,
-#if defined(CONFIG_BRCM_PM)
-	.hp_poll		= k2_sata_hp_poll,
-#else
-	.hp_poll		= sata_std_hp_poll,
-#endif
+	.hp_poll		= k2_pmp_hp_poll,
 	.scr_read		= k2_sata_scr_read,
 	.scr_write		= k2_sata_scr_write,
 
@@ -2106,8 +2198,12 @@ static int k2_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 
 	probe_ent->port_ops = &k2_sata_ops;
 
-#ifdef CONFIG_MIPS_BRCM97XXX 	// jipeng - FIXME only 2 ports in 7038C0 SATA core
+#ifdef CONFIG_MIPS_BRCM97XXX 	
+#ifdef	CONFIG_SATA_SVW_PORTS
+	probe_ent->n_ports = CONFIG_SATA_SVW_PORTS;
+#else
 	probe_ent->n_ports = 2;
+#endif
 #else
 	probe_ent->n_ports = 4;
 #endif

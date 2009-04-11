@@ -320,18 +320,9 @@ static int brcm_ohci_hcd_init (int ohci_id)
 		return PTR_ERR(plat_dev[ohci_id]);
 	}
 
-#if 1
 	// Set up dma_mask for our platform device
-	// Overwrite whatever value it was set to.  It was meant only to
-	// allow 64bits DMA transfer, but without it, USB does not work */
-	if (1) {
-		extern phys_t upper_memory;
-
-		plat_dev[ohci_id]->dev.dma_mask =
-			&plat_dev[ohci_id]->dev.coherent_dma_mask; 
-		plat_dev[ohci_id]->dev.coherent_dma_mask = (u64)  ( upper_memory - 1UL);
-	}
-#endif
+	plat_dev[ohci_id]->dev.dma_mask = &plat_dev[ohci_id]->dev.coherent_dma_mask;
+	plat_dev[ohci_id]->dev.coherent_dma_mask = DMA_32BIT_MASK;
 		
 	err = driver_register(&ohci_hcd_brcm_driver[ohci_id]);
 	if (err) {

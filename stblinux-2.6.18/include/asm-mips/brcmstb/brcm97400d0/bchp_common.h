@@ -1,5 +1,5 @@
 /***************************************************************************
- *     Copyright (c) 1999-2007, Broadcom Corporation
+ *     Copyright (c) 1999-2008, Broadcom Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Thu Dec 13 17:26:07 2007
- *                 MD5 Checksum         c3f8e87caf81e56d957436286f3d2c1a
+ * Date:           Generated on         Mon Mar 10 16:36:42 2008
+ *                 MD5 Checksum         cf66689754e95804a8fa320d4ee9eb18
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -32,10 +32,10 @@
  *
  * Revision History:
  *
- * $brcm_Log: /magnum/basemodules/chp/7400/rdb/d0/bchp_common.h $
+ * $brcm_Log: /magnum/basemodules/chp/7400/rdb/e0/bchp_common.h $
  * 
- * Hydra_Software_Devel/2   12/13/07 11:30p pntruong
- * PR32842: Sync header files with rdb central.
+ * Hydra_Software_Devel/2   3/10/08 8:23p pntruong
+ * PR38572:  Synced with central rdb.
  *
  ***************************************************************************/
 
@@ -43,9 +43,12 @@
 #define BCHP_COMMON_H__
 
 /***************************************************************************
- *BCM7400_D0
+ *BCM7400_E0
  ***************************************************************************/
 #define BCHP_PHYSICAL_OFFSET                               0x10000000
+#define BCHP_REGISTER_START                                0x00000000 /* PCI_INTR1 is first */
+#define BCHP_REGISTER_END                                  0x01f80000 /* BMIPS4380 is last */
+#define BCHP_REGISTER_SIZE                                 0x007e0000 /* Number of registers */
 
 /****************************************************************************
  * Core instance register start address.
@@ -271,7 +274,7 @@
 #define BCHP_VBI_ENC_PRIM_REG_START                        0x00184000
 #define BCHP_VBI_ENC_PRIM_REG_END                          0x0018401c
 #define BCHP_CGMSAE_PRIM_REG_START                         0x00184080
-#define BCHP_CGMSAE_PRIM_REG_END                           0x0018409c
+#define BCHP_CGMSAE_PRIM_REG_END                           0x001840d8
 #define BCHP_CCE_PRIM_REG_START                            0x00184100
 #define BCHP_CCE_PRIM_REG_END                              0x00184128
 #define BCHP_TTE_PRIM_REG_START                            0x00184200
@@ -287,7 +290,7 @@
 #define BCHP_VBI_ENC_SEC_REG_START                         0x00186000
 #define BCHP_VBI_ENC_SEC_REG_END                           0x0018601c
 #define BCHP_CGMSAE_SEC_REG_START                          0x00186080
-#define BCHP_CGMSAE_SEC_REG_END                            0x0018609c
+#define BCHP_CGMSAE_SEC_REG_END                            0x001860d8
 #define BCHP_CCE_SEC_REG_START                             0x00186100
 #define BCHP_CCE_SEC_REG_END                               0x00186128
 #define BCHP_TTE_SEC_REG_START                             0x00186200
@@ -303,7 +306,7 @@
 #define BCHP_VBI_ENC_TERT_REG_START                        0x00188000
 #define BCHP_VBI_ENC_TERT_REG_END                          0x0018801c
 #define BCHP_CGMSAE_TERT_REG_START                         0x00188080
-#define BCHP_CGMSAE_TERT_REG_END                           0x0018809c
+#define BCHP_CGMSAE_TERT_REG_END                           0x001880d8
 #define BCHP_CCE_TERT_REG_START                            0x00188100
 #define BCHP_CCE_TERT_REG_END                              0x00188128
 #define BCHP_TTE_TERT_REG_START                            0x00188200
@@ -341,7 +344,7 @@
 #define BCHP_HDMI_RAM_REG_START                            0x001a0400
 #define BCHP_HDMI_RAM_REG_END                              0x001a05fc
 #define BCHP_HD_DVI_0_REG_START                            0x001c2000
-#define BCHP_HD_DVI_0_REG_END                              0x001c20b0
+#define BCHP_HD_DVI_0_REG_END                              0x001c20b4
 #define BCHP_EXT_656_TOP_0_REG_START                       0x001c3000
 #define BCHP_EXT_656_TOP_0_REG_END                         0x001c3090
 #define BCHP_IN656_0_REG_START                             0x001c3200
@@ -363,7 +366,7 @@
 #define BCHP_XPT_DPCR3_REG_START                           0x0020a300
 #define BCHP_XPT_DPCR3_REG_END                             0x0020a36c
 #define BCHP_XPT_PSUB_REG_START                            0x0020a400
-#define BCHP_XPT_PSUB_REG_END                              0x0020a48c
+#define BCHP_XPT_PSUB_REG_END                              0x0020a490
 #define BCHP_XPT_RSBUFF_REG_START                          0x0020a800
 #define BCHP_XPT_RSBUFF_REG_END                            0x0020aa1c
 #define BCHP_XPT_PB0_REG_START                             0x0020b000
@@ -817,16 +820,6 @@
 
 
 /***************************************************************************
- *AUD_FMM_MISC
- ***************************************************************************/
-/***************************************************************************
- *ABSTRACT_01_SWAPPING_PIP - Process to handle audio during PIP swapping
- ***************************************************************************/
-/* AUD_FMM_MISC :: ABSTRACT_01_SWAPPING_PIP :: MORE_INFORMATION [31:00] */
-#define BCHP_AUD_FMM_MISC_ABSTRACT_01_SWAPPING_PIP_MORE_INFORMATION_MASK 0xffffffff
-#define BCHP_AUD_FMM_MISC_ABSTRACT_01_SWAPPING_PIP_MORE_INFORMATION_SHIFT 0
-
-/***************************************************************************
  *AUD_FMM_MS_CTRL
  ***************************************************************************/
 /***************************************************************************
@@ -842,23 +835,6 @@
 /* AUD_FMM_MS_CTRL :: ABSTRACT_02_CHANNEL_STATUS :: NULL [31:00] */
 #define BCHP_AUD_FMM_MS_CTRL_ABSTRACT_02_CHANNEL_STATUS_NULL_MASK  0xffffffff
 #define BCHP_AUD_FMM_MS_CTRL_ABSTRACT_02_CHANNEL_STATUS_NULL_SHIFT 0
-
-/***************************************************************************
- *AUD_FMM_OP_CTRL
- ***************************************************************************/
-/***************************************************************************
- *ABSTRACT_01_ALIGNING_6_OR_8_CHANNEL_I2S - Process to phase align I2S outputs
- ***************************************************************************/
-/* AUD_FMM_OP_CTRL :: ABSTRACT_01_ALIGNING_6_OR_8_CHANNEL_I2S :: MORE_INFORMATION [31:00] */
-#define BCHP_AUD_FMM_OP_CTRL_ABSTRACT_01_ALIGNING_6_OR_8_CHANNEL_I2S_MORE_INFORMATION_MASK 0xffffffff
-#define BCHP_AUD_FMM_OP_CTRL_ABSTRACT_01_ALIGNING_6_OR_8_CHANNEL_I2S_MORE_INFORMATION_SHIFT 0
-
-/***************************************************************************
- *ABSTRACT_02_MULTICHANNEL_MAI - Transmitting 6- and 8-channel MAI
- ***************************************************************************/
-/* AUD_FMM_OP_CTRL :: ABSTRACT_02_MULTICHANNEL_MAI :: MORE_INFORMATION [31:00] */
-#define BCHP_AUD_FMM_OP_CTRL_ABSTRACT_02_MULTICHANNEL_MAI_MORE_INFORMATION_MASK 0xffffffff
-#define BCHP_AUD_FMM_OP_CTRL_ABSTRACT_02_MULTICHANNEL_MAI_MORE_INFORMATION_SHIFT 0
 
 /***************************************************************************
  *AUD_REGSET_DSP_CFG

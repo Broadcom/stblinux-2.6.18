@@ -157,7 +157,8 @@ void dma_unmap_single(struct device *dev, dma_addr_t dma_addr, size_t size,
 	//__dma_sync(addr, size, direction);
 #ifdef CONFIG_MIPS_BRCM97XXX
 	/* RAC may have prefetched data in our DMA range */
-	bcm_inv_rac_all();
+	if(direction == DMA_FROM_DEVICE)
+		brcm_inv_prefetch(addr, size);
 #endif
 }
 

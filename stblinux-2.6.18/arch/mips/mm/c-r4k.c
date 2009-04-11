@@ -194,7 +194,6 @@ static void (* r4k_blast_scache)(void);
 static inline
 void bcm_local_inv_rac_all(void)
 {
-
 #if defined(CONFIG_BMIPS3300)
 	if (*((volatile unsigned long *)0xff400000) & 0x02)	/* RYH - check RAC_D bit in RAC Config Register */
 	{
@@ -239,16 +238,31 @@ void bcm_local_inv_rac_all(void)
 
 void bcm_inv_rac_all(void)
 {
-#if defined(CONFIG_MTI_R24K) || defined(CONFIG_MTI_R34K) || \
-	defined(CONFIG_BMIPS5000)
+#if defined(CONFIG_MTI_R24K) || defined(CONFIG_MTI_R34K)
 	/* 7325 L2 supports prefetching */
 	r4k_blast_scache();
 	__sync();
+#elif defined(CONFIG_BMIPS5000)
+	/*
+	 * This function would have to blow away the ENTIRE L1 + L2 on Zephyr.
+	 * Please do not try to use it.
+	 */
+	if(scache_size != 0)
+		BUG();
 #else
 	bcm_local_inv_rac_all();
 #endif
 }
 EXPORT_SYMBOL(bcm_inv_rac_all);
+
+void brcm_inv_prefetch(unsigned long addr, unsigned long size)
+{
+	if(scache_size == 0)
+		bcm_inv_rac_all();
+	else
+		bc_flush_prefetch(addr, size);
+}
+EXPORT_SYMBOL(brcm_inv_prefetch);
 
 #if defined(CONFIG_MTI_R24K) || defined(CONFIG_MTI_R34K) || \
 	defined(CONFIG_BMIPS5000)
@@ -284,7 +298,8 @@ static struct bcache_ops no_sc_ops = {
 	.bc_enable = (void *)cache_noop,
 	.bc_disable = (void *)cache_noop,
 	.bc_wback_inv = (void *)cache_noop,
-	.bc_inv = (void *)cache_noop
+	.bc_inv = (void *)cache_noop,
+	.bc_flush_prefetch = (void *)cache_noop,
 };
 
 struct bcache_ops *bcops = &no_sc_ops;
@@ -820,6 +835,7 @@ static inline void local_r4k_flush_cache_page(void *args)
 		if (exec)
 			r4k_blast_icache_page(addr);
 
+		instruction_hazard();
 		BCM_LOCAL_EXTRA_CACHEOP_WAR;
 		CACHE_EXIT(page);
 		return;
@@ -844,6 +860,7 @@ static inline void local_r4k_flush_cache_page(void *args)
 				drop_mmu_context(mm, cpu);
 		} else
 			r4k_blast_icache_page_indexed(addr);
+		instruction_hazard();
 	}
 	BCM_LOCAL_EXTRA_CACHEOP_WAR;
 	CACHE_EXIT(page);
@@ -914,6 +931,8 @@ static inline void local_r4k_flush_icache_range(void *args)
 		r4k_blast_icache();
 	else
 		protected_blast_icache_range(start, end);
+
+	instruction_hazard();
 	CACHE_EXIT(irange);
 }
 
@@ -967,6 +986,7 @@ static inline void local_r4k_flush_icache_page(void *args)
 		r4k_blast_scache_page(addr);
 		ClearPageDcacheDirty(page);
 
+		instruction_hazard();
 		CACHE_EXIT(ipage);
 		return;
 	}
@@ -990,6 +1010,8 @@ static inline void local_r4k_flush_icache_page(void *args)
 			drop_mmu_context(vma->vm_mm, cpu);
 	} else
 		r4k_blast_icache();
+
+	instruction_hazard();
 	CACHE_EXIT(ipage);
 }
 
@@ -1601,6 +1623,8 @@ static void __init setup_scache(void)
 					read_scm_reg(0x90600000),
 					read_scm_reg(0x90800000),
 					read_scm_reg(0x90a00000));
+#elif defined(CONFIG_BMIPS5000)
+				c->options |= MIPS_CPU_INCLUSIVE_CACHES;
 #endif
 			}
 #else

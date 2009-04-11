@@ -114,6 +114,7 @@ config BRCM_SERIAL
 config BRCM_MOCA
 	tristate "Broadcom MoCA support"
 	depends on MIPS_BCM7420
+	depends on ! MIPS_BRCM_SIM
 	help
 	  This is the control path driver used to initialize and configure
 	  the Broadcom MoCA interface.

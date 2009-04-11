@@ -119,7 +119,7 @@ extern "C" {
 #define RBUF_ENDIAN_MODE		(1 << 1 )		/* ignore endianess setting pin */
 /* reg: rbuf->rbuf_chk_ctrl */
 #define RBUF_RXCHK_EN			(1 << 0 )		/* enable raw checksum calculation */
-#define RBUF_SKIP_FCS			(1 << 1 )		/* skip last 4B when doing checksum */
+#define RBUF_SKIP_FCS			(1 << 4 )		/* skip last 4B when doing checksum */
 /* reg: rbuf->rbuf_hfb_ctrl */
 #define RBUF_HFB_FILTER_EN_SHIFT	16
 #define RBUF_HFB_FILTER_EN_MASK	0xffff0000
@@ -184,8 +184,8 @@ extern "C" {
 /* isdma channel register groups start Tx/Rx same*/
 /* reg: cfg */
 #define DMA_ENABLE      		(1 << 0 )	/* set to enable channel */
-#define DMA_PKT_HALT    		(1 << 1 )	/* idle after an EOP flag is detected */
-#define DMA_BURST_HALT  		(1 << 2 )	/* idle after finish current memory burst */
+#define DMA_PKT_HALT    		(1 << 5 )	/* idle after an EOP flag is detected */
+#define DMA_BURST_HALT  		(1 << 6 )	/* idle after finish current memory burst */
 /* isdma channel register group end */
 	
 /*-------------------Dma Descriptor defines ------------------------------------*/
@@ -198,7 +198,6 @@ extern "C" {
 #define DMA_SOP					0x2000		/* First buffer in packet */
 #define DMA_WRAP				0x1000		/* Last BD */
 /* Tx specific Dma descriptor bits */
-#define DMA_TX_DO_CHKSUM		0x0400		/* calculate checksum */
 #define DMA_TX_UNDERRUN			0x0200		/* Tx fifo underrun, set by DMA */
 #define DMA_TX_APPEND_CRC		0x0100
 #define DMA_TX_OW_CRC			0x0080		/* overrite CRC */

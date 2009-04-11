@@ -1,16 +1,27 @@
-/**
- * @par Copyright Information:
- *      Copyright (C) 2007, Broadcom Corporation.
- *      All Rights Reserved.
+ /*
+ * drivers/mtd/brcmnand/edu.c
+ *
+ *  Copyright (c) 2005-2009 Broadcom Corp.
+ *  
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  *
  * @file edu.c
  * @author Jean Roberge
- *
- * @brief Prototypes for EDU Support Software
- *
- * LOG
- * 7/30/08 tht Add handling of VM allocated buffers.
  */
+
+ 
 #include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
@@ -43,7 +54,8 @@
 #include <linux/mtd/brcmnand.h> 
 #include "brcmnand_priv.h"
 
-#define EDU_DEBUG
+//#define EDU_DEBUG
+#undef EDU_DEBUG
 
 #ifdef EDU_DEBUG
 int edu_debug;
@@ -54,7 +66,69 @@ int edu_debug = 0;
 #define PRINTK(...)
 #endif
 
+
 extern int gdebug;
+
+
+
+// Debugging 3548
+#ifdef CONFIG_MIPS_BCM3548
+
+#define MEMC_0_L2_R5F_STATUS 			((volatile unsigned long*) 0xb0164000)
+#define MEMC_0_L2_R5F_MASK_STATUS 	((volatile unsigned long*) 0xb016400c)
+#define MEMC_0_L2_PCI_STATUS 			((volatile unsigned long*) 0xb0164018)
+#define MEMC_0_L2_PCI_MASK_STATUS 	((volatile unsigned long*) 0xb0164024)
+
+
+volatile unsigned long g_MEMC_0_L2_R5F_STATUS;
+volatile unsigned long g_MEMC_0_L2_R5F_MASK_STATUS;
+volatile unsigned long g_MEMC_0_L2_PCI_STATUS;
+volatile unsigned long g_MEMC_0_L2_PCI_MASK_STATUS;
+
+
+int DisplayMemDebug(void) 
+{
+	volatile unsigned long _MEMC_0_L2_R5F_STATUS;
+	volatile unsigned long _MEMC_0_L2_R5F_MASK_STATUS;
+	volatile unsigned long _MEMC_0_L2_PCI_STATUS;
+	volatile unsigned long _MEMC_0_L2_PCI_MASK_STATUS;
+	int ret = 0;
+
+	_MEMC_0_L2_R5F_STATUS = *MEMC_0_L2_R5F_STATUS;
+	_MEMC_0_L2_R5F_MASK_STATUS = *MEMC_0_L2_R5F_MASK_STATUS;
+	_MEMC_0_L2_PCI_STATUS = *MEMC_0_L2_PCI_STATUS;
+	_MEMC_0_L2_PCI_MASK_STATUS = *MEMC_0_L2_PCI_MASK_STATUS;
+
+	if (g_MEMC_0_L2_R5F_STATUS != _MEMC_0_L2_R5F_STATUS ||
+		g_MEMC_0_L2_R5F_MASK_STATUS !=_MEMC_0_L2_R5F_MASK_STATUS ||
+		g_MEMC_0_L2_PCI_STATUS !=_MEMC_0_L2_PCI_STATUS ||
+		g_MEMC_0_L2_PCI_MASK_STATUS != _MEMC_0_L2_PCI_MASK_STATUS)
+	{
+		printk("rf5s=%08lx, rf5m=%08lx, pcis=%08lx,pcim=%08lx\nprev: rf5s=%08lx, rf5m=%08lx, pcis=%08lx,pcim=%08lx\n", 
+			_MEMC_0_L2_R5F_STATUS,
+			_MEMC_0_L2_R5F_MASK_STATUS,
+			_MEMC_0_L2_PCI_STATUS,
+			_MEMC_0_L2_PCI_MASK_STATUS,
+			g_MEMC_0_L2_R5F_STATUS,
+			g_MEMC_0_L2_R5F_MASK_STATUS,
+			g_MEMC_0_L2_PCI_STATUS,
+			g_MEMC_0_L2_PCI_MASK_STATUS);
+		
+		g_MEMC_0_L2_R5F_STATUS = _MEMC_0_L2_R5F_STATUS; 
+		g_MEMC_0_L2_R5F_MASK_STATUS =_MEMC_0_L2_R5F_MASK_STATUS;
+		g_MEMC_0_L2_PCI_STATUS =_MEMC_0_L2_PCI_STATUS;
+		g_MEMC_0_L2_PCI_MASK_STATUS = _MEMC_0_L2_PCI_MASK_STATUS;
+		ret = 1;
+	}
+	return ret;
+}
+
+#else
+
+#define DisplayMemDebug(...) (0)
+
+#endif
+
 /*
  * Returns 1 if OK
  *		0 otherwise
@@ -63,10 +137,23 @@ int EDU_buffer_OK(volatile void* vaddr)
 {
 	unsigned long addr = (unsigned long) vaddr;
 
-	if (addr & 0x3) {
-		// Must be DW-aligned
+#if !defined(CONFIG_MIPS_BCM7440) && !defined(CONFIG_MIPS_BCM7601)
+// Requires 32byte alignment only of platforms other than 7440 and 7601 (and Dune)
+	if (addr & 0x1f) {
+		// Must be 32-byte-aligned
+#ifdef EDU_DEBUG 
+// Trying to catch where alignment need to be fixed
+printk("Buffer at %p not aligned on 32B boundary: Calling Seq=\n", vaddr);
+dump_stack();
+#endif
 		return 0;
 	}
+#else
+	// Only require alignment on 4 bytes
+	if (addr & 0x03) {
+		return 0;
+	}
+#endif
 	else if (!(addr & KSEG0)) { 
 		// User Space
 		return 0;
@@ -126,7 +213,7 @@ save_addr = addr;
 		goto error_out;
 #else
 /* ******************** WARNINGS ****************** * 
- *	Cannot use these codes unless we lock down the page
+ *	Cannot use these codes unless we lock down the page (do_mlock())
  *    We also don't know if EDU can DMA over the page.
  *************************************************/
 		unsigned long start; // Page start address
@@ -250,7 +337,56 @@ void EDU_get_status(void)
 #define EDU_get_status()
 #endif
 
-#if 1 //def EDU_DEBUG  // DO NOT DELETE, MAY BE USEFUL!!!
+void EDU_waitForNoPendingAndActiveBit(void)
+{
+        volatile uint32_t rd_data=0, i=0; 
+        unsigned long timeout;
+
+int saveDbgLvl = edu_debug;
+
+        //PRINTK("Start Polling!\n");
+        __sync();
+        rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_STATUS);
+
+//edu_debug = 0;
+        timeout = jiffies + msecs_to_jiffies(3000); // 3 sec timeout for now (testing)
+        while ((rd_data & 0x00000003) != 0x00000000) /* && (i<cnt) */ 
+        {
+         
+                __sync(); //PLATFORM_IOFLUSH_WAR();
+                rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_STATUS);
+                i++;
+                if(!time_before(jiffies, timeout))
+                {
+                   PRINTK("EDU_waitForNoPendingAndActiveBit timeout at 3 SECONDS with i= 0x%.08x!\n", (int)i);
+//edu_debug = saveDbgLvl;
+                   return;
+                }
+        }
+//edu_debug = saveDbgLvl;
+        return;
+}
+
+// THT: Write until done clears
+void EDU_reset_done(void)
+{
+	volatile uint32_t rd_data;
+
+int saveDbgLvl = edu_debug;
+
+	rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE);
+
+//edu_debug = 0;
+	while (rd_data & 0x3) {		
+		// Each Write decrement DONE by 1
+		EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0);
+		__sync();
+		rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE);
+	} 
+//edu_debug = saveDbgLvl;
+}
+
+#if 0 //def EDU_DEBUG  // DO NOT DELETE, MAY BE USEFUL!!!
 
 void print_NandCtrl_Status(void);
 
@@ -285,55 +421,10 @@ int saveDbgLvl = edu_debug;
         return 0;
 }
 
-// THT: Write until done clears
-void EDU_reset_done(void)
-{
-	volatile uint32_t rd_data;
-
-int saveDbgLvl = edu_debug;
-
-	rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE);
-
-//edu_debug = 0;
-	while (rd_data & 0x3) {		
-		// Each Write decrement DONE by 1
-		EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0);
-		__sync();
-		rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE);
-	} 
-//edu_debug = saveDbgLvl;
-}
 
 
-void EDU_waitForNoPendingAndActiveBit(void)
-{
-        volatile uint32_t rd_data=0, i=0; 
-        unsigned long timeout;
 
-int saveDbgLvl = edu_debug;
 
-        //PRINTK("Start Polling!\n");
-        __sync();
-        rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_STATUS);
-
-//edu_debug = 0;
-        timeout = jiffies + msecs_to_jiffies(3000); // 3 sec timeout for now (testing)
-        while ((rd_data & 0x00000003) != 0x00000000) /* && (i<cnt) */ 
-        {
-         
-                __sync(); //PLATFORM_IOFLUSH_WAR();
-                rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_STATUS);
-                i++;
-                if(!time_before(jiffies, timeout))
-                {
-                   PRINTK("EDU_waitForNoPendingAndActiveBit timeout at 3 SECONDS with i= 0x%.08x!\n", (int)i);
-//edu_debug = saveDbgLvl;
-                   return;
-                }
-        }
-//edu_debug = saveDbgLvl;
-        return;
-}
 
 void EDU_checkRegistersValidity(uint32_t external_physical_device_address)
 {
@@ -401,6 +492,9 @@ uint16_t EDU_checkNandCacheAndBuffer(uint32_t buffer, int length)
 
 #endif
 
+
+#ifndef CONFIG_MTD_BRCMNAND_USE_ISR
+
 // 32-bit register polling
 // Poll a register until the reg has the expected value.
 // a timeout read count. The value reflects how many reads
@@ -414,7 +508,7 @@ uint16_t EDU_checkNandCacheAndBuffer(uint32_t buffer, int length)
  */
 
 
-int EDU_poll(uint32_t address, uint32_t expect, uint32_t error, uint32_t mask)
+uint32_t EDU_poll(uint32_t address, uint32_t expect, uint32_t error, uint32_t mask)
 {
         uint32_t rd_data=0, i=0; 
 	int ret;
@@ -465,19 +559,13 @@ if (edu_debug)         PRINTK("Start Polling addr=%08x, expect=%08x, mask=%08x, 
 	return rd_data;
 
 }
+#endif
 
 
 void EDU_issue_command(uint32_t dram_addr, uint32_t ext_addr,uint8 cmd)
 {
 
-#if 0
-    // THT: Wait for previous command to complete
-    uint32_t status;
 
-    status = EDU_volatileRead(EDU_BASE_ADDRESS + EDU_STATUS);
-    while (status & 
- #endif   
-    
 
     EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DRAM_ADDR, dram_addr);
     //EDU_volatileWrite(EDU_PATCH_GLOBAL_REG_RBUS_START + CPU_REGISTER_ADDRESS + EDU_DRAM_ADDR, dram_addr);        
@@ -498,10 +586,10 @@ void EDU_issue_command(uint32_t dram_addr, uint32_t ext_addr,uint8 cmd)
 
 uint32_t EDU_volatileRead(uint32_t addr)
 {
-        volatile uint32_t* pAddr;
+        
+         volatile uint32_t* pAddr;
         
         pAddr = (volatile uint32_t *)addr;
-	 if (edu_debug > 3) printk("%08x = EDU_volRead(%08x)\n", *pAddr, addr);
         
         return *(uint32_t *)pAddr;
 }
@@ -511,9 +599,7 @@ void EDU_volatileWrite(uint32_t addr, uint32_t data)
         volatile uint32_t* pAddr;
 
         pAddr = (volatile uint32_t *)addr;
-	 if (edu_debug > 3) printk("EDU_volWrite(addr=%08x, data=%08x\n", addr, data);
         *pAddr = (volatile uint32_t)data;
-       
 }
 
 uint32_t EDU_get_error_status_register(void)
@@ -526,10 +612,12 @@ uint32_t EDU_get_error_status_register(void)
         return(valueOfReg);
 }
 
+
+
 void EDU_init(void)
 {
 	
-PRINTK("-->%s:\n", __FUNCTION__);
+printk(KERN_INFO "-->%s:\n", __FUNCTION__);
 
 //edu_debug = 4;
         EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_CONFIG, EDU_CONFIG_VALUE);
@@ -540,9 +628,31 @@ PRINTK("-->%s:\n", __FUNCTION__);
  // THT: *** Caution: These hard-coded values only work on 7440bx
  
         // Writing to PCI control register (Init PCI Window is now Here)
-
+        
+	  // THT: PCI_GEN_GISB_WINDOW_SIZE = ENABLE_256MB_GISB_WINDOW
+	  // Enable 256MB GISB Window to allow PCI to get on the EBI bus
         EDU_volatileWrite(0xb0000128, 0x00000001);
+
+ 	  // THT: Initiate watchdog timeout for GISB Arbiter
+ 	  // SUN_GISB_ARB_TIMER = 0x10000
         EDU_volatileWrite(0xb040600c, 0x00010000);
+
+#elif defined( CONFIG_MIPS_BCM7601 )
+	{
+#define ENABLE_256MB_GISB_WINDOW 0x1
+		volatile unsigned long* PCI_GEN_GISB_WINDOW_SIZE = 
+			(volatile unsigned long*) KSEG1ADDR(0x1000011c);
+		volatile unsigned long* SUN_GISB_ARB_TIMER = 
+			(volatile unsigned long*) KSEG1ADDR(0x1040600c);
+        
+	  	// THT: PCI_GEN_GISB_WINDOW_SIZE = ENABLE_256MB_GISB_WINDOW
+	  	// Enable 256MB GISB Window to allow PCI to get on the EBI bus
+        	EDU_volatileWrite(PCI_GEN_GISB_WINDOW_SIZE, ENABLE_256MB_GISB_WINDOW);
+
+ 	 	 // THT: Initiate watchdog timeout for GISB Arbiter
+        	EDU_volatileWrite(SUN_GISB_ARB_TIMER, 0x00010000);
+	}
+		
 #elif defined( CONFIG_MIPS_BCM3548 )
 	// Make sure that RTS grant some cycle to EDU, or we have to steal some
 	{
@@ -554,11 +664,61 @@ PRINTK("-->%s:\n", __FUNCTION__);
 			*MEMC_0_1_CLIENT_INFO_45 = 0x001a92bc;
 		}
 	}
+
+#elif defined( CONFIG_MIPS_BCM7420 )
+	// Make sure that RTS grant some cycle to EDU, or we have to steal some
+	{
+#define BLOCKED_OUT 0x001fff00
+#define RR_ENABLED	0x80   /* Bit 7 */
+		volatile unsigned long* MEMC_0_1_CLIENT_INFO_17= 
+			(volatile unsigned long*) KSEG1ADDR(0x103c1048);
+		volatile unsigned long memc_client_17;
+#define ENABLE_256MB_GISB_WINDOW 0x1
+		volatile unsigned long* PCI_GEN_GISB_WINDOW_SIZE = 
+			(volatile unsigned long*) KSEG1ADDR(0x1044011c);
+		volatile unsigned long* SUN_GISB_ARB_TIMER = 
+			(volatile unsigned long*) KSEG1ADDR(0x1040000c);
+#define PARK_ON_EBI (1 << 7)
+#define PARK_ON_MASK (0xFE)
+		volatile unsigned long* PCI_GEN_PCI_CTRL = 
+			(volatile unsigned long*) KSEG1ADDR(0x10440104);
+		volatile unsigned long pci_gen_pci_ctrl;
+        
+		/* Bits 08-20 are all 1 == Blocked */
+		memc_client_17 = *MEMC_0_1_CLIENT_INFO_17;
+		printk("MEMC_0_1_CLIENT_INFO_17 Before=%08lx\n", memc_client_17);
+		if (((memc_client_17 & 0x001fff00) == 0x001fff00) && !(memc_client_17 & RR_ENABLED)) {
+			printk("%s: MEMC_0_1_CLIENT_INFO_17 = %08lx overwritten.  Please fix your RTS\n", __FUNCTION__, * MEMC_0_1_CLIENT_INFO_17);
+			*MEMC_0_1_CLIENT_INFO_17 = memc_client_17|RR_ENABLED;
+			printk("MEMC_0_1_CLIENT_INFO_17 After=%08lx\n", *MEMC_0_1_CLIENT_INFO_17);
+		}
+
+		  // THT: PCI_GEN_GISB_WINDOW_SIZE = ENABLE_256MB_GISB_WINDOW
+		  // Enable 256MB GISB Window to allow PCI to get on the EBI bus
+	        EDU_volatileWrite(PCI_GEN_GISB_WINDOW_SIZE, ENABLE_256MB_GISB_WINDOW);
+
+	 	  // THT: Initiate watchdog timeout for GISB Arbiter
+	 	  // SUN_GISB_ARB_TIMER = 0x10000
+	        EDU_volatileWrite(SUN_GISB_ARB_TIMER, 0x00010000);
+
+		  // Park PCI bus on EBI
+		  pci_gen_pci_ctrl = *PCI_GEN_PCI_CTRL;
+		  pci_gen_pci_ctrl &= ~PARK_ON_MASK;
+		  pci_gen_pci_ctrl |= PARK_ON_EBI;
+	}
 #endif
 
+DisplayMemDebug();
+
         // Clear the interrupt for next time
-        EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, BCHP_HIF_INTR2_CPU_CLEAR_NAND_UNC_INTR_MASK); 
+        EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR_MASK|HIF_INTR2_CTRL_READY); 
 PRINTK("<--%s:\n", __FUNCTION__);
+
+#ifdef CONFIG_MTD_BRCMNAND_USE_ISR
+	ISR_init();
+#endif
+
+
 //edu_debug = 0;
 }
 
@@ -570,6 +730,7 @@ int EDU_write(volatile const void* virtual_addr_buffer, uint32_t external_physic
 {
 	uint32_t  phys_mem;
 	// uint32_t  rd_data;
+	unsigned long flags;
 
 edu_debug = gdebug;
 	phys_mem = EDU_virt_to_phys((void *)virtual_addr_buffer);
@@ -582,8 +743,30 @@ edu_debug = gdebug;
 //PRINTK("EDU_write: vBuff: %p physDev: %08x, PA=%08x\n", 
 //virtual_addr_buffer, external_physical_device_address, phys_mem);
 
+#ifdef CONFIG_MTD_BRCMNAND_USE_ISR
+	spin_lock_irqsave(&gEduIsrData.lock, flags);
+ 	gEduIsrData.flashAddr = external_physical_device_address;
+ 	gEduIsrData.dramAddr = phys_mem;
+	
+	/*
+	 * Enable L2 Interrupt
+	 */
+	gEduIsrData.cmd = EDU_WRITE;
+	gEduIsrData.opComplete = 0;
+	gEduIsrData.status = 0;
+	
+	/* On write we wait for both DMA done|error and Flash Status */
+	gEduIsrData.mask = HIF_INTR2_EDU_CLEAR_MASK|HIF_INTR2_CTRL_READY;
+	gEduIsrData.expect = HIF_INTR2_EDU_DONE;
+	gEduIsrData.error = HIF_INTR2_EDU_ERR;
+	gEduIsrData.intr = HIF_INTR2_EDU_DONE_MASK|HIF_INTR2_CTRL_READY;
 
-	EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR);
+	spin_unlock_irqrestore(&gEduIsrData.lock, flags);
+	ISR_enable_irq();
+
+#else
+	EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR_MASK);
+#endif
 
 	//EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000); 
 	EDU_reset_done();
@@ -596,7 +779,7 @@ edu_debug = gdebug;
 
 	dma_cache_wback((unsigned long) virtual_addr_buffer, 512);
 
-	EDU_issue_command(phys_mem, external_physical_device_address, 0); /* 1: Is a Read, 0 Is a Write */
+	EDU_issue_command(phys_mem, external_physical_device_address, EDU_WRITE); /* 1: Is a Read, 0 Is a Write */
 
 //      rd_data = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, HIF_INTR2_EDU_DONE, HIF_INTR2_EDU_DONE);
 //      EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
@@ -607,14 +790,16 @@ edu_debug = gdebug;
 
 
 /*
- * Returns 0 on success
- * INTR2_Status on error.
+ * Returns INTR2 status on success
+ * 0 on timeout.
  */
 int EDU_read(volatile void* virtual_addr_buffer, uint32_t external_physical_device_address)
 {
-        uint32_t  phys_mem;
-        // uint32_t  rd_data;
-        int ret;
+	uint32_t  phys_mem;
+	// uint32_t  rd_data;
+	int ret;
+	int retries = 4;
+	unsigned long flags;
 		
 
 static int toggle;
@@ -636,7 +821,40 @@ if (toggle) edu_debug = 4;
 if (edu_debug) PRINTK("EDU_read: vBuff: %p physDev: %08x, PA=%08x\n", 
 virtual_addr_buffer, external_physical_device_address, phys_mem);
 
-        EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR);
+ #ifdef CONFIG_MTD_BRCMNAND_USE_ISR
+ 	spin_lock_irqsave(&gEduIsrData.lock, flags);
+ 	gEduIsrData.flashAddr = external_physical_device_address;
+ 	gEduIsrData.dramAddr = phys_mem;
+	
+	/*
+	 * Enable L2 Interrupt
+	 */
+	gEduIsrData.cmd = EDU_READ;
+	gEduIsrData.opComplete = 0;
+	gEduIsrData.status = 0;
+
+#if 0
+	/* On Read we only wait for DMA completion or Error */
+	gEduIsrData.mask = HIF_INTR2_EDU_CLEAR_MASK|HIF_INTR2_CTRL_READY;
+	gEduIsrData.expect = HIF_INTR2_EDU_DONE;
+	gEduIsrData.error = HIF_INTR2_EDU_ERR;
+	gEduIsrData.intr = HIF_INTR2_EDU_DONE_MASK;
+#endif
+
+	// We must also wait for Ctlr_Ready, otherwise the OOB is not correct, since we read the OOB bytes off the controller
+
+	gEduIsrData.mask = HIF_INTR2_EDU_CLEAR_MASK|HIF_INTR2_CTRL_READY;
+	gEduIsrData.expect = HIF_INTR2_EDU_DONE;
+	// On error we also want Ctrlr-Ready because for COR ERR, the Hamming WAR depends on the OOB bytes.
+	gEduIsrData.error = HIF_INTR2_EDU_ERR;
+	gEduIsrData.intr = HIF_INTR2_EDU_DONE_MASK;
+	spin_unlock_irqrestore(&gEduIsrData.lock, flags);
+	
+	ISR_enable_irq();
+#else
+
+        EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR_MASK);
+#endif
 
 #if 0
 
@@ -675,29 +893,29 @@ virtual_addr_buffer, external_physical_device_address, phys_mem);
 	 EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_LENGTH, EDU_LENGTH_VALUE);
 
 	 EDU_waitForNoPendingAndActiveBit();
+
+#ifdef CONFIG_MIPS_BCM3548
+// Debug, print out MEMC L2 status bit
+	if (DisplayMemDebug()) 
+		printk("MEMC Changed at flash addr %08x, DRAM Addr=%08x\n", 
+			external_physical_device_address, phys_mem); 
+#endif
 	  
 
-	  
-//PRINTK("----> Before EDU\n"); print_NandCtrl_Status();EDU_get_status();
-        EDU_issue_command(phys_mem, external_physical_device_address, 1); /* 1: Is a Read, 0 Is a Write */
-//PRINTK("<---- After EDU\n");print_NandCtrl_Status();EDU_get_status();
-#if 1
-        ret = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, 
+#ifdef CONFIG_MTD_BRCMNAND_USE_ISR
+	do {
+		EDU_issue_command(phys_mem, external_physical_device_address, EDU_READ);
+		ret = ISR_wait_for_completion();
+	} while (0);  //while (ret == (uint32_t) (ERESTARTSYS) && retries-- > 0);
+
+#else
+	EDU_issue_command(phys_mem, external_physical_device_address, EDU_READ); /* 1: Is a Read, 0 Is a Write */
+	ret = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, 
         	HIF_INTR2_EDU_DONE, 
         	HIF_INTR2_EDU_ERR, 
         	HIF_INTR2_EDU_DONE_MASK);
-#else
-        ret = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, 
-        	HIF_INTR2_EDU_DONE, HIF_INTR2_EDU_ERR, HIF_INTR2_EDU_DONE);
-
 #endif
 
-#if 0
-// TEST TEST TEST TEST
-        EDU_checkRegistersValidity(external_physical_device_address);
-        EDU_checkNandCacheAndBuffer(virtual_addr_buffer, 512);
-// TEST TEST TEST TEST
-#endif
 if (edu_debug) PRINTK("<-- %s ret=%08x\n", __FUNCTION__, ret);
 //edu_debug = 0;
 if (edu_debug > 3 && ret) {show_stack(current,NULL);dump_stack();}

@@ -681,6 +681,7 @@ static inline int simulate_rdhwr(struct pt_regs *regs)
 			EMU_MFC0(22, 4);
 			EMU_MFC0(22, 5);
 			EMU_MFC0(22, 6);
+			EMU_MFC0(22, 7);
 		}
 	}
 

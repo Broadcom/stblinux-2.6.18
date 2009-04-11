@@ -95,6 +95,13 @@ int gBcmSplash = 0;
 #endif
 EXPORT_SYMBOL(gBcmSplash);
 
+/*
+ * Support for CFE defined env vars for NAND flash partition
+ */
+
+cfePartitions_t gCfePartitions;
+EXPORT_SYMBOL(gCfePartitions);
+
 
 /* The Chip Select [0..7] for the NAND chips from gNumNand above, only applicable to v1.0+ NAND controller */
 #define NAND_MAX_CS    8
@@ -222,6 +229,7 @@ unsigned long
 get_RAM_size(void)
 {
 	BUG_ON(! brcm_dram0_size);
+printk("%s: brcm_dram0_size=%08x\n", __FUNCTION__, brcm_dram0_size);
 	return(brcm_dram0_size);
 }
 
@@ -359,6 +367,9 @@ static void __init board_pinmux_setup(void)
 #endif /* CONFIG_MIPS_BCM7420 */
 #endif /* ! CONFIG_MIPS_BRCM_SIM */
 }
+
+
+cfePartitions_t gCfePartitions; 
 
 void __init prom_init(void)
 {
@@ -533,6 +544,13 @@ void __init prom_init(void)
 
 		(void) board_get_cfe_env();
 	}
+
+#else
+
+
+	bcm_get_cfe_partition_env();
+
+
 
 #endif
 
@@ -764,6 +782,7 @@ void __init prom_init(void)
 		g_board_RAM_size = get_RAM_size();
 		ramSizeMB = g_board_RAM_size >> 20;
 
+printk("g_board_RAM_size=%dMB\n", ramSizeMB);
 
 		if (ramSizeMB <= 256) {
 			add_memory_region(0, g_board_RAM_size, BOOT_MEM_RAM);

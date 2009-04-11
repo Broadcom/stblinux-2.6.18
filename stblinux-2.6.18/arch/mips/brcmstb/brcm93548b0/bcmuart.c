@@ -151,30 +151,28 @@ void
 uartB_init(void)
 {
 // MUX for UARTB :  
-//    bits 27:25   Value 0x1  for Tx
-//    bits 24:22   Value 0x1  for Rx
+//    bits 5:3   Value 0x2  for Tx
+//    bits 8:6   Value 0x2  for Rx
 // Do this until CFE initializes it correctly
 
-#define SUN_TOP_CTRL_PIN_MUX_CTRL_7	(0xb040411C)
-	volatile unsigned long* pSunTopMuxCtrl7 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_7;
+#define SUN_TOP_CTRL_PIN_MUX_CTRL_6	(0xb0404118)
+	volatile unsigned long* pSunTopMuxCtrl6 = (volatile unsigned long*) SUN_TOP_CTRL_PIN_MUX_CTRL_6;
 
-	*pSunTopMuxCtrl7 &= 0xF03FFFFF;	 // Clear the bits
-	*pSunTopMuxCtrl7 |= 0x02400000;  // set (27:25) to 1, (24:22) to 1
+	*pSunTopMuxCtrl6 &= 0xFFFFFE07;	 // Clear the bits
+	*pSunTopMuxCtrl6 |= 0x00000090;  // set (5:3) to 2, (8:6) to 2
+
+	uartB_puts("UARTB initialization is completed! \r\n");
 }
 
 /* --------------------------------------------------------------------------
-    Name: bcm71xx_uart_init
  Purpose: Initalize the UART
 -------------------------------------------------------------------------- */
 void 
-//bcm71xx_uart_init(uint32 uClock)
 uart_init(unsigned long uClock)
 {
     unsigned long uBaudRate;
 
-#if defined( CONFIG_KGDB ) && !defined( CONFIG_SINGLE_SERIAL_PORT )
 	(void) uartB_init();
-#endif
 
     // Make sure clock is ticking
     //INTC->blkEnables = INTC->blkEnables | UART_CLK_EN;

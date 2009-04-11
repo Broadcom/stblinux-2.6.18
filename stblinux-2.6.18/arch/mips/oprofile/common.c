@@ -23,6 +23,8 @@ extern struct op_mips_model op_model_bcm3300 __attribute__((weak));
 extern struct op_mips_model op_model_bcm4350 __attribute__((weak));
 extern struct op_mips_model op_model_bcm4380 __attribute__((weak));
 
+extern struct op_mips_model op_model_bcm5000_ops __attribute__((weak));
+
 //extern void op_mips_backtrace(struct pt_regs * const regs, unsigned int depth);
 
 static struct op_mips_model *model;
@@ -90,7 +92,6 @@ int __init oprofile_arch_init(struct oprofile_operations *ops)
 	case CPU_74K:
 	case CPU_SB1:
 	case CPU_SB1A:
-	case CPU_BMIPS5000:
 		lmodel = &op_model_mipsxx_ops;
 		break;
 
@@ -109,6 +110,9 @@ int __init oprofile_arch_init(struct oprofile_operations *ops)
 		break;
 	case CPU_BMIPS4380:
 		lmodel = &op_model_bcm4380;
+		break;
+	case CPU_BMIPS5000:
+		lmodel = &op_model_bcm5000_ops;
 		break;
 
 

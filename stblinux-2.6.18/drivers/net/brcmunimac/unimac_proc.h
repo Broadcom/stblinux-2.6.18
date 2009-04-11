@@ -47,7 +47,7 @@ int bcmumac_proc_entry_create(char *path, umacProcEntry * entry);
 int bcmumac_proc_entry_remove(char *path, umacProcEntry * entry);
 
 /* script generated proc entries */
-extern umacProcEntry umac0_proc_entries[240];
-extern umacProcEntry umac1_proc_entries[240];
+extern umacProcEntry umac0_proc_entries[234];
+extern umacProcEntry umac1_proc_entries[234];
 
 #endif /* UNIMAC_PROC_H */

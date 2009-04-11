@@ -1433,7 +1433,7 @@ PRINTK("%s: gClearBBT=%d, size=%016llx, erasesize=%08x\n", __FUNCTION__, gClearB
 
 		bOffsetStart = this->mtdSize - bbtSize; 
 		bOffsetEnd = this->mtdSize - mtd->erasesize;
-PRINTK("%s: gClearBBT=clearbbt, start=%0llx, end=%0llx\n", __FUNCTION__, 
+printk("%s: gClearBBT=clearbbt, start=%0llx, end=%0llx\n", __FUNCTION__, 
 	bOffsetStart, bOffsetEnd);
 		break;
 
@@ -1473,7 +1473,7 @@ PRINTK("%s: gClearBBT=clearbbt, start=%0llx, end=%0llx\n", __FUNCTION__,
 		 */
 
 #if 0		
-		unsigned char oobbuf[64];
+		unsigned char oobbuf[NAND_MAX_OOBSIZE];
 		int autoplace = 0;
 		int raw = 1;
 		struct nand_oobinfo oobsel;
@@ -1517,7 +1517,7 @@ PRINTK("%s: gClearBBT=clearbbt, start=%0llx, end=%0llx\n", __FUNCTION__,
 		}
 #endif
 		
-		PRINTK("brcmnand flag=%d: Erasing block at %0llx\n", 
+		printk("brcmnand flag=%d: Erasing block at %0llx\n", 
 			gClearBBT, bOffset);
 		this->ctrl_writeAddr(this, bOffset, 0);
 

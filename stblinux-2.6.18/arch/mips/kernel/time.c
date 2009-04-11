@@ -434,6 +434,7 @@ EXPORT_SYMBOL(null_perf_irq);
 EXPORT_SYMBOL(perf_irq);
 
 extern int performance_enabled;
+extern int test_all_counters();
 
 /*
  * High-level timer interrupt service routines.  This function
@@ -453,12 +454,21 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	timerhi += count < timerlo;			/* Wrap around */
 	timerlo = count;
 
-#if defined(CONFIG_OPROFILE) && defined(CONFIG_MTI_R34K)
-	if ((performance_enabled) && (perf_irq != null_perf_irq) && (read_c0_cause() & (1 << 26)))
+#if defined(CONFIG_OPROFILE) && (defined(CONFIG_MTI_R34K) || defined(CONFIG_MTI_R24K))
+if ((performance_enabled) && (perf_irq != null_perf_irq) && (read_c0_cause() & (1 << 26)))
 	{
                perf_irq(regs);
-       }
+	}
 #endif
+
+#if defined(CONFIG_OPROFILE) && defined(CONFIG_BMIPS5000)
+	if( performance_enabled && (perf_irq != null_perf_irq) && test_all_counters() )
+	{
+//		printk("timer_interupt  perf_irq--------------------------------------------------------------------r\n");
+		perf_irq(regs);
+    	}
+#endif
+
 
 	/*
 	 * call the generic timer interrupt handling

@@ -60,7 +60,7 @@ when	who what
 
 #define my_be32_to_cpu(x) be32_to_cpu(x)
 
-#if defined( CONFIG_MTI_R24K ) || defined( CONFIG_MTI_R34K )
+#if defined( CONFIG_MTI_R24K ) || defined( CONFIG_MTI_R34K ) || defined( CONFIG_MTD_BRCMNAND_EDU )
 	#define PLATFORM_IOFLUSH_WAR()	__sync()
 #else
 	#define PLATFORM_IOFLUSH_WAR()	
@@ -70,7 +70,7 @@ when	who what
 
 #include "edu.h"
 
-// Prototypes
+// Prototypes, also define whether polling or isr mode
 #include "eduproto.h"
 #endif // #ifdef CONFIG_MTD_BRCMNAND_EDU
 
@@ -100,21 +100,26 @@ extern int* gNandCS;
 // If wr_preempt_en is enabled, need to disable IRQ during NAND I/O
 int wr_preempt_en = 0;
 
+// Last known good ECC sector offset (512B sector that does not generate ECC error).  
+// used in HIF_INTR2 WAR.
+loff_t gLastKnownGoodEcc;
+
+
 #define DRIVER_NAME	"brcmnand"
 
 #define HW_AUTOOOB_LAYOUT_SIZE		32 /* should be enough */
 
 #define BRCMNAND_CORRECTABLE_ECC_ERROR		(1)
-#define BRCMNAND_SUCCESS					(0)
+#define BRCMNAND_SUCCESS						(0)
 #define BRCMNAND_UNCORRECTABLE_ECC_ERROR	(-1)
 #define BRCMNAND_FLASH_STATUS_ERROR			(-2)
 #define BRCMNAND_TIMED_OUT					(-3)
 
 #ifdef CONFIG_MTD_BRCMNAND_EDU
-#define BRCMEDU_CORRECTABLE_ECC_ERROR        (4)
+#define BRCMEDU_CORRECTABLE_ECC_ERROR        	(4)
 #define BRCMEDU_UNCORRECTABLE_ECC_ERROR      (-4)
 
-#define  BRCMEDU_MEM_BUS_ERROR			(-5)
+#define  BRCMEDU_MEM_BUS_ERROR				(-5)
 
 //uint32_t EDU_ldw;
 #endif // #ifdef CONFIG_MTD_BRCMNAND_EDU
@@ -134,8 +139,18 @@ static int brcmnand_erase_nolock(struct mtd_info *, struct erase_info *, int);
 #define BRCMNAND_ID_HAS_BYTE4		0x00000002
 #define BRCMNAND_ID_HAS_BYTE5		0x00000004
 
+// TYPE2
+#define BRCMNAND_ID_HAS_BYTE4_T2		0x00000008
+#define BRCMNAND_ID_HAS_BYTE5_T2		0x00000010
+#define BRCMNAND_ID_HAS_BYTE6_T2		0x00000020
+
+
 #define BRCMNAND_ID_EXT_BYTES \
 	(BRCMNAND_ID_HAS_BYTE3|BRCMNAND_ID_HAS_BYTE4|BRCMNAND_ID_HAS_BYTE5)
+
+#define BRCMNAND_ID_EXT_BYTES_TYPE2 \
+	(BRCMNAND_ID_HAS_BYTE3|BRCMNAND_ID_HAS_BYTE4_T2|\
+	BRCMNAND_ID_HAS_BYTE5_T2|BRCMNAND_ID_HAS_BYTE6_T2)
 
 typedef struct brcmnand_chip_Id {
     	uint8 mafId, chipId;
@@ -468,6 +483,18 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 	},
 
 	{	/* 29 */
+		.chipId = SAMSUNG_K9GA08U0D,
+		.mafId = FLASHTYPE_SAMSUNG,
+		.chipIdStr = "Samsung K9GA08U0D",
+		.options = NAND_USE_FLASH_BBT, 		/* Use BBT on flash */
+				//| NAND_COMPLEX_OOB_WRITE	/* Write data together with OOB for write_oob */
+		.idOptions = BRCMNAND_ID_EXT_BYTES_TYPE2,
+		.timing1 = 0, //00070000,
+		.timing2 = 0,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_3_0, 
+	},
+
+	{	/* 30 */
 		.chipId = HYNIX_HY27UT088G2A,
 		.mafId = FLASHTYPE_HYNIX,
 		.chipIdStr = "HYNIX_HY27UT088G2A",
@@ -510,9 +537,20 @@ static const unsigned char ffchars[] = {
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 112 */
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 128 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 144 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 160 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 176 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 192 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 208 */
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,	/* 216 */
 };
 
-static unsigned char eccmask[128]; // Will be initialized during probe
+//static unsigned char eccmask[128]; // Will be initialized during probe
 
 
 static uint32_t brcmnand_ctrl_read(uint32_t nandCtrlReg) 
@@ -648,7 +686,7 @@ void print_NandCtrl_Status(void)
 	uint32_t hif_intr2_status = (uint32_t) *((volatile unsigned long*)(0xb0000000  + BCHP_HIF_INTR2_CPU_STATUS));
 	uint32_t hif_intr2_mask = (uint32_t) *((volatile unsigned long*)(0xb0000000  + BCHP_HIF_INTR2_CPU_MASK_STATUS));
 	
-	printk("\nNandCtrl_Status: CMD_ADDR=%08lx, CMD_START=%08lx, INTFC_STATUS=%08lx, HIF_INTR2_ST=%08lx, HF_MSK=%08lx\n", 
+	printk("\nNandCtrl_Status: CMD_ADDR=%08x, CMD_START=%08x, INTFC_STATUS=%08x, HIF_INTR2_ST=%08x, HF_MSK=%08x\n", 
 		nand_cmd_addr, nand_cmd_start, nand_intfc_stat, hif_intr2_status, hif_intr2_mask);	
 #endif
 }
@@ -681,6 +719,15 @@ int i;
  printk("\n");
 }
 
+void print_oobreg(struct brcmnand_chip* chip) {
+	int i;
+
+	printk("OOB Register:");
+	for (i = 0; i < 4; i++) {
+		printk("%08x ",  chip->ctrl_read(BCHP_NAND_SPARE_AREA_READ_OFS_0 + i*4));
+	}
+	printk("\n");
+}
 #endif
 
 /*
@@ -721,16 +768,6 @@ static int brcmnand_from_flash_memcpy32(struct brcmnand_chip* chip, void* dest, 
 		return -EINVAL;
 	}
 
-
-
-
-#if 0
-// THT 082808: For MLC, this codes still work, but for peace of mind, take it out.
-	// THT: Changed to use built-in kernel memcpy() to take advantage of Prefetch
-if (gdebug) printk("%s: pucFlash=%p, len=%d\n", __FUNCTION__, pucFlash, len);
-	memcpy(pucDest, pucFlash, len);
-
-#else
 	/* THT: 12/04/08.  memcpy plays havoc with the NAND controller logic 
 	 * We have removed the alignment test, so we rely on the following codes to take care of it
 	 */
@@ -753,8 +790,6 @@ if (gdebug) printk("%s: pucFlash=%p, len=%d\n", __FUNCTION__, pucFlash, len);
 			pucDest[i] = /* THT 8/29/06  cpu_to_be32 */(pucFlash[i]);
 		}
 	}
-
-#endif
 
 	return 0;
 }
@@ -783,16 +818,7 @@ static int brcmnand_to_flash_memcpy32(struct brcmnand_chip* chip, loff_t offset,
 		printk(KERN_ERR "brcmnand_to_flash_memcpy32 dest=%p not DW aligned\n", flash);
 		BUG();
 	}
-#if 0
-	/*
-	 * THT 12/08/08: We really can't assume that the buffer that was sent down to us is DW aligned
- 	 * So we take care of alignment in the codes below
- 	 */
-	if (unlikely((unsigned int) src & 0x3)) {
-		printk(KERN_ERR "brcmnand_memcpy32 src=%p not DW aligned\n", src);
-		return -EINVAL;
-	}
-#endif
+
 	if (unlikely(len & 0x3)) {
 		printk(KERN_ERR "brcmnand_to_flash_memcpy32 len=%d not DW aligned\n", len);
 		BUG();
@@ -800,12 +826,7 @@ static int brcmnand_to_flash_memcpy32(struct brcmnand_chip* chip, loff_t offset,
 
 if (gdebug) printk("%s: flash=%p, len=%d, src=%p\n", __FUNCTION__, flash, len, src);
 	
-#if 0
-	// THT Does not work for MLC when {FAST_PGM_RDIN, PARTIAL_PAGE_EN} = {0. 0}
-	// Use memcpy to take advantage of Prefetch
-	memcpy(flash, src, len);
 
-#else
 	/*
 	 * THT: 12/08/08.  memcpy plays havoc with the NAND controller logic 
 	 * We have removed the alignment test, so we need these codes to take care of it
@@ -821,7 +842,6 @@ if (gdebug) printk("%s: flash=%p, len=%d, src=%p\n", __FUNCTION__, flash, len, s
 			pDest[i] = (pSrc[i]);
 		}
     }
-#endif
 
 	return 0;
 }
@@ -878,20 +898,43 @@ if (gdebug > 3 ) printk("EDU_ERR_STATUS=%08x BUS ERROR\n", status);
 		return err; /* Return right away for retry */
         }
     }
-    
+
+    /*
+      * Clear error status on Controller side, but before doing that, we need
+      * to make sure the controller is done with previous op.
+      */
+
+	  /*
+	   * Wait for Controller Ready Status bit, which indicates data and OOB are ready for Read
+	   */
+#ifdef CONFIG_MTD_BRCMNAND_USE_ISR	
+	if (!(intr & HIF_INTR2_CTRL_READY)) {
+		uint32_t rd_data;
+
+	
+	 	rd_data = ISR_cache_is_valid(intr);
+
+
+
+
+		if (rd_data == 0) {
+	  	/* timed out */
+printk("%s: rd_data=0 TIMEOUT\n", __FUNCTION__);
+			err = BRCMNAND_TIMED_OUT;
+			return err;
+	  	}
+	}
+#endif
+
+
     if ((intr & BCHP_HIF_INTR2_CPU_STATUS_NAND_CORR_INTR_MASK) != 0x00000000)
     {
 
-#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
         // Clear it
         this->ctrl_write(BCHP_NAND_ECC_CORR_EXT_ADDR, 0);
-#endif
-
-        // Clear it
         this->ctrl_write(BCHP_NAND_ECC_CORR_ADDR, 0);
-        
        
-        err = BRCMNAND_CORRECTABLE_ECC_ERROR;
+        //err = BRCMNAND_CORRECTABLE_ECC_ERROR;
 
         // Clear the interrupt for next time
         EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, BCHP_HIF_INTR2_CPU_CLEAR_NAND_CORR_INTR_MASK); 
@@ -899,10 +942,8 @@ if (gdebug > 3 ) printk("EDU_ERR_STATUS=%08x BUS ERROR\n", status);
 
     if ((intr & BCHP_HIF_INTR2_CPU_STATUS_NAND_UNC_INTR_MASK) != 0x00000000) 
     {
-#if CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_1_0
         // Clear it
         this->ctrl_write(BCHP_NAND_ECC_UNC_EXT_ADDR, 0);
-#endif
         this->ctrl_write(BCHP_NAND_ECC_UNC_ADDR, 0);
 
         /*
@@ -910,8 +951,7 @@ if (gdebug > 3 ) printk("EDU_ERR_STATUS=%08x BUS ERROR\n", status);
          * so this could be a false alarm
          */
 
-        
-        err = BRCMNAND_UNCORRECTABLE_ECC_ERROR;
+        //err = BRCMNAND_UNCORRECTABLE_ECC_ERROR;
 
         // Clear the interrupt for next time
         EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, BCHP_HIF_INTR2_CPU_CLEAR_NAND_UNC_INTR_MASK); 
@@ -928,7 +968,7 @@ printk("<-- %s err = %d\n", __FUNCTION__, err);}
  *			 1: Correctable error
  *			-1: Uncorrectable error
  */
-static int brcmnand_ctrl_verify_ecc(struct brcmnand_chip* chip, int state)
+static int brcmnand_ctrl_verify_ecc(struct brcmnand_chip* chip, int state, uint32_t notUsed)
 {
 	int err = 0;
 	uint32_t addr;
@@ -979,10 +1019,10 @@ printk("-->%s\n", __FUNCTION__);}
 
 #ifdef CONFIG_MTD_BRCMNAND_EDU
 
-static int (*brcmnand_verify_ecc) (struct brcmnand_chip* chip, int state) = brcmnand_EDU_verify_ecc;
+static int (*brcmnand_verify_ecc) (struct brcmnand_chip* chip, int state, uint32_t intr) = brcmnand_EDU_verify_ecc;
 
 #else
-static int (*brcmnand_verify_ecc) (struct brcmnand_chip* chip, int state) = brcmnand_ctrl_verify_ecc;
+static int (*brcmnand_verify_ecc) (struct brcmnand_chip* chip, int state, uint32_t intr) = brcmnand_ctrl_verify_ecc;
 #endif //#ifdef CONFIG_MTD_BRCMNAND_EDU
 
 
@@ -1023,14 +1063,60 @@ static int brcmnand_wait(struct mtd_info *mtd, int state, uint32_t* pStatus)
 	return -ETIMEDOUT;
 }
 
+/* 
+ * Returns 	 1: Success, no errors
+ * 			 0: Timeout
+ *			-1: Errors
+ */
+static int brcmnand_spare_is_valid(struct mtd_info* mtd,  int state, int raw) 
+{
+	struct brcmnand_chip * chip = mtd->priv;
+	unsigned long timeout;
+	uint32_t ready;
+
+if (gdebug > 3 ) {
+printk("-->%s, raw=%d\n", __FUNCTION__, raw);}
+
+
+	/* The 20 msec is enough */
+	timeout = jiffies + msecs_to_jiffies(3000);  // 3 sec timeout for now
+	while (time_before(jiffies, timeout)) {
+		PLATFORM_IOFLUSH_WAR();
+		ready = chip->ctrl_read(BCHP_NAND_INTFC_STATUS);
+
+		if (ready & BCHP_NAND_INTFC_STATUS_CTLR_READY_MASK && 
+		   (ready & BCHP_NAND_INTFC_STATUS_SPARE_AREA_VALID_MASK)) {
+			int ecc;
+
+			if (!raw) {
+				ecc = brcmnand_ctrl_verify_ecc(chip, state, 0);
+				if (ecc < 0) {
+//printk("%s: Uncorrectable ECC error at offset %08x\n", __FUNCTION__, (unsigned long) offset);
+					return -1;
+				}
+			}
+			return 1;
+		}
+		if (state != FL_READING && !wr_preempt_en)
+			cond_resched();
+	}
+
+	return 0; // Timed out
+}
+
+
 
 /* 
- * Returns 	 1: Success, correctable errors
- * 			 0: Success
- *			-1: Uncorectable error
- *			-2: Block is bad, returned from flash Status.
- *			-3: Timed out
+ * Returns: Good: >= 0
+ *		    Error:  < 0
+ *
+ * BRCMNAND_CORRECTABLE_ECC_ERROR		(1)
+ * BRCMNAND_SUCCESS					(0)
+ * BRCMNAND_UNCORRECTABLE_ECC_ERROR	(-1)
+ * BRCMNAND_FLASH_STATUS_ERROR			(-2)
+ * BRCMNAND_TIMED_OUT					(-3)
  */
+ 
 static int brcmnand_cache_is_valid(struct mtd_info* mtd,  int state, loff_t offset) 
 {
 	struct brcmnand_chip * chip = mtd->priv;
@@ -1055,7 +1141,7 @@ printk("%s: offset=%0llx\n", __FUNCTION__, offset);}
 			}
 
 			//if (!raw) {
-			ecc = brcmnand_ctrl_verify_ecc(chip, state);
+			ecc = brcmnand_ctrl_verify_ecc(chip, state, 0);
 // Let caller handle it
 //printk("%s: Possible Uncorrectable ECC error at offset %08x\n", __FUNCTION__, (unsigned long) offset);
 if (gdebug > 3 ) {
@@ -1077,35 +1163,69 @@ printk("<--%s: ret = TIMEOUT\n", __FUNCTION__);}
 #ifdef CONFIG_MTD_BRCMNAND_EDU
 
 /* 
- * Returns      1: Success, no errors
- *              0: Timeout
- *            -1: Other Errors
+ * Returns: Good: >= 0
+ *		    Error:  < 0
+ *
+ * BRCMNAND_CORRECTABLE_ECC_ERROR		(1)
+ * BRCMNAND_SUCCESS					(0)
+ * BRCMNAND_TIMED_OUT					(-3)
+ * BRCMEDU_CORRECTABLE_ECC_ERROR        	(4)
+ * BRCMEDU_UNCORRECTABLE_ECC_ERROR      	(-4)
+ * BRCMEDU_MEM_BUS_ERROR				(-5)
  */
 static int brcmnand_EDU_cache_is_valid(struct mtd_info* mtd,  int state, loff_t offset, uint32_t intr_status) 
 {
 	struct brcmnand_chip * chip = mtd->priv;
-	//uint32 rd_data = 0;
 	int error = 0;
+	unsigned long flags;
+	uint32_t rd_data;
 
 if (gdebug > 3 ) {
-printk("EDU_poll returns %08x\n", intr_status); }	 
+printk("%s: intr_status = %08x\n", intr_status); }	 
 
 	  if (intr_status == 0) {
-	  	/* EDU_Poll timed out */
+	  	/* EDU_read timed out */
+printk("%s: intr_status=0 TIMEOUT\n", __FUNCTION__);
 		error = BRCMNAND_TIMED_OUT;
+		//goto out;
 	  }
-	  
-        else if (intr_status & HIF_INTR2_EDU_ERR)
-        {
-            error = brcmnand_EDU_verify_ecc(chip, state, intr_status);
-        }
+
+	else if (intr_status & HIF_INTR2_EDU_ERR)
+	{
+		error = brcmnand_EDU_verify_ecc(chip, state, intr_status);
+	}
+
+	/*
+	 * Success return, now make sure OOB area is ready to be read
+	 */
+	else {
+		uint32_t rd_data;
+
+#ifdef CONFIG_MTD_BRCMNAND_USE_ISR
+		/*
+		 * First check that HIF_INTR2_CTRL_READY is asserted
+		 * this is to avoid busy-waiting inside brcmnand_spare_is_valid
+		 */
+
+		if (!(intr_status & HIF_INTR2_CTRL_READY)) {
+			(void) ISR_cache_is_valid(0); 
+		}
+#endif
+		/*
+		 * Tests show that even with HIF_INTR2_CTRL_READY asserted,
+		 * OOB may not contain correct data till INTF_STATUS assert spare-valid
+		 */
+	 	(void) brcmnand_spare_is_valid(mtd, state, 1); // Dont want to call verify_ecc
+		error = 0;
+	}
+
+//out:
         
         //EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
         EDU_reset_done();
         EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_ERR_STATUS, 0x00000000);
-        EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR);    
-       
-        error = brcmnand_cache_is_valid(mtd, state, offset);
+        EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, HIF_INTR2_EDU_CLEAR_MASK);    
+
 	  return error;
 }
 
@@ -1124,45 +1244,6 @@ static int brcmnand_select_cache_is_valid(struct mtd_info* mtd,  int state, loff
 }
 #endif
 
-/* 
- * Returns 	 1: Success, no errors
- * 			 0: Timeout
- *			-1: Errors
- */
-static int brcmnand_spare_is_valid(struct mtd_info* mtd,  int state, int raw) 
-{
-	struct brcmnand_chip * chip = mtd->priv;
-	unsigned long timeout;
-	uint32_t ready;
-
-if (gdebug > 3 ) {
-printk("-->%s, raw=%d\n", __FUNCTION__, raw);}
-
-
-	/* The 20 msec is enough */
-	timeout = jiffies + msecs_to_jiffies(3000);  // 3 sec timeout for now
-	while (time_before(jiffies, timeout)) {
-		PLATFORM_IOFLUSH_WAR();
-		ready = chip->ctrl_read(BCHP_NAND_INTFC_STATUS);
-
-		if (ready & BCHP_NAND_INTFC_STATUS_CTLR_READY_MASK) {
-			int ecc;
-
-			if (!raw) {
-				ecc = brcmnand_ctrl_verify_ecc(chip, state);
-				if (ecc < 0) {
-//printk("%s: Uncorrectable ECC error at offset %08x\n", __FUNCTION__, (unsigned long) offset);
-					return -1;
-				}
-			}
-			return 1;
-		}
-		if (state != FL_READING && !wr_preempt_en)
-			cond_resched();
-	}
-
-	return 0; // Timed out
-}
 
 
 
@@ -1194,23 +1275,37 @@ static int brcmnand_ctrl_write_is_complete(struct mtd_info *mtd, int* outp_needB
 static int brcmnand_EDU_write_is_complete(struct mtd_info *mtd, int* outp_needBBT)
 {
 	uint32_t hif_err, edu_err;
-	struct brcmnand_chip *this = mtd->priv;
+	int ret;
+	struct brcmnand_chip *chip = mtd->priv;
 
 	/* For Erase op, use the controller version */
-	if (this->state != FL_WRITING) {
+	if (chip->state != FL_WRITING) {
 		return brcmnand_ctrl_write_is_complete(mtd, outp_needBBT);  
 	}
     
 	*outp_needBBT = 0;
 
 
+#ifdef CONFIG_MTD_BRCMNAND_USE_ISR
+	// Unlike the Read case where we retry on everything, we either complete the write or die trying.
+	// Here we use retry only for ERESTARTSYS, relying on the fact that we write the same data over the flash.
+	hif_err = ISR_wait_for_completion();
+	if ((hif_err == ERESTARTSYS) || (hif_err & HIF_INTR2_EBI_TIMEOUT))
+		return hif_err;
+
+#else
 	hif_err = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, 
 		HIF_INTR2_EDU_DONE, 
 		HIF_INTR2_EDU_ERR, 
 		HIF_INTR2_EDU_DONE_MASK);
+#endif
 
 	if (hif_err != 0) // No timeout
 	{
+		int flashStatus; // = chip->ctrl_read(BCHP_NAND_INTFC_STATUS);
+
+		
+			
 		
 		/******************* BUG BUG BUG *****************
 		 * THT 01/06/09: What if EDU returns bus error?  We should not mark the block bad then.
@@ -1222,9 +1317,18 @@ static int brcmnand_EDU_write_is_complete(struct mtd_info *mtd, int* outp_needBB
 		//EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
 		EDU_reset_done();
 		EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_ERR_STATUS, 0x00000000);
-		EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR);
-		
-		if (edu_err & EDU_ERR_STATUS_NandWrite) {
+		EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, HIF_INTR2_EDU_CLEAR_MASK);
+
+		flashStatus = chip->ctrl_read(BCHP_NAND_INTFC_STATUS);
+
+		/* Just to be dead sure */
+		if (!(flashStatus & BCHP_NAND_INTFC_STATUS_CTLR_READY_MASK)) {
+			ret = brcmnand_ctrl_write_is_complete(mtd, outp_needBBT); 
+			// No need to check on the EDU side, already done inside ctrl_write_is_complete
+			return ret;
+		}
+			
+		if ((edu_err & EDU_ERR_STATUS_NandWrite) || (flashStatus & 0x01)) {
 			/* Write did not complete, flash error, will mark block bad */
 			*outp_needBBT = 1;
 			printk("EDU_write_is_complete(): error 0x%08X\n", edu_err);
@@ -1238,6 +1342,15 @@ static int brcmnand_EDU_write_is_complete(struct mtd_info *mtd, int* outp_needBB
 		}
 
 		return 1; // Success    brcmnand_ctrl_write_is_complete(mtd, outp_needBBT);  
+	}
+	else { // Write timeout
+		printk("%s: Write has timed out\n", __FUNCTION__);
+		//*outp_needBBT = 1;
+		EDU_reset_done();
+		EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_ERR_STATUS, 0x00000000);
+		EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, HIF_INTR2_EDU_CLEAR_MASK);
+		
+		return 0;
 	}
 
 
@@ -1309,6 +1422,7 @@ brcmnand_transfer_oob(struct brcmnand_chip *chip, uint8_t *oob,
 
 /*
  * Returns 0 on success
+ * Expect a controller read was done before hand, and that the OOB data are read into NAND registers.
  */
 static int brcmnand_handle_false_read_ecc_unc_errors(
 		struct mtd_info* mtd, 
@@ -1333,27 +1447,25 @@ static int brcmnand_handle_false_read_ecc_unc_errors(
 	int erased, allFF;
 	int i;
 
-	//if (!oobarea) 
-	//	oobarea = &oobbuf[0];
-	//p32 = (uint32_t*) oobarea;
-
 	for (i = 0; i < 4; i++) {
-		p32[i] = /* THT 11-30-06 */ be32_to_cpu (chip->ctrl_read(BCHP_NAND_SPARE_AREA_READ_OFS_0 + i*4));
+		p32[i] = be32_to_cpu (chip->ctrl_read(BCHP_NAND_SPARE_AREA_READ_OFS_0 + i*4));
 	}
 	if (chip->ecclevel == BRCMNAND_ECC_HAMMING) {
-		erased = (oobarea[6] == 0xff && oobarea[7] == 0xff && oobarea[8] == 0xff);
-		allFF = (oobarea[6] == 0x00 && oobarea[7] == 0x00 && oobarea[8] == 0x00);
+		erased = (p8[6] == 0xff && p8[7] == 0xff && p8[8] == 0xff);
+		allFF = (p8[6] == 0x00 && p8[7] == 0x00 && p8[8] == 0x00);
 if (gdebug > 3 ) 
-{printk("%s: erased=%d, allFF=%d\n", __FUNCTION__, erased, allFF);}
+{printk("%s: erased=%d, allFF=%d\n", __FUNCTION__, erased, allFF);
+print_oobbuf(p8, 16);
+}
 	}
 	else if (chip->ecclevel >= BRCMNAND_ECC_BCH_1 && chip->ecclevel <= BRCMNAND_ECC_BCH_12) {
 		erased = allFF = 1;
 		// For BCH-n, the ECC bytes are at the end of the OOB area
 		for (i=chip->eccOobSize-chip->eccbytes; i<chip->eccOobSize; i++) {
-			erased = erased && (oobarea[i] == 0xff);
-			allFF = allFF && (oobarea[i] == 0x00);
+			erased = erased && (p8[i] == 0xff);
+			allFF = allFF && (p8[i] == 0x00);
 		}
-if (gdebug > 3 ) 
+//if (gdebug > 3 ) 
 {printk("%s: eccOobSize=%d, eccbytes=%d, erased=%d, allFF=%d\n", __FUNCTION__, 
 chip->eccOobSize, chip->eccbytes, erased, allFF);}
 	}
@@ -1424,8 +1536,6 @@ static void  brcmnand_Hamming_ecc(const uint8_t *data, uint8_t *ecc_code)
     }
 
 #else
-    // THT: No need to copy.  "data" is guaranteed to be DW-aligned by caller.
-    // NOt True any more
     	if (unlikely((unsigned int) data & 0x3)) {
 		memcpy((uint8_t*) i_din, data, 512);
     	}
@@ -1703,8 +1813,15 @@ if (gdebug > 3 )
 		}
 
 		switch (valid) {
-		case BRCMNAND_CORRECTABLE_ECC_ERROR: /* Success, no errors */
-		case BRCMNAND_SUCCESS:
+
+		case BRCMNAND_SUCCESS: /* Success, no errors */
+			// Remember last good 512B-sector read.  Needed for HIF_INTR2 war.
+			//if (0 == gLastKnownGoodEcc)
+				gLastKnownGoodEcc = offset;
+			
+			/* FALLTHROUGH */
+
+		case BRCMNAND_CORRECTABLE_ECC_ERROR: 
 			if (buffer) {
 				brcmnand_from_flash_memcpy32(chip, buffer, offset, mtd->eccsize);
 			}
@@ -1799,6 +1916,8 @@ offset, edu_sw_ecc[0], edu_sw_ecc[1], edu_sw_ecc[2]);
 	 print_oobbuf(oobarea, 16);
 }
 #endif
+
+
 	return ret;
 }
 
@@ -1908,29 +2027,52 @@ in_verify = 0;
 //#define EDU_DEBUG_2
 #undef EDU_DEBUG_2
 
-#ifdef EDU_DEBUG_2
+// EDU_DEBUG_4: Verify on Read
+//#define EDU_DEBUG_4
+#undef EDU_DEBUG_4
+
+// EDU_DEBUG_5: Verify on Write
+//#define EDU_DEBUG_5
+#undef EDU_DEBUG_5
+
+#if defined( EDU_DEBUG_2 ) || defined( EDU_DEBUG_4 ) 
 /* 3548 internal buffer is 4K in size */
 //static uint32_t edu_lbuf[2048];
 static uint32_t* edu_buf32;
-static uint8_t* edu_buf; // = (uint8_t*) &edu_lbuf[128];
+static uint8_t* edu_buf;   	// Used by EDU in Debug2
+static uint8_t* ctrl_buf;	// Used by Ctrl in Debug4
+static uint32_t ctrl_oob32[4];
+static uint8_t* ctrl_oob = (uint8_t*) ctrl_oob32;
 
 #define PATTERN 0xa55a0000
 
-#define EDU_BUF32_SIZE_B (512*12)
-#define EDU_BUF32_SIZE_DW (EDU_BUF32_SIZE_B/4)
-#define EDU_BUF_START_DW (256)
 #define EDU_BUFSIZE_B (512)
+// One before and one after
+#define EDU_BUF32_SIZE_B (EDU_BUFSIZE_B*3)
+
+// Same as above in DW instead
+#define EDU_BUFSIZE_DW (EDU_BUFSIZE_B/4)
+#define EDU_BUF32_SIZE_DW (EDU_BUF32_SIZE_B/4)
+
+// Real buffer starts at 1/3 
+#define EDU_BUF_START_DW (EDU_BUF32_SIZE_DW/3)
+
 
 static void init_edu_buf(void)
 {
 	/* Write pattern */
 	int i;
 
-
-
 	if (!edu_buf32) {
 		edu_buf32 = (uint32_t*) kmalloc(EDU_BUF32_SIZE_B, GFP_KERNEL);
-		edu_buf = (uint8_t*)  &edu_buf32[EDU_BUF_START_DW];
+		if (!edu_buf32) {
+			printk("%s: Out of memory\n", __FUNCTION__);
+			BUG();
+		}
+			
+		edu_buf = ctrl_buf = (uint8_t*)  &edu_buf32[EDU_BUF_START_DW];
+		printk("%s: Buffer allocated at %p, %d bytes\n", __FUNCTION__, edu_buf32, EDU_BUF32_SIZE_B);
+		printk("Real buffer starts at %p\n", ctrl_buf);
 	}
 
 	for (i=0; i<EDU_BUF32_SIZE_DW; i++) {
@@ -1950,7 +2092,7 @@ static int verify_edu_buf(void)
 			ret++;
 		}
 	}
-	for (i=EDU_BUF_START_DW+(EDU_BUFSIZE_B/4); i<EDU_BUF32_SIZE_DW; i++) {
+	for (i=EDU_BUF_START_DW+EDU_BUFSIZE_DW; i<EDU_BUF32_SIZE_DW; i++) {
 		if (edu_buf32[i] != (PATTERN | i)) {
 			printk("############ %s: pattern overwritten at offset %d, expect %08x, found %08x\n", 
 				__FUNCTION__, i*4, PATTERN | i, edu_buf32[i]);
@@ -1978,6 +2120,7 @@ static int brcmnand_EDU_posted_read_cache(struct mtd_info* mtd,
 	uint32_t EDU_ldw;
 	uint32_t intr_status;
 	unsigned long irqflags;
+	int retries = 5;
 	
 int save_debug;
 uint32_t edu_status;
@@ -1986,9 +2129,14 @@ uint32_t edu_status;
 u_char* save_buf = buffer;
 #endif
 
+//if((offset >= (0x3a8148 & ~(0x1FF))) && (offset < ((0x3a8298+0x1F) & ~(0x1FF)))) gdebug=4;
 //gdebug = 4;
 if (gdebug > 3) {
-printk("%s: offset=%0llx, oobarea=%p\n", __FUNCTION__,  offset, oobarea);}
+printk("%s: offset=%0llx, buffer=%p, oobarea=%p\n", __FUNCTION__,  offset, buffer, oobarea);}
+
+#if 0 //def EDU_DEBUG_4
+printk("%s: offset=%0llx, buffer=%p, oobarea=%p\n", __FUNCTION__,  offset, buffer, oobarea);
+#endif
 
 
 	if (unlikely(offset - sliceOffset)) {
@@ -2002,7 +2150,7 @@ printk("%s: offset=%0llx, oobarea=%p\n", __FUNCTION__,  offset, oobarea);}
 	if (unlikely(!EDU_buffer_OK(buffer))) 
 //#endif
 	{
-//printk("++++++++++++++++++++++++ %s: buffer not aligned, trying non-EDU read\n", __FUNCTION__);
+if (gdebug>3) printk("++++++++++++++++++++++++ %s: buffer not 32B aligned, trying non-EDU read\n", __FUNCTION__);
 		/* EDU does not work on non-aligned buffers */
 		ret = brcmnand_ctrl_posted_read_cache(mtd, buffer, oobarea, offset);
 		return (ret);
@@ -2012,46 +2160,108 @@ printk("%s: offset=%0llx, oobarea=%p\n", __FUNCTION__,  offset, oobarea);}
 		// local_irq_save(irqflags);
 	}
 
-	EDU_ldw =  chip->ctrl_writeAddr(chip, sliceOffset, 0);
-	PLATFORM_IOFLUSH_WAR(); 
-
-#if 0
-// Testing 1 2 3: Does EDU_read() cause memory smash?
-	dma_cache_inv((unsigned long) buffer, 512);
-	ret = brcmnand_ctrl_posted_read_cache(mtd, buffer, oobarea, offset);
-	return (ret);
-#endif
-
-#ifdef EDU_DEBUG_2
+#if defined( EDU_DEBUG_2 ) 
 	init_edu_buf();
 
 	buffer = edu_buf;
+
+#elif defined( EDU_DEBUG_4 ) 
+	init_edu_buf();
+	
 #endif
 
-	 // Use Register Array
-	// EDU_ldw = BCHP_PHYSICAL_OFFSET + BCHP_NAND_FLASH_CACHEi_ARRAY_BASE;
-	intr_status = EDU_read(buffer, EDU_ldw);
+	intr_status = 0;
+	do {
 
-	/*
-	 * EDU Error reporting is un-reliable, so if the error bit is set, just use the old-fashioned way
-	 */
-	if (intr_status & HIF_INTR2_EDU_ERR) {
+		EDU_ldw =  chip->ctrl_writeAddr(chip, sliceOffset, 0);
+		PLATFORM_IOFLUSH_WAR(); 
+
+		if (intr_status & HIF_INTR2_EBI_TIMEOUT) {
+			EDU_volatileWrite(EDU_BASE_ADDRESS + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EBI_TIMEOUT);
+		}
+		intr_status = EDU_read(buffer, EDU_ldw);
+
+#if 0
+if ((intr_status == ERESTARTSYS) || (intr_status & HIF_INTR2_EBI_TIMEOUT) ) {
+uint32_t rd_data = ISR_volatileRead(EDU_BASE_ADDRESS + BCHP_HIF_INTR2_CPU_STATUS);
+printk("%s: EDU_read returns error %08x , intr=%08x at offset %0llx\n", __FUNCTION__, intr_status, rd_data, offset);
+}
+#endif
+	} while (retries-- > 0 && ((intr_status == ERESTARTSYS) || (intr_status & HIF_INTR2_EBI_TIMEOUT) ));
+
+	if (retries <= 0 && ((intr_status == ERESTARTSYS) || (intr_status & HIF_INTR2_EBI_TIMEOUT))) { // EBI Timeout
+		// Use controller read
+		printk("%s: EBI timeout, use controller read at offset %0llx\n", __FUNCTION__, offset);
+		ret = brcmnand_ctrl_posted_read_cache(mtd, buffer, oobarea, offset);
+		return (ret); 
+	}
+
+	else if (intr_status & HIF_INTR2_EDU_ERR) {
 		if (wr_preempt_en) {
 			//local_irq_restore(irqflags);
 		}
 		edu_status = EDU_volatileRead(EDU_BASE_ADDRESS + EDU_ERR_STATUS);
-if (edu_status == 0)
-	printk("+++++++++++ %s: Intr=%08x but EDU_status=%08x\n", __FUNCTION__, intr_status, edu_status);
+//if (edu_status == 0)
+//	printk("+++++++++++ %s:offset=%0llx Intr=%08x but EDU_status=%08x, LKG=%0llx\n", __FUNCTION__, 
+//		offset, intr_status, edu_status, gLastKnownGoodEcc);
 
-		ret = brcmnand_ctrl_posted_read_cache(mtd, buffer, oobarea, offset);
-		return (ret);
+
+/**** WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR */
+		/* Do a dummy read on a known good ECC sector to clear error */
+		if (edu_status) {
+			static uint32_t tmpBuf[128];
+			// We start from the BBT, since these would (hopefully) always be good sectors.
+			loff_t tmpOffset = chip->chipSize - 512;
+
+//printk("Handle HIF_INTR2_UNC_ERR: Step 1: @offset %0llx\n", offset);
+//print_oobreg(chip);
+
+			// First make sure that there is a last known good sector
+			while (gLastKnownGoodEcc == 0 && tmpOffset >= 0) {
+				ret = brcmnand_ctrl_posted_read_cache(mtd, tmpBuf, NULL, tmpOffset);
+				tmpOffset -= 512;
+			}
+			if (tmpOffset >= 0) {
+				uint32_t lkgs;
+				// Clear the error condition
+				//(void) brcmnand_EDU_posted_read_cache(mtd, tmpBuf, NULL, gLastKnownGoodEcc);
+				lkgs =  chip->ctrl_writeAddr(chip, gLastKnownGoodEcc, 0);
+				PLATFORM_IOFLUSH_WAR(); 
+
+				 // Use Register Array
+				// EDU_ldw = BCHP_PHYSICAL_OFFSET + BCHP_NAND_FLASH_CACHEi_ARRAY_BASE;
+				intr_status = EDU_read(buffer, lkgs);
+//printk("intr_status returns from dummy read at offset %0llx: %08x\n", gLastKnownGoodEcc, intr_status);
+//printk("Handle HIF_INTR2_UNC_ERR: Step 2:\n");
+//print_oobreg(chip);
+				ret = brcmnand_ctrl_posted_read_cache(mtd, buffer, p8, offset);
+//printk("Handle HIF_INTR2_UNC_ERR: Step 3:\n");
+//print_oobreg(chip);
+//if (oobarea) 
+{
+//	printk("Unc Error WAR OOB="); print_oobbuf(p8, 16);
+}
+				return ret;
+			}
+			// else there can be no workaround possible, use controller read
+			else {
+				return brcmnand_ctrl_posted_read_cache(mtd, buffer, oobarea, offset);
+			}
+		}
+/**** ENDWAR ENDWAR ENDWAR ENDWAR */
+
+		// If error was not due to UNC or COR errors, or poll timeout, try the old-fashioned way
+		//ret = brcmnand_ctrl_posted_read_cache(mtd, buffer, oobarea, offset);
+		//return (ret);
 	}
 		
 
 //if (intr_status & HIF_INTR2_EDU_ERR)
 //	printk("%s: EDU_read returns error at offset=%0llx, intr_status=%08x\n", __FUNCTION__, offset, intr_status);
 
-	// If error was not due to UNC or COR errors, or poll timeout, try the old-fashioned way
+	/*
+	 * Wait for Controller ready, which indicates the OOB and buffer are ready to be read.
+	 */
 	ecc = brcmnand_EDU_cache_is_valid(mtd, FL_READING,  offset, intr_status);
 
 	if (wr_preempt_en) {
@@ -2060,26 +2270,25 @@ if (edu_status == 0)
 
 if (gdebug > 3) printk("brcmnand_EDU_cache_is_valid returns ecc=%d\n", ecc);
 
-#ifdef EDU_DEBUG_2
-	buffer = save_buf;
-	memcpy(buffer, edu_buf, 512);
-	verify_edu_buf();
-#endif
-
 	switch (ecc) {
 	case BRCMNAND_TIMED_OUT:
 		//Read has timed out 
-printk("++++++++++++++++++++++++ %s: EDU_read timed out, trying non-EDU read\n", __FUNCTION__);
+/* THT: Here we don't retry using EDU, but use ctrl_read instead */
+PRINTK("++++++++++++++++ %s: EDU_read timed out, trying non-EDU read at offset %0llx\n", 
+__FUNCTION__, offset);
 		ret = brcmnand_ctrl_posted_read_cache(mtd, buffer, oobarea, offset);
-	 	return (ret);
+	 	goto out;
 		
 	case BRCMEDU_MEM_BUS_ERROR: /* Not enough bandwidth, or bus hung */
 		/* Retry using int */
-printk("++++++++++++++++++++++++ %s: EDU_read returns %08x, trying non-EDU read\n", __FUNCTION__, ret);
+PRINTK("++++++++++++++++++++++++ %s: EDU_read returns %08x, trying non-EDU read\n", __FUNCTION__, ret);
 		ret = brcmnand_ctrl_posted_read_cache(mtd, buffer, oobarea, offset);
- 		return (ret);
+ 		goto out;
 
 	case BRCMNAND_SUCCESS: /* Success, no errors */
+		// Remember last good sector read.  Needed for HIF_INTR2 workaround.
+		//if (0 == gLastKnownGoodEcc)
+		gLastKnownGoodEcc = offset;
       		if (oobarea) 
 		{
 			PLATFORM_IOFLUSH_WAR();
@@ -2097,11 +2306,13 @@ if (gdebug > 3) {printk("SUCCESS: %s: offset=%0llx, oob=\n", __FUNCTION__, slice
 {save_debug = gdebug;
 //gdebug = 4;
 //edu_debug = 4;
-printk("++++++++++++++++++++ CORRECTABLE_ECC +++++++++++++++++++++++++\n");
+printk("+++++++++++++++ CORRECTABLE_ECC: offset=%0llx  ++++++++++++++++++++\n", offset);
+		// Have to manually copy.  EDU drops the buffer on error - even correctable errors
 		if (buffer) {
 			brcmnand_from_flash_memcpy32(chip, buffer, offset, mtd->eccsize);
 		}
 
+		/* Relies on CTRL_READY set */
 		{
 			PLATFORM_IOFLUSH_WAR();
 			for (i = 0; i < 4; i++) {
@@ -2117,7 +2328,7 @@ if (gdebug > 3) {printk("CORRECTABLE: %s: offset=%0llx, oob=\n", __FUNCTION__, s
 
 		{
 
-			char ecc0[3]; // SW ECC, manually calculated
+			unsigned char ecc0[3]; // SW ECC, manually calculated
 			if (brcmnand_Hamming_WAR(mtd, offset, buffer, &p8[6], &ecc0[0])) {
 				/* Error was in ECC, update it from calculated value */
 				if (oobarea) {
@@ -2132,32 +2343,44 @@ gdebug = edu_debug = save_debug;}
 
 	case BRCMEDU_UNCORRECTABLE_ECC_ERROR:
 	case BRCMNAND_UNCORRECTABLE_ECC_ERROR:
-{save_debug = gdebug;
+		{
+			int valid;
+		
+save_debug = gdebug;
 //gdebug = 4;
 //edu_debug = 4;
 //
-//printk("**************** UNCORRECTABLE_ECC (offset=%0llx ********************\n", offset);
-		ret = brcmnand_handle_false_read_ecc_unc_errors(mtd, buffer, oobarea, offset);
+PRINTK("************* UNCORRECTABLE_ECC (offset=%0llx) ********************\n", offset);
+			/*
+			 * THT: Since EDU does not handle OOB area, unlike the UNC ERR case of the ctrl read,
+			 * we have to explicitly read the OOB, before calling the WAR routine.
+			 */
+			chip->ctrl_writeAddr(chip, sliceOffset, 0);
+			chip->ctrl_write(BCHP_NAND_CMD_START, OP_SPARE_AREA_READ);
+
+			// Wait until spare area is filled up
+
+			valid = brcmnand_spare_is_valid(mtd, FL_READING, 1);
+			if (valid > 0) {
+				ret = brcmnand_handle_false_read_ecc_unc_errors(mtd, buffer, oobarea, offset);
+			}
+			else if (valid == 0) {
+printk("************* UNCORRECTABLE_ECC (offset=%0llx) valid==0 ********************\n", offset);
+				ret = -ETIMEDOUT;;
+			}
+			else { // < 0: UNCOR Error
+printk("************* UNCORRECTABLE_ECC (offset=%0llx) valid!=0 ********************\n", offset);
+				ret = -EBADMSG;
+			}
 if (!ret)
 {gdebug = edu_debug = save_debug;}
-}
+		}
 		break;
 		
 	case BRCMNAND_FLASH_STATUS_ERROR:
 		printk(KERN_ERR "brcmnand_cache_is_valid returns 0\n");
 		ret = -EBADMSG;
 		break;		
-
-#if 0
-/* THT: Here we don't retry using EDU, but use ctrl_read instead */
-	case BRCMNAND_TIMED_OUT:
-		//Read has timed out 
-		ret = -ETIMEDOUT;
-		retries--;
-		// THT PR50928: if wr_preempt is disabled, enable it to clear error
-		wr_preempt_en = brcmnand_handle_ctrl_timeout(mtd, retries);
-		continue;  /* Retry */
-#endif	
 
 	default:
 		BUG_ON(1);
@@ -2190,6 +2413,52 @@ offset, edu_sw_ecc[0], edu_sw_ecc[1], edu_sw_ecc[2]);
 }
 #endif
 
+#if 0
+if (offset <= 0x3a3600 && (offset+512) > 0x3a3600) {
+printk("@@@@@@@@@ Dump EDU Read around 0x3a3600:\n");
+print_databuf(buffer, 512);print_oobbuf(p32, 16);
+}
+#endif
+
+#ifdef EDU_DEBUG_4
+{
+int ctrlret;
+
+	ctrlret = brcmnand_ctrl_posted_read_cache(mtd, ctrl_buf, ctrl_oob, offset);
+	//verify_edu_buf();
+	// Compare buffer returned from EDU and Ctrl reads:
+	if (0 != memcmp(ctrl_buf, buffer, 512)) {
+printk("$$$$$$$$$$$$ Read buffer from Ctrl & EDU read-ops differ at offset %0llx, intr_status=%08x, ecc=%d\n", 
+	offset, intr_status, ecc);
+printk("$$$$$$$$$$$$ EDU Read:\n");
+print_databuf(buffer, 512);
+printk("------------ Ctrl Read: \n");
+print_databuf(edu_buf, 512);
+		BUG();
+	}
+	//if (oobarea) 
+	{
+		if (0 != memcmp(p32, ctrl_oob, 16)) {
+printk("########## Read OOB from Ctrl & EDU read-ops differ at offset %0llx, intr_status=%08x, ecc=%d\n", 
+	offset,  intr_status, ecc);
+printk("########## Ctrl OOB:\n");
+print_oobbuf(ctrl_oob, 16);
+printk("------------ EDU OOB: \n");
+print_oobbuf(p32, 16);
+/* Which one is correct?  Since the data buffers agree, use Hamming codes */
+			if (chip->ecclevel == BRCMNAND_ECC_HAMMING) 
+			{
+				unsigned char ecc1[3]; // SW ECC, manually calculated
+				brcmnand_Hamming_WAR(mtd, offset, buffer, &ctrl_oob[6], &ecc1[0]);
+				printk("Hamming ECC=%02x%02x%02x\n", ecc1[0], ecc1[1], ecc1[2]);
+			}
+			BUG();
+		}
+	}
+}
+#endif // Verify EDU on Read
+
+gdebug=0;
     return ret;
 }
 
@@ -2267,7 +2536,7 @@ printk("-->%s: offset=%0llx\n", __FUNCTION__,  offset); }
 				uint32_t* p32 = (uint32_t*) oobarea;
 				
 				for (i = 0; i < 4; i++) {
-					p32[i] = /* THT 11-30-06 */ be32_to_cpu /**/(chip->ctrl_read(BCHP_NAND_SPARE_AREA_READ_OFS_0 + (i<<2)));
+					p32[i] = be32_to_cpu(chip->ctrl_read(BCHP_NAND_SPARE_AREA_READ_OFS_0 + (i<<2)));
 				}
 if (gdebug > 3) {printk("%s: offset=%0llx, oob=\n", __FUNCTION__, sliceOffset); print_oobbuf(oobarea, 16);}
 
@@ -2279,14 +2548,17 @@ if (gdebug > 3) {printk("%s: offset=%0llx, oob=\n", __FUNCTION__, sliceOffset); 
 
 		case -1:
 			ret = -EBADMSG;
-if (gdebug > 3 ) {printk("%s: ret = -EBADMSG\n", __FUNCTION__);}
+//if (gdebug > 3 )
+	{printk("%s: ret = -EBADMSG\n", __FUNCTION__);}
 			/* brcmnand_spare_is_valid also clears the error bit, so just retry it */
+
 			retries--;
 			break;
 			
 		case 0:
 			//Read has timed out 
 			ret = -ETIMEDOUT;
+{printk("%s: ret = -ETIMEDOUT\n", __FUNCTION__);}
 			retries--;
 			// THT PR50928: if wr_preempt is disabled, enable it to clear error
 			wr_preempt_en = brcmnand_handle_ctrl_timeout(mtd, retries);
@@ -2310,7 +2582,9 @@ if (gdebug > 3 ) {printk("%s: ret = -EBADMSG\n", __FUNCTION__);}
 		brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc);
 	}	
 
-if (gdebug > 3 ) {
+//if (gdebug > 3 ) 
+if (0) // == (offset & (mtd->erasesize-1))) 
+{
 printk("<--%s: offset=%08x\n", __FUNCTION__, (uint32_t) offset); 
 print_oobbuf(oobarea, 16);}
 	return ret;
@@ -2377,7 +2651,7 @@ if (gdebug > 3) {printk("%s: oob=\n", __FUNCTION__); print_oobbuf(oobarea, 16);}
 
 //printk("40\n");
 	for (i = 0; i < 4; i++) {
-		chip->ctrl_write(BCHP_NAND_SPARE_AREA_WRITE_OFS_0 + i*4, /* THT 11-30-06 */ cpu_to_be32 /* */(p32[i]));
+		chip->ctrl_write(BCHP_NAND_SPARE_AREA_WRITE_OFS_0 + i*4, cpu_to_be32(p32[i]));
 	}
 
 	PLATFORM_IOFLUSH_WAR();
@@ -2422,11 +2696,33 @@ static uint8_t edu_write_buf[512];
 static int edu_write_verify(struct mtd_info *mtd,
         const void* buffer, const u_char* oobarea, loff_t offset)
 {
+	struct brcmnand_chip* chip = mtd->priv;
 	static uint8_t sw_ecc[4];
 	static uint32_t read_oob[4];
 	static uint8_t write_oob[16];
 	uint8_t* oobpoi = (uint8_t*) &read_oob[0];
 	int ret = 0;
+
+	if (chip->ecclevel != BRCMNAND_ECC_HAMMING) {
+		ret = brcmnand_ctrl_posted_read_cache(mtd, edu_write_buf, oobpoi, offset);
+		if (ret) {
+			printk("+++++++++++++++++++++++ %s: Read Verify returns %d\n", __FUNCTION__, ret);
+			return ret;
+		}
+		if (0 != memcmp(buffer, edu_write_buf, 512)) {
+			printk("+++++++++++++++++++++++ %s: WRITE buffer differ with READ-Back buffer\n",
+			__FUNCTION__);
+			return (-1);
+		}
+		if (oobarea) {
+			if (memcmp(oobarea, oobpoi, 16)) {
+				printk("+++++++++++++++++++++++ %s: OOB comp failed\n", __FUNCTION__);
+				printk("In OOB:\n"); print_oobbuf(oobarea, 16);
+				printk("\nVerify OOB:\n"); print_oobbuf(oobpoi, 16);
+			}
+		}
+		return 0;
+	}
 	
 	// Calculate the ECC
 	brcmnand_Hamming_ecc(buffer, sw_ecc);
@@ -2492,6 +2788,7 @@ static int brcmnand_EDU_posted_write_cache(struct mtd_info *mtd,
 	int needBBT=0;
 	loff_t sliceOffset = offset & (~ (mtd->eccsize - 1));
 	uint32_t EDU_ldw;
+	int retries = 5;
 
 #ifdef WR_BADBLOCK_SIMULATION
 	unsigned long tmp = (unsigned long) offset;
@@ -2517,42 +2814,52 @@ PRINTK("%s: Buffer %p not suitable for EDU at %0llx, trying ctrl read op\n", __F
 		goto out;
 	}
 
-	EDU_ldw = chip->ctrl_writeAddr(chip, sliceOffset, 0);
+	ret = ERESTARTSYS;
+	do {
+		EDU_ldw = chip->ctrl_writeAddr(chip, sliceOffset, 0);
 
 // printk("EDU20\n");
 
-	if (oobarea) {
-		p32 = (uint32_t*) oobarea;
+		if (oobarea) {
+			p32 = (uint32_t*) oobarea;
 if (gdebug) {printk("%s: oob=\n", __FUNCTION__); print_oobbuf(oobarea, 16);}
-	}
-	else {
-		// Fill with 0xFF if don't want to change OOB
-		p32 = (uint32_t*) &ffchars[0];
-	}
+		}
+		else {
+			// Fill with 0xFF if don't want to change OOB
+			p32 = (uint32_t*) &ffchars[0];
+		}
 
 // printk("EDU40\n");
-	for (i = 0; i < 4; i++) {
-		chip->ctrl_write(BCHP_NAND_SPARE_AREA_WRITE_OFS_0 + i*4, cpu_to_be32(p32[i]));
-	}
+		for (i = 0; i < 4; i++) {
+			chip->ctrl_write(BCHP_NAND_SPARE_AREA_WRITE_OFS_0 + i*4, cpu_to_be32(p32[i]));
+		}
 
-	PLATFORM_IOFLUSH_WAR(); // Check if this line may be taken-out
+		PLATFORM_IOFLUSH_WAR(); // Check if this line may be taken-out
 
 	//chip->ctrl_write(BCHP_NAND_CMD_START, OP_PROGRAM_PAGE);
 
-	{
-		// THT: Changed to use Register Array.
-		//EDU_ldw = BCHP_PHYSICAL_OFFSET + BCHP_NAND_FLASH_CACHEi_ARRAY_BASE;
+		if (ret & HIF_INTR2_EBI_TIMEOUT) {
+			EDU_volatileWrite(EDU_BASE_ADDRESS + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EBI_TIMEOUT);
+		}
 		ret = EDU_write(buffer, EDU_ldw);
 		if (ret) {
 			// Nothing we can do, because, unlike read op, where we can just call the traditional read,
 			// here we may need to erase the flash first before we can write again.
+			ret = brcmnand_ctrl_posted_write_cache(mtd, buffer, oobarea, offset);
 			goto out;
 		}
-	}
+	
 // printk("EDU50\n");
 
-	// Wait until flash is ready
-	ret = brcmnand_EDU_write_is_complete(mtd, &needBBT);
+		// Wait until flash is ready
+		ret = brcmnand_EDU_write_is_complete(mtd, &needBBT);
+	}while (retries-- > 0 && ((ret == ERESTARTSYS) || (ret & HIF_INTR2_EBI_TIMEOUT)));
+
+	if (retries <= 0 && ((ret == ERESTARTSYS) || (ret & HIF_INTR2_EBI_TIMEOUT))) { 
+printk("%s: brcmnand_EDU_write_is_complete timeout, intr_status=%08x\n", __FUNCTION__, ret);
+		ret = brcmnand_ctrl_posted_write_cache(mtd, buffer, oobarea, offset);
+		goto out;
+	}
 
 #ifdef WR_BADBLOCK_SIMULATION
 	if((tmp == wrBadBlockFailLocation) && (bScanBypass_badBlock == 0))
@@ -2585,18 +2892,30 @@ if (gdebug) {printk("%s: oob=\n", __FUNCTION__); print_oobbuf(oobarea, 16);}
 	}
 
 	//Write has timed out or read found bad block. TBD: Find out which is which
-	printk(KERN_INFO "%s: Timeout\n", __FUNCTION__);
+	printk(KERN_INFO "%s: Timeout at offset %0llx\n", __FUNCTION__, offset);
+	// Marking bad block
+	if (needBBT) {
+		printk("%s: Marking bad block @%0llx\n", __FUNCTION__, offset);
+    
+		ret = chip->block_markbad(mtd, offset);
+		ret = -EINVAL;
+		//ret = -EINVAL;
+		goto out;
+	}		
 	ret = -ETIMEDOUT;
 
 out:
 // printk("EDU99\n");
 //gdebug = 0;
 
+#if defined(EDU_DEBUG_5) // || defined( CONFIG_MTD_BRCMNAND_VERIFY_WRITE )
  	if (0 == ret) {
 		if (edu_write_verify(mtd, buffer, oobarea, offset)) {
 			BUG();
 		}
  	}
+
+#endif
 
     return ret;
 }
@@ -2641,6 +2960,12 @@ printk("-->%s, offset=%0llx\n", __FUNCTION__,  offset);
 print_oobbuf(oobarea, 16);
 }
 
+if (0) { // == (offset & (mtd->erasesize - 1)))  {
+printk("-->%s, offset=%0llx\n", __FUNCTION__,  offset);
+print_oobbuf(oobarea, 16);
+}
+	
+
 	if (unlikely(sliceOffset - offset)) {
 		printk(KERN_ERR "%s: offset %0llx is not cache aligned\n", 
 			__FUNCTION__, offset);
@@ -2660,7 +2985,7 @@ print_oobbuf(oobarea, 16);
 	p32 = (uint32_t*) oobarea;
 		
 	for (i = 0; i < 4; i++) {
-		chip->ctrl_write(BCHP_NAND_SPARE_AREA_WRITE_OFS_0 + i*4, /* THT 11-30-06 */ cpu_to_be32 (p32[i]));
+		chip->ctrl_write(BCHP_NAND_SPARE_AREA_WRITE_OFS_0 + i*4,  cpu_to_be32 (p32[i]));
 	}
 
 	PLATFORM_IOFLUSH_WAR();
@@ -2775,7 +3100,6 @@ static void brcmnand_release_device(struct mtd_info *mtd)
 	wake_up(&chip->wq);
 	spin_unlock(&chip->chip_lock);
 }
-
 
 
 /**
@@ -5162,6 +5486,7 @@ static int brcmnand_probe(struct mtd_info *mtd, unsigned int chipSelect)
 
 	chip->disableECC = 0;
 	chip->cellinfo = 0; // default to SLC, will read 3rd byte ID later for v3.0+ controller
+	chip->eccOobSize = 16; // Will fix it if we have a Type2 ID flash (from which we know the actual OOB size */
 	
 	nand_config = chip->ctrl_read(BCHP_NAND_CONFIG);
 
@@ -5234,7 +5559,10 @@ static int brcmnand_probe(struct mtd_info *mtd, unsigned int chipSelect)
 		}
 #elif CONFIG_MTD_BRCMNAND_VERSION >= CONFIG_MTD_BRCMNAND_VERS_3_0
 		
-		if (brcmnand_chips[i].idOptions & BRCMNAND_ID_EXT_BYTES) 
+		if ((brcmnand_chips[i].idOptions & BRCMNAND_ID_EXT_BYTES) == 
+				BRCMNAND_ID_EXT_BYTES ||
+			(brcmnand_chips[i].idOptions & BRCMNAND_ID_EXT_BYTES_TYPE2) == 
+				BRCMNAND_ID_EXT_BYTES_TYPE2)
 		{
 			unsigned char devId3rdByte =  (chip->device_id >> 8) & 0xff;
 
@@ -5254,136 +5582,215 @@ static int brcmnand_probe(struct mtd_info *mtd, unsigned int chipSelect)
 				//unsigned int oobSize;
 
 
-/*---------------- 4th ID byte: page size, block size and OOB size ---------------- */
-				switch(brcmnand_maf_id) {
-				case FLASHTYPE_SAMSUNG:
-				case FLASHTYPE_HYNIX:	
-					pageSize = 1024 << (devId4thdByte & SAMSUNG_4THID_PAGESIZE_MASK);
-					blockSize = (64*1024) << ((devId4thdByte & SAMSUNG_4THID_BLKSIZE_MASK) >> 4);
-					//oobSize = devId4thdByte & SAMSUNG_4THID_OOBSIZE_MASK ? 16 : 8;
 
-					
-printk("Updating Config Reg: Block & Page Size: B4: %08x\n", nand_config);
-					/* Update Config Register: Block Size */
-					switch(blockSize) {
-					case 512*1024:
-						blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_512KB;
+				if ((brcmnand_chips[i].idOptions & BRCMNAND_ID_EXT_BYTES) == 
+					BRCMNAND_ID_EXT_BYTES) {
+	/*---------------- 4th ID byte: page size, block size and OOB size ---------------- */
+					switch(brcmnand_maf_id) {
+					case FLASHTYPE_SAMSUNG:
+					case FLASHTYPE_HYNIX:	
+						pageSize = 1024 << (devId4thdByte & SAMSUNG_4THID_PAGESIZE_MASK);
+						blockSize = (64*1024) << ((devId4thdByte & SAMSUNG_4THID_BLKSIZE_MASK) >> 4);
+						//oobSize = devId4thdByte & SAMSUNG_4THID_OOBSIZE_MASK ? 16 : 8;
+
+						
+PRINTK("Updating Config Reg: Block & Page Size: B4: %08x\n", nand_config);
+						/* Update Config Register: Block Size */
+						switch(blockSize) {
+						case 512*1024:
+							blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_512KB;
+							break;
+						case 128*1024:
+							blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_128KB;
+							break;
+						case 16*1024:
+							blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_16KB;
+							break;
+						case 256*1024:
+							blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_256KB;
+							break;
+						}
+						nand_config &= ~(BCHP_NAND_CONFIG_BLOCK_SIZE_MASK << BCHP_NAND_CONFIG_BLOCK_SIZE_SHIFT);
+						nand_config |= (blockSizeBits << BCHP_NAND_CONFIG_BLOCK_SIZE_SHIFT); 
+
+						/* Update Config Register: Page Size */
+						switch(pageSize) {
+						case 512:
+							pageSizeBits = BCHP_NAND_CONFIG_PAGE_SIZE_PG_SIZE_512;
+							break;
+						case 2048:
+							pageSizeBits = BCHP_NAND_CONFIG_PAGE_SIZE_PG_SIZE_2KB;
+							break;
+						case 4096:
+							pageSizeBits = BCHP_NAND_CONFIG_PAGE_SIZE_PG_SIZE_4KB;
+							break;
+						}
+						nand_config &= ~(BCHP_NAND_CONFIG_PAGE_SIZE_MASK << BCHP_NAND_CONFIG_PAGE_SIZE_SHIFT);
+						nand_config |= (pageSizeBits << BCHP_NAND_CONFIG_PAGE_SIZE_SHIFT); 
+						chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);	
+PRINTK("Updating Config Reg: Block & Page Size: After: %08x\n", nand_config);
 						break;
-					case 128*1024:
-						blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_128KB;
-						break;
-					case 16*1024:
-						blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_16KB;
-						break;
-					case 256*1024:
-						blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_256KB;
-						break;
+						
+					default:
+						printk(KERN_ERR "4th ID Byte: Device requiring Controller V3.0 in database, but not handled\n");
+						//BUG();
 					}
-					nand_config &= ~(BCHP_NAND_CONFIG_BLOCK_SIZE_MASK << BCHP_NAND_CONFIG_BLOCK_SIZE_SHIFT);
-					nand_config |= (blockSizeBits << BCHP_NAND_CONFIG_BLOCK_SIZE_SHIFT); 
+	/*---------------- 5th ID byte ------------------------- */
 
-					/* Update Config Register: Page Size */
-					switch(pageSize) {
-					case 512:
-						pageSizeBits = BCHP_NAND_CONFIG_PAGE_SIZE_PG_SIZE_512;
-						break;
-					case 2048:
-						pageSizeBits = BCHP_NAND_CONFIG_PAGE_SIZE_PG_SIZE_2KB;
-						break;
-					case 4096:
-						pageSizeBits = BCHP_NAND_CONFIG_PAGE_SIZE_PG_SIZE_4KB;
-						break;
-					}
-					nand_config &= ~(BCHP_NAND_CONFIG_PAGE_SIZE_MASK << BCHP_NAND_CONFIG_PAGE_SIZE_SHIFT);
-					nand_config |= (pageSizeBits << BCHP_NAND_CONFIG_PAGE_SIZE_SHIFT); 
-					chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);	
-printk("Updating Config Reg: Block & Page Size: After: %08x\n", nand_config);
-					break;
-					
-				default:
-					printk(KERN_ERR "4th ID Byte: Device requiring Controller V3.0 in database, but not handled\n");
-					//BUG();
-				}
-/*---------------- 5th ID byte ------------------------- */
-
-
-				switch(brcmnand_maf_id) {
-				case FLASHTYPE_SAMSUNG:
-				case FLASHTYPE_HYNIX:		
-
-	printk("5th ID byte = %02x, extID = %08lx\n", devId5thByte, devIdExt);
-
-					switch(devId5thByte & SAMSUNG_5THID_NRPLANE_MASK) {
-					case SAMSUNG_5THID_NRPLANE_1:
-						nbrPlanes = 1;
-						break;
-					case SAMSUNG_5THID_NRPLANE_2:
-						nbrPlanes = 2;
-						break;
-					case SAMSUNG_5THID_NRPLANE_4:
-						nbrPlanes = 4;
-						break;
-					case SAMSUNG_5THID_NRPLANE_8:
-						nbrPlanes = 8;
-						break;
-					}
-	printk("nbrPlanes = %d\n", nbrPlanes);
 
 					switch(brcmnand_maf_id) {
 					case FLASHTYPE_SAMSUNG:
+					case FLASHTYPE_HYNIX:		
 
-						/* Samsung Plane Size
-						#define SAMSUNG_5THID_PLANESZ_64Mb	0x00
-						#define SAMSUNG_5THID_PLANESZ_128Mb	0x10
-						#define SAMSUNG_5THID_PLANESZ_256Mb	0x20
-						#define SAMSUNG_5THID_PLANESZ_512Mb	0x30
-						#define SAMSUNG_5THID_PLANESZ_1Gb	0x40
-						#define SAMSUNG_5THID_PLANESZ_2Gb	0x50
-						#define SAMSUNG_5THID_PLANESZ_4Gb	0x60
-						#define SAMSUNG_5THID_PLANESZ_8Gb	0x70
-						*/
-						// planeSize starts at (64Mb/8) = 8MB;
-						planeSizeMB = 8 << ((devId5thByte & SAMSUNG_5THID_PLANESZ_MASK) >> 4);
+PRINTK("5th ID byte = %02x, extID = %08lx\n", devId5thByte, devIdExt);
+
+						switch(devId5thByte & SAMSUNG_5THID_NRPLANE_MASK) {
+						case SAMSUNG_5THID_NRPLANE_1:
+							nbrPlanes = 1;
+							break;
+						case SAMSUNG_5THID_NRPLANE_2:
+							nbrPlanes = 2;
+							break;
+						case SAMSUNG_5THID_NRPLANE_4:
+							nbrPlanes = 4;
+							break;
+						case SAMSUNG_5THID_NRPLANE_8:
+							nbrPlanes = 8;
+							break;
+						}
+PRINTK("nbrPlanes = %d\n", nbrPlanes);
+
+						switch(brcmnand_maf_id) {
+						case FLASHTYPE_SAMSUNG:
+
+							/* Samsung Plane Size
+							#define SAMSUNG_5THID_PLANESZ_64Mb	0x00
+							#define SAMSUNG_5THID_PLANESZ_128Mb	0x10
+							#define SAMSUNG_5THID_PLANESZ_256Mb	0x20
+							#define SAMSUNG_5THID_PLANESZ_512Mb	0x30
+							#define SAMSUNG_5THID_PLANESZ_1Gb	0x40
+							#define SAMSUNG_5THID_PLANESZ_2Gb	0x50
+							#define SAMSUNG_5THID_PLANESZ_4Gb	0x60
+							#define SAMSUNG_5THID_PLANESZ_8Gb	0x70
+							*/
+							// planeSize starts at (64Mb/8) = 8MB;
+							planeSizeMB = 8 << ((devId5thByte & SAMSUNG_5THID_PLANESZ_MASK) >> 4);
+							break;
+
+						case FLASHTYPE_HYNIX:
+							/* Hynix Plane Size 
+							#define HYNIX_5THID_PLANESZ_MASK	0x70
+							#define HYNIX_5THID_PLANESZ_512Mb	0x00
+							#define HYNIX_5THID_PLANESZ_1Gb		0x10
+							#define HYNIX_5THID_PLANESZ_2Gb		0x20
+							#define HYNIX_5THID_PLANESZ_4Gb		0x30
+							#define HYNIX_5THID_PLANESZ_8Gb		0x40
+							#define HYNIX_5THID_PLANESZ_RSVD1	0x50
+							#define HYNIX_5THID_PLANESZ_RSVD2	0x60
+							#define HYNIX_5THID_PLANESZ_RSVD3	0x70
+							*/
+							// planeSize starts at (512Mb/8) = 64MB;
+							planeSizeMB = 64 << ((devId5thByte & SAMSUNG_5THID_PLANESZ_MASK) >> 4);
+							break;
+
+						/* TBD Add other mfg ID here */
+
+						}
+						
+						chipSizeMB = planeSizeMB*nbrPlanes;
+PRINTK("planeSizeMB = %d, chipSizeMB=%d,0x%04x, planeSizeMask=%08x\n", planeSizeMB, chipSizeMB, chipSizeMB, devId5thByte & SAMSUNG_5THID_PLANESZ_MASK);
+						/* NAND Config register starts at 4MB for chip size */
+						nandConfigChipSize = ffs(chipSizeMB >> 2) - 1;
+
+PRINTK("nandConfigChipSize = %04x\n", nandConfigChipSize);
+						/* Correct chip Size accordingly, bit 24-27 */
+						nand_config &= ~(0x7 << 24);
+						nand_config |= (nandConfigChipSize << 24); 
+						chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);				
+					
 						break;
 
-					case FLASHTYPE_HYNIX:
-						/* Hynix Plane Size 
-						#define HYNIX_5THID_PLANESZ_MASK	0x70
-						#define HYNIX_5THID_PLANESZ_512Mb	0x00
-						#define HYNIX_5THID_PLANESZ_1Gb		0x10
-						#define HYNIX_5THID_PLANESZ_2Gb		0x20
-						#define HYNIX_5THID_PLANESZ_4Gb		0x30
-						#define HYNIX_5THID_PLANESZ_8Gb		0x40
-						#define HYNIX_5THID_PLANESZ_RSVD1	0x50
-						#define HYNIX_5THID_PLANESZ_RSVD2	0x60
-						#define HYNIX_5THID_PLANESZ_RSVD3	0x70
-						*/
-						// planeSize starts at (512Mb/8) = 64MB;
-						planeSizeMB = 64 << ((devId5thByte & SAMSUNG_5THID_PLANESZ_MASK) >> 4);
-						break;
-
-					/* TBD Add other mfg ID here */
-
+					default:
+						printk(KERN_ERR "5th ID Byte: Device requiring Controller V3.0 in database, but not handled\n");
+						//BUG();
 					}
-					
-					chipSizeMB = planeSizeMB*nbrPlanes;
-	printk("planeSizeMB = %d, chipSizeMB=%d,0x%04x, planeSizeMask=%08x\n", planeSizeMB, chipSizeMB, chipSizeMB, devId5thByte & SAMSUNG_5THID_PLANESZ_MASK);
-					/* NAND Config register starts at 4MB for chip size */
-					nandConfigChipSize = ffs(chipSizeMB >> 2) - 1;
-
-	printk("nandConfigChipSize = %04x\n", nandConfigChipSize);
-					/* Correct chip Size accordingly, bit 24-27 */
-					nand_config &= ~(0x7 << 24);
-					nand_config |= (nandConfigChipSize << 24); 
-					chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);				
-				
-					break;
-
-				default:
-					printk(KERN_ERR "5th ID Byte: Device requiring Controller V3.0 in database, but not handled\n");
-					//BUG();
 				}
-					
+
+				else if ((brcmnand_chips[i].idOptions & BRCMNAND_ID_EXT_BYTES_TYPE2) == 
+					BRCMNAND_ID_EXT_BYTES_TYPE2) 
+				{
+					unsigned int oobSize, oobSizePerPage;
+					//uint32_t nandconfig, chipSizeShift;
+
+					/*---------------- 4th ID byte: page size, block size and OOB size ---------------- */
+					switch(brcmnand_maf_id) {
+					case FLASHTYPE_SAMSUNG:
+					case FLASHTYPE_HYNIX:	
+						pageSize = 2048 << (devId4thdByte & SAMSUNG2_4THID_PAGESIZE_MASK);
+						/* **FIXME**, when Samsung use the Reserved bits */
+						blockSize = (128*1024) << ((devId4thdByte & SAMSUNG2_4THID_BLKSIZE_MASK) >> 4);
+						switch(devId4thdByte & SAMSUNG2_4THID_OOBSIZE_MASK) {
+						case SAMSUNG2_4THID_OOBSIZE_PERPAGE_128:
+							oobSizePerPage = 128;
+							break;
+							
+						case SAMSUNG2_4THID_OOBSIZE_PERPAGE_218:
+							oobSizePerPage = 218;
+							break;
+						}
+						oobSize = oobSizePerPage/(pageSize/512);
+						// Record it here, but will check it when we know about the ECC level.
+						chip->eccOobSize = oobSize;
+						
+PRINTK("Updating Config Reg: Block & Page Size: B4: %08x\n", nand_config);
+						/* Update Config Register: Block Size */
+						switch(blockSize) {
+						case 512*1024:
+							blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_512KB;
+							break;
+						case 128*1024:
+							blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_128KB;
+							break;
+						case 16*1024:
+							blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_16KB;
+							break;
+						case 256*1024:
+							blockSizeBits = BCHP_NAND_CONFIG_BLOCK_SIZE_BK_SIZE_256KB;
+							break;
+						}
+						nand_config &= ~(BCHP_NAND_CONFIG_BLOCK_SIZE_MASK << BCHP_NAND_CONFIG_BLOCK_SIZE_SHIFT);
+						nand_config |= (blockSizeBits << BCHP_NAND_CONFIG_BLOCK_SIZE_SHIFT); 
+
+						/* Update Config Register: Page Size */
+						switch(pageSize) {
+						case 512:
+							pageSizeBits = BCHP_NAND_CONFIG_PAGE_SIZE_PG_SIZE_512;
+							break;
+						case 2048:
+							pageSizeBits = BCHP_NAND_CONFIG_PAGE_SIZE_PG_SIZE_2KB;
+							break;
+						case 4096:
+							pageSizeBits = BCHP_NAND_CONFIG_PAGE_SIZE_PG_SIZE_4KB;
+							break;
+						}
+						nand_config &= ~(BCHP_NAND_CONFIG_PAGE_SIZE_MASK << BCHP_NAND_CONFIG_PAGE_SIZE_SHIFT);
+						nand_config |= (pageSizeBits << BCHP_NAND_CONFIG_PAGE_SIZE_SHIFT); 
+						chip->ctrl_write(BCHP_NAND_CONFIG, nand_config);	
+PRINTK("Updating Config Reg: Block & Page Size: After: %08x\n", nand_config);
+						break;
+						
+					default:
+						printk(KERN_ERR "4th ID Byte: Device requiring Controller V3.0 in database, but not handled\n");
+						//BUG();
+					}
+
+					/* For type 2, ID bytes do not yield flash Size, but CONFIG registers have that info
+			
+					chipSizeShift = (nand_config & 0x0F000000) >> 24;
+					chip->chipSize = 4ULL << (20 + chipSizeShift);
+					*/
+				}
+						
 			}
 		}
 
@@ -5404,8 +5811,14 @@ printk("Updating Config Reg: Block & Page Size: After: %08x\n", nand_config);
 	chip->options = brcmnand_chips[i].options;
 		
 	/* BrcmNAND page size & block size */	
-	mtd->writesize = chip->pageSize; 		
+	mtd->writesize = chip->pageSize; 	
+	// OOB size for MLC NAND varies depend on the chip
+#if CONFIG_MTD_BRCMNAND_VERSION < CONFIG_MTD_BRCMNAND_VERS_3_0
 	mtd->oobsize = mtd->writesize >> 5; // tht - 16 byte OOB for 512B page, 64B for 2K page
+#else
+	chip->eccsteps = chip->pageSize/chip->eccsize;
+	mtd->oobsize = chip->eccOobSize * chip->eccsteps;
+#endif
 	mtd->erasesize = chip->blockSize;
 
 	/* Fix me: When we have both a NOR and NAND flash on board */
@@ -5465,7 +5878,7 @@ static void brcmnand_resume(struct mtd_info *mtd)
 				"in suspended state\n");
 }
 
-
+#if 0
 
 static void fill_ecccmp_mask(struct mtd_info *mtd)
 {
@@ -5494,6 +5907,7 @@ static void fill_ecccmp_mask(struct mtd_info *mtd)
 		len += num;
 	}
 }
+#endif
 
 /*
  * Sort Chip Select array into ascending sequence, and validate chip ID
@@ -5574,6 +5988,10 @@ get_rom_size(unsigned long* outp_cs0Base)
 	sun_top_ctrl_strap_value = *(volatile unsigned long*) (0xb0000000|BCHP_SUN_TOP_CTRL_STRAP_VALUE);
 	strap_ebi_rom_size = sun_top_ctrl_strap_value & BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_MASK;
 	strap_ebi_rom_size >>= BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_ebi_rom_size_SHIFT;
+#elif defined(BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_bus_mode_MASK)
+	romSize = 512<<10; /* 512K */
+	*outp_cs0Base = 0x1FC00000;
+	return romSize;
 #elif defined(CONFIG_MIPS_BCM3548)
 	printk("FIXME: no strap option for rom size on 3548\n");
 	BUG();
@@ -5812,6 +6230,8 @@ int brcmnand_scan(struct mtd_info *mtd , int maxchips )
 		chip->scan_bbt = brcmnand_default_bbt;
 	if (!chip->erase_bbt)
 		chip->erase_bbt = brcmnand_erase_bbt;
+
+	chip->eccsize = 512;  // Fixed for Broadcom controller
 
 #if CONFIG_MTD_BRCMNAND_VERSION == CONFIG_MTD_BRCMNAND_VERS_0_0
 	cs = 0;
@@ -6063,10 +6483,17 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 	{
 		volatile unsigned long acc_control, org_acc_control;
 		int csi = 0; // Index into chip->CS array
-		unsigned long eccLevel, eccLevel_n;
+		unsigned long eccLevel, eccLevel_0, eccLevel_n;
 		
 		org_acc_control = acc_control = brcmnand_ctrl_read(BCHP_NAND_ACC_CONTROL);
 		
+
+#if defined(BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_ADDR) && defined(BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_MASK)
+
+{
+printk("sun_top_strap=%08x\n", BDEV_RD(BCHP_SUN_TOP_CTRL_STRAP_VALUE_0));
+}
+#endif
 
 		/*
 		 * For now, we only support same ECC level for both block0 and other blocks
@@ -6075,21 +6502,32 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 //		if (chip->CS[csi] == 0) 
 		{
 			// ECC level for block-0
-			eccLevel = (acc_control & BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_MASK) >> 
+			eccLevel = eccLevel_0 = (acc_control & BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_MASK) >> 
 				BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_SHIFT;
 			// ECC level for all other blocks.
 			eccLevel_n = (acc_control & BCHP_NAND_ACC_CONTROL_ECC_LEVEL_MASK) >>
 				BCHP_NAND_ACC_CONTROL_ECC_LEVEL_SHIFT;
 
 			// make sure that block-0 and block-n use the same ECC level.
-			if (eccLevel != eccLevel_n) {
+			if (eccLevel_0 != eccLevel_n) {
+				// Use eccLevel_0 for eccLevel_n, unless eccLevel_0 is 0.
+				if (eccLevel_0 == 0) {
+					eccLevel = eccLevel_n;
+				}
 				acc_control &= ~(BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_MASK|
 					BCHP_NAND_ACC_CONTROL_ECC_LEVEL_MASK);
 				acc_control |= (eccLevel <<  BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_SHIFT) | 
 					(eccLevel << BCHP_NAND_ACC_CONTROL_ECC_LEVEL_SHIFT);
 				brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc_control );
-				
-				printk("Corrected ECC on block-n to ECC on block-0: ACC_CONTROL = %08lx from %08lx\n", acc_control, org_acc_control);
+
+				if (eccLevel == eccLevel_0) {
+					printk("Corrected ECC on block-n to ECC on block-0: ACC = %08lx from %08lx\n", 
+						acc_control, org_acc_control);
+				} 
+				else {
+					printk("Corrected ECC on block-0 to ECC on block-n: ACC = %08lx from %08lx\n", 
+						acc_control, org_acc_control);
+				}
 									
 			}
 			csi++; // Look at next CS
@@ -6107,9 +6545,12 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 			}	
 		}
 #endif
-		/* For MLC, we only support BCH-4 */
+		/* For MLC, we only support BCH-4 or better */
 		if (NAND_IS_MLC(chip)) {
-			if (eccLevel == BRCMNAND_ECC_HAMMING) {
+			int eccOobSize;
+			
+			switch (eccLevel) {
+			case BRCMNAND_ECC_HAMMING:
 				printk(KERN_INFO "Only BCH-4 or better is supported on MLC flash\n");
 				chip->ecclevel  = BRCMNAND_ECC_BCH_4;
 				acc_control &= ~(BCHP_NAND_ACC_CONTROL_ECC_LEVEL_0_MASK|
@@ -6118,7 +6559,37 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 					(BRCMNAND_ECC_BCH_4 << BCHP_NAND_ACC_CONTROL_ECC_LEVEL_SHIFT);
 				brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc_control );
 				printk("Corrected ECC to BCH-4 for MLC flashes: ACC_CONTROL = %08lx from %08lx\n", acc_control, org_acc_control);
+				break;
+
+			case BRCMNAND_ECC_BCH_4:
+			case BRCMNAND_ECC_BCH_8:
+				//Make sure that the OOB size is >= 27
+				eccOobSize = (acc_control & BCHP_NAND_ACC_CONTROL_SPARE_AREA_SIZE_MASK) >>
+					BCHP_NAND_ACC_CONTROL_SPARE_AREA_SIZE_SHIFT;
+				printk("ACC: %d OOB bytes per 512B ECC step; from ID probe: %d\n", eccOobSize, chip->eccOobSize);
+				// We have recorded chip->eccOobSize during probe, let's compare it against value from ACC
+				if (chip->eccOobSize < eccOobSize) {
+					printk("Flash says it has %d OOB bytes, but ECC level %d need %d bytes\n",
+						chip->eccOobSize, eccLevel, eccOobSize);
+					printk(KERN_INFO "Please fix your board straps. Aborting to avoid file system damage\n");
+					BUG();
+					}
+				chip->eccOobSize = eccOobSize;
+				
+				if (eccLevel == BRCMNAND_ECC_BCH_8 && chip->eccOobSize < 27) {
+					printk(KERN_INFO "BCH-8 requires >=27 OOB bytes per ECC step.\n");
+					printk(KERN_INFO "Please fix your board straps. Aborting to avoid file system damage\n");
+					BUG();
+				}
+				break;
+
+			default:
+				printk(KERN_ERR "Unsupported ECC level %d\n", eccLevel);
+				BUG();
+				
 			}
+
+			
 			chip->ecclevel = eccLevel;
 		
 
@@ -6145,10 +6616,7 @@ PRINTK("brcmnand_scan: Done brcmnand_probe\n");
 		}
 		else {   
 		 	/* SLC may use Hamming but can also use BCH-4. */
-#if 0
-		 	 *   [But for now, only Hamming code is supported.] Taken out
-#endif
-		 	/* */
+			//chip->eccOobSize = 16; /* Always */
 
 			/*
 			 * For SLC,  just print out ACC_CONTROL to catch any erronous straps
@@ -6170,21 +6638,15 @@ printk("Corrected ECC to Hamming for SLC flashes: ACC_CONTROL = %08lx from %08lx
 			}	
 #endif
 			chip->ecclevel = eccLevel;
-#ifdef CONFIG_MTD_BRCMNAND_EDU
-			acc_control &= ~(BCHP_NAND_ACC_CONTROL_FAST_PGM_RDIN_MASK|BCHP_NAND_ACC_CONTROL_PARTIAL_PAGE_EN_MASK);
-			acc_control &= ~(BCHP_NAND_ACC_CONTROL_WR_PREEMPT_EN_MASK);
-			acc_control &= ~(BCHP_NAND_ACC_CONTROL_PAGE_HIT_EN_MASK);
 
-			brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc_control );
-			
-#endif
-// For 3556, disable WR_PREEMPT
-#ifdef CONFIG_MIPS_BCM3548
+// For 3556 and 3548L, disable WR_PREEMPT
+#ifdef CONFIG_MIPS_BCM3548 //(Actually 3548L and 3556
 			acc_control &= ~(BCHP_NAND_ACC_CONTROL_WR_PREEMPT_EN_MASK);
 			brcmnand_ctrl_write(BCHP_NAND_ACC_CONTROL, acc_control );
 
 			printk("Disable WR_PREEMPT: ACC_CONTROL = %08lx from %08lx\n", acc_control, org_acc_control);
 #endif	
+			
 			if (acc_control == org_acc_control) {
 				printk("SLC flash: ACC_CONTROL = %08lx\n", acc_control);
 			} else {
@@ -6223,7 +6685,7 @@ PRINTK("%s 20\n", __FUNCTION__);
 
 	/* The number of bytes available for the filesystem to place fs dependend
 	 * oob data */
-//PRINTK( "Deterimining chip->oobavail, chip->autooob=%p \n", chip->autooob);
+//PRINTK( "Determining chip->oobavail, chip->autooob=%p \n", chip->autooob);
 
 	/* Version ID */
 	version_id = chip->ctrl_read(BCHP_NAND_REVISION);
@@ -6242,12 +6704,18 @@ printk("++++++++++++ EDU_DEBUG_2 enabled\n");
 #ifdef EDU_DEBUG_3
 printk("++++++++++++ EDU_DEBUG_3 enabled\n");
 #endif
+#ifdef EDU_DEBUG_4
+printk("++++++++++++ EDU_DEBUG_4 (read verify) enabled\n");
+#endif
+#ifdef EDU_DEBUG_5
+printk("++++++++++++ EDU_DEBUG_5 (write verify) enabled\n");
+#endif
 
 PRINTK("%s 30\n", __FUNCTION__);
 	/*
 	 * Initialize the eccmask array for ease of verifying OOB area.
 	 */
-	fill_ecccmp_mask(mtd);
+	//fill_ecccmp_mask(mtd);
 	
 
 	/* Store the number of chips and calc total size for mtd */
@@ -6325,17 +6793,25 @@ printk("ECC layout=%s\n", "brcmnand_oob_bch4_2k");
 			break;
 			
 		default:
+			if (NAND_IS_MLC(chip) && mtd->oobsize >= 216 && 
+				chip->ecclevel == BRCMNAND_ECC_BCH_8 && mtd->writesize == 4096) 
+			{
+printk(KERN_INFO "ECC layout=%s\n", "brcmnand_oob_bch8_4k");
+				chip->ecclayout = &brcmnand_oob_bch8_4k;
+				break;
+			}
+			
 			printk(KERN_WARNING "No oob scheme defined for oobsize %d\n", mtd->oobsize);
 			BUG();
 			break;
 		}
 	}
 	
-	chip->eccsize = 512;  // Fixed for Broadcom controller
+	
 	// THT: For V.3+ controller, this is no longer true.  It is governed by ACC_CONTROL bits SPARE_AREA_SIZE
-	chip->eccOobSize = 16; // Fixed for Broadcom controller
+	//chip->eccOobSize = (mtd->oobsize*512) /mtd->writesize; 
+	printk(KERN_INFO "mtd->oobsize=%d, mtd->eccOobSize=%d\n", mtd->oobsize, chip->eccOobSize);
 
-PRINTK("%s 45, mtd->oobsize=%d\n", __FUNCTION__, mtd->oobsize);
 	if (!chip->read_page)
 		chip->read_page = brcmnand_read_page;
 	if (!chip->write_page)
@@ -6470,10 +6946,9 @@ printk(KERN_INFO "%s, eccsize=%d, writesize=%d, eccsteps=%d, ecclevel=%d, eccbyt
 
 #ifdef CONFIG_MTD_BRCMNAND_EDU
 	EDU_init();
-
 #endif
 
-//gdebug=4;
+gdebug=0;
 if (0) {
 	char oob[128];
 	
@@ -6570,6 +7045,15 @@ int brcmnand_readNorFlash(struct mtd_info *mtd, void* buff, unsigned int offset,
 	unsigned int romSize;
 	volatile uint16_t* pui16 = (volatile uint16_t*) buff;
 	volatile uint16_t* fp;
+
+#if 1
+/*
+ *THT 03/12/09: This should never be called since the CFE no longer disable CS0
+ * when CS1 is on NAND
+ */
+ 	printk("%s should never be called\n", __FUNCTION__);
+	BUG();
+#else
 
 	if (!chip) { // When booting from CRAMFS/SQUASHFS using /dev/romblock
 		chip = brcmnand_get_device_exclusive();
@@ -6681,6 +7165,7 @@ release_device_and_out:
 	brcmnand_release_device(mtd);
 //printk("<-- %s\n", __FUNCTION__);
 
+#endif
 	return ret;
 }
 EXPORT_SYMBOL(brcmnand_readNorFlash);

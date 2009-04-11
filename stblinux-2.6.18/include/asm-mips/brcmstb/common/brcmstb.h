@@ -153,6 +153,7 @@
 #define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE)
 #define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_nand_flash_MASK
 
+/* The following bchp headers are taken from brcm97400e0 rdb. Please look at PR 53107 for more information */
 #elif defined(CONFIG_MIPS_BCM7400D0)
 #include <asm/brcmstb/brcm97400d0/bcmuart.h>
 #include <asm/brcmstb/brcm97400d0/bcmtimer.h>
@@ -286,6 +287,8 @@
 #include <asm/brcmstb/brcm97420a0/bchp_irq0.h>
 #include <asm/brcmstb/brcm97420a0/bcmintrnum.h>
 #include <asm/brcmstb/brcm97420a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97420a0/bchp_edu.h>
+#include <asm/brcmstb/brcm97420a0/bchp_hif_intr2.h> /* For EDU interrupts */
 #include <asm/brcmstb/brcm97420a0/bchp_ebi.h>
 #include <asm/brcmstb/brcm97420a0/bchp_sun_top_ctrl.h>
 #include <asm/brcmstb/brcm97420a0/bchp_usb_ctrl.h>
@@ -305,6 +308,9 @@
 #include <asm/brcmstb/brcm97420a0/bchp_hif_rgr1.h>
 #include <asm/brcmstb/brcm97420a0/bchp_mips_biu.h>
 #include <asm/brcmstb/brcm97420a0/bchp_moca_hostmisc.h>
+
+#define BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_ADDR (0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE_0)
+#define BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_MASK BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_boot_shape_MASK
 
 #elif defined(CONFIG_MIPS_BCM7325B0)
 #include <asm/brcmstb/brcm97325b0/bcmuart.h>
@@ -383,6 +389,8 @@
 #include <asm/brcmstb/brcm97440b0/bchp_hif_cpu_intr1.h>
 #include <asm/brcmstb/brcm97440b0/bcmintrnum.h>
 #include <asm/brcmstb/brcm97440b0/bchp_nand.h>
+#include <asm/brcmstb/brcm97440b0/bchp_hif_intr2.h>
+#include <asm/brcmstb/brcm97440b0/bchp_edu.h>
 #include <asm/brcmstb/brcm97440b0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97440b0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97440b0/bchp_usb_ohci.h>
@@ -427,6 +435,8 @@
 #include <asm/brcmstb/brcm97601b0/bchp_irq1.h>
 #include <asm/brcmstb/brcm97601b0/bchp_hif_cpu_intr1.h>
 #include <asm/brcmstb/brcm97601b0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97601b0/bchp_edu.h>
+#include <asm/brcmstb/brcm97601b0/bchp_hif_intr2.h>
 #include <asm/brcmstb/brcm97601b0/bchp_nand.h>
 #include <asm/brcmstb/brcm97601b0/bchp_usb_ctrl.h>
 #include <asm/brcmstb/brcm97601b0/bchp_usb_ehci.h>
@@ -455,6 +465,11 @@
                 BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_nand_flash_boot_MASK) \
                 == BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_nand_flash_boot_MASK)
 
+#elif defined(BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_ADDR) && defined(BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_MASK)
+/* 7420 and later */
+
+// Later
+
 #else
 #define	is_bootrom_nand()		(0)	// default bootrom is NOR
 #endif
@@ -463,6 +478,9 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/spinlock.h>
+
+
+
 
 struct brcm_reg_array {
 	unsigned long		reg;
@@ -535,6 +553,39 @@ extern bcm_memmap_t* bcm_pmemmap;
  * returns the amount of memory not accounted for by get_RAM_size();
  */
 extern unsigned long (* __get_discontig_RAM_size) (void);
+
+
+/*------------ CFE Env Vars for Nand partition ---------------*/
+#define MAX_CFE_PART_ENV_VARS 6
+
+typedef enum  { 
+	ROOTFS_PT=0, 	/* LINUX_FFS_STARTAD, LINUX_FFS_SSIZE */
+	SPLASH_PT=1,	/* SPLASH_PART_STARTAD, SPLASH_PART_SIZE */
+	KERNEL_PT=2,  	/* LINUX_PART_STARTAD, LINUX_PART_SIZE */
+	OCAP_PT=3, 		/* OCAP_PART_STARTAD, OCAP_PART_SIZE */
+	LAST_PT
+} eCfePartEnvVar_t;
+
+typedef struct {
+	int numParts;
+	struct {
+		eCfePartEnvVar_t part; /* partition enum */
+		uint32_t offset; /* Offset from start of NAND.  For DRAM, this is physical offset */
+		uint32_t size;
+	} parts[MAX_CFE_PART_ENV_VARS];
+} cfePartitions_t;
+
+typedef struct {
+	const char* offset;
+	const char* size;
+} cfeEnvVarPairs_t;
+
+extern cfePartitions_t gCfePartitions; 
+extern cfeEnvVarPairs_t gCfeEnvVarPairs[];
+
+extern void bcm_get_cfe_partition_env(void);
+
+/*----------------------------------------------------*/
 
 struct bcmumac_platform_data {
 	int			phy_type;
@@ -759,6 +810,26 @@ extern int brcm_ebi_war;
  */
 extern spinlock_t g_magnum_spinlock;
 #define BRCM_MAGNUM_SPINLOCK	1
+
+
+#if defined(BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_ADDR) && defined(BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_MASK)
+static inline int is_bootrom_nand(void)
+{
+	volatile unsigned long boot_mode = (BDEV_RD(BCHP_SUN_TOP_CTRL_STRAP_VALUE_0) & 
+		BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_bus_mode_MASK) >> 
+			BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_bus_mode_SHIFT;
+	volatile unsigned long boot_shape = (*((volatile unsigned long *)BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_ADDR) &
+		BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_MASK) >> BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_boot_shape_SHIFT;
+
+	switch (boot_mode) {
+	case 0:
+	case 1:
+	case 3:
+		return (boot_shape & 0x1);
+	}
+	return 0;
+}
+#endif
 
 #endif /* __ASSEMBLY__ */
 

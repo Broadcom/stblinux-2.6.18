@@ -76,6 +76,7 @@ static struct cpu_descr const cpu_descrs[MAX_CPU_TYPE] = {
 	{ "Broadcom 4350", "mips/bcm4350", CPU_MIPS_BCM4350, 4},
 	{ "Broadcom 3300", "mips/bcm3300", CPU_MIPS_BCM3300, 4},
 	{ "Broadcom 4380", "mips/bcm4380", CPU_MIPS_BCM4380, 4},
+	{ "Broadcom 5000", "mips/bcm5000", CPU_MIPS_BCM5000, 4},
 };
  
 static size_t const nr_cpu_descrs = sizeof(cpu_descrs) / sizeof(struct cpu_descr);

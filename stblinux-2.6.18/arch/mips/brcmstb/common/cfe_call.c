@@ -226,3 +226,103 @@ int get_cfe_boot_parms(void)
 		return(-1);
 	}
 }
+
+
+cfeEnvVarPairs_t gCfeEnvVarPairs[] = {
+	{ "LINUX_FFS_STARTAD", 		"LINUX_FFS_SIZE" },
+	{ "SPLASH_PART_STARTAD", 	"SPLASH_PART_SIZE" },
+	{ "LINUX_PART_STARTAD", 		"LINUX_PART_SIZE" },
+	{ "OCAP_PART_STARTAD", 		"OCAP_PART_SIZE" },
+/*
+	{ "DRAM0_OFFSET", 			"DRAM0_SIZE" },
+	{ "DRAM1_OFFSET", 			"DRAM1_SIZE" },
+*/
+	{ NULL, NULL },
+};
+
+static inline int bcm_atoi(const char *s, int base)
+{
+	int n;
+	int neg = 0;
+
+	n = 0;
+
+	if (base == 10) {
+		if (*s == '-') {
+			neg = 1;
+			s++;
+		}
+		while (isdigit(*s))
+			n = (n * 10) + *s++ - '0';
+
+		if (neg)
+			n = 0 - n;
+	}
+	else if (base == 16) {
+		while (*s) {
+			int h = hex(*s);
+
+			if (h >= 0) {
+				n = (n*16) + h;
+				s++;
+			}
+			else
+				break;
+		}
+	}
+	return (n);
+}
+
+void __init bcm_get_cfe_partition_env(void)
+{
+	char envval[128];
+	int e, res;
+	int numParts = 0;
+	unsigned int size;
+
+	for (e=0; gCfeEnvVarPairs[e].offset != NULL; e++) {
+		int base = 16;
+	
+		envval[0] = '\0';
+
+		res = get_cfe_env_variable((char*) gCfeEnvVarPairs[e].size,
+				   envval, sizeof(envval));
+		if (res == 0 && envval[0] != '\0') {
+			/*
+			if (e == DRAM0 || e == DRAM1)
+				base = 10;
+			*/
+			
+			size = bcm_atoi(envval, base);
+			if (size == 0) /* Only size matters :-) */
+				continue;
+			gCfePartitions.parts[numParts].size = size;
+			
+			envval[0] =  '\0';
+			res = get_cfe_env_variable((char*) gCfeEnvVarPairs[e].offset,
+				   envval, sizeof(envval));
+			if (res == 0 && envval[0] != '\0') {
+				gCfePartitions.parts[numParts].offset = bcm_atoi(envval, 16);
+	
+			}
+			else {
+				/* Have size but no offset, its OK for DRAM, as only size matters */
+				gCfePartitions.parts[numParts].offset = 0;
+			}
+			gCfePartitions.parts[numParts].part = e;
+			gCfePartitions.numParts = ++numParts;
+		}
+	}
+
+{
+int i;
+	for (i=0; i < gCfePartitions.numParts; i++) {
+	int p = gCfePartitions.parts[i].part;
+	
+printk("CFE EnvVar: %s: %08x, %s: %08x\n", 
+	gCfeEnvVarPairs[p].offset, gCfePartitions.parts[i].offset,
+	gCfeEnvVarPairs[p].size, gCfePartitions.parts[i].size);
+}
+}
+}
+

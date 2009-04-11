@@ -5,6 +5,7 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
+#include <linux/module.h>
 
 #include <asm/mipsregs.h>
 #include <asm/bcache.h>
@@ -24,7 +25,7 @@
  */
 static void mips_sc_wback_inv(unsigned long addr, unsigned long size)
 {
-#if defined(CONFIG_BRCM_SCM_L2)
+#if defined(CONFIG_BRCM_SCM_L2) && ! defined(CONFIG_BMIPS5000)
 	/* flush previous and next cache lines as well, due to prefetching */
 	if(addr >= (KSEG0 + 128)) {
 		addr -= 128;
@@ -46,6 +47,24 @@ static void mips_sc_inv(unsigned long addr, unsigned long size)
 	blast_inv_scache_range(addr, addr + size);
 }
 
+/*
+ * Flush data prefetched during I/O
+ */
+void mips_sc_flush_prefetch(unsigned long addr0, unsigned long size)
+{
+	const struct cache_desc *d = &current_cpu_data.scache;
+	unsigned long addr1;
+
+	__sync();
+
+	addr0 &= ~(d->linesz - 1);
+	addr1 = (addr0 + size) & ~(d->linesz - 1);
+
+	flush_scache_line(addr0);
+	if(addr1 != addr0)
+		flush_scache_line(addr1);
+}
+
 static void mips_sc_enable(void)
 {
 	/* L2 cache is permanently enabled */
@@ -60,7 +79,8 @@ static struct bcache_ops mips_sc_ops = {
 	.bc_enable = mips_sc_enable,
 	.bc_disable = mips_sc_disable,
 	.bc_wback_inv = mips_sc_wback_inv,
-	.bc_inv = mips_sc_inv
+	.bc_inv = mips_sc_inv,
+	.bc_flush_prefetch = mips_sc_flush_prefetch,
 };
 
 static inline int __init mips_sc_probe(void)

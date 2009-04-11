@@ -190,7 +190,7 @@ struct nand_oobfree {
 };
 
 #define MTD_MAX_OOBFREE_ENTRIES	9
-#define MTD_MAX_ECCPOS_ENTRIES	80	// Was 64 for SLC
+#define MTD_MAX_ECCPOS_ENTRIES	218	// Was 64 for SLC
 /*
  * ECC layout control structure. Exported to userspace for
  * diagnosis and to allow creation of raw images

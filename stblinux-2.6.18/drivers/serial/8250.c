@@ -1087,6 +1087,18 @@ static void serial8250_start_tx(struct uart_port *port)
 	if (!(up->ier & UART_IER_THRI)) {
 		up->ier |= UART_IER_THRI;
 		serial_out(up, UART_IER, up->ier);
+#ifdef CONFIG_MIPS_BRCM97XXX
+		{
+			unsigned char iir;
+			lsr = serial_in(up, UART_LSR);
+			/* HW clears interrupt status upon reading */
+			serial_in(up, UART_IIR);
+			iir = serial_in(up, UART_IIR);
+			/* HW raises interrupt on THRE, not TEMT */
+			if (lsr & UART_LSR_THRE && iir & UART_IIR_NO_INT)
+				transmit_chars(up);
+		}
+#else
 		if (up->bugs & UART_BUG_TXEN) {
 			unsigned char lsr, iir;
 			lsr = serial_in(up, UART_LSR);
@@ -1098,6 +1110,7 @@ static void serial8250_start_tx(struct uart_port *port)
 			lsr = serial_in(up, UART_LSR);
 			if (lsr & UART_LSR_TEMT ) transmit_chars(up);
 		}
+#endif
 	}
 
 	/*

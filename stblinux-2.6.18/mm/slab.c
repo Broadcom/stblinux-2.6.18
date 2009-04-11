@@ -151,7 +151,7 @@
  * alignment larger than BYTES_PER_WORD. ARCH_KMALLOC_MINALIGN allows that.
  * Note that this flag disables some debug features.
  */
-#define ARCH_KMALLOC_MINALIGN 0
+#define ARCH_KMALLOC_MINALIGN 32
 #endif
 
 #ifndef ARCH_SLAB_MINALIGN

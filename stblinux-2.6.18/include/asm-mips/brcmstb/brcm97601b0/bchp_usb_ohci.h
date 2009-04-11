@@ -21,8 +21,8 @@
  * file. You must edit the source file for changes to be made to this file.
  *
  *
- * Date:           Generated on         Mon Jul  7 13:14:22 2008
- *                 MD5 Checksum         934b088a084acc792e364e722d061a77
+ * Date:           Generated on         Fri Aug 22 21:13:50 2008
+ *                 MD5 Checksum         78214439370aa8abba8b1591b6527168
  *
  * Compiled with:  RDB Utility          combo_header.pl
  *                 RDB Parser           3.0
@@ -32,10 +32,10 @@
  *
  * Revision History:
  *
- * $brcm_Log: /magnum/basemodules/chp/7601/rdb/a0/bchp_usb_ohci.h $
+ * $brcm_Log: /magnum/basemodules/chp/7601/rdb/b0/bchp_usb_ohci.h $
  * 
- * Hydra_Software_Devel/1   7/7/08 3:19p tdo
- * PR33682: Generate RDB header files for 7601
+ * Hydra_Software_Devel/1   8/23/08 2:41a albertl
+ * PR45862:  Initial Revision.
  *
  ***************************************************************************/
 

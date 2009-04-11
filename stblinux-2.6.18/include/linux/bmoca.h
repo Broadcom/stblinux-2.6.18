@@ -12,13 +12,15 @@
 #define MOCA_IOC_MAGIC		'M'
 
 #define MOCA_IOCTL_GET_DRV_INFO	_IOR(MOCA_IOC_MAGIC, 0, struct moca_kdrv_info)
-#define MOCA_IOCTL_START	_IOW(MOCA_IOC_MAGIC, 1, struct moca_fw_img)
+#define MOCA_IOCTL_START	_IOW(MOCA_IOC_MAGIC, 1, struct moca_xfer)
 #define MOCA_IOCTL_STOP		_IO(MOCA_IOC_MAGIC, 2)
+#define MOCA_IOCTL_READMEM	_IOR(MOCA_IOC_MAGIC, 3, struct moca_xfer)
 
 struct moca_kdrv_info {
 	uint32_t		version;
 	uint32_t		uptime;
 	int32_t			refcount;
+	uint32_t		gp1;
 
 	char			enet_name[IFNAMSIZ];
 	uint32_t		enet_id;
@@ -27,9 +29,10 @@ struct moca_kdrv_info {
 	uint32_t		macaddr_lo;
 };
 
-struct moca_fw_img {
-	void			*img;
-	unsigned int		img_len;
+struct moca_xfer {
+	void			*buf;
+	uint32_t		len;
+	uint32_t		moca_addr;
 };
 
 #ifdef __KERNEL__

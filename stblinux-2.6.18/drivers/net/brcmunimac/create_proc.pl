@@ -122,6 +122,23 @@ sub process_group
 				}elsif (@reglines[$i] =~ /unused.*/) {
 					#looking for "unusedxx", skip 4 bytes offset
 					$offset += 4;
+				}elsif (@reglines[$i] =~ /rbuf_rxc_offset\[(.*)\]/){
+					print "Processing rbuf_rxc_offset\n";
+					#processing rbuf register arrays, this needs seperate function later on!
+					for($k=0; $k < $1; $k++)
+					{
+						#$line = "unsigned long rbuf_rxc_offset[$k]";
+						#process_reg($line, $offset, $group_id, $hierarch_group);
+						$offset += 4;
+					}
+					#skip register array for now!
+				}elsif (@reglines[$i] =~ /rbuf_fltr_len\[(.*)\]/){
+					print "Processing rbuf_fltr_len\n";
+					for($k=0; $k < $1; $k++)
+					{
+						$offset += 4;
+					}
+					#skip register array for now!.
 				}elsif (@reglines[$i] =~ /.*unsigned[\t*\s*]long/){
 					#process normal register inside data structure.
 					process_reg($reglines[$i], $offset, $group_id, $hierarchy_group);

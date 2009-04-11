@@ -265,25 +265,22 @@ typedef struct rbufRegs
 	unsigned long rbuf_rxc_offset[8];	/* (18 - 34) rxc extraction offset registers, for filtering*/
 	unsigned long rbuf_hfb_ctrl;		/* (38) hardware filter block control register*/
 	unsigned long rbuf_fltr_len[4];		/* (3c - 48)filter length registers */
-	unsigned long unused0[14];
+	unsigned long unused0[13];
 	unsigned long tbuf_ctrl;			/* (80) tx buffer control */
 	unsigned long tbuf_flush_ctrl;		/* (84) flush tx buffer and reset tx engine*/
-	unsigned long tbuf_tsv_mask1;
-	unsigned long tbuf_tsv_mask0;
-	unsigned long tbuf_tsv_status1;
-	unsigned long tbuf_tsv_status0;
+	unsigned long unused1[5];
 	unsigned long tbuf_endian_ctrl;		/* (9c) tx buffer endianess control*/
 	unsigned long tbuf_bp_mc;			/* (a0) tx buffer backpressure mask and control*/
 	unsigned long tbuf_pkt_rdy_thld;	/* (a4) threshold for PKT_RDY , for jumbo frame, default 0x7C*/
-	unsigned long unused1[2];
+	unsigned long unused2[2];
 	unsigned long rgmii_oob_ctrl;		/* (b0) RGMII OOB control register */
 	unsigned long rgmii_ib_status;		/* (b4) RGMII inBand status register*/
 	unsigned long rgmii_led_ctrl;		/* (b8) RGMII LED control register */
-	unsigned long unused2[2];
+	unsigned long unused3;
 	unsigned long moca_status;			/* (c0) MOCA transmit buffer threshold corssed register*/
-	unsigned long unused3[4];
+	unsigned long unused4[3];
 	unsigned long ephy_pwr_mgmt;		/* (d0) PHY power management register*/
-	unsigned long unused4;
+	unsigned long unused5;
 	unsigned long emcg_ctrl;			/* (d8) ENDT EMCG control register*/
 	unsigned long test_mux_ctrl;		/* (dc) ENET test mux control register*/
 }rbufRegs;

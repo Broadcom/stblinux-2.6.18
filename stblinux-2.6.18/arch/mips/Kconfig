@@ -195,6 +195,18 @@ config MIPS_BCM7420AX
         select MIPS_BCM7420
         select HW_HAS_PCI
 	select BMIPS5000
+	
+config MIPS_BCM7420AX_NAND
+        bool "Support for BCM97420Ax with NAND flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7420A0
+        select MIPS_BCM7420
+        select HW_HAS_PCI
+	select BMIPS5000
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
+	select MTD_NEW_PARTITION
 
 config MIPS_BCM97456DX
 	bool "Support for BCM97456DX board with NOR flash"
@@ -1630,7 +1642,7 @@ config MIPS_BCM7336
 
 config MIPS_BCM7420A0
 	bool
-	depends MIPS_BCM7420AX
+	depends MIPS_BCM7420AX || MIPS_BCM7420AX_NAND
 
 config MIPS_BCM7420
 	bool
@@ -1689,6 +1701,11 @@ config MTD_ECM_PARTITION
 	bool "Special partition for BCM3255"
 	default n
 	depends MIPS_BCM97455C0 || MIPS_BCM97456A0 || MIPS_BCM97456D0 || MIPS_BCM97458A0 || MIPS_BCM7118A0
+
+config MTD_NEW_PARTITION
+	bool "New partition for NAND"
+	default n
+	depends MIPS_BCM7420AX_NAND
 
 config SERIAL
 	bool
@@ -2510,7 +2527,7 @@ config ARCH_FLATMEM_ENABLE
 
 config ARCH_DISCONTIGMEM_ENABLE
 	bool
-	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0 || MIPS_BCM3563C0 || MIPS_BCM7440B0 || MIPS_BCM7601B0 || MIPS_BCM7336
+	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0 || MIPS_BCM3563C0 || MIPS_BCM7440B0 || MIPS_BCM7601B0 || MIPS_BCM7336 || MIPS_BCM3548B0
 	help
 	  Say Y to upport efficient handling of discontiguous physical memory,
 	  for architectures which are either NUMA (Non-Uniform Memory Access)

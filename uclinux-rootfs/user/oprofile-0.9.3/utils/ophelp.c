@@ -531,6 +531,11 @@ int main(int argc, char const * argv[])
                         "page 82. Available from Broadcom Corp.\n");
                 break;
 
+	case CPU_MIPS_BCM5000:
+                printf("See Brief Specification of BMIPS5000\n"
+                        "page xxx. Available from Broadcom Corp.\n");
+                break;
+
 	case CPU_RTC:
 		break;
 

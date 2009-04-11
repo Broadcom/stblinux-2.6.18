@@ -223,9 +223,8 @@ modules:
 modules_install:
 	. $(LINUXDIR)/.config; if [ "$$CONFIG_MODULES" = "y" ]; then \
 		[ -d $(ROMFSDIR)/lib/modules ] || mkdir -p $(ROMFSDIR)/lib/modules; \
-		$(MAKEARCH) -C $(LINUXDIR) INSTALL_MOD_PATH=$(ROMFSDIR) DEPMOD=$(ROOTDIR)/tools/$(CROSS)depmod modules_install || exit 1; \
+		$(MAKEARCH) -C $(LINUXDIR) INSTALL_MOD_PATH=$(ROMFSDIR) DEPMOD=$(ROOTDIR)/tools/$(CROSS)depmod modules_install INSTALL_MOD_STRIP=1 || exit 1; \
 		rm -f $(ROMFSDIR)/lib/modules/*/build; \
-		find $(ROMFSDIR)/lib/modules -type f | grep -v "modules\." | xargs -r $(STRIP) -g; \
 		if [ "$$CONFIG_HOTPLUG" != "y" ]; then \
 		rm -f $(ROMFSDIR)/lib/modules/$(LINUX_VERSION)/*map;		\
 		rm -f $(ROMFSDIR)/lib/modules/$(LINUX_VERSION)/modules.alias;	\

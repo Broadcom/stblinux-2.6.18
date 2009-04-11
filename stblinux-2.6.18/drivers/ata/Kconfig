@@ -63,6 +63,26 @@ config SATA_SVW_NCQ
 
 	  If unsure, say N.
 
+config SATA_SVW_PORTS
+        int "Broadcom SATA host controller port number: 1 or 2"
+        default 2 
+        depends on SATA_SVW
+
+	help
+	  This options chooses how many SATA host controller ports was built in
+	  Broadcom platform
+
+config SATA_SVW_PMP_HOTPLUG
+	boolean "Support for hotplug on port multiplier (EXPERIMENTAL)"
+	default n
+	depends on SATA_SVW && EXPERIMENTAL && \
+		   (MIPS_BCM7401 || MIPS_BCM7403)
+	help
+	  This option enables support for hotplug through 
+	  port multiplier of the Serverworks driver.
+
+	  If unsure, say N.
+
 config ATA_PIIX
 	tristate "Intel PIIX/ICH SATA support"
 	depends on PCI
