@@ -528,8 +528,9 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 /************* END HACK END HACK END HACK **********************************/
 
 	preempt_disable();
-
-	if (unlikely(oops_in_progress))
+	if (unlikely(oops_in_progress) && printk_cpu == smp_processor_id())
+		/* If a crash is occurring during printk() on this CPU,
+		 * make sure we can't deadlock */
 		zap_locks();
 
 	/* This stops the holder of console_sem just where we want him */

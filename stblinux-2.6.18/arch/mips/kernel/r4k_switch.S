@@ -160,13 +160,7 @@ LEAF(_restore_fp)
  * We initialize fcr31 to rounding to nearest, no exceptions.
  */
 
-/* TDT - PRs21761,21763,21819 - Set FS bit in FP control register */
-/* PR32132 - Clear FS bit in FP control register on 7400d0 */
-#if (defined(CONFIG_MIPS_BCM7400A0) && !defined(CONFIG_CPU_LITTLE_ENDIAN))
-#define FPU_DEFAULT  (FPU_CSR_FLUSH)
-#else
 #define FPU_DEFAULT  0x00000000
-#endif
 
 LEAF(_init_fpu)
 #ifdef CONFIG_MIPS_MT_SMTC

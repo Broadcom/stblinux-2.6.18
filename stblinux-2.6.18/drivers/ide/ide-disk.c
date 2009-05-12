@@ -263,15 +263,8 @@ static ide_startstop_t __ide_do_rw_disk(ide_drive_t *drive, struct request *rq, 
 				if (drive->vdma)
 					command = lba48 ? WIN_READ_EXT: WIN_READ;
 			}
-#ifdef CONFIG_BLK_DEV_SVWKS
-			/* BRCM/Serverworks SATA implementation requires this reverse order */
-			hwif->dma_start(drive);
-			hwif->dma_exec_cmd(drive, command);
-#else
-			/* IBM Specs */
 			hwif->dma_exec_cmd(drive, command);
 			hwif->dma_start(drive);
-#endif
 			return ide_started;
 		}
 		/* fallback to PIO */

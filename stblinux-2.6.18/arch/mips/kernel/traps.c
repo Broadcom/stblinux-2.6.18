@@ -1172,12 +1172,23 @@ void nmi_exception_handler(struct pt_regs *regs)
 
 #define VECTORSPACING 0x100	/* for EI/VI mode */
 
+#if defined(CONFIG_SMP) && defined(CONFIG_BMIPS4380)
+/* see comments in prom_boot_secondary() */
+#define EXC_BASE	(CAC_BASE + 0x400)
+#elif defined(CONFIG_SMP) && defined(CONFIG_BMIPS6200)
+#define EXC_BASE	(CAC_BASE + 0x1000)
+#else
+#define EXC_BASE	(CAC_BASE)
+#endif
+
 #ifdef CONFIG_DISCONTIGMEM
 /* this is not set up yet because we called tlb_init() early */
-unsigned long ebase = CAC_BASE;
+unsigned long ebase = EXC_BASE;
 #else
 unsigned long ebase;
 #endif
+EXPORT_SYMBOL(ebase);
+
 unsigned long exception_handlers[32];
 unsigned long vi_handlers[64];
 
@@ -1562,7 +1573,7 @@ void __init trap_init(void)
 	if (cpu_has_veic || cpu_has_vint)
 		ebase = (unsigned long) alloc_bootmem_low_pages (0x200 + VECTORSPACING*64);
 	else
-		ebase = CAC_BASE;
+		ebase = EXC_BASE;
 
 	mips_srs_init();
 
@@ -1671,11 +1682,11 @@ void __init trap_init(void)
 
 	if (cpu_has_vce)
 		/* Special exception: R4[04]00 uses also the divec space. */
-		memcpy((void *)(CAC_BASE + 0x180), &except_vec3_r4000, 0x100);
+		memcpy((void *)(EXC_BASE + 0x180), &except_vec3_r4000, 0x100);
 	else if (cpu_has_4kex)
-		memcpy((void *)(CAC_BASE + 0x180), &except_vec3_generic, 0x80);
+		memcpy((void *)(EXC_BASE + 0x180), &except_vec3_generic, 0x80);
 	else
-		memcpy((void *)(CAC_BASE + 0x080), &except_vec3_generic, 0x80);
+		memcpy((void *)(EXC_BASE + 0x080), &except_vec3_generic, 0x80);
 
 	signal_init();
 #ifdef CONFIG_MIPS32_COMPAT

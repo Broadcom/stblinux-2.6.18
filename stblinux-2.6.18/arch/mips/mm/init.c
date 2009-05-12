@@ -453,8 +453,9 @@ void __init paging_init(void)
 		free_area_init_node(0, NODE_DATA(0), zones_size, 0, 0);
 		node_set_online(0);
 
-		zones_size[ZONE_DMA] = PFN_DOWN(g_board_RAM_size - LOWER_RAM_SIZE);
-		zones_size[ZONE_NORMAL] = 0;
+		// THT PR45403: Force all DMA allocations to go to the first node.
+		zones_size[ZONE_DMA] = 0; 
+		zones_size[ZONE_NORMAL] = PFN_DOWN(g_board_RAM_size - LOWER_RAM_SIZE);
 		zones_size[ZONE_HIGHMEM] = 0;
 		free_area_init_node(1, NODE_DATA(1), zones_size,
 			PFN_DOWN(UPPER_RAM_BASE), 0);

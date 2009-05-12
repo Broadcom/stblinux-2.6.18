@@ -195,7 +195,7 @@ bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);
 		i = *numParts - 1;
 		bcm7XXX_nand_parts[i].offset = 512 << 20;
 		bcm7XXX_nand_parts[i].size = mtd->size - (513 << 20);
-		bcm7XXX_nand_parts[i].ecclayout = &mtd->ecclayout;
+		bcm7XXX_nand_parts[i].ecclayout = mtd->ecclayout;
 #ifdef CONFIG_MTD_ECM_PARTITION
 PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", avail1_size? i: i-1, bcm7XXX_nand_parts[i].name, 
 bcm7XXX_nand_parts[i].size, bcm7XXX_nand_parts[i].offset);

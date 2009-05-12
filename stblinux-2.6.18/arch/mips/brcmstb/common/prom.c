@@ -43,8 +43,8 @@ int gSata2_3Gbps = 0;
 EXPORT_SYMBOL(gSata2_3Gbps);
 
 /* 97118 normal or RNG */
-int bcm7118_boardtype = 0;
-EXPORT_SYMBOL(bcm7118_boardtype);
+int brcm_sata_enabled = 0;
+EXPORT_SYMBOL(brcm_sata_enabled);
 
 /* Customized flash size in MB */
 unsigned int gFlashSize = 0;	/* Default size on 97438 is 64 */
@@ -53,6 +53,12 @@ unsigned int gFlashCode = 0; 	/* Special reset codes, 1 for writing 0xF0 to offs
 /* Clear NAND BBT */
 int gClearBBT = 0;
 EXPORT_SYMBOL(gClearBBT);
+
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+/* Argument for NAND CET */
+char gClearCET = 0;
+EXPORT_SYMBOL(gClearCET);
+#endif /* CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING */
 
 /* Enable Splash partition on flash */
 #ifdef CONFIG_MTD_SPLASH_PARTITION
@@ -235,39 +241,30 @@ void __init prom_init(void)
 	mips_machgroup = MACH_GROUP_BRCM;
 	mips_machtype  = MACH_BRCM_STB;
 
+#ifdef BRCM_SATA_SUPPORTED
+	brcm_sata_enabled = 1;
+#endif
+
 #ifdef CONFIG_MIPS_BCM7118
 	/* detect 7118RNG board */
 	if( BDEV_RD(BCHP_CLKGEN_REG_START) == 0x1c )
-		bcm7118_boardtype = 1;
+		brcm_sata_enabled = 0;
 #endif
 
-#if defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7401C0 )	\
- || defined( CONFIG_MIPS_BCM7402C0 ) || defined( CONFIG_MIPS_BCM3563 ) \
- || defined (CONFIG_MIPS_BCM3563C0)
-// jipeng - need set bus to async mode before enabling the following	
-	if(!(read_c0_diag4() & 0x400000))
-	{
-		int	val=read_c0_diag4();
-		write_c0_diag4(val | 0x400000);
-		sprintf(msg, "CP0 reg 22 sel 0 to 5: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", read_c0_diag(), read_c0_diag1(), read_c0_diag2(), read_c0_diag3(), read_c0_diag4(), read_c0_diag5());
-		uart_puts(msg);
-	}
+#ifdef CONFIG_MIPS_BCM7405
+	/* detect 7406 */
+	if(BDEV_RD(BCHP_SUN_TOP_CTRL_OTP_OPTION_STATUS) &
+		BCHP_SUN_TOP_CTRL_OTP_OPTION_STATUS_otp_option_sata_disable_MASK)
+		brcm_sata_enabled = 0;
+#endif
 
+#if defined(CONFIG_BMIPS3300)
+	// Set BIU to async mode
+	set_c0_brcm_bus_pll(1 << 22);
 	// Enable write gathering (BCHP_MISB_BRIDGE_WG_MODE_N_TIMEOUT)
 	BDEV_WR(0x0000040c, 0x264);
 	// Enable Split Mode (BCHP_MISB_BRIDGE_MISB_SPLIT_MODE)
 	BDEV_WR(0x00000410, 0x1);
-#elif defined( CONFIG_MIPS_BCM7440A0 )
-	if(!(read_c0_diag4() & 0x400000))
-	{
-		int	val=read_c0_diag4();
-		write_c0_diag4(val | 0x400000);
-		sprintf(msg, "CP0 reg 22 sel 0 to 5: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n", read_c0_diag(), read_c0_diag1(), read_c0_diag2(), read_c0_diag3(), read_c0_diag4(), read_c0_diag5());
-		uart_puts(msg);
-	}
-	
-	// Enable write gathering (BCHP_MISB_BRIDGE_WG_MODE_N_TIMEOUT)
-	BDEV_WR(0x0000040c, 0x2803);
 #endif
 
 	/* Kernel arguments */
@@ -372,10 +369,9 @@ void __init prom_init(void)
 		}
 	  }
 	  else {
-#if defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM7405) \
-    || defined(CONFIG_MIPS_BCM7335) || defined(CONFIG_MIPS_BCM3548)
+#if defined(CONFIG_BMIPS4380) || defined(CONFIG_BMIPS6200)
 		par_val = 0xff;		/* default: keep CFE setting */
-#elif	!defined(CONFIG_MIPS_BCM7325A0)	/* no RAC in 7325A0 */
+#elif !defined(CONFIG_MIPS_BCM7325A0)	/* no RAC in 7325A0 */
 		par_val = 0x03;		/* set default to I/D RAC on */
 #endif
 		par_val2 = (get_RAM_size()-1) & 0xffff0000;
@@ -484,6 +480,8 @@ void __init prom_init(void)
 	 * 	erase:	7. Erase entire flash, except CFE, and rescan for bad blocks 
 	 *	eraseall:	8. Erase entire flash, and rescan for bad blocks
 	 *	clearbbt:	9. Erase BBT and rescan for bad blocks.  (DANGEROUS, may lose Mfg's BIs).
+	 *      showcet:       10. Display the correctable error count
+	 *      resetcet:      11. Reset the correctable error count to 0 and table to all 0xff
 	 */
 
 	{
@@ -511,6 +509,17 @@ void __init prom_init(void)
 				else if (!memcmp(from + 9, "clearbbt", 8)) {
 					gClearBBT = 9; // Force erase of BBT, DANGEROUS.
 				}
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+				else if (!memcmp(from + 9, "showcet", 7)) {
+					gClearCET = 1;
+				}
+				else if (!memcmp(from + 9, "resetcet", 8)) {
+					gClearCET = 2;
+				} 
+				else if (!memcmp(from + 9, "disablecet", 10)) {
+					gClearCET = 3;
+				}
+#endif /* CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING */
 #endif
 				break;
 			}
@@ -719,85 +728,17 @@ void __init prom_init(void)
 #if defined (CONFIG_MIPS_BRCM97XXX) 
 	(void) determineBootFromFlashOrRom();
 #endif /* if BCM97xxx boards */
-//	uart_puts("<--prom_init\r\n");
 
-// jipeng - if it is not in sync mode, set it here
-	switch (current_cpu_data.cputype) {
-               	case CPU_BMIPS3300:
-                    // RYH - BHTD patch 11/15/06
-                    {
-                        int cp022;
+#if defined(CONFIG_BMIPS3300)
+	// clear BHTD to enable branch history table
+	clear_c0_brcm_reset(1 << 16);
 
-                        cp022 = __read_32bit_c0_register($22, 5);
-                        sprintf(msg, "Initial CP0 22 value : 0x%08x\n", cp022);   
-                        uart_puts(msg);
-
-                        if ( cp022 & 0x00010000 ) {     // RYH - cp0 reg 22, sel 5, bit[16]
-                                cp022 &= 0xfffeffff;
-                                __write_32bit_c0_register($22, 5, cp022);
-
-                                cp022 = __read_32bit_c0_register($22, 5);
-                                sprintf(msg, "Updated CP0 22 value : 0x%08x\n", cp022);
-                                uart_puts(msg);
-                        }
-                    }
-                    if(read_c0_diag4() & 0x400000)
-                    {
-                        int     val=read_c0_diag4();
-                        write_c0_diag4(val & ~0x400000);
-                        sprintf(msg, "CP0 reg 22 sel 0 to 5: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-                                        read_c0_diag(),
-                                        read_c0_diag1(),
-                                        read_c0_diag2(),
-                                        read_c0_diag3(),
-                                        read_c0_diag4(),
-                                        read_c0_diag5());
-                        uart_puts(msg);
-                    }
-
-                    break;
-
-
-	       	case CPU_BMIPS4350:
-	       	case CPU_BMIPS4380:
-
-                    // RYH - BHTD patch 01/08/07
-                    {
-                        int cp022;
-
-                        cp022 = __read_32bit_c0_register($22, 0);
-                        sprintf(msg, "Initial CP0 22 value : 0x%08x\n", cp022);   
-                        uart_puts(msg);
-
-                        if ( cp022 & 0x00200000 ) {     // RYH - cp0 reg22, sel 0, bit[21]
-                                cp022 &= 0xffdfffff;
-                                __write_32bit_c0_register($22, 0, cp022);
-
-                                cp022 = __read_32bit_c0_register($22, 0);
-                                sprintf(msg, "Updated CP0 22 value : 0x%08x\n", cp022);
-                                uart_puts(msg);
-                        }
-                    }
-
-
-		    if(read_c0_diag4() & 0x400000)
-		    {
-			int	val=read_c0_diag4();
-			write_c0_diag4(val & ~0x400000);
-			sprintf(msg, "CP0 reg 22 sel 0 to 5: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-					read_c0_diag(), 
-					read_c0_diag1(), 
-					read_c0_diag2(), 
-					read_c0_diag3(), 
-					read_c0_diag4(), 
-					read_c0_diag5());
-			uart_puts(msg);
-		    }
-               	    break;
-
-		default:
-		    break;
-	}	
+	// put the BIU back in sync mode
+	clear_c0_brcm_bus_pll(1 << 22);
+#elif defined(CONFIG_BMIPS4380)
+	// clear BHTD to enable branch history table
+	clear_c0_brcm_config_0(1 << 21);
+#endif
 
 	if(bcm7401Cx_rev == 0xFF)
 	{

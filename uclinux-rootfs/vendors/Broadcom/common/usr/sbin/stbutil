@@ -143,6 +143,16 @@ stbutil_harddisk()
    exit 0
 }
 
+tftp_fetch ()
+{
+        echo "Fetching via tftp: $1:$2"
+        if ! tftp -g $1 -r $2 -l $3; then
+            echo "tftp failed.  Aborting."
+	    return 1
+        fi
+	return 0
+}
+
 #
 # Install non-free drivers
 #
@@ -158,43 +168,39 @@ stbutil_nonfree()
     fi
     if [[ $PLATFORM == *_be* ]]; then
        BIN=bin_be
-       WL=wl_be
     else
        BIN=bin
-       WL=wl
     fi
     if [ $RESPONSE -eq 8 ]; then
         echo "Fetching WLAN drivers..."
 
         mkdir -p /tmp/wlan
-        PFX=${NONFREEPFX}wlan_pci/${PLATFORM}/
-        echo "Fetching via tftp: ${TFTP_SERVER}:${PFX}wl_ap.ko"
-        if ! tftp -g $TFTP_SERVER -l /tmp/wlan/wl_ap.ko -r ${PFX}/wl_ap.ko; then
-            echo "tftp failed.  Aborting."
-            exit 1
-        fi
-        echo "Fetching via tftp: ${TFTP_SERVER}:${PFX}wl_sta.ko"
-        if ! tftp -g $TFTP_SERVER -l /tmp/wlan/wl_sta.ko -r ${PFX}/wl_sta.ko; then
-            echo "tftp failed.  Aborting."
-            exit 1
-        fi
-        F=${NONFREEPFX}wlan_pci/bin/$WL
-        echo "Fetching via tftp: ${TFTP_SERVER}:$F"
-        if ! tftp -g $TFTP_SERVER -l /tmp/wlan/wl -r $F; then
-            echo "tftp failed.  Aborting."
-            exit 1
-        fi
+        PFX=${NONFREEPFX}wlan/${PLATFORM}
+	tftp_fetch $TFTP_SERVER ${PFX}/wl_usb.ko /tmp/wlan/wl_usb.ko || exit 1
+	tftp_fetch $TFTP_SERVER ${PFX}/wl_pci.ko /tmp/wlan/wl_pci.ko || \
+		echo "warning: no PCI driver available on this platform."
+
+        PFX=${NONFREEPFX}wlan/${BIN}
+	tftp_fetch $TFTP_SERVER ${PFX}/wl /tmp/wlan/wl || exit 1
+	tftp_fetch $TFTP_SERVER ${PFX}/bcmdl /tmp/wlan/bcmdl || exit 1
+
+	libusb=libusb-0.1.so.4
+	if [ ! -e /lib/$libusb ]; then
+		tftp_fetch $TFTP_SERVER ${PFX}/$libusb /tmp/wlan/$libusb || \
+			exit 1
+	fi
+
+        PFX=${NONFREEPFX}wlan/common
+	tftp_fetch $TFTP_SERVER ${PFX}/rtecdc.trx /tmp/wlan/rtecdc.trx || exit 1
+
         echo ""
         echo "WLAN files are now installed in /tmp/wlan"
         echo ""
         exit 0
     elif [ $RESPONSE -eq 9 ]; then
         F=${NONFREEPFX}hpna/hpna-$RAWVER.tar.bz2
-        echo "Fetching via tftp: ${TFTP_SERVER}:$F"
-        if ! tftp -g $TFTP_SERVER -l /tmp/hpna.tar.bz2 -r $F; then
-            echo "tftp failed.  Aborting."
-            exit 1
-        fi
+	tftp_fetch $TFTP_SERVER $F /tmp/hpna.tar.bz2 || exit 1
+
         cd /tmp
         tar jxf hpna.tar.bz2
         rm -f hpna.tar.bz2
@@ -343,6 +349,11 @@ do
 
      case "$FLASH_TYPE" in
      NAND*)
+        pgsize=`flash_info "$FDEV" | grep Page | awk '{print $3}'`
+	if [ $pgsize -eq 512 ]; then
+	  echo "YAFFS2 not supported on small page NAND"
+	  exit 0
+	fi
      	break  # OK to proceed
         ;;
      *)
@@ -460,12 +471,7 @@ if [ $RESPONSE -eq 1 -o $RESPONSE -eq 2 -o $RESPONSE -eq 4  -o $RESPONSE -eq 5 \
 
    # fetch image
 
-   echo "Fetching via tftp: ${TFTP_SERVER}:${IMGPFX}${IMAGE}"
-
-   if ! tftp -g ${TFTP_SERVER} -r ${IMGPFX}${IMAGE} -l /tmp/${IMAGE}; then
-      echo "Cannot fetch flash image ${IMGPFX}${IMAGE} from ${TFTP_SERVER}"
-      exit 2
-   fi
+   tftp_fetch $TFTP_SERVER ${IMGPFX}${IMAGE} /tmp/${IMAGE} || exit 2
 
    echo "Erasing $FLASH_TYPE flash with $ERASE_SIZE kB erase sectors on $FDEV..."
    eraseall $ERASE_FLAG "$FDEV"

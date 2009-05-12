@@ -45,35 +45,31 @@
 //extern const unsigned long mips_io_port_base;
 
 static struct resource pci_io_resource = {
-	"io pci IO space",
-	0x400,
-	0x0000000 + 0x0060000B,
-	IORESOURCE_IO,
-	NULL, NULL, NULL
+	.name = "io pci IO space",
+	.start = 0x400,
+	.end = 0x0000000 + 0x0060000B,
+	.flags = IORESOURCE_IO,
 };
 
 static struct resource pci_mem_resource = {
-	"ext pci memory space",
-	0xd0000000,
-	0xd0000000 + 0x08000000,
-	IORESOURCE_MEM,
-	NULL, NULL, NULL
+	.name = "ext pci memory space",
+	.start = 0xd0000000,
+	.end = 0xd0000000 + 0x08000000,
+	.flags = IORESOURCE_MEM,
 };
 
 static struct resource pci_sata_io_resource = {
-	"io sata pci IO space",
-	0,//0xb0520000,
-	0x3ff /*0xb0520000*/ /*+ 0x00010000 */,
-	IORESOURCE_IO,
-	NULL, NULL, NULL
+	.name = "io sata pci IO space",
+	.start = 0,//0xb0520000,
+	.end = 0x3ff /*0xb0520000*/ /*+ 0x00010000 */,
+	.flags = IORESOURCE_IO,
 };
 
 static struct resource pci_sata_mem_resource = {
-	"ext sata pci memory space",
-	0xb0510000,
-	0xb0510000 + 0x00010000,
-	IORESOURCE_MEM,
-	NULL, NULL, NULL
+	.name = "ext sata pci memory space",
+	.start = 0xb0510000,
+	.end = 0xb0510000 + 0x00010000,
+	.flags = IORESOURCE_MEM,
 };
 
 

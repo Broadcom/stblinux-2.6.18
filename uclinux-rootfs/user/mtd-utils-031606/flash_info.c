@@ -82,6 +82,7 @@ int main(int argc,char *argv[])
 	erase_length = meminfo.erasesize;
 
 	printf("Type: %s\nErase block size: %d kB\n", meminfo.type == MTD_NANDFLASH ? "NAND": "NOR", erase_length >> 10);
+	printf("Page size: %d bytes\n", meminfo.writesize);
 
 	close(fd);
 

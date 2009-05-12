@@ -106,7 +106,7 @@ unsigned long serial_init(int chan, void *ignored)
 	unsigned long uartBaseAddr = UARTA_ADR_BASE + (0x40 * chan); 
 	void uartB_puts(const char *s);
 
-#ifdef CONFIG_MIPS_BRCM_IKOS
+#ifdef CONFIG_MIPS_BRCM_SIM
   #define DIVISOR (14)
 #else
   #define DIVISOR (44)

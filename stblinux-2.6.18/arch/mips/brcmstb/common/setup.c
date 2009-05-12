@@ -191,7 +191,6 @@ void __init  plat_timer_setup(struct irqaction *irq)
 
 void __init plat_mem_setup(void)
 {
- 	extern int rac_setting(int);
 	extern int panic_timeout;
 
 #ifdef CONFIG_MIPS_BRCM
@@ -200,16 +199,19 @@ void __init plat_mem_setup(void)
 #elif defined( CONFIG_MIPS_BCM7038B0 )  || defined( CONFIG_MIPS_BCM7038C0 ) \
 	|| defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM3560 ) \
 	|| defined( CONFIG_MIPS_BCM7401 ) || defined( CONFIG_MIPS_BCM7402 ) \
-	|| defined( CONFIG_MIPS_BCM7118 ) || defined( CONFIG_MIPS_BCM7440 ) \
+	|| defined( CONFIG_MIPS_BCM7118 )  \
         || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7405 ) \
 	|| defined( CONFIG_MIPS_BCM7335 ) || defined( CONFIG_MIPS_BCM7325 ) \
-	|| defined( CONFIG_MIPS_BCM3548 )
+	|| defined( CONFIG_MIPS_BCM3548 ) || defined( CONFIG_MIPS_BCM7420 )
 	
 	set_io_port_base(0xf0000000);  /* start of PCI IO space. */
 #elif defined( CONFIG_MIPS_BCM7329 )
 	set_io_port_base(KSEG1ADDR(0x1af90000));
 #elif defined ( CONFIG_BCM93730 )
 	set_io_port_base(KSEG1ADDR(0x13000000));
+
+#elif defined( CONFIG_MIPS_BCM7440 )
+	set_io_port_base(PCI_IO_WIN_BASE);  /* 0xf8000000 in boardmap.h. */
 #else
        
 	set_io_port_base(0); 
@@ -225,11 +227,6 @@ void __init plat_mem_setup(void)
 
 	board_time_init = brcm_time_init;
  	panic_timeout = 180;
-
-// Set RAC on 7400
-#if defined( CONFIG_MIPS_BCM7400A0 )
-	rac_setting(1);
-#endif
 
 #if defined( CONFIG_MIPS_BCM7440B0 ) || defined( CONFIG_MIPS_BCM7325A0 ) \
 	|| defined( CONFIG_MIPS_BCM7443A0 ) 

@@ -32,7 +32,7 @@
 
 #include <asm/brcmstb/common/brcmstb.h>
 
-#ifdef CONFIG_MIPS_BRCM_IKOS
+#ifdef CONFIG_MIPS_BRCM_SIM
 
 #ifdef DRAM_SIZE
 #undef DRAM_SIZE

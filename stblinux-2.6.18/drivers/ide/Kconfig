@@ -95,12 +95,9 @@ if BLK_DEV_IDE
 
 comment "Please see Documentation/ide.txt for help/info on IDE drives"
 
-# tht for now default y on 7038
 config BLK_DEV_IDE_SATA
 	bool "Support for SATA (deprecated; conflicts with libata SATA driver)"
-# FIXME-jipeng migrate to SCSI based libata in 2.6.18
-#	default y if MIPS_BCM7038 || MIPS_BCM7329 || MIPS_BCM7400 || MIPS_BCM7401 || MIPS_BCM7118 \
-#		|| MIPS_BCM7440 || MIPS_BCM7405
+	default n
 	---help---
 	  There are two drivers for Serial ATA controllers.
 
@@ -677,12 +674,10 @@ config BLK_DEV_PDC202XX_NEW
 	tristate "PROMISE PDC202{68|69|70|71|75|76|77} support"
 
 config BLK_DEV_SVWKS
-	tristate "ServerWorks OSB4/CSB5/CSB6/BCM7038 chipsets support"
-	depends on BLK_DEV_IDE_SATA
-	depends on MIPS_BCM7038 || MIPS_BCM7400 || MIPS_BCM7401 || MIPS_BCM7118 || MIPS_BCM7440 || MIPS_BCM7405
+	tristate "ServerWorks OSB4/CSB5/CSB6 chipsets support"
 	help
 	  This driver adds PIO/(U)DMA support for the ServerWorks OSB4/CSB5
-	  chipsets.  For the BCM97038|7400|7401|7118|7440|7405 STB, the option under SCSI_SATA_SVW is preferred
+	  chipsets.
 
 config BLK_DEV_SGIIOC4
 	tristate "Silicon Graphics IOC4 chipset ATA/ATAPI support"
@@ -749,16 +744,6 @@ config BLK_DEV_VIA82CXXX
 	  configure the chip to optimum performance.
 
 endif
-
-config BLK_DEV_IDE_BCM7XXX
-	tristate "Broadcom BCM7XXX onboard IDE support"
-# jipeng - since we moved to libata based driver, this dependency is no longer valid
-#	depends on MIPS_BCM7110 || MIPS_BCM7115 || MIPS_BCM7314 ||MIPS_BCM7315 || MIPS_BCM7317 || MIPS_BCM7318 || MIPS_BCM7320 || MIPS_BCM7440
-	select BLK_DEV_IDEDMA
-	help 
-	  Say Y here for Broadcom STB with PATA interface, 
-	  e.g. 97318, 97440 STBs.
-
 
 config BLK_DEV_IDE_PMAC
 	bool "Builtin PowerMac IDE support"
@@ -1049,7 +1034,7 @@ config BLK_DEV_UMC8672
 endif
 
 config BLK_DEV_IDEDMA
-	def_bool BLK_DEV_IDEDMA_PCI || BLK_DEV_IDEDMA_PMAC || BLK_DEV_IDEDMA_ICS || BLK_DEV_IDE_BCM7XXX || BLK_DEV_IDE_AU1XXX_MDMA2_DBDMA
+	def_bool BLK_DEV_IDEDMA_PCI || BLK_DEV_IDEDMA_PMAC || BLK_DEV_IDEDMA_ICS || BLK_DEV_IDE_AU1XXX_MDMA2_DBDMA
 
 config IDEDMA_IVB
 	bool "IGNORE word93 Validation BITS"
@@ -1068,7 +1053,7 @@ config IDEDMA_IVB
 	  It is normally safe to answer Y; however, the default is N.
 
 config IDEDMA_AUTO
-	def_bool IDEDMA_PCI_AUTO || IDEDMA_ICS_AUTO || BLK_DEV_IDE_BCM7XXX
+	def_bool IDEDMA_PCI_AUTO || IDEDMA_ICS_AUTO
 
 endif
 

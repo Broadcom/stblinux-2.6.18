@@ -50,6 +50,8 @@ dir_$(CONFIG_LIB_FREETYPE)       += freetype
 dir_$(CONFIG_LIB_FREETYPE_FORCE) += freetype
 dir_$(CONFIG_LIB_ZLIB) 		 += zlib
 dir_$(CONFIG_LIB_ZLIB_FORCE)     += zlib
+dir_$(CONFIG_LIB_LIBUSB)         += libusb
+dir_$(CONFIG_LIB_LIBUSB_FORCE)   += libusb
 
 # THT libtermcap.so is delivered as part of bash
 # dir_$(CONFIG_LIB_LIBTERMCAP)	 += $(ROOTDIR)/user/bash
@@ -101,6 +103,22 @@ romfs:
 #	$(MAKEARCH) -C $(ROOTDIR)/user/bash $(ROOTDIR)/romfs/lib/libtermcap.so
 #	-$(STRIP) $(ROOTDIR)/romfs/lib/libtermcap.so
 #endif
+ifeq ($(findstring y,$(CONFIG_LIB_LIBSTDCXX_FORCE)$(CONFIG_LIB_LIBSTDCXX)),y)
+	-$(RM) -f $(ROMFSDIR)/lib/libstdc++.*
+	cp -af $(GCCLIB)/libstdc++.* $(ROMFSDIR)/lib/
+	$(STRIP) $(ROMFSDIR)/lib/libstdc++.so
+endif
+ifeq ($(findstring y,$(CONFIG_LIB_LIBSUPCXX_FORCE)$(CONFIG_LIB_LIBSUPCXX)),y)
+	-$(RM) -f $(ROMFSDIR)/lib/libsupc++.*
+	cp -af $(GCCLIB)/libsupc++.* $(ROMFSDIR)/lib/
+	$(STRIP) $(ROMFSDIR)/lib/libsupc++.so
+endif
+ifeq ($(findstring y,$(CONFIG_LIB_LIBGCC_FORCE)$(CONFIG_LIB_LIBGCC)),y)
+	# THT: Copy libgcc_s.so to romfs dir (see: PR45130, PR44678)
+	-$(RM) -f $(ROMFSDIR)/lib/libgcc_s.*
+	cp -af $(GCCLIB)/libgcc_s.* $(ROMFSDIR)/lib/
+	$(STRIP) $(ROMFSDIR)/lib/libgcc_s.so
+endif
 
 clean:
 ifeq ($(LIBCDIR),glibc/build)

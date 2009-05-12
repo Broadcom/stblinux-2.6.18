@@ -126,7 +126,8 @@ dma_pool_create (const char *name, struct device *dev,
 	} else if (allocation < size)
 		return NULL;
 
-	if (!(retval = kmalloc (sizeof *retval, SLAB_KERNEL)))
+	// THT: PR45403: Force GFP_DMA on all allocations
+	if (!(retval = kmalloc (sizeof *retval, SLAB_DMA)))
 		return retval;
 
 	strlcpy (retval->name, name, sizeof retval->name);
@@ -163,6 +164,11 @@ pool_alloc_page (struct dma_pool *pool, gfp_t mem_flags)
 	mapsize = pool->blocks_per_page;
 	mapsize = (mapsize + BITS_PER_LONG - 1) / BITS_PER_LONG;
 	mapsize *= sizeof (long);
+
+	// THT: PR45403: Force GFP_DMA on all allocations
+	if ((mem_flags & SLAB_DMA) != SLAB_DMA) {
+		mem_flags |= SLAB_DMA;
+	}
 
 	page = (struct dma_page *) kmalloc (mapsize + sizeof *page, mem_flags);
 	if (!page)

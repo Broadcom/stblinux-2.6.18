@@ -20,10 +20,11 @@
 struct iovec
 {
 	void __user *iov_base;	/* BSD uses caddr_t (1003.1g requires void *) */
-#ifdef USE__KERNEL__
-	__kernel_size_t iov_len; /* Must be size_t (1003.1g) */
+#if ! defined(__mips__) && ! defined(__KERNEL__)
+	/* for building native PC utilities, e.g. jffs2dump */
+	size_t iov_len;
 #else
-	size_t iov_len; /* Must be size_t (1003.1g) */
+	__kernel_size_t iov_len; /* Must be size_t (1003.1g) */
 #endif
 };
 
@@ -39,7 +40,7 @@ struct kvec {
 /*
  *	UIO_MAXIOV shall be at least 16 1003.1g (5.4.1.1)
  */
-
+ 
 #define UIO_FASTIOV	8
 #define UIO_MAXIOV	1024
 #if 0

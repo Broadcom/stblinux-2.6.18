@@ -50,6 +50,7 @@
 #include <asm/brcmstb/brcm93548a0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm93548a0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm93548a0/bchp_bmips4380.h>
+#include <asm/brcmstb/brcm93548a0/bchp_clkgen.h>
 #include <asm/brcmstb/brcm93548a0/bchp_memc_0_ddr.h>
 #include <asm/brcmstb/brcm93548a0/bchp_mspi.h>
 #include <asm/brcmstb/brcm93548a0/bchp_bspi.h>
@@ -235,6 +236,33 @@
 #include <asm/brcmstb/brcm97335a0/bchp_bmips4380.h>
 #include <asm/brcmstb/brcm97335a0/bchp_memc_0_ddr.h>
 
+#elif defined(CONFIG_MIPS_BCM7420A0)
+#include <asm/brcmstb/brcm97420a0/bcmuart.h>
+#include <asm/brcmstb/brcm97420a0/bcmtimer.h>
+#include <asm/brcmstb/brcm97420a0/bcmebi.h>
+#include <asm/brcmstb/brcm97420a0/int1.h>
+#include <asm/brcmstb/brcm97420a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97420a0/board.h>
+#include <asm/brcmstb/brcm97420a0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97420a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97420a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97420a0/bchp_ebi.h>
+#include <asm/brcmstb/brcm97420a0/bchp_sun_top_ctrl.h>
+#include <asm/brcmstb/brcm97420a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97420a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97420a0/bchp_usb_ehci1.h>
+#include <asm/brcmstb/brcm97420a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97420a0/bchp_usb_ohci1.h>
+#include <asm/brcmstb/brcm97420a0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97420a0/bchp_clk.h>
+#include <asm/brcmstb/brcm97420a0/bchp_memc_0_ddr.h>
+#include <asm/brcmstb/brcm97420a0/bchp_pcie_cfg.h>
+#include <asm/brcmstb/brcm97420a0/bchp_pcie_dma.h>
+#include <asm/brcmstb/brcm97420a0/bchp_pcie_intr2.h>
+#include <asm/brcmstb/brcm97420a0/bchp_pcie_misc.h>
+#include <asm/brcmstb/brcm97420a0/bchp_pcie_misc_perst.h>
+#include <asm/brcmstb/brcm97420a0/bchp_mips_biu.h>
+
 #elif defined(CONFIG_MIPS_BCM7325A0)
 #include <asm/brcmstb/brcm97325a0/bcmuart.h>
 #include <asm/brcmstb/brcm97325a0/bcmtimer.h>
@@ -315,6 +343,8 @@
 #include <asm/brcmstb/brcm97440b0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97440b0/bchp_sun_top_ctrl.h>
 
+#include <asm/brcmstb/brcm97440b0/boardmap.h>		/* BCM7440b0 address space is special */
+
 #define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE)
 #define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_strap_nand_flash_MASK	
 
@@ -334,6 +364,9 @@
 #include <asm/brcmstb/brcm97443a0/bchp_usb_ehci.h>
 #include <asm/brcmstb/brcm97443a0/bchp_usb_ohci.h>
 #include <asm/brcmstb/brcm97443a0/bchp_sun_top_ctrl.h>
+
+#include <asm/brcmstb/brcm97443a0/boardmap.h>		/* BCM744x address space are special */
+
 
 #define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE_0)
 #define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_nand_flash_MASK	
@@ -429,12 +462,27 @@ typedef struct bcm_memmap {
 extern bcm_memmap_t* bcm_pmemmap;
 
 /*
- * 
  * By default will return 0.  It's up to individual boards to
  * override the default, by overloading the function pointer.
  * returns the amount of memory not accounted for by get_RAM_size();
  */
 extern unsigned long (* __get_discontig_RAM_size) (void);
+
+/*
+ * BRCM_SATA_SUPPORTED will be defined on platforms that have the SATA
+ * registers in RDB (e.g. 7405, 7406, 7401, 7402, 7118RNG).  It will not
+ * be defined on platforms that lack the SATA registers entirely (e.g. 3548).
+ */
+
+#if defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
+#define BRCM_SATA_SUPPORTED	1
+#endif
+
+/*
+ * brcm_sata_enabled can be 0 on platforms that have a non-SATA variant:
+ * 7406, 7118RNG, 7402, 7404/7452, etc.  This is detected at runtime.
+ */
+extern int brcm_sata_enabled;
 
 /*
  * Sample usage:

@@ -77,10 +77,19 @@ bool 'Build libATM'		CONFIG_LIB_LIBATM_FORCE
 bool 'Build libpng'		CONFIG_LIB_LIBPNG_FORCE
 bool 'Build libjpeg'		CONFIG_LIB_LIBJPEG_FORCE
 bool 'Build ncurses'		CONFIG_LIB_NCURSES_FORCE
+bool 'Build libusb'		CONFIG_LIB_LIBUSB_FORCE
+
+# copy libraries from toolchain
+bool 'Install libstdc++'	CONFIG_LIB_LIBSTDCXX_FORCE
+bool 'Install libsupc++'	CONFIG_LIB_LIBSUPCXX_FORCE
+bool 'Install libgcc_s'		CONFIG_LIB_LIBGCC_FORCE
+
+# always enabled
 	define_bool CONFIG_LIB_FREETYPE y
 	define_bool CONFIG_LIB_LIBJPEG y
 	define_bool CONFIG_LIB_LIBPNG y
 	define_bool CONFIG_LIB_ZLIB y
+	define_bool CONFIG_LIB_LIBGCC y
 
 comment 'Library Configuration'
 bool 'Support time zones'	CONFIG_LIB_UC_LIBC_TIMEZONE
@@ -286,6 +295,9 @@ bool 'ifconfig'			CONFIG_USER_ROUTE_IFCONFIG
 bool 'inetd'			CONFIG_USER_INETD_INETD
 bool 'ipchains'			CONFIG_USER_IPCHAINS_IPCHAINS
 bool 'iperf'			CONFIG_USER_IPERF
+if [ "$CONFIG_USER_IPERF" = "y" ]; then
+	define_bool	CONFIG_LIB_LIBSTDCXX y
+fi
 bool 'ipfwadm'			CONFIG_USER_IPFWADM_IPFWADM
 bool 'ipmasqadm'		CONFIG_USER_IPMASQADM_IPMASQADM
 bool 'ipportfw'			CONFIG_USER_IPPORTFW_IPPORTFW
@@ -467,6 +479,10 @@ if [ "$CONFIG_USER_LANG_A60" = "y" ]; then
 	bool '  tests'		CONFIG_USER_LAND_A60_TEST
 fi
 bool 'affinity'			CONFIG_USER_AFFINITY
+bool 'bonnie++'			CONFIG_USER_BONNIEXX_BONNIEXX
+if [ "$CONFIG_USER_BONNIEXX_BONNIEXX" = "y" ]; then
+	define_bool	CONFIG_LIB_LIBSTDCXX y
+fi
 bool 'cal'			CONFIG_USER_CAL_CAL
 bool 'chat_affinity'		CONFIG_USER_CHAT_AFFINITY
 bool 'chat'			CONFIG_USER_CHAT_CHAT

@@ -71,9 +71,18 @@
 #define uart_in				uarta_in
 #endif
 
+#if 1
+/* 7335b0 (default) */
+#define MII_PINMUX_SETUP	{ \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9,  ~(0777777777 << 4), (0333333333 << 4) }, \
+	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10, ~07777777700,  03333333300 }, \
+}
+#else
+/* 7335a0 */
 #define MII_PINMUX_SETUP	{ \
 	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_9,  ~07777777777, 03333333333 }, \
 	{ BCHP_SUN_TOP_CTRL_PIN_MUX_CTRL_10, ~0777777770,  0333333330  }, \
 }
+#endif
 
 #endif

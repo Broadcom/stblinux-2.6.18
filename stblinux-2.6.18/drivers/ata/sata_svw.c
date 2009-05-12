@@ -99,6 +99,10 @@ static DEFINE_SPINLOCK(sleep_lock);
 // jipeng - if bcmsata2=1, but device only support SATA I, then downgrade to SATA I and reset SATA core
 #define	AUTO_NEG_SPEED	
 
+#ifdef  AUTO_NEG_SPEED
+static unsigned int new_speed_mask = 0;
+#endif
+
 #ifdef	SATA_SVW_BRCM_WA
 extern int dma_write_wa_needed;
 #endif
@@ -361,213 +365,215 @@ static void bcm_sg_workaround(void __iomem *mmio_base, int port)
 // Fix to turn on 3Gbps 
 
 //This routine change (lower) bandwidth of SATA PLL to lower jitter from main internal // ref clk in attempt to use on chip refclock.
-static void brcm_SetPllTxRxCtrl(void __iomem *mmio_base)
+static void brcm_SetPllTxRxCtrl(void __iomem *mmio_base, int port)
 {
 	uint16_t tmp16;
 	//Lower BW
-	mdio_write_reg(mmio_base,0,0,0x1404);
+	mdio_write_reg(mmio_base, port, 0, 0x1404);
 
 	//Change Tx control
-	mdio_write_reg(mmio_base,0,0xa,0x0260);
-	mdio_write_reg(mmio_base,0,0x11,0x0a10);
+	mdio_write_reg(mmio_base, port, 0xa, 0x0260);
+	mdio_write_reg(mmio_base, port, 0x11, 0x0a10);
 	//Change Rx control
-	tmp16 = mdio_read_reg(mmio_base,0,0xF);
+	tmp16 = mdio_read_reg(mmio_base, port, 0xF);
 	tmp16 &= 0xc000;
 	tmp16 |= 0x1000;
-	mdio_write_reg(mmio_base,0,0xF,tmp16);
+	mdio_write_reg(mmio_base, port, 0xF, tmp16);
 }
 
-static void brcm_TunePLL(void __iomem *mmio_base)
+static void brcm_TunePLL(void __iomem *mmio_base, int port)
 {
 	volatile uint16_t tmp;
 	int i;
 
 	//program VCO step bit [12:10] start with 111
-	mdio_write_reg(mmio_base,0,0x13,0x1c00);
+	mdio_write_reg(mmio_base, port, 0x13, 0x1c00);
 
 	udelay(100000);
 
 	//start pll tuner
-	mdio_write_reg(mmio_base,0,0x13,0x1e00); // 
+	mdio_write_reg(mmio_base, port, 0x13, 0x1e00); // 
 
 	udelay(10000); // wait
 
 	//check lock bit
-	tmp = mdio_read_reg(mmio_base,0,0x7);
+	tmp = mdio_read_reg(mmio_base, port,0x7);
 
 	for(i = 0; i < 10000; i++) {
-		tmp = mdio_read_reg(mmio_base,0,0x7);
+		tmp = mdio_read_reg(mmio_base, port, 0x7);
 		if((tmp & 0x8000) == 0x8000)
 			return;
 		udelay(1);
 	}
-	printk(KERN_WARNING DRV_NAME ": PLL did not lock\n");
+	DPRINTK("PLL did not lock\n");
 }
 
-static void brcm_AnalogReset(void __iomem *mmio_base)
+static void brcm_AnalogReset(void __iomem *mmio_base, int port)
 {  
-	int port;
-
 	//do analog reset
-	mdio_write_reg(mmio_base,0,0x4,8);
+	mdio_write_reg(mmio_base, port, 0x4, 8);
 	udelay(10000); // wait
-	mdio_write_reg(mmio_base,0,0x4,0);
+	mdio_write_reg(mmio_base, port, 0x4, 0);
 
-	for (port=0; port < 1; port++)
 	bcm_sg_workaround(mmio_base,port);
 }
 
-static void brcm_InitSata_1_5Gb(void __iomem *mmio_base)
+static void brcm_InitSata_1_5Gb(void __iomem *mmio_base, int port)
 {
 	volatile uint16_t tmp;
 	volatile uint32_t tmp32;
-	int port;
 	void __iomem *port_mmio;
 
-	for(port = 0; port < 2; port++)
-	{
-		port_mmio = PORT_BASE(mmio_base, port);
-		writel(1, port_mmio + K2_SATA_SCR_CONTROL_OFFSET);
-		udelay(10000); // wait
-		//reset deskew TX FIFO
-		//1. select port
-		mdio_write_reg(mmio_base,0,7,1<<port);
-		//toggle reset bit
-		mdio_write_reg(mmio_base,0,0xd,0x4800);
-		udelay(10000); // wait
-		mdio_write_reg(mmio_base,0,0xd,0x0800);
-		udelay(10000); // wait
+	port_mmio = PORT_BASE(mmio_base, port);
+	writel(1, port_mmio + K2_SATA_SCR_CONTROL_OFFSET);
+	udelay(10000); // wait
+	//reset deskew TX FIFO
+	//1. select port
+	mdio_write_reg(mmio_base, port, 7, 1<<port);
+	//toggle reset bit
+	mdio_write_reg(mmio_base, port, 0xd, 0x4800);
+	udelay(10000); // wait
+	mdio_write_reg(mmio_base, port, 0xd, 0x0800);
+	udelay(10000); // wait
+
+	//Enable low speed (1.5G) mode
+	tmp = mdio_read_reg(mmio_base, port, 8);
+	mdio_write_reg(mmio_base, port, 8, tmp | 0x10);
+
+	//Enable lock monitor.. if not set the lock bit is not updated
+	tmp = mdio_read_reg(mmio_base, port, 0x13);
+
+	mdio_write_reg(mmio_base, port, 0x13, tmp|2);
+	udelay(10000);
 
 #ifdef	AUTO_NEG_SPEED
-		// disable 3G feature
-		tmp32 = readl((void *)(MMIO_OFS + 0xf0 + port * 0x100));
-		writel(tmp32 & 0xfffffbff, (void *)(MMIO_OFS + 0xf0 + port * 0x100));
-		udelay(10000);
+	// disable 3G feature
+	tmp32 = readl((void *)(MMIO_OFS + 0xf0 + port * 0x100));
+	writel(tmp32 & 0xfffffbff, (void *)(MMIO_OFS + 0xf0 + port * 0x100));
+	udelay(10000);
 #endif
 
-		//Enable low speed (1.5G) mode
-		tmp = mdio_read_reg(mmio_base,0,8);
-		mdio_write_reg(mmio_base,0,8,tmp | 0x10);
+	//enable 4G addressing support
+	tmp32 = readl(port_mmio + K2_SATA_SICR2_OFFSET);
+	writel(tmp32 | 0x20009400, port_mmio + K2_SATA_SICR2_OFFSET);
 
-
-		//Enable lock monitor.. if not set the lock bit is not updated
-		tmp = mdio_read_reg(mmio_base,0,0x13);
-
-		mdio_write_reg(mmio_base,0,0x13, tmp | 2);
-
-		//enable 4G addressing support
-		tmp32 = readl(port_mmio + K2_SATA_SICR2_OFFSET);
-		writel(tmp32 | 0x20009400, port_mmio + K2_SATA_SICR2_OFFSET);
-
-		tmp32 = readl(port_mmio + K2_SATA_SICR1_OFFSET);
-		tmp32 &= 0xffff0000;
-		writel(tmp32 | 0x00000f10, port_mmio + K2_SATA_SICR1_OFFSET);
+	tmp32 = readl(port_mmio + K2_SATA_SICR1_OFFSET);
+	tmp32 &= 0xffff0000;
+	writel(tmp32 | 0x00000f10, port_mmio + K2_SATA_SICR1_OFFSET);
 
 #ifndef USE_QDMA // PR35117
-		//Clean up the fifo -- per Ajay
-		tmp32 = readl(port_mmio + K2_SATA_E0_OFFSET);
-		writel(tmp32 | 2, port_mmio + K2_SATA_E0_OFFSET);
+	//Clean up the fifo -- per Ajay
+	tmp32 = readl(port_mmio + K2_SATA_E0_OFFSET);
+	writel(tmp32 | 2, port_mmio + K2_SATA_E0_OFFSET);
 #endif
 
-		//Tweak PLL, Tx, and Rx
-		brcm_SetPllTxRxCtrl(mmio_base);
-		brcm_TunePLL(mmio_base);
-		brcm_AnalogReset(mmio_base);
+	//Tweak PLL, Tx, and Rx
+	brcm_SetPllTxRxCtrl(mmio_base, port);
+	brcm_TunePLL(mmio_base, port);
+	brcm_AnalogReset(mmio_base, port);
+	udelay(10000); // wait
 
-		udelay(10000); // wait
-
-		writel(0, port_mmio + K2_SATA_SCR_CONTROL_OFFSET);
-	}
+	writel(0, port_mmio + K2_SATA_SCR_CONTROL_OFFSET);
 }
 
-static void brcm_InitSata2_3Gb(void __iomem *mmio_base)
+static void brcm_InitSata2_3Gb(void __iomem *mmio_base, int port)
 {
 	volatile uint16_t tmp;
 	volatile uint32_t tmp32;
-	int port;
 	void __iomem *port_base;
 
-	for(port = 0; port < 2; port++)
-	{
-		port_base = PORT_BASE(mmio_base, port);
-		writel(1, port_base + K2_SATA_SCR_CONTROL_OFFSET);
-		udelay(10000); // wait
-		//reset deskew TX FIFO
-		//1. select port
-		mdio_write_reg(mmio_base,0,7,1<<port);
-		//toggle reset bit
-		mdio_write_reg(mmio_base,0,0xd,0x4800);
-		udelay(10000); // wait
-		mdio_write_reg(mmio_base,0,0xd,0x0800);
-		udelay(10000); // wait
+	port_base = PORT_BASE(mmio_base, port);
+	writel(1, port_base + K2_SATA_SCR_CONTROL_OFFSET);
+	udelay(10000); // wait
 
-		//Enable lock monitor.. if not set the lock bit is not updated
-		tmp = mdio_read_reg(mmio_base,0,0x13);
+	//reset deskew TX FIFO
+	//1. select port
+	mdio_write_reg(mmio_base, port, 7, 1<<port);
+	//toggle reset bit
+	mdio_write_reg(mmio_base, port, 0xd, 0x4800);
+	udelay(10000); // wait
+	mdio_write_reg(mmio_base, port, 0xd, 0x0800);
+	udelay(10000); // wait
 
-		mdio_write_reg(mmio_base,0,0x13, tmp | 2);
+	//run at 3G mode
+	tmp = mdio_read_reg(mmio_base, port, 8);
+	mdio_write_reg(mmio_base, port, 8, tmp & ~(0x10));
+	udelay(10000); // wait
 
+	//Enable lock monitor.. if not set the lock bit is not updated
+	tmp = mdio_read_reg(mmio_base, port, 0x13);
+	mdio_write_reg(mmio_base, port, 0x13, tmp|2);
 
-		//Enable 3Gb interface
-		tmp32 = readl(port_base + K2_SATA_F0_OFFSET);
-		writel(tmp32 | 0x10500, port_base + K2_SATA_F0_OFFSET);
+	//Enable 3Gb interface
+	tmp32 = readl(port_base + K2_SATA_F0_OFFSET);
+	writel(tmp32 | 0x10500, port_base + K2_SATA_F0_OFFSET);
+	udelay(10000); // wait
 
-		udelay(10000); // wait
+	//enable 4G addressing support
+	tmp32 = readl(port_base + K2_SATA_SICR2_OFFSET);
+	writel(tmp32 | 0x20009400, port_base + K2_SATA_SICR2_OFFSET);
 
-		//enable 4G addressing support
-		tmp32 = readl(port_base + K2_SATA_SICR2_OFFSET);
-		writel(tmp32 | 0x20009400, port_base + K2_SATA_SICR2_OFFSET);
+	tmp32 = readl(port_base + K2_SATA_SICR1_OFFSET);
+	tmp32 &= 0xffff0000;
+	writel(tmp32 | 0x00000f10, port_base + K2_SATA_SICR1_OFFSET);
 
-		tmp32 = readl(port_base + K2_SATA_SICR1_OFFSET);
-		tmp32 &= 0xffff0000;
-		writel(tmp32 | 0x00000f10, port_base + K2_SATA_SICR1_OFFSET);
+	//Clean up the fifo -- per Ajay
+	tmp32 = readl(port_base + K2_SATA_E0_OFFSET);
+	writel(tmp32|2, port_base + K2_SATA_E0_OFFSET);
 
-		//Clean up the fifo -- per Ajay
-		tmp32 = readl(port_base + K2_SATA_E0_OFFSET);
-		writel(tmp32 | 2, port_base + K2_SATA_E0_OFFSET);
+	//Tweak PLL, Tx, and Rx
+	brcm_SetPllTxRxCtrl(mmio_base, port);
+	brcm_TunePLL(mmio_base, port);
+	brcm_AnalogReset(mmio_base, port);
+	udelay(10000); // wait
 
-		//Tweak PLL, Tx, and Rx
-		brcm_SetPllTxRxCtrl(mmio_base);
-		brcm_TunePLL(mmio_base);
-		brcm_AnalogReset(mmio_base);
-
-		udelay(10000); // wait
-
-		writel(0, port_base + K2_SATA_SCR_CONTROL_OFFSET);
-	}
+	writel(0, port_base + K2_SATA_SCR_CONTROL_OFFSET);
 }
 
 /* Kernel argument bcmsata2=0|1 */
 extern int gSata2_3Gbps;
 
-static inline void brcm_initsata2(void __iomem *mmio_base)
+static inline void brcm_initsata2(void __iomem *mmio_base, int num_ports)
 {
+        int port;
+        unsigned int first=1;
+
 retry_brcm_initsata2:
 
-	/*
-	 * Turn on 3Gbps if bcmsata2=1 is specified as kernel argument
-	 * during bootup
-	 */
-	if(gSata2_3Gbps)
-		brcm_InitSata2_3Gb(mmio_base);
-	else
-		brcm_InitSata_1_5Gb(mmio_base);
+        for (port=0; port < num_ports; port++) {
+                /*
+                 * Turn on 3Gbps if bcmsata2=1 is specified as kernel argument
+                 * during bootup
+                 */
+                if(gSata2_3Gbps) {
+                        if(new_speed_mask == 0)
+                                brcm_InitSata2_3Gb(mmio_base, port);
+                        else if(new_speed_mask & (1<<port))
+                                brcm_InitSata_1_5Gb(mmio_base, port);
+                }
+                else
+                        brcm_InitSata_1_5Gb(mmio_base, port);
+        }
 
-#ifdef	AUTO_NEG_SPEED
-	if(gSata2_3Gbps) 
-	{
-		int port;
-		msleep(10);
+#ifdef  AUTO_NEG_SPEED
+        if(gSata2_3Gbps && first)
+        {
+                int port;
+                msleep(10);
 
-		for (port=0; port < 2; port++)
-		{
-			unsigned int status = readl((void *)(mmio_base + port*K2_SATA_PORT_OFFSET + K2_SATA_SCR_STATUS_OFFSET));
-			if( (status & 0xf) >= 0x5 && (status & 0xf0) == 0 && (status & 0xf00) == 0 ) {
-		
-				gSata2_3Gbps = 0;	
-				goto retry_brcm_initsata2; 	
-			}
-		}
-	}
+                for (port=0; port < num_ports; port++)
+                {
+                        unsigned int status = readl((void *)(mmio_base + port*K2_SATA_PORT_OFFSET + K2_SATA_SCR_STATUS_OFFSET));
+                        if( (status & 0xf) >= 0x5 && (status & 0xf0) == 0 && (status & 0xf00) == 0 ) 
+			new_speed_mask |= 1<<port;
+                }
+                first = 0;
+                if(new_speed_mask)
+                goto retry_brcm_initsata2;
+        }
+
+
+	new_speed_mask = 0;
 #endif
 }
 
@@ -578,7 +584,7 @@ static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_
 	
 	if(dev->device == PCI_DEVICE_ID_SERVERWORKS_BCM7400D0)
 	{
-		brcm_initsata2(mmio_base);
+		brcm_initsata2(mmio_base, probe_ent->n_ports);
 		return; /* Skip all workarounds.  Those have been fixed with 65nm */
 	}
 	
@@ -1005,7 +1011,7 @@ static int k2_sata_pmp_write(struct ata_device *dev, int pmp, int reg, u32 val)
 	msleep(1);
 
 	sata_pmp_write_init_tf(&tf, dev, pmp, reg, val);
-	ap->ops->tf_load(ap, &tf);	// jipeng - is this enough?
+	ap->ops->tf_load(ap, &tf);	
 	ata_exec_command(ap, &tf);
 
 	msleep(10);
@@ -1366,6 +1372,8 @@ static int k2_qdma_hardreset(struct ata_link *link, unsigned int *class)
 {
 	int rc;
 	void __iomem *port_mmio = PORT_MMIO(link->ap);
+	struct ata_port *ap = link->ap;
+	struct ata_host *host = ap->host;
 
 	/* shut off qdma */
 	writel(0, port_mmio + K2_SATA_QCR_OFFSET);
@@ -1377,7 +1385,7 @@ static int k2_qdma_hardreset(struct ata_link *link, unsigned int *class)
 	if(rc)
 		return(rc);
 #ifdef CONFIG_MIPS_BRCM97XXX
-	brcm_initsata2(link->ap->host->mmio_base);
+	brcm_initsata2(link->ap->host->mmio_base, host->n_ports);
 #endif
 	/* reset and re-enable qdma, then probe device */
 	return(k2_qdma_softreset(link, class));
@@ -1559,8 +1567,8 @@ static inline int k2_fill_sg(struct ata_queued_cmd *qc, struct k2_prd_entry *prd
 		dma_addr_t addr = sg_dma_address(sg);
 		u32 sg_len = sg_dma_len(sg);
 
-		prd->addr_lo = cpu_to_le32(addr & 0xffffffff);
-		prd->addrhi_count = cpu_to_le32(((addr >> 16) & 0xffff0000) |
+		prd->addr_lo = FLOP(addr & 0xffffffff);
+		prd->addrhi_count = FLOP(((addr >> 16) & 0xffff0000) |
 			sg_len);
 
 		regions++;
@@ -1568,7 +1576,7 @@ static inline int k2_fill_sg(struct ata_queued_cmd *qc, struct k2_prd_entry *prd
 	}
 	BUG_ON(! regions);
 	prd--;
-	prd->addrhi_count |= 0x80000000;
+	prd->addrhi_count |= FLOP(0x80000000);
 	return(regions);
 }
 
@@ -1635,16 +1643,16 @@ static void k2_qdma_qc_prep(struct ata_queued_cmd *qc)
 		case ATA_PROT_NCQ:
 			cmd->w0 = FLOP(0x00000500 | dma_dir_flag);
 			cmd->w1 = FLOP(((qc->tag) << 16) |
-					(prd->addrhi_count >> 16));
+					(FLOP(prd->addrhi_count) >> 16));
 			/* first sg region moves into cmd descriptor for NCQ */
 			if(sg_regions > 1) {
 				cmd->w2 = FLOP(prd_offset + sizeof(*prd));
-				cmd->w3 = FLOP(prd->addrhi_count << 16);
-				cmd->w7 = FLOP(prd->addr_lo);
+				cmd->w3 = FLOP(FLOP(prd->addrhi_count) << 16);
+				cmd->w7 = FLOP(FLOP(prd->addr_lo));
 			} else {
 				cmd->w2 = FLOP(0);
-				cmd->w3 = FLOP(prd->addrhi_count << 16);
-				cmd->w7 = FLOP(prd->addr_lo | 1);
+				cmd->w3 = FLOP(FLOP(prd->addrhi_count) << 16);
+				cmd->w7 = FLOP(FLOP(prd->addr_lo) | 1);
 			}
 			tf_to_cmd_ncq(tf, cmd);
 			break;
@@ -1774,7 +1782,7 @@ static int k2_power_on(void *arg)
 	}
 	
 	brcm_pm_sata_add();
-	brcm_initsata2(host->mmio_base);
+	brcm_initsata2(host->mmio_base, host->n_ports);
 	enable_irq(host->irq);
 
 	/* wake up all ports */
@@ -2008,7 +2016,7 @@ static int k2_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 
 	probe_ent->port_ops = &k2_sata_ops;
 
-#ifdef CONFIG_MIPS_BRCM97XXX 	// jipeng - FIXME we enabled only 2 ports in 7038C0 SATA core
+#ifdef CONFIG_MIPS_BRCM97XXX 	// jipeng - FIXME only 2 ports in 7038C0 SATA core
 	probe_ent->n_ports = 2;
 #else
 	probe_ent->n_ports = 4;
@@ -2097,6 +2105,8 @@ static struct pci_driver k2_sata_pci_driver = {
 static int __init k2_sata_init(void)
 {
 #ifdef CONFIG_MIPS_BRCM97XXX
+	if(brcm_sata_enabled == 0)
+		return(-ENODEV);
 	brcm_pm_sata_add();
 #endif
 	return pci_register_driver(&k2_sata_pci_driver);

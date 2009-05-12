@@ -33,6 +33,7 @@
 #define BARRIER __asm__ __volatile__(".set noreorder\n\t" \
 				     "nop; nop; nop; nop; nop; nop;\n\t" \
 				     ".set reorder\n\t")
+
 /* Atomicity and interruptability */
 #ifdef CONFIG_MIPS_MT_SMTC
 
@@ -40,14 +41,14 @@
 #include <asm/mipsmtregs.h>
 
 #define ENTER_CRITICAL(flags) \
-        { \
-        unsigned int mvpflags; \
-        local_irq_save(flags);\
-        mvpflags = dvpe()
+	{ \
+	unsigned int mvpflags; \
+	local_irq_save(flags);\
+	mvpflags = dvpe()
 #define EXIT_CRITICAL(flags) \
-        evpe(mvpflags); \
-        local_irq_restore(flags); \
-        }
+	evpe(mvpflags); \
+	local_irq_restore(flags); \
+	}
 #else
 
 #define ENTER_CRITICAL(flags) local_irq_save(flags)
@@ -55,7 +56,6 @@
 
 #endif /* CONFIG_MIPS_MT_SMTC */
 
-extern int bcm7118_boardtype;
 extern void build_tlb_refill_handler(void);
 
 #ifdef DPRINTK
@@ -388,11 +388,8 @@ static inline void brcm_setup_wired_16(void)
 
 	BARRIER;
 	write_c0_entryhi(old_ctx);
-	// THT: Write it the wired entries here, before releasing the lock
-#if defined (CONFIG_MIPS_BCM7403)
-	write_c0_random(0x0000001F);
-#endif
 
+	// THT: Write it the wired entries here, before releasing the lock
 	write_c0_wired(entry);
 
 	write_c0_pagemask(PM_4K);
@@ -430,23 +427,13 @@ static void brcm_setup_wired_entries(void)
 #define EXT_PCI_CONFIG_IDX			0xf0600004
 #define EXT_PCI_CONFIG_DATA			0xf0600008
 
-#if defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
-#define	HAS_SATA_SVW	
-#endif
-
 static void brcm_setup_sata_bridge(void)
 {
-
-//#if defined(BCHP_PCI_BRIDGE_PCI_CTRL) && defined(CONFIG_SATA_SVW)
-#if defined(BCHP_PCI_BRIDGE_PCI_CTRL) && defined(HAS_SATA_SVW)
-	/* Internal PCI SATA bridge setup for 7038, 7401, 7403, 7118, etc. */
-
-#ifdef CONFIG_MIPS_BCM7118
-	/* no SATA on 7118RNG */
-	if(bcm7118_boardtype == 1)
+	if(brcm_sata_enabled == 0)
 		return;
-#endif
 
+#if defined(BCHP_PCI_BRIDGE_PCI_CTRL) && defined(BRCM_SATA_SUPPORTED)
+	/* Internal PCI SATA bridge setup for 7038, 7401, 7403, 7118, etc. */
 	BDEV_SET(BCHP_PCI_BRIDGE_PCI_CTRL,
 		(PCI_SATA_MEM_ENABLE|PCI_SATA_BUS_MASTER_ENABLE|
 		 PCI_SATA_PERR_ENABLE|PCI_SATA_SERR_ENABLE));
@@ -468,8 +455,7 @@ static void brcm_setup_sata_bridge(void)
 	if(BDEV_RD(BCHP_PCI_BRIDGE_SATA_CFG_DATA) == 0xffffffff)
 		printk(KERN_WARNING "Internal SATA is not responding\n");
 
-//#elif defined(BCHP_PCIX_BRIDGE_PCIX_CTRL) && defined(CONFIG_SATA_SVW)
-#elif defined(BCHP_PCIX_BRIDGE_PCIX_CTRL) && defined(HAS_SATA_SVW)
+#elif defined(BCHP_PCIX_BRIDGE_PCIX_CTRL) && defined(BRCM_SATA_SUPPORTED)
 
 	/* Internal PCI-X SATA bridge setup for 7400, 7405, 7335 */
 
@@ -852,9 +838,6 @@ void __init add_wired_entry(unsigned long entrylo0, unsigned long entrylo1,
 	old_ctx = read_c0_entryhi();
 	old_pagemask = read_c0_pagemask();
 	wired = read_c0_wired();
-#if defined (CONFIG_MIPS_BCM7403)
-	write_c0_random(0x0000001F);
-#endif
 	write_c0_wired(wired + 1);
 	write_c0_index(wired);
 	BARRIER;
@@ -958,7 +941,8 @@ __setup("ntlb=", set_ntlb);
 #ifdef CONFIG_MIPS_BRCM97XXX
 
 static bcm_memmap_t bcm_standard_memmap = {
-#if defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_BMIPS4380)
+#if defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_BMIPS4380) || \
+	defined(CONFIG_BMIPS6200)
 		// || def(7440b0) but 7440b0 defines its own bcm_memmap
 	.tlb_mask =		PM_64M,
 #else
@@ -993,9 +977,6 @@ void __init tlb_init(void)
 	 */
 	probe_tlb(config);
 	write_c0_pagemask(PM_DEFAULT_MASK);
-#if defined (CONFIG_MIPS_BCM7403)
-	write_c0_random(0x0000001F);
-#endif
 	write_c0_wired(0);
 	write_c0_framemask(0);
 	temp_tlb_entry = current_cpu_data.tlbsize - 1;

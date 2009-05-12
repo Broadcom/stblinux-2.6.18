@@ -41,10 +41,6 @@
 
 #include <asm/io.h>
 
-#ifdef CONFIG_MIPS_BRCM97XXX
-#include <asm/brcmstb/common/brcmstb.h>
-#endif
-
 #define SVWKS_CSB5_REVISION_NEW	0x92 /* min PCI_REVISION_ID for UDMA5 (A2.0) */
 #define SVWKS_CSB6_REVISION	0xa0 /* min PCI_REVISION_ID for UDMA4 (A1.0) */
 
@@ -91,9 +87,6 @@ static u8 svwks_ratemask (ide_drive_t *drive)
 			return 0;
 		/* Check the OSB4 DMA33 enable bit */
 		return ((reg & 0x00004000) == 0x00004000) ? 1 : 0;
-	}
-	else if (dev->device == PCI_DEVICE_ID_SERVERWORKS_BCM7038) {
-		return 3; /* tht Takes 3=UDMA5 */
 	} else if (svwks_revision < SVWKS_CSB5_REVISION_NEW) {
 		return 1;
 	} else if (svwks_revision >= SVWKS_CSB5_REVISION_NEW) {
@@ -120,7 +113,7 @@ static u8 svwks_csb_check (struct pci_dev *dev)
 		case PCI_DEVICE_ID_SERVERWORKS_CSB5IDE:
 		case PCI_DEVICE_ID_SERVERWORKS_CSB6IDE:
 		case PCI_DEVICE_ID_SERVERWORKS_CSB6IDE2:
-		case PCI_DEVICE_ID_SERVERWORKS_BCM7038:
+		case PCI_DEVICE_ID_SERVERWORKS_HT1000IDE:
 			return 1;
 		default:
 			break;
@@ -353,112 +346,6 @@ static int svwks_ide_dma_end (ide_drive_t *drive)
 	return __ide_dma_end(drive);
 }
 
-#ifdef CONFIG_MIPS_BRCM97XXX
-#define WRITE_CMD		1
-#define READ_CMD		2
-#define CMD_DONE		(1 << 15)
-#define SATA_MMIO		0x24
-#define SATA_MMIO_SCR2	0x48
-
-// 1. port is SATA port ( 0 or 1)
-// 2. reg is the address of the MDIO register ( see spec )
-// 3. MMIO_BASE_ADDR  is MMIO base address from SATA PCI configuration
-// registers addr 24-27
-
-static uint16_t __devinit mdio_read_reg( int port, int reg)
-{
-	volatile unsigned long *mdio = (volatile unsigned long  *) ((MMIO_OFS + 0x8c) /*+ (0x100 * port) */);
-	volatile unsigned long pSel = 1 << port;
-	uint32_t cmd  = WRITE_CMD;
-
-	if( reg > 0x13 )
-		return( -1 );
-
- 	//Select Port
-	*mdio = pSel<<16 | (cmd << 13) | 7;		//using dev_addr 0
-	while( !(*mdio & CMD_DONE) )
-		udelay( 1);	//wait
-
-	*mdio = (READ_CMD << 13) + reg;
-//using dev_addr 0
-	while( !(*mdio & CMD_DONE) )
-		udelay( 1 );	//wait
-
-	return( *mdio >> 16 );
-}
-
-static void __devinit mdio_write_reg(int port, int reg, uint16_t val )
-{
-	volatile unsigned long *mdio = (volatile unsigned long  *) ((MMIO_OFS + 0x8c) /*+ (0x100 * port) */);
-
-	volatile unsigned long pSel = 1 << port;
-	uint32_t cmd  = WRITE_CMD;
-    
-	if( reg > 0x13 )
-		return;
-
- 	//Select Port
-	*mdio = pSel<<16 | (cmd << 13) | 7;		//using dev_addr 0
-	while( !(*mdio & CMD_DONE) )
-		udelay( 1);	//wait
-
-	*mdio = (val << 16) + (WRITE_CMD << 13) + reg;		//using dev_addr 0
-	while( !(*mdio & CMD_DONE) )
-		udelay( 1 );	//wait
-}
-#endif
-
-static void __devinit DisablePHY(int port)
-{
-	uint32_t *pScr2 = (uint32_t *)(MMIO_OFS + 0x100*port + 0x48);
-
-	*pScr2 = 1;
-}
-static void __devinit EnablePHY(int port)
-{
-	uint32_t *pScr2 = (uint32_t *)(MMIO_OFS + 0x100*port + 0x48);
-
-	*pScr2 = 0;
-}
-
-
-
-static void __devinit bcm_sg_workaround(int port)
-{
-    int tmp16;
-
-printk("bcm_sg_workaround(port=%d)\n", port);
-    DisablePHY(port);
-
-    //Change interpolation BW
-    tmp16 = mdio_read_reg(port,9);
-
-    mdio_write_reg(port,9,tmp16 | 1); //Bump up interpolation
-
-
-   //Do analog reset
-   tmp16 = mdio_read_reg(port,4);
-   tmp16 |= 8;
-   mdio_write_reg(port,4,tmp16);
- 
-   udelay( 1000 );	//wait 1 ms
-   tmp16 &= 0xFFF7;
-   mdio_write_reg(port,4,tmp16 ); // Take reset out
-   udelay( 1000 );	//wait
-
-   //Enable WD fix -- THT: Take out, only works for 7038C4 and later
-#if 0
-   tmp16 = mdio_read_reg(port,0xd);
-   tmp16 |= 4;
-   mdio_write_reg(port,0xd,tmp16);
-#endif
-
-   //Enable PHY
-   EnablePHY(port);
-}
-
-
-
 static unsigned int __devinit init_chipset_svwks (struct pci_dev *dev, const char *name)
 {
 	unsigned int reg;
@@ -467,119 +354,8 @@ static unsigned int __devinit init_chipset_svwks (struct pci_dev *dev, const cha
 	/* save revision id to determine DMA capability */
 	pci_read_config_byte(dev, PCI_REVISION_ID, &svwks_revision);
 
-	// For the BCM7038, let the PCI configuration in brcmpci_fixups.c hold.
-	if (dev->device != PCI_DEVICE_ID_SERVERWORKS_BCM7038) 
-	{
 	/* force Master Latency Timer value to 64 PCICLKs */
 	pci_write_config_byte(dev, PCI_LATENCY_TIMER, 0x40);
-	}
-
-#ifdef CONFIG_MIPS_BRCM97XXX /* Fix to recognize some WD models */
-	if (dev->device == PCI_DEVICE_ID_SERVERWORKS_BCM7038) 
-	{
-		int port;
-		uint32_t mmio_reg;
-
-// Which revisions of the chip have the fix.
-#ifdef CONFIG_MIPS_BCM7038
-#define FIXED_REV	0x70380024	//BCM7038C4,  BCM7438A0 (0x7438_0000) would also pass the test
-		volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-#elif defined( CONFIG_MIPS_BCM7400 )
-#define FIXED_REV	0x74000001	/****** FIX ME *********/
-		volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-
-#elif defined( CONFIG_MIPS_BCM7440 )
-#define FIXED_REV	0	
-		volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-#elif defined( CONFIG_MIPS_BCM7401 )
-#define FIXED_REV	0x74010010	/****** FIX ME Done *********/
-		volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-#elif defined( CONFIG_MIPS_BCM7403 )
-#define FIXED_REV       0x74030010      /****** FIX ME Done *********/
-static volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-#elif defined( CONFIG_MIPS_BCM7118 )
-#define FIXED_REV	0
-		volatile unsigned long* pSundryRev = (volatile unsigned long*) 0xb0404000;
-#endif
-
-/* For now, put it under #ifdef 7400A0, but we should just include "asm/brcmstb/<platform>/bchp_pci_bridge.h" for all platforms */
-#ifdef CONFIG_MIPS_BCM7400
-#define BCHP_PCI_BRIDGE_REVISION                 0x00500220 /* PCI Bridge Revision Register */
-#define BCHP_PCI_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE 0x00500210 /* CPU to SATA PCI Memory Window Base Address */
-
-		volatile unsigned long* rev = (volatile unsigned long*) (0xb0000000 | BCHP_PCI_BRIDGE_REVISION);
-		unsigned long sata_major_rev = (*rev & 0xff00) >> 8;
-		unsigned long sata_minor_rev = (*rev & 0x00ff);
-		volatile unsigned long* sata_base = (volatile unsigned long*) (0xb0000000 | BCHP_PCI_BRIDGE_CPU_TO_SATA_MEM_WIN_BASE);
-
-		if (sata_major_rev == 0 && sata_minor_rev == 3) {
-			/* Set to KSEG1 Addr or MDIO won't work. */
-			*sata_base = KSEG1ADDR(*sata_base);
-printk("Bridge set to %08lx\n", *sata_base);
-		}
-#endif
-
-printk("SUNDRY revision = %08lx\n", *pSundryRev);
-
-		if (*pSundryRev >= FIXED_REV) {
-printk("Handling blacklisted models\n");
-			/* 
-			 * Disable the port.
-	  		 * The phy for a port can be disabled by setting bit 0 of register
-	  		 * at offset 0x48 in the ports MMIO space
-	  		 */
-	  		(void) pci_read_config_dword(dev, SATA_MMIO, &mmio_reg);
-			(void) pci_read_config_dword(dev, mmio_reg+SATA_MMIO_SCR2, &reg);
-			(void) pci_write_config_dword(dev, mmio_reg+SATA_MMIO_SCR2, reg | 0x01);
-
-			/*
-			 * Before accessing the MDIO registers through pci space disable external MDIO access.
-			 */
-
-
-			/* 
-			 * write MDIO register at offset 0x07 with (1 << port number) where port number starts at 0.
-			 * Read MDIO register at offset 0x0D into variable reg.
-			 - reg_0d = reg_0d | 0x04
-			 - Write reg_0d to MDIO register at offset 0x0D.
-			 */
-			for (port = 0; port < 2 /*MAX_HWIFS */; port++) {
-				// Choose the port
-				//mdio_write_reg(port, 7, 1<<port);
-				// Read reg 0xd
-				reg = mdio_read_reg(port, 0xd);
-				printk("MDIO Read port%d: %04x\n", port, reg);
-				reg |= 0x4;
-				mdio_write_reg(port, 0xd, reg);
-				reg = mdio_read_reg(port, 0xd);
-				printk("MDIO Read2 port%d: %04x\n", port, reg);
-			}
-			// Re-enable the PHY
-			(void) pci_read_config_dword(dev, SATA_MMIO, &reg);
-			(void) pci_write_config_dword(dev, SATA_MMIO_SCR2, reg ^ 0x1);
-printk("Done handling blacklisted models\n");
-		}
-
-		//PR22401: Identify Seagate drives with ST controllers.
-
-		{
-			int port;
-
-			for (port=0; port < 2 /*MAX_HWIFS*/; port++) {
-				bcm_sg_workaround(port);
-			}
-		}
-/* Restore to Phys Addr or DMA won't work */
-#ifdef CONFIG_MIPS_BCM7400
-		if (sata_major_rev == 0 && sata_minor_rev == 3) {
-			*sata_base = CPHYSADDR(*sata_base);
-printk("Bridge reset to %08lx\n", *sata_base);
-		}
-#endif
-
-	}
-
-#endif // ifdef BRCM97XXX
 
 	/* OSB4 : South Bridge and IDE */
 	if (dev->device == PCI_DEVICE_ID_SERVERWORKS_OSB4IDE) {
@@ -788,103 +564,6 @@ static void __devinit init_dma_svwks (ide_hwif_t *hwif, unsigned long dmabase)
 	ide_setup_dma(hwif, dmabase, 8);
 }
 
-
-// THT 6/28/04: Bumped up from 100, as there are Seg Fault with the complaint that DMA is not done
-//#define DMA_WAIT_TIMEOUT 200
-/*
- * THT 9/16/04 Bumped up again to 25000 (25ms),and shorten the udelay to accomodate for max seek time on dual channels
- * The udelay(1) value is important, and is such that 
- * 1us X DMA_WAIT_TIMEOUT >= max seek time of the drive, currently 25ms (very
- * conservative).
- * Also the IRQ logic always called the handler for the first channel first, such that if
- * we delay too long, performance on the 2nd channel would suffer.
- * Note: We now have taken out the udelay, assuming that context switch between IRQs
- * already accomodate for that.
- */
-#define DMA_WAIT_TIMEOUT 250
-#define DMA_DELAY_US 1000
-
-/* returns 1 if dma irq issued, 0 otherwise */
-static int bcm7038_ide_dma_test_irq (ide_drive_t *drive)
-{
-	ide_hwif_t *hwif	= HWIF(drive);
-	u8 dma_stat		= hwif->INB(hwif->dma_status);
-	
-
-#if 0  /* do not set unless you know what you are doing */
-	if (dma_stat & 4) {
-		u8 stat = hwif->INB(IDE_STATUS_REG);
-		hwif->OUTB(hwif->dma_status, dma_stat & 0xE4);
-	}
-#endif
-	/* return 1 if INTR asserted */
-	if ((dma_stat & 4) == 4)
-		return 1;
-    // THT: It's OK, this may be called during dual channel as each handler would
-	// be called for each hwgroup, in which case we just return not-ready (0),
-    // and don't increment the waiting_for_dma count.
-    // Changed log level from WARNING to DEBUG
-	if (0 == drive->waiting_for_dma) {
-		printk(KERN_DEBUG "%s: (%s) called while not waiting\n",
-			drive->name, __FUNCTION__);
-	}
-
-#if 0
-	/*
-	 * THT: BCM7038 SATA specific: Check for error condition reported by SATA
-	 */
-	else 
-	{
-		struct pci_dev *dev= hwif->pci_dev;
-		volatile unsigned long mmioBase = pci_resource_start(dev, 5); //PCI_SATA_PHYS_MEM_WIN5_BASE
-		volatile unsigned long simr, serr;
-		volatile unsigned long status1, status2, normal_status_mask = ~0x14050000;
-
-		simr = *(volatile unsigned long*) (mmioBase+0x88);
-		serr = *(volatile unsigned long*) (mmioBase+0x44);
-		
-
-		/* Check for level interrupt raised by error condition, and clear it */
-		if ((status1 = (simr & serr)) || (status2 = (serr & normal_status_mask))) {
-			// print only a few times
-			if (drive->waiting_for_dma <= 3) {
-				printk("bcm7038_ide_dma_test_irq: Clearing SERR simr=%08x, serr=%08x, status1=%08x, status2=%08x\n",
-					simr, serr, status1, status2);
-			}
-			//dump_ide();
-			*(volatile unsigned long*) (mmioBase+0x44) = status1 | status2;
-		}
-	} 
-
-	/*
-	 * THT: Now increment the wait count, in order to make sure that we have exceeded
-	 * the maximum seek time, and allows the dma_expiry to kick in.  Previously,
-     * the increment is for both cases, but now, we only increment the count when
- 	 * waiting for DMA.  
-	 */
-	drive->waiting_for_dma++;
-
-	if (drive->waiting_for_dma >= DMA_WAIT_TIMEOUT) {
-		printk(/*KERN_WARNING*/ "%s: timeout waiting for SATA command to stop\n", drive->name);
-		return 1;
-	}
-	if (DMA_DELAY_US) {
-		udelay(DMA_DELAY_US); // For a total of 25ms to accomodate max seek time.
-	}
-#endif
-	return 0;
-}
-
-
-
-static void __init init_dma_bcm7038 (ide_hwif_t *hwif, unsigned long dmabase)
-{
-	hwif->ide_dma_test_irq = bcm7038_ide_dma_test_irq;
-	ide_setup_dma(hwif, dmabase, 8);
-}
-
-extern int ide_setup_pci_device(struct pci_dev *, ide_pci_device_t *);
-
 static int __devinit init_setup_svwks (struct pci_dev *dev, ide_pci_device_t *d)
 {
 	return ide_setup_pci_device(dev, d);
@@ -904,116 +583,6 @@ static int __devinit init_setup_csb6 (struct pci_dev *dev, ide_pci_device_t *d)
 
 	return ide_setup_pci_device(dev, d);
 }
-
-
-#if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 ) \
- || defined( CONFIG_MIPS_BCM7401 ) 	|| defined( CONFIG_MIPS_BCM7440 ) \
- || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 ) \
- || defined( CONFIG_MIPS_BCM7405 )	|| defined( CONFIG_MIPS_BCM7335 )
-
-#define CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE   0x10520000
-#define SATA_IO_BASE KSEG1ADDR(CPU2PCI_PCI_SATA_PHYS_IO_WIN0_BASE)
-
-#if defined(__MIPSEB__)
-  #define bcm7038c0_ioswabl(x) swab32(x)
-
-#else // CONFIG_SWAP_IO_SPACE_L
-  #define bcm7038c0_ioswabl(x) (x)
-#endif //else !CONFIG_SWAP_IO_SPACE_L
-
-static u8 bcm7038c0_inb (unsigned long port)
-{
-	return *(volatile u8 *)(SATA_IO_BASE + port);
-}
-
-static u16 bcm7038c0_inw (unsigned long port)
-{
-	port = __swizzle_addr_w(port);
-	return ioswabw(0,*(volatile u16 *)(SATA_IO_BASE + port));
-}
-
-static void bcm7038c0_insw (unsigned long port, void *addr, u32 count)
-{
-	while (count--) {
-		*(u16 *)addr = bcm7038c0_inw(port);
-		addr += 2;
-	}
-}
-
-static u32 bcm7038c0_inl (unsigned long port)
-{
-	return bcm7038c0_ioswabl(*(volatile u32 *)(SATA_IO_BASE + port));
-}
-
-static void bcm7038c0_insl (unsigned long port, void *addr, u32 count)
-{
-	while (count--) {
-		*(u8 *)addr = bcm7038c0_inb(port);
-		addr++;
-	}
-}
-
-static void bcm7038c0_outb (u8 val, unsigned long port)
-{
-	do {
-		*(volatile u8 *)(SATA_IO_BASE + (port)) = (val);
-	} while(0);
-}
-
-static void bcm7038c0_outbsync (ide_drive_t *drive, u8 addr, unsigned long port)
-{
-	bcm7038c0_outb(addr, port);
-}
-
-static void bcm7038c0_outw (u16 val, unsigned long port)
-{
-	do {
-		*(volatile u16 *)(SATA_IO_BASE + __swizzle_addr_w(port)) =
-			ioswabw(0,val);
-	} while(0);
-}
-
-static void bcm7038c0_outsw (unsigned long port, void *addr, u32 count)
-{
-	while (count--) {
-		bcm7038c0_outw(*(u16 *)addr, port);
-		addr += 2;
-	}
-}
-
-static void bcm7038c0_outl (u32 val, unsigned long port)
-{
-	*(volatile u32 *)(SATA_IO_BASE + (port)) = bcm7038c0_ioswabl(val);
-}
-
-static void bcm7038c0_outsl (unsigned long port, void *addr, u32 count)
-{
-	while (count--) {
-		bcm7038c0_outl(*(u32 *)addr, port);
-		addr += 4;
-	}
-}
-
-
-
-void bcm7038c0_hwif_iops (ide_hwif_t *hwif)
-{
-//printk("$$$$$$$$$$$$$$$$$$$$$$ bcm7038c0_hwif_iops\n");
-	hwif->OUTB	= bcm7038c0_outb;
-	/* Most systems will need to override OUTBSYNC, alas however
-	   this one is controller specific! */
-	hwif->OUTBSYNC	= bcm7038c0_outbsync;
-	hwif->OUTW	= bcm7038c0_outw;
-	hwif->OUTL	= bcm7038c0_outl;
-	hwif->OUTSW	= bcm7038c0_outsw;
-	hwif->OUTSL	= bcm7038c0_outsl;
-	hwif->INB	= bcm7038c0_inb;
-	hwif->INW	= bcm7038c0_inw;
-	hwif->INL	= bcm7038c0_inl;
-	hwif->INSW	= bcm7038c0_insw;
-	hwif->INSL	= bcm7038c0_insl;
-}
-#endif
 
 static ide_pci_device_t serverworks_chipsets[] __devinitdata = {
 	{	/* 0 */
@@ -1051,57 +620,16 @@ static ide_pci_device_t serverworks_chipsets[] __devinitdata = {
 		.channels	= 1,	/* 2 */
 		.autodma	= AUTODMA,
 		.bootable	= ON_BOARD,
-	},
-#if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 ) \
- || defined( CONFIG_MIPS_BCM7401 ) 	|| defined( CONFIG_MIPS_BCM7440 ) \
- || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 ) \
- || defined( CONFIG_MIPS_BCM7405 )	|| defined( CONFIG_MIPS_BCM7335 )
-	{ /* 4 */
-		//.vendor		= PCI_VENDOR_ID_SERVERWORKS,
-		//.device		= PCI_DEVICE_ID_SERVERWORKS_BCM7038,
-		.name		= "Broadcom BCM7038 SATA IDE",
+	},{	/* 4 */
+		.name		= "SvrWks HT1000",
 		.init_setup	= init_setup_svwks,
 		.init_chipset	= init_chipset_svwks,
-#if defined( CONFIG_MIPS_BCM7038C0 ) 	|| defined( CONFIG_MIPS_BCM7400 ) \
- || defined( CONFIG_MIPS_BCM7401 ) 	|| defined( CONFIG_MIPS_BCM7440 ) \
- || defined( CONFIG_MIPS_BCM7118 )	|| defined( CONFIG_MIPS_BCM7403 ) \
- || defined( CONFIG_MIPS_BCM7405 )	|| defined( CONFIG_MIPS_BCM7335 )
-		.init_iops	= bcm7038c0_hwif_iops,
-#else
-		.init_iops	= NULL,
-#endif
 		.init_hwif	= init_hwif_svwks,
-		.init_dma	= init_dma_bcm7038,
-#if defined( CONFIG_MIPS_BCM7038 ) || defined( CONFIG_MIPS_BCM7400 ) \
-	|| defined( CONFIG_MIPS_BCM7440 ) || defined( CONFIG_MIPS_BCM7405 ) \
-	|| defined( CONFIG_MIPS_BCM7335 )
-		.channels	= 2,	/* 2, but 2nd channel is only enabled on 7038B1 or later chips */
-#else /* 7401 */
-		.channels	= 1,
-#endif
+		.init_dma	= init_dma_svwks,
+		.channels	= 1,	/* 2 */
 		.autodma	= AUTODMA,
-		//.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
 		.bootable	= ON_BOARD,
-		.extra		= 0,
-	
-	},
-#elif defined(CONFIG_MIPS_BCM7329) && !defined( CONFIG_MIPS_BCM7329A0_IDE_WAR )
-	{ /* 4 */
-		//.vendor		= PCI_VENDOR_ID_SERVERWORKS,
-		//.device		= PCI_DEVICE_ID_SERVERWORKS_BCM7038,
-		.name		= "Broadcom BCM7329 SATA IDE",
-		.init_setup	= init_setup_svwks,
-		.init_chipset	= init_chipset_svwks,
-		.init_iops	= NULL,
-		.init_hwif	= init_hwif_svwks,
-		.init_dma	= init_dma_bcm7329,
-		.channels	= 1,	
-		.autodma	= AUTODMA,
-		//.enablebits	= {{0x00,0x00,0x00}, {0x00,0x00,0x00}},
-		.bootable	= ON_BOARD,
-		.extra		= 0,
-	},
-#endif
+	}
 };
 
 /**
@@ -1125,7 +653,7 @@ static struct pci_device_id svwks_pci_tbl[] = {
 	{ PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_CSB5IDE, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 1},
 	{ PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_CSB6IDE, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 2},
 	{ PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_CSB6IDE2, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 3},
-	{ PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_BCM7038, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4},
+	{ PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_HT1000IDE, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4},
 	{ 0, },
 };
 MODULE_DEVICE_TABLE(pci, svwks_pci_tbl);

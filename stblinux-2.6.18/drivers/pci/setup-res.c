@@ -54,15 +54,6 @@ pci_update_resource(struct pci_dev *dev, struct resource *res, int resno)
 	if (resno < 6) {
 		reg = PCI_BASE_ADDRESS_0 + 4 * resno;
 	} else if (resno == PCI_ROM_RESOURCE) {
-/* THT: Fix ROM resource mask on 3560's 1394 */
-#ifdef CONFIG_MIPS_BCM3560A0
-		int slot = PCI_SLOT(dev->devfn);
-
-		if (slot == 0xe) {
-			//printk("Need to set mask here, reg=%08x\n", dev->rom_base_reg);
-			mask &= 0xffffffc0;
-		}
-#endif
 		if (!(res->flags & IORESOURCE_ROM_ENABLE))
 			return;
 		new |= PCI_ROM_ADDRESS_ENABLE;

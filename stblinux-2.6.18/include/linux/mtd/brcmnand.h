@@ -343,11 +343,60 @@ struct brcmnand_chip {
 	struct nand_bbt_descr	*bbt_td;
 	struct nand_bbt_descr	*bbt_md;
 	struct nand_bbt_descr	*badblock_pattern;
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+	struct brcmnand_cet_descr *cet;		/* CET descriptor */
+#endif
 
 	void				*priv;
 };
 
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
 
+#define BRCMNAND_CET_DISABLED	0x01	/* CET is disabled due to a serious error */
+#define BRCMNAND_CET_LAZY	0x02	/* Reload CET when needed */
+#define BRCMNAND_CET_LOADED	0x04	/* CET is in memory */
+/*
+ * struct brcmnand_cet_descr - Correctable Error Table (CET) descriptor
+ * @offs		Offset in OOB where the CET signature begins
+ * @len			Length (in bytes) of the CET signature
+ * @startblk		Block address starting where CET begins
+ * @sign		Growth of CET (top->down or down->top) 
+ *			Inverse direct of BBT's sign
+ * @flags		Status of CET disabled/lazy/loaded
+ * @cerr_count		Total correctable errors encountered so far
+ * @numblks		Number of blocks that CET spans
+ * @maxblks		Maximum blocks that CET can have 2*numblks
+ * @brcmnand_cet_memtable	Pointer to in-memory CET
+ * @pattern		Identifier used to recognize CET
+ * @cet_flush		Kernel work queue to handle flush of in-mem
+ *			CET to the flash 
+ */
+struct brcmnand_cet_descr {
+	uint8_t offs;		
+	uint8_t len;		
+	int startblk;	
+	char sign;		/* 1 => bottom->top -1 => top->bottom - inverse of BBT */
+	char flags;		
+	uint32_t cerr_count;	
+	int numblks;		
+	int maxblks;		
+	struct brcmnand_cet_memtable  *memtbl;	
+	char *pattern;		
+	struct work_struct cet_flush;
+};
+
+/*
+ * Copy of the CET in memory for faster access and easy rewrites
+ * @isdirty		dirty = true => flush data to flash 
+ * @blk			the physical block# (flash) that this bitvec belongs to
+ * @bitvec		pointer to one block (blk#) of data
+ */
+struct brcmnand_cet_memtable {
+	char isdirty;		
+	int blk;		
+	char *bitvec;		
+};
+#endif
 
 
 /*

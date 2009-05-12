@@ -53,6 +53,7 @@ dir_$(CONFIG_USER_BOOTTOOLS_HIMEMLOADER)    += boottools
 dir_$(CONFIG_USER_BPALOGIN_BPALOGIN)        += bpalogin
 dir_$(CONFIG_USER_BR2684CTL_BR2684CTL)      += br2684ctl
 dir_$(CONFIG_BRCM_PM)                       += brcm-pm
+dir_$(CONFIG_USER_BONNIEXX_BONNIEXX)        += bonnie++
 dir_$(CONFIG_USER_BRCFG_BRCFG)              += brcfg
 dir_$(CONFIG_USER_BUSYBOX_BUSYBOX)          += busybox
 dir_$(CONFIG_USER_CAL_CAL)                  += cal

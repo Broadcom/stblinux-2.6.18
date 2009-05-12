@@ -381,13 +381,14 @@ int brcm_test_ram_node(phys_t start, phys_t size, long type)
 		node_end    = brcm_mmap.map[n].addr + brcm_mmap.map[n].size;
 		request_end = start + size;
 
-		if (((start       >= brcm_mmap.map[n].addr && start       < node_end) ||
+		if (((start >= brcm_mmap.map[n].addr && start < node_end) ||
 			 (request_end >  brcm_mmap.map[n].addr && request_end < node_end)) &&
 			 brcm_mmap.map[n].type == type) 
 		{
-			printk(KERN_WARNING "Physical Address 0x%08x Size 0x%08x Type %s: OVERLAPS EXISTING NODE - IGNORED!!\n",
-					start, size,
-					(type == BOOT_MEM_RESERVED ? "RESERVED" : "RAM"));
+			printk(KERN_WARNING "Physical Address 0x%08lx Size "
+				"0x%08lx Type %s: OVERLAPS EXISTING NODE - IGNORED!!\n",
+				start, size,
+				(type == BOOT_MEM_RESERVED ? "RESERVED" : "RAM"));
 			found = 1;
 			break;
 		}
@@ -865,7 +866,7 @@ static inline void bootmem_init(void)
 #else
 	unsigned long bootmap_size;
 #endif
-	int i, ddr, node;
+	int i;
 #endif
 	unsigned long firstUsableAddr;
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -959,6 +960,9 @@ static inline void bootmem_init(void)
 
 
 #elif defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0)
+	{
+	   int ddr, node;
+
 	   min_low_pfn = first_usable_pfn;
 
 	   for (ddr = 0, node=0; ddr < NR_NODES; ddr++, node++) {
@@ -994,6 +998,7 @@ static inline void bootmem_init(void)
 				PFN_DOWN(bcm_pdiscontig_memmap->physAddr[ddr] + 
 					bcm_pdiscontig_memmap->memSize[ddr]));
 	     }
+	  }
 	}
 
 #else

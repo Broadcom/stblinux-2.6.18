@@ -80,7 +80,6 @@ obj-$(CONFIG_RIONET) += rionet.o
 obj-$(CONFIG_MII) += mii.o
 obj-$(CONFIG_PHYLIB) += phy/
 obj-$(CONFIG_BCMINTEMAC_7038) += brcmint7038/
-#obj-$(CONFIG_BCMINTEMAC) += brcmint/
 obj-$(CONFIG_SUNDANCE) += sundance.o
 obj-$(CONFIG_HAMACHI) += hamachi.o
 obj-$(CONFIG_NET) += Space.o loopback.o

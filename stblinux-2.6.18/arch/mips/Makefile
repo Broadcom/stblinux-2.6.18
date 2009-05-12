@@ -752,6 +752,19 @@ ifdef CONFIG_MIPS_BCM7335A0
         UTS_MACHINE:=7335a0
 endif
 
+#
+# BCM97420
+#
+ifeq ($(CONFIG_MIPS_BCM7420),y)
+core-$(CONFIG_MIPS_BCM7420) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7420) += arch/mips/brcmstb/brcm97420a0/
+cflags-$(CONFIG_MIPS_BCM7420) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7420) := 0x80001000
+endif
+ifdef CONFIG_MIPS_BCM7420A0
+        UTS_MACHINE:=7420a0
+endif
+
 
 #
 # BCM97401C0 & 7402C0
@@ -868,7 +881,6 @@ endif
 
 # PR10860 - Allow long long divide support for modules
 core-$(CONFIG_LONG_LONG_SUPPORT)       += arch/mips/brcmstb/lib/
-# LIBS          += arch/mips/brcmstb/lib/lib_brcm_bsp.a
 
 cflags-y			+= -Iinclude/asm-mips/mach-generic
 drivers-$(CONFIG_PCI)		+= arch/mips/pci/
@@ -886,7 +898,7 @@ endif
 AFLAGS		+= $(cflags-y)
 CFLAGS		+= $(cflags-y)
 
-# THT LDFLAGS			+= -m $(ld-emul)
+LDFLAGS			+= -m $(ld-emul)
 
 ifdef CONFIG_MIPS
 CHECKFLAGS += $(shell $(CC) $(CFLAGS) -dM -E -xc /dev/null | \
@@ -990,4 +1002,3 @@ archclean:
 CLEAN_FILES += vmlinux.32 \
 	       vmlinux.64 \
 	       vmlinux.ecoff
-

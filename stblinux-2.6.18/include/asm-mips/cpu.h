@@ -203,7 +203,8 @@
 #define CPU_BMIPS3300		66
 #define CPU_BMIPS4350		67
 #define CPU_BMIPS4380		68
-#define CPU_LAST		68
+#define CPU_BMIPS6200		69
+#define CPU_LAST		69
 
 /*
  * ISA Level encodings

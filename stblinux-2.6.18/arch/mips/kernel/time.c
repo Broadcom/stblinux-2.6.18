@@ -46,17 +46,6 @@
 
 #define TICK_SIZE	(tick_nsec / 1000)
 
-int (*perf_irq)(struct pt_regs *regs);
-
-int null_perf_irq(struct pt_regs *regs)
-{
-	return 0;
-}
-
-EXPORT_SYMBOL(null_perf_irq);
-EXPORT_SYMBOL(perf_irq);
-
-
 /*
  * forward reference
  */
@@ -434,8 +423,6 @@ void local_timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	update_process_times(user_mode(regs));
 }
 
-extern int performance_enabled;
-
 /*
  * High-level timer interrupt service routines.  This function
  * is set as irqaction->handler and is invoked through do_IRQ.
@@ -444,13 +431,6 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
 	unsigned long j;
 	unsigned int count;
-
-#ifdef CONFIG_OPROFILE
-	if ((performance_enabled) && (perf_irq != null_perf_irq) && (read_c0_cause() & (1 << 26))) 
-	{	
-		perf_irq(regs);
-	}
-#endif
 
 	write_seqlock(&xtime_lock);
 
@@ -538,6 +518,16 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
+int null_perf_irq(struct pt_regs *regs)
+{
+	return 0;
+}
+
+int (*perf_irq)(struct pt_regs *regs) = null_perf_irq;
+
+EXPORT_SYMBOL(null_perf_irq);
+EXPORT_SYMBOL(perf_irq);
+
 asmlinkage void ll_timer_interrupt(int irq, struct pt_regs *regs)
 {
 	int r2 = cpu_has_mips_r2;
@@ -545,18 +535,15 @@ asmlinkage void ll_timer_interrupt(int irq, struct pt_regs *regs)
 	irq_enter();
 	kstat_this_cpu.irqs[irq]++;
 
-
 	/*
 	 * Suckage alert:
 	 * Before R2 of the architecture there was no way to see if a
 	 * performance counter interrupt was pending, so we have to run the
 	 * performance counter interrupt handler anyway.
 	 */
-	if (!r2 || (read_c0_cause() & (1 << 26))) 
-	{	
+	if (!r2 || (read_c0_cause() & (1 << 26)))
 		if (perf_irq(regs))
 			goto out;
-	}
 
 	/* we keep interrupt disabled all the time */
 	if (!r2 || (read_c0_cause() & (1 << 30)))

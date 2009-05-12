@@ -155,6 +155,7 @@ static inline void check_wait(void)
 	case CPU_BMIPS3300:
 	case CPU_BMIPS4350:
 	case CPU_BMIPS4380:
+	case CPU_BMIPS6200:
 		cpu_wait = r4k_wait;
 		printk(" available.\n");
 		break;
@@ -551,16 +552,10 @@ static inline unsigned int decode_config1(struct cpuinfo_mips *c)
 		c->ases |= MIPS_ASE_MIPS16;
 	if (config1 & MIPS_CONF1_EP)
 		c->options |= MIPS_CPU_EJTAG;
-#if defined(CONFIG_MIPS_BCM7400A0) && defined(CONFIG_CPU_LITTLE_ENDIAN)
-	//PR19556, disable the FPU in LE for now
-	c->options &= ~MIPS_CPU_FPU;
-	c->options &= ~MIPS_CPU_32FPR;
-#else
 	if (config1 & MIPS_CONF1_FP) {
 		c->options |= MIPS_CPU_FPU;
 		c->options |= MIPS_CPU_32FPR;
 	}
-#endif
 	if (cpu_has_tlb)
 		c->tlbsize = ((config1 & MIPS_CONF1_TLBS) >> 25) + 1;
 
@@ -637,14 +632,6 @@ static inline void cpu_probe_mips(struct cpuinfo_mips *c)
 		break;
 	case PRID_IMP_5KC:
 		c->cputype = CPU_5KC;
-#if defined(CONFIG_MIPS_BCM7320) || defined(CONFIG_MIPS_BCM7319) || defined(CONFIG_MIPS_BCM7328)
-		/* clear IM bits and IP bits here */
-		clear_c0_status(ST0_IM);
-	        clear_c0_cause(CAUSEF_IP);
-
-		c->options &= ~MIPS_CPU_DIVEC;
-		c->tlbsize = 32;
-#endif
 		break;
 	case PRID_IMP_20KC:
 		c->cputype = CPU_20KC;
@@ -776,6 +763,9 @@ static inline void cpu_probe_brcm(struct cpuinfo_mips *c)
 #elif defined(CONFIG_BMIPS4380)
 	c->cputype = CPU_BMIPS4380;
 	c->tlbsize = 32;
+#elif defined(CONFIG_BMIPS6200)
+	c->cputype = CPU_BMIPS6200;
+	c->tlbsize = 64;
 #else
 	c->cputype = CPU_BMIPS4380;
 	c->tlbsize = 32;
@@ -794,12 +784,10 @@ __init void cpu_probe(void)
 	c->cputype	= CPU_UNKNOWN;
 
 	c->processor_id = read_c0_prid();
-
 	switch (c->processor_id & 0xff0000) {
 	case PRID_COMP_LEGACY:
 		cpu_probe_legacy(c);
 		break;
-/* BRCM MIPS5K go here */
 	case PRID_COMP_MIPS:
 		cpu_probe_mips(c);
 		break;

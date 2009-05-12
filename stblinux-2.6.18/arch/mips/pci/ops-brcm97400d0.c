@@ -128,8 +128,9 @@ static int brcm_pci_read_config_dword(struct pci_bus *bus, unsigned int devfn,
     /* SATA PCI bus?  */
     switch (bus->number) {
     case 1: /*slot_num == PCI_DEV_NUM_SATA*/
-        return brcm_pci_sata_read_config_dword(bus, devfn, where, val);
-		
+        return brcm_sata_enabled ?
+		brcm_pci_sata_read_config_dword(bus, devfn, where, val) :
+		PCIBIOS_FUNC_NOT_SUPPORTED;
     case 0:
         break;
     default:

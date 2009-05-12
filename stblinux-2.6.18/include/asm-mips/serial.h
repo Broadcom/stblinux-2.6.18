@@ -96,7 +96,7 @@
 /* 3 or more 16550 UART on 7400 and 7118 and 7405 and above */
 #if defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7405) \
  || defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_MIPS_BCM7335) || defined(CONFIG_MIPS_BCM7440B0) \
- || defined(CONFIG_MIPS_BCM7443)
+ || defined(CONFIG_MIPS_BCM7443) || defined(CONFIG_MIPS_BCM7420)
 
 
 

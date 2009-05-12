@@ -305,14 +305,6 @@ static void atapi_input_bytes(ide_drive_t *drive, void *buffer, u32 bytecount)
 static void atapi_output_bytes(ide_drive_t *drive, void *buffer, u32 bytecount)
 {
 	ide_hwif_t *hwif = HWIF(drive);
-	// BRCM - PR21881 
-	unsigned char	 *cmd;
-	int	 do_interlock;
-
-	cmd  = (char *)buffer;
-	do_interlock = (drive->using_dma && drive->media == ide_cdrom
-			 && (cmd[0] == 0x28 || cmd[0] == 0xa8)) ? 1 : 0;
-
 
 	++bytecount;
 #if defined(CONFIG_ATARI) || defined(CONFIG_Q40)
@@ -322,29 +314,9 @@ static void atapi_output_bytes(ide_drive_t *drive, void *buffer, u32 bytecount)
 		return;
 	}
 #endif /* CONFIG_ATARI || CONFIG_Q40 */
-	// BRCM - PR21881 
-	if (do_interlock)
-	    local_irq_disable();
-
 	hwif->ata_output_data(drive, buffer, bytecount / 4);
 	if ((bytecount & 0x03) >= 2)
 		hwif->OUTSW(IDE_DATA_REG, ((u8*)buffer)+(bytecount & ~0x03), 1);
-
-	// BRCM - PR21881 
-	if (do_interlock) {
-	    int delay_cnt = 100;
-
-	    local_irq_enable();
-
-	    while ((hwif->INB(IDE_STATUS_REG) & DRQ_STAT) && --delay_cnt) {
-		udelay(1);
-	    }
-	    if (delay_cnt == 0)
-		printk(KERN_ERR "atapi_output_bytes: IDE CD DMA DEVICE - EXHAUSTED WAIT FOR CDB TRANSMIT!\n");
-
-	    /* Delay to guarantee CDB transmission */
-	    udelay(10);
-	}
 }
 
 void default_hwif_transport(ide_hwif_t *hwif)

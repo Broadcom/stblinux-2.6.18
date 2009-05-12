@@ -47,12 +47,6 @@
 #include <asm/debug.h>
 #include <asm/brcmstb/common/brcmstb.h>
 
-#if	defined(CONFIG_MIPS_BCM7118)  /* 7118A0 and 7118C0 */
-extern int bcm7118_boardtype;
-#endif
-
-
-
 /* Since the following is not defined in any of our header files. */
 #define MIPS_PCI_XCFG_INDEX     0xf0600004
 #define MIPS_PCI_XCFG_DATA      0xf0600008
@@ -133,9 +127,9 @@ static int brcm_pci_read_config_dword(struct pci_bus *bus, unsigned int devfn,
     /* SATA PCI bus?  */
     switch (bus->number) {
     case 1: /*slot_num == PCI_DEV_NUM_SATA*/
-#if	defined(CONFIG_SATA_SVW) || defined(CONFIG_SATA_SVW_MODULE)
+#ifdef BRCM_SATA_SUPPORTED
   #ifdef	CONFIG_MIPS_BCM7118
-	if(bcm7118_boardtype == 1)
+	if(brcm_sata_enabled == 0)
 		return PCIBIOS_FUNC_NOT_SUPPORTED;
 	else
 		return brcm_pci_sata_read_config_dword(bus, devfn, where, val);

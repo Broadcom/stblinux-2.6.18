@@ -1385,9 +1385,19 @@ static int yaffs_sync_fs(struct super_block *sb, int wait)
 static int yaffs_sync_fs(struct super_block *sb)
 #endif
 {
+	yaffs_Device *dev = yaffs_SuperToDevice(sb);
+	struct mtd_info *mtd = yaffs_SuperToDevice(sb)->genericDevice;
 
 	T(YAFFS_TRACE_OS, (KERN_DEBUG "yaffs_sync_fs\n"));
 	
+	yaffs_GrossLock(dev);
+	yaffs_FlushEntireDeviceCache(dev);
+	yaffs_CheckpointSave(dev);
+	if (mtd->sync) {
+		mtd->sync(mtd);
+	}
+	yaffs_GrossUnlock(dev);
+
 	return 0; /* yaffs_do_sync_fs(sb);*/
 	
 }

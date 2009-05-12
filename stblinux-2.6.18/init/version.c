@@ -29,14 +29,6 @@ struct new_utsname system_utsname = {
 
 EXPORT_SYMBOL(system_utsname);
 
-#ifndef BRCM_VERSION
 const char linux_banner[] =
 	"Linux version " UTS_RELEASE " (" LINUX_COMPILE_BY "@"
 	LINUX_COMPILE_HOST ") (" LINUX_COMPILER ") " UTS_VERSION "\n";
-
-#else
-/* Display Brcm version if defined.  This is defined in the build script build.mk */
-const char linux_banner[] = 
-	"Linux version " UTS_RELEASE  " build version " BRCM_VERSION " (" LINUX_COMPILE_BY "@"
-	LINUX_COMPILE_HOST ") (" LINUX_COMPILER  ") " UTS_VERSION "\n";
-#endif

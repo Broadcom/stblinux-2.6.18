@@ -74,14 +74,25 @@ return_from_pci_slave_init:
 #endif
 
 #ifdef CONFIG_MIPS_BRCM97XXX
-#if defined(CONFIG_SMP) && ! defined(CONFIG_MIPS_MT)
+#if defined(CONFIG_SMP) && \
+	(defined(CONFIG_BMIPS4380) || defined(CONFIG_BMIPS6200))
+
 	.extern  g_boot_config
 	# Check to see which TP we are running on.
+#if defined(CONFIG_BMIPS4380)
 	mfc0    $8, $22, 3
 	srl     $8, $8, 31
+#elif defined(CONFIG_BMIPS6200)
+	# move exception vectors to 8000_1000 (see below)
+	li	$9, 0x80001000
+	mtc0	$9, $15, 1
+
+	mfc0    $8, $22, 0
+	srl     $8, $8, 24
+#endif
 	beqz     $8, 1f
 	nop
-	
+
 	# ---------------------------------	
 	# We are in TP1
 	# ---------------------------------	
@@ -101,10 +112,43 @@ InTp1:
 	lw       a0,	20(t0)
 	jr       t1
 	nop
+
+	# ---------------------------------	
+	# We are in TP0
+	# ---------------------------------	
+1:
+
+#ifdef CONFIG_BMIPS4380
+	# shift the exception vectors up 1kB to make room for TP1 reset vec
+	# a000_0000 - new BEV TP1 reset vector (formerly bfc0_0000)
+	# 8000_0400 - new !BEV vectors for TP0 and TP1 (formerly 8000_0000)
+
+	mfc0	$8, $22, 6
+	li	$9, 0xfffc0000
+	and	$8, $9		# $8 <- PA for CBA
+
+	li	$9, 0xa0030000
+	addu	$8, $9
+	li	$9, 0x800
+	sw	$9, 0($8)	# *(CBA + 0x30000) <- 0x800
+
+	li	$9, 0x8000
+	addu	$8, $9
+	li	$9, 0xa0080800
+	sw	$9, 0($8)	# *(CBA + 0x38000) <- 0xa0080800
+#elif defined(CONFIG_BMIPS6200)
+	# shift the exception vectors up 4kB to make room for TP1 reset vec
+	# a000_0000 - new BEV TP1 reset vector (formerly bfc0_0000)
+	# 8000_1000 - new !BEV vectors for TP0 and TP1 (formerly 8000_0000)
+
+	li	$9, 0xa0080000
+	mtc0	$9, $22, 4
+#endif
+
 #endif // SMP
 
-#if ! defined(CONFIG_MIPS_BCM7402S) && ! defined(CONFIG_MIPS_BRCM_IKOS)
-1:	jal	cfe_start
+#if ! defined(CONFIG_MIPS_BCM7402S) && ! defined(CONFIG_MIPS_BRCM_SIM)
+	jal	cfe_start
 	nop
 #endif
 

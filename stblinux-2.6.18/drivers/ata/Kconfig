@@ -48,7 +48,8 @@ config SATA_SVW_NCQ
 	boolean "Support for Native Command Queueing (EXPERIMENTAL)"
 	default n
 	depends on SATA_SVW && EXPERIMENTAL && \
-		   (MIPS_BCM7405 || MIPS_BCM7400D0 || MIPS_BCM7335)
+		   (MIPS_BCM7405 || MIPS_BCM7400D0 || MIPS_BCM7335 || \
+	            MIPS_BCM7420)
 	help
 	  This option builds the QDMA/NCQ version of the Serverworks driver.
 	  NCQ can improve overall throughput when there are a large number

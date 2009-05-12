@@ -5,9 +5,6 @@ obj-$(CONFIG_BLK_DEV_HT6560B)		+= ht6560b.o
 obj-$(CONFIG_BLK_DEV_QD65XX)		+= qd65xx.o
 obj-$(CONFIG_BLK_DEV_UMC8672)		+= umc8672.o
 
-obj-$(CONFIG_BLK_DEV_IDE_BCM7XXX) += bcm71xx_ide.o
-
-
 obj-$(CONFIG_BLK_DEV_IDECS)		+= ide-cs.o
 
 # Last of all

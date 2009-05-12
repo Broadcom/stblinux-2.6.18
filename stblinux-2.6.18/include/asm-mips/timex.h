@@ -33,9 +33,7 @@
  * no reason to make this a separate architecture.
  */
 
-//THT #include <timex.h>
-#include <asm/mach-generic/timex.h>
-
+#include <timex.h>
 
 /*
  * Standard way to access the cycle counter.

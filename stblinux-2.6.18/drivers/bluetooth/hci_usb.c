@@ -35,6 +35,7 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/sched.h>
 #include <linux/unistd.h>
 #include <linux/types.h>
 #include <linux/interrupt.h>

@@ -166,7 +166,7 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 					break;
 				}
 			}
-			pages_per_eraseblock = meminfo.erasesize/meminfo.oobblock;
+			pages_per_eraseblock = meminfo.erasesize/meminfo.writesize;
 			available_oob_space = ebhlen * pages_per_eraseblock;
 			if (available_oob_space < sizeof(struct jffs2_raw_ebh)) {
 				fprintf(stderr, "The OOB area(%d) is not big enough to hold eraseblock_header(%d)", available_oob_space, sizeof(struct jffs2_raw_ebh));
@@ -241,13 +241,13 @@ print_oobbuf((unsigned char*) &ebh, sizeof(ebh));
 				 */
 				retlen = brcmnand_prepare_oobbuf(fsbuf, fslen, oobbuf, &oobinfo, meminfo.oobsize, ebhlen, &ooblen);
 				oob.ptr = oobbuf;
-				oob.start = erase.start + meminfo.oobblock*i + ebhpos;
+				oob.start = erase.start + meminfo.writesize*i + ebhpos;
 				oob.length = meminfo.oobsize - ebhpos;  //for completeness, ebhpos is always 0.
 
 #else 
 /* 2.6.12 codes */
 				oob.ptr = (unsigned char *) &ebh + written;
-				oob.start = erase.start + meminfo.oobblock*i + ebhpos;
+				oob.start = erase.start + meminfo.writesize*i + ebhpos;
 				oob.length = (sizeof(struct jffs2_raw_ebh) - written) < ebhlen ? (sizeof(struct jffs2_raw_ebh) - written) : ebhlen;
 #endif
 

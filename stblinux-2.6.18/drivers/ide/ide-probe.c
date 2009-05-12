@@ -55,10 +55,6 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
-#ifdef CONFIG_BLK_DEV_IDE_BCM7XXX
-#include "legacy/bcm71xx_ide.h"
-#endif
-
 /**
  *	generic_id		-	add a generic drive id
  *	@drive:	drive to make an ID block for
@@ -458,35 +454,6 @@ static int do_probe (ide_drive_t *drive, u8 cmd)
 		return 3;
 	}
 
-#ifdef CONFIG_BLK_DEV_SVWKS 
-	/* 
-	  * tht & chansine: Reset the drive, give enough wait time between cmds.
-	  * This happens on autoboot from CFE, as the SATA drives randomly fail the ID.
-	  */
-	{
-
-		unsigned long timeout = jiffies + WAIT_WORSTCASE;
-		byte stat;
-		static int driveHasBeenReset[2] = {0,0};
-
-		if (hwif->index >= 0 && hwif->index < 2 &&
-		     driveHasBeenReset[hwif->index] == 0) 
-		{ 	
-			driveHasBeenReset[hwif->index] = 1;
-			//printk("%s: reset\n", hwif->name);
-			hwif->OUTB(12, hwif->io_ports[IDE_CONTROL_OFFSET]);
-			udelay(1000); // tht & Chansine 12/2/03 from 10
-			hwif->OUTB(8, hwif->io_ports[IDE_CONTROL_OFFSET]);
-			do {
-				msleep(50);
-				stat = hwif->INB(hwif->io_ports[IDE_STATUS_OFFSET]);
-			} while ((stat & BUSY_STAT) && 0 < (signed long)(timeout - jiffies));
-		}
-	}
-	/* End of Hack */
-#endif
-
-
 	if (OK_STAT((hwif->INB(IDE_STATUS_REG)), READY_STAT, BUSY_STAT) ||
 	    drive->present || cmd == WIN_PIDENTIFY) {
 		/* send cmd and wait */
@@ -814,11 +781,6 @@ static void probe_hwif(ide_hwif_t *hwif)
 		ide_drive_t *drive = &hwif->drives[unit];
 		drive->dn = (hwif->channel ? 2 : 0) + unit;
 		(void) probe_for_drive(drive);
-
-	    /* jli@broadcom- drive 1, if present, is more reliable on 80c cable detection */
-	    if (drive->present && (drive->id->hw_config & 0x2000))
-		    hwif->udma_four = 1;
-
 		if (drive->present && !hwif->present) {
 			hwif->present = 1;
 			if (hwif->chipset != ide_4drives ||

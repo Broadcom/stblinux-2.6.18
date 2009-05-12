@@ -4,7 +4,7 @@ menu "Memory Technology Devices (MTD)"
 
 config MTD
 	tristate "Memory Technology Device (MTD) support"
-	depends on !MIPS_BRCM_IKOS
+	depends on !MIPS_BRCM_SIM
 	help
 	  Memory Technology Devices are flash, RAM and similar chips, often
 	  used for solid state file systems on embedded devices. This option

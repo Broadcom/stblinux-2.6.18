@@ -14,6 +14,7 @@
 #include <linux/dma-mapping.h>
 
 #include <asm/cache.h>
+#include <asm/cacheflush.h>
 #include <asm/io.h>
 
 /*
@@ -118,6 +119,10 @@ void dma_unmap_single(struct device *dev, dma_addr_t dma_addr, size_t size,
 	addr = dma_addr + PAGE_OFFSET;
 
 	//__dma_sync(addr, size, direction);
+#ifdef CONFIG_MIPS_BRCM97XXX
+	/* RAC may have prefetched data in our DMA range */
+	bcm_inv_rac_all();
+#endif
 }
 
 EXPORT_SYMBOL(dma_unmap_single);

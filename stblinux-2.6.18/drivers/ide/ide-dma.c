@@ -89,14 +89,6 @@
 #include <asm/io.h>
 #include <asm/irq.h>
 
-#ifdef CONFIG_BLK_DEV_IDE_BCM7XXX
-#include "legacy/bcm71xx_ide.h"
-#endif
-
-#ifdef CONFIG_BLK_DEV_IDE_BCM7XXX_PROC
-#include <linux/proc_fs.h>
-#endif
-
 static const struct drive_list_entry drive_whitelist [] = {
 
 	{ "Micropolis 2112A"	,       "ALL"		},
@@ -196,7 +188,7 @@ ide_startstop_t ide_dma_intr (ide_drive_t *drive)
 
 EXPORT_SYMBOL_GPL(ide_dma_intr);
 
-#if defined( CONFIG_BLK_DEV_IDEDMA_PCI ) || defined( CONFIG_BLK_DEV_IDE_BCM7XXX )
+#ifdef CONFIG_BLK_DEV_IDEDMA_PCI
 /**
  *	ide_build_sglist	-	map IDE scatter gather for DMA I/O
  *	@drive: the drive to build the DMA table for
@@ -481,7 +473,7 @@ int __ide_dma_off (ide_drive_t *drive)
 
 EXPORT_SYMBOL(__ide_dma_off);
 
-#if defined( CONFIG_BLK_DEV_IDEDMA_PCI ) || defined( CONFIG_BLK_DEV_IDE_BCM7XXX )
+#ifdef CONFIG_BLK_DEV_IDEDMA_PCI
 /**
  *	__ide_dma_host_on	-	Enable DMA on a host
  *	@drive: drive to enable for DMA
@@ -769,7 +761,7 @@ bug_dma_off:
 
 EXPORT_SYMBOL(ide_dma_verbose);
 
-#if defined( CONFIG_BLK_DEV_IDEDMA_PCI ) || defined( CONFIG_BLK_DEV_IDE_BCM7XXX )
+#ifdef CONFIG_BLK_DEV_IDEDMA_PCI
 int __ide_dma_lostirq (ide_drive_t *drive)
 {
 	printk("%s: DMA interrupt recovery\n", drive->name);

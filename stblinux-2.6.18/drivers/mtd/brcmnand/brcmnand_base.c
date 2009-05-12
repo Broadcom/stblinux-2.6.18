@@ -37,6 +37,7 @@ when	who what
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <linux/byteorder/generic.h>
+#include <linux/vmalloc.h>
 
 #include <asm/io.h>
 #include <asm/bug.h>
@@ -106,6 +107,9 @@ static int brcmnand_erase_nolock(struct mtd_info *, struct erase_info *, int);
  */
 //static struct mtd_info *brcmnand_mtd = NULL;
 
+//FIXME - temporary fix - sidc
+#define BRCMNAND_malloc(x) 	vmalloc(x)
+#define BRCMNAND_free(x)	vfree(x)
 
 typedef struct brcmnand_chip_Id {
     	uint8 mafId, chipId;
@@ -1114,6 +1118,12 @@ static int brcmnand_posted_read_oob(struct mtd_info* mtd,
 	L_OFF_T sliceOffset = __ll_and32(offset, ~(mtd->eccsize - 1));
 	int i, ret, done = 0;
 	int retries = 5;
+// THT: 080608: SW workaround for NAND controller v3.0
+#if CONFIG_MTD_BRCMNAND_VERSION == CONFIG_MTD_BRCMNAND_VERS_3_0
+	uint32_t readCmd = OP_PAGE_READ; // Full page read instead of OOB read.
+#else
+	uint32_t readCmd = OP_SPARE_AREA_READ;
+#endif
 	
 char msg[20];
 
@@ -1131,7 +1141,7 @@ printk("-->%s: offset=%08x\n", __FUNCTION__, (uint32_t) offset); }
 		}
 
 		chip->ctrl_writeAddr(chip, sliceOffset, 0);
-		chip->ctrl_write(BCHP_NAND_CMD_START, OP_SPARE_AREA_READ);
+		chip->ctrl_write(BCHP_NAND_CMD_START, readCmd);
 
 		// Wait until spare area is filled up
 		switch (brcmnand_spare_is_valid(mtd, FL_READING, raw)) {
@@ -1824,6 +1834,9 @@ static int brcmnand_read(struct mtd_info *mtd, loff_t from, size_t len,
 {
 	struct brcmnand_chip *chip = mtd->priv;
 	int ret;
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+	int status;
+#endif
 
 	DEBUG(MTD_DEBUG_LEVEL3, "%s: from=%08x\n", __FUNCTION__, __ll_low(from));
 	
@@ -1859,6 +1872,20 @@ printk("-->%s, offset=%08x\n", __FUNCTION__, (uint32_t) from);}
 		atomic_inc(&inrefresh);
 		if(brcmnand_refresh_blk(mtd, from) == 0) { 
 			ret = 0; 
+		}
+		if (likely(chip->cet)) {
+			if (likely(chip->cet->flags != BRCMNAND_CET_DISABLED)) {
+				if (brcmnand_cet_update(mtd, from, &status) == 0) {
+					if (status) {
+						ret = -EUCLEAN;
+					} else {
+						ret = 0;
+					}
+				}
+				if (gdebug > 3) {
+					printk(KERN_INFO "DEBUG -> %s ret = %d, status = %d\n", __FUNCTION__, ret, status);
+				}
+			}
 		}
 		atomic_dec(&inrefresh);
 	}
@@ -2647,7 +2674,7 @@ static int brcmnand_writev(struct mtd_info *mtd, const struct kvec *vecs,
 	//int	ppblock = (1 << (chip->phys_erase_shift - chip->page_shift));
 	u_char *oobbuf, *bufstart = NULL;
 	u_char tmp_oob[64];
-	u_char data_buf[2048];
+	u_char *data_buf;
 
 
 if (gdebug > 3 ) {
@@ -2688,6 +2715,11 @@ printk("-->%s, offset=%08x\n", __FUNCTION__, (uint32_t) to);}
 	/* Setup start page, we know that to is aligned on page boundary */
 	page = __ll_RightShift(to, chip->page_shift);;
 
+	data_buf = BRCMNAND_malloc(sizeof(u_char)*2048);
+	if (unlikely(data_buf == NULL)) {
+		printk(KERN_ERR "%s: vmalloc failed\n", __FUNCTION__);
+		return -ENOMEM;
+	}
 	/* Loop until all keve's data has been written */
 	len = 0; 		// How many data from current iovec has been written
 	written = 0;	// How many bytes have been written so far in all
@@ -2798,6 +2830,7 @@ printk("-->%s, offset=%08x\n", __FUNCTION__, (uint32_t) to);}
 out:
 	/* Deselect and wake up anyone waiting on the device */
 	brcmnand_release_device(mtd);
+	BRCMNAND_free(data_buf);
 
 	*retlen = written;
 //if (*retlen <= 0) printk("%s returns retlen=%d, ret=%d, startAddr=%08x\n", __FUNCTION__, *retlen, ret, startAddr);
@@ -3130,6 +3163,31 @@ erase_one_block:
 
 	/* Deselect and wake up anyone waiting on the device */
 	brcmnand_release_device(mtd);
+
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+		if (chip->cet) {
+			if (chip->cet->flags != BRCMNAND_CET_DISABLED && 
+					chip->cet->flags != BRCMNAND_CET_LAZY && allowbbt != 1) {
+				len = instr->len;
+				addr = instr->addr;
+				while (len) {
+					/* Skip if bad block */
+					if (brcmnand_block_checkbad(mtd, addr, 0, allowbbt)) {
+						printk (KERN_ERR "%s: attempt to erase a bad block at addr 0x%08x\n", __FUNCTION__, (unsigned int) addr);
+						len -= block_size;
+						addr = __ll_add32(addr, block_size);
+						continue;
+					}
+					if(brcmnand_cet_erasecallback(mtd, instr->addr) < 0) {
+						printk(KERN_INFO "Error in CET erase callback, disabling CET\n");
+						chip->cet->flags = BRCMNAND_CET_DISABLED;
+					}
+					len -= block_size;
+					addr = __ll_add32(addr, block_size);
+				}
+			}
+		}
+#endif
 
 	return ret;
 }
@@ -4443,6 +4501,12 @@ PRINTK("Calling mtd->unlock(ofs=0, MTD Size=%08x\n", mtd->size);
 
 PRINTK("%s 60 Calling scan_bbt\n", __FUNCTION__);
 	err =  chip->scan_bbt(mtd);
+
+#ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
+	if(brcmnand_create_cet(mtd) < 0) {
+		printk(KERN_INFO "%s: CET not created\n", __FUNCTION__);
+	}
+#endif
 
 PRINTK("%s 99\n", __FUNCTION__);
 	return err;

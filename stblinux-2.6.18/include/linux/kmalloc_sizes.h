@@ -1,4 +1,5 @@
 #if (PAGE_SIZE == 4096) && (L1_CACHE_BYTES <= 32)
+	/* smallest chunk must be >= D$ line size */
 	CACHE(32)
 #endif
 	CACHE(64)

@@ -417,12 +417,7 @@ static int mtd_ioctl(struct inode *inode, struct file *file,
 		info.flags	= mtd->flags;
 		info.size	= mtd->size;
 		info.erasesize	= mtd->erasesize;
-/* TDT breaks our mtd-utils */
-#if 0
 		info.writesize	= mtd->writesize;
-#else
-		info.oobblock	= mtd->writesize;
-#endif
 		info.oobsize	= mtd->oobsize;
 		info.ecctype	= mtd->ecctype;
 		info.eccsize	= mtd->eccsize;

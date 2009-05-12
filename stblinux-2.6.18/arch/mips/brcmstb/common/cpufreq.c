@@ -55,6 +55,9 @@ static struct cpufreq_frequency_table clock_tbl[] = {
 	{1, MAX_FREQ / 2},
 	{2, MAX_FREQ / 4},
 	{3, MAX_FREQ / 8},
+#if defined(CONFIG_BMIPS6200)
+	{4, MAX_FREQ / 16},
+#endif
 	{0, CPUFREQ_TABLE_END},
 };
 
@@ -65,8 +68,9 @@ static void brcm_set_divisor (uint32_t new_div)
 	/* see BMIPS datasheet, CP0 register $22 */
 
 #if defined(CONFIG_BMIPS3300)
-	write_c0_diag4((read_c0_diag4() & ~0x01c00000) |
-		(new_div << 23) | (0 << 22));
+	change_c0_brcm_bus_pll(0x07 << 22, (new_div << 23) | (0 << 22));
+#elif defined(CONFIG_BMIPS6200)
+	change_c0_brcm_mode(0x0f << 4, (1 << 7) | (new_div << 4));
 #elif defined(CONFIG_BMIPS4380)
 
 	uint32_t tmp0, tmp1, tmp2, tmp3;

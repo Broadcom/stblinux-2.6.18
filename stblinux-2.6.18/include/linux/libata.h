@@ -35,9 +35,11 @@
 #include <linux/ata.h>
 #include <linux/workqueue.h>
 #include <scsi/scsi_host.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 // jipeng - old sata core require this workaround
-#if ! defined(CONFIG_MIPS_BCM7405) && ! defined(CONFIG_MIPS_BCM7335)
+#if ! defined(CONFIG_MIPS_BCM7405) && ! defined(CONFIG_MIPS_BCM7335) && \
+	! defined(CONFIG_MIPS_BCM7420)
 #define	SATA_SVW_BRCM_WA
 #endif
 
@@ -56,9 +58,9 @@ extern int dma_write_wa_needed;
 #endif
 
 //jipeng - redefine readw/l for BE 
-#if	defined( CONFIG_MIPS_BRCM97XXX )						\
-	&& (defined( CONFIG_SATA_SVW ) || defined(CONFIG_SATA_SVW_MODULE))		\
-	&&  defined( CONFIG_CPU_BIG_ENDIAN )
+#if	defined( CONFIG_MIPS_BRCM97XXX ) \
+	&& defined( BRCM_SATA_SUPPORTED ) \
+	&& defined( CONFIG_CPU_BIG_ENDIAN )
 #undef	readl
 #define	readl(x)	(le32_to_cpu(*(volatile u32 *)(x)))
 

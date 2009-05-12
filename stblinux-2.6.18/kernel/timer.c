@@ -253,6 +253,7 @@ void add_timer_on(struct timer_list *timer, int cpu)
 	internal_add_timer(base, timer);
 	spin_unlock_irqrestore(&base->lock, flags);
 }
+EXPORT_SYMBOL(add_timer_on);
 
 
 /***

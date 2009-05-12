@@ -188,24 +188,6 @@ config MII
 	  or internal device.  It is safe to say Y or M here even if your
 	  ethernet card lack MII.
 
-config BCM4413ETH
-	tristate "Broadcom 4413 Ethernet (EBI/MSI) support"
-	depends on NET_ETHERNET
-	depends on MIPS_BCM7115 || MIPS_BCM7110 ||MIPS_BCM7315_BBX || MIPS_BCM7112 || MIPS_BCM7328 
-	select CRC32
-	help 
-	  Broadcom 4413 Ethernet controller on BCM97115, 97110, 97315-BBX, 97112, 97328 STBs,
-	  running in EBI/MSI mode (10 Mbps)
-
-config BCM4413ETH_PCI
-	tristate "Broadcom 4413 Ethernet (PCI) support"
-	depends on NET_ETHERNET
-	depends on BCM93730 
-	select CRC32
-	help 
-	  Broadcom 4413 100 Mbps Ethernet controller on BCM93730,35,40 STBs,
-	  running in PCI mode
-
 config BCMINTEMAC_7038
 	tristate "Broadcom Internal Ethernet (ISB) support"
 	depends on NET_ETHERNET

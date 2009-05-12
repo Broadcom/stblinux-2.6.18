@@ -477,6 +477,9 @@ extern void per_cpu_trap_init(void);
 
 extern int stop_a_enabled;
 
+#define __HAS_EBASE
+extern unsigned long ebase;
+
 /*
  * See include/asm-ia64/system.h; prevents deadlock on SMP
  * systems.

@@ -237,9 +237,12 @@ void smp_call_function_interrupt(void)
 	 * about to execute the function.
 	 */
 	mb();
-#ifdef CONFIG_MIPS_BRCM97XXX
+#if defined(CONFIG_BMIPS4380)
 	/* clear the pending interrupt now so that we don't drop the next call */
 	clear_c0_cause(C_SW0);
+	mb();
+#elif defined(CONFIG_BMIPS6200)
+	write_c0_brcm_action(0x2000 | (raw_smp_processor_id() << 9));
 	mb();
 #endif
 	atomic_inc(&call_data->started);

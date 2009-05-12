@@ -411,9 +411,6 @@ void ide_toggle_bounce(ide_drive_t *drive, int on)
 	if (!PCI_DMA_BUS_IS_PHYS) {
 		addr = BLK_BOUNCE_ANY;
 	} else if (on && drive->media == ide_disk) {
-#ifdef CONFIG_BLK_DEV_IDE_BCM7XXX
-		addr = BLK_BOUNCE_ANY;
-#endif
 		if (HWIF(drive)->pci_dev)
 			addr = HWIF(drive)->pci_dev->dma_mask;
 	}

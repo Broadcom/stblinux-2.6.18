@@ -1,0 +1,2 @@
+This kernel uses a version of libata backported from a linux-2.6.19
+prerelease.  As such, the ATA drivers have moved to drivers/ata .

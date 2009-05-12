@@ -6370,7 +6370,12 @@ u32 ata_wait_register(void __iomem *reg, u32 mask, u32 val,
 	unsigned long timeout;
 	u32 tmp;
 
+#ifdef CONFIG_MIPS_BRCM97XXX
+	/* see: readl/writel byteswap hack in libata.h */
+	tmp = readl(reg);
+#else
 	tmp = ioread32(reg);
+#endif
 
 	/* Calculate timeout _after_ the first read to make sure
 	 * preceding writes reach the controller before starting to
@@ -6380,7 +6385,11 @@ u32 ata_wait_register(void __iomem *reg, u32 mask, u32 val,
 
 	while ((tmp & mask) == val && time_before(jiffies, timeout)) {
 		msleep(interval_msec);
+#ifdef CONFIG_MIPS_BRCM97XXX
+		tmp = readl(reg);
+#else
 		tmp = ioread32(reg);
+#endif
 	}
 
 	return tmp;
