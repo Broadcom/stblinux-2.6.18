@@ -59,6 +59,12 @@
 
 		li      	t0, TIMR_ADR_BASE
 
+		# Put the hardware into a known state
+		sw		zero, TIMER_0_CTL(t0)
+		lw		zero, TIMER_0_CTL(t0)
+		sw		zero, 0x0(t0)
+		lw		zero, 0x0(t0)
+
 		# Reset the countdown timer
 		li      	t1, 0x1
 		sw      	t1, 0x0(t0)

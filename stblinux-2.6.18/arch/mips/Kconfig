@@ -196,10 +196,30 @@ config MIPS_BCM7420AX
         select HW_HAS_PCI
 	select BMIPS5000
 	
+config MIPS_BCM7420BX
+        bool "Support for BCM97420Bx with NOR flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7420B0
+        select MIPS_BCM7420
+        select HW_HAS_PCI
+	select BMIPS5000
+	
 config MIPS_BCM7420AX_NAND
         bool "Support for BCM97420Ax with NAND flash"
         select MIPS_BRCM97XXX
         select MIPS_BCM7420A0
+        select MIPS_BCM7420
+        select HW_HAS_PCI
+	select BMIPS5000
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
+	select MTD_NEW_PARTITION
+
+config MIPS_BCM7420BX_NAND
+        bool "Support for BCM97420Bx with NAND flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7420B0
         select MIPS_BCM7420
         select HW_HAS_PCI
 	select BMIPS5000
@@ -1644,9 +1664,13 @@ config MIPS_BCM7420A0
 	bool
 	depends MIPS_BCM7420AX || MIPS_BCM7420AX_NAND
 
+config MIPS_BCM7420B0
+	bool
+	depends MIPS_BCM7420BX || MIPS_BCM7420BX_NAND
+
 config MIPS_BCM7420
 	bool
-	depends MIPS_BCM7420A0
+	depends MIPS_BCM7420A0 || MIPS_BCM7420B0
 
 config MIPS_BCM7325B0
        bool
@@ -1705,7 +1729,7 @@ config MTD_ECM_PARTITION
 config MTD_NEW_PARTITION
 	bool "New partition for NAND"
 	default n
-	depends MIPS_BCM7420AX_NAND
+	depends MIPS_BCM7420AX_NAND || MIPS_BCM7420BX_NAND
 
 config SERIAL
 	bool

@@ -65,7 +65,7 @@
 
 
 typedef struct eduIsrData {
-	spinlock_t lock; // For SMP and future double buffering on Read.
+	struct semaphore lock; // For SMP and future double buffering on Read.
 	int cmd;	// 1 == Read, 0 == Write
 
 	uint32_t mask;	/* Clear status mask */

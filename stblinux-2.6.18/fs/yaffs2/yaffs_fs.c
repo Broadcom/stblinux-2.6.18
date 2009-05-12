@@ -76,6 +76,14 @@ extern const char *yaffs_guts_c_version;
 
 #endif
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,17))
+#define WRITE_SIZE_STR "writesize"
+#define WRITE_SIZE(mtd) (mtd)->writesize
+#else
+#define WRITE_SIZE_STR "oobblock"
+#define WRITE_SIZE(mtd) (mtd)->oobblock
+#endif
+
 #include <asm/uaccess.h>
 
 #include "yportenv.h"
@@ -1316,25 +1324,49 @@ static int yaffs_statfs(struct super_block *sb, struct statfs *buf)
 	buf->f_type = YAFFS_MAGIC;
 	buf->f_bsize = sb->s_blocksize;
 	buf->f_namelen = 255;
-	if (sb->s_blocksize > dev->nDataBytesPerChunk) {
+	
+	if(dev->nDataBytesPerChunk & (dev->nDataBytesPerChunk - 1)){
+		/* Do this if chunk size is not a power of 2 */
+		
+		uint64_t bytesInDev;
+		uint64_t bytesFree;
+
+		bytesInDev = ((uint64_t)((dev->endBlock - dev->startBlock +1))) *
+			     ((uint64_t)(dev->nChunksPerBlock * dev->nDataBytesPerChunk));
+	
+		do_div(bytesInDev,sb->s_blocksize); /* bytesInDev becomes the number of blocks */
+		buf->f_blocks = bytesInDev;
+
+		bytesFree  = ((uint64_t)(yaffs_GetNumberOfFreeChunks(dev))) *
+			     ((uint64_t)(dev->nDataBytesPerChunk));
+	
+		do_div(bytesFree,sb->s_blocksize);
+	
+		buf->f_bfree = bytesFree;
+	
+	} 
+	else if (sb->s_blocksize > dev->nDataBytesPerChunk) {
 
 		buf->f_blocks =
-		    (dev->endBlock - dev->startBlock +
-		     1) * dev->nChunksPerBlock / (sb->s_blocksize /
-						  dev->nDataBytesPerChunk);
+	                   (dev->endBlock - dev->startBlock + 1) * 
+	                    dev->nChunksPerBlock / 
+	                    (sb->s_blocksize / dev->nDataBytesPerChunk);
 		buf->f_bfree =
-		    yaffs_GetNumberOfFreeChunks(dev) / (sb->s_blocksize /
-							dev->nDataBytesPerChunk);
-	} else {
+	                   yaffs_GetNumberOfFreeChunks(dev) / 
+	                   (sb->s_blocksize / dev->nDataBytesPerChunk);
+	} 
+	else {
+	    buf->f_blocks =
+	                   (dev->endBlock - dev->startBlock + 1) * 
+	                   dev->nChunksPerBlock * 
+	                   (dev->nDataBytesPerChunk / sb->s_blocksize);
 
-		buf->f_blocks =
-		    (dev->endBlock - dev->startBlock +
-		     1) * dev->nChunksPerBlock * (dev->nDataBytesPerChunk /
-						  sb->s_blocksize);
 		buf->f_bfree =
-		    yaffs_GetNumberOfFreeChunks(dev) * (dev->nDataBytesPerChunk /
-							sb->s_blocksize);
+	                   yaffs_GetNumberOfFreeChunks(dev) * 
+	                   (dev->nDataBytesPerChunk / sb->s_blocksize);
 	}
+	
+	
 	buf->f_files = 0;
 	buf->f_ffree = 0;
 	buf->f_bavail = buf->f_bfree;
@@ -1592,25 +1624,24 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 #ifdef CONFIG_YAFFS_AUTO_YAFFS2
 
 	if (yaffsVersion == 1 && 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,17))
-	    mtd->writesize >= 2048) {
-#else
-	    mtd->oobblock >= 2048) {
-#endif
+			WRITE_SIZE(mtd) >= 2048) {
 	    T(YAFFS_TRACE_ALWAYS,("yaffs: auto selecting yaffs2\n"));
 	    yaffsVersion = 2;
 	}	
-	
+
+  #if 0 
+	/* THT: Leave the AUTO_YAFFS2 on, (so that we don't have to explicitly say rootfstype=yaffs2,
+	 * but disable YAFFS1 when pagesize is 512
+	 */
+
 	/* Added NCB 26/5/2006 for completeness */
 	if (yaffsVersion == 2 && 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,17))
-	    mtd->writesize == 512) {
-#else
-	    mtd->oobblock == 512) {
-#endif
+	    	WRITE_SIZE(mtd) == 512) {
+
 	    T(YAFFS_TRACE_ALWAYS,("yaffs: auto selecting yaffs1\n"));
 	    yaffsVersion = 1;
 	}	
+  #endif
 
 #endif
 
@@ -1632,7 +1663,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 			   "functions\n"));;
 			return NULL;
 		}
-
+#if 0
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,17))
 		if (mtd->writesize < YAFFS_MIN_YAFFS2_CHUNK_SIZE ||
 #else
@@ -1644,6 +1675,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 			   "right page sizes\n"));
 			return NULL;
 		}
+#endif
 	} else {
 		/* Check for V1 style functions */
 		if (!mtd->erase ||
@@ -1661,11 +1693,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 			return NULL;
 		}
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,17))
-		if (mtd->writesize < YAFFS_BYTES_PER_CHUNK ||
-#else
-		if (mtd->oobblock < YAFFS_BYTES_PER_CHUNK ||
-#endif
+		if (WRITE_SIZE(mtd) < YAFFS_BYTES_PER_CHUNK ||
 		    mtd->oobsize != YAFFS_BYTES_PER_SPARE) {
 			T(YAFFS_TRACE_ALWAYS,
 			  ("yaffs: MTD device does not support have the "
@@ -1720,16 +1748,26 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 		dev->queryNANDBlock = nandmtd2_QueryNANDBlock;
 		dev->spareBuffer = YMALLOC(mtd->oobsize);
 		dev->isYaffs2 = 1;
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,17))
-		dev->nDataBytesPerChunk = mtd->writesize;
-		dev->nChunksPerBlock = mtd->erasesize / mtd->writesize;
-#else
-		dev->nDataBytesPerChunk = mtd->oobblock;
-		dev->nChunksPerBlock = mtd->erasesize / mtd->oobblock;
-#endif
+
+		// Force YAFFS2
 		tmpdiv = device_size(mtd);
 		do_div(tmpdiv, mtd->erasesize);
 		nBlocks = (int) tmpdiv;
+	       if (WRITE_SIZE(mtd) < YAFFS_MIN_YAFFS2_CHUNK_SIZE)
+	       {
+	            dev->nDataBytesPerChunk = YAFFS_MIN_YAFFS2_CHUNK_SIZE;
+	            dev->nChunksPerBlock = mtd->erasesize / YAFFS_MIN_YAFFS2_CHUNK_SIZE;
+	//            nBlocks = mtd->size / (mtd->erasesize * (YAFFS_MIN_YAFFS2_CHUNK_SIZE / WRITE_SIZE(mtd)));
+	            
+	            //printk("%s: nBlocks: %d, mtd->size = %d, mtd->erasesize = %d,  WRITE_SIZE(mtd)=%d\n", __FUNCTION__, nBlocks, mtd->size, mtd->erasesize, WRITE_SIZE(mtd));
+	        }
+	        else
+	        {
+	            dev->nDataBytesPerChunk = WRITE_SIZE(mtd);
+	            dev->nChunksPerBlock = mtd->erasesize / WRITE_SIZE(mtd);
+	            
+	            //printk("%s: nBlocks: %d, mtd->size = %d, mtd->erasesize = %d,  WRITE_SIZE(mtd)=%d\n", __FUNCTION__, nBlocks, mtd->size, mtd->erasesize, WRITE_SIZE(mtd));
+	        }
 
 		dev->nCheckpointReservedBlocks = CONFIG_YAFFS_CHECKPOINT_RESERVED_BLOCKS;
 		dev->startBlock = 0;
@@ -1903,9 +1941,12 @@ static char *yaffs_dump_dev(char *buf, yaffs_Device * dev)
 {
 	buf += sprintf(buf, "startBlock......... %d\n", dev->startBlock);
 	buf += sprintf(buf, "endBlock........... %d\n", dev->endBlock);
+	buf += sprintf(buf, "nDataBytesPerChunk. %d\n", dev->nDataBytesPerChunk);
 	buf += sprintf(buf, "chunkGroupBits..... %d\n", dev->chunkGroupBits);
 	buf += sprintf(buf, "chunkGroupSize..... %d\n", dev->chunkGroupSize);
 	buf += sprintf(buf, "nErasedBlocks...... %d\n", dev->nErasedBlocks);
+	buf += sprintf(buf, "nReservedBlocks.... %d\n", dev->nReservedBlocks);
+	buf += sprintf(buf, "blocksInCheckpoint. %d\n", dev->blocksInCheckpoint);
 	buf += sprintf(buf, "nTnodesCreated..... %d\n", dev->nTnodesCreated);
 	buf += sprintf(buf, "nFreeTnodes........ %d\n", dev->nFreeTnodes);
 	buf += sprintf(buf, "nObjectsCreated.... %d\n", dev->nObjectsCreated);

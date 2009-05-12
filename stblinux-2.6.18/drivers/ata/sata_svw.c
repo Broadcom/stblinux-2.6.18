@@ -97,11 +97,9 @@ static DEFINE_SPINLOCK(sleep_lock);
 
 #endif
 // jipeng - if bcmsata2=1, but device only support SATA I, then downgrade to SATA I and reset SATA core
-#define	AUTO_NEG_SPEED	
+#define	AUTO_NEG_SPEED			
 
-#ifdef  AUTO_NEG_SPEED
 static unsigned int new_speed_mask = 0;
-#endif
 
 #ifdef	SATA_SVW_BRCM_WA
 extern int dma_write_wa_needed;
@@ -368,14 +366,6 @@ static void bcm_sg_workaround(void __iomem *mmio_base, int port)
 static void brcm_SetPllTxRxCtrl(void __iomem *mmio_base, int port)
 {
 	uint16_t tmp16;
-	//Lower BW
-#ifdef BRCM_75MHZ_SATA_PLL
-	/* use 75Mhz PLL clock */
-	mdio_write_reg(mmio_base, port, 0, 0x2004);
-#else
-	/* use 100Mhz PLL clock */
-	mdio_write_reg(mmio_base, port, 0, 0x1404);
-#endif
 
 	//Change Tx control
 	mdio_write_reg(mmio_base, port, 0xa, 0x0260);
@@ -431,8 +421,7 @@ static void brcm_InitSata_1_5Gb(void __iomem *mmio_base, int port)
 	void __iomem *port_mmio;
 
 	port_mmio = PORT_BASE(mmio_base, port);
-	writel(1, port_mmio + K2_SATA_SCR_CONTROL_OFFSET);
-	udelay(10000); // wait
+
 	//reset deskew TX FIFO
 	//1. select port
 	mdio_write_reg(mmio_base, port, 7, 1<<port);
@@ -473,11 +462,22 @@ static void brcm_InitSata_1_5Gb(void __iomem *mmio_base, int port)
 	writel(tmp32 | 2, port_mmio + K2_SATA_E0_OFFSET);
 #endif
 
-	//Tweak PLL, Tx, and Rx
 	brcm_SetPllTxRxCtrl(mmio_base, port);
-	brcm_TunePLL(mmio_base, port);
-	brcm_AnalogReset(mmio_base, port);
-	udelay(10000); // wait
+
+	if(!port)
+	{
+		//Lower BW
+#ifdef BRCM_75MHZ_SATA_PLL
+		/* use 75Mhz PLL clock */
+		mdio_write_reg(mmio_base, port, 0, 0x2004);
+#else
+		/* use 100Mhz PLL clock */
+		mdio_write_reg(mmio_base, port, 0, 0x1404);
+#endif
+		brcm_TunePLL(mmio_base, port);
+		brcm_AnalogReset(mmio_base, port);
+		udelay(10000); // wait
+	}
 
 	writel(0, port_mmio + K2_SATA_SCR_CONTROL_OFFSET);
 }
@@ -489,8 +489,6 @@ static void brcm_InitSata2_3Gb(void __iomem *mmio_base, int port)
 	void __iomem *port_base;
 
 	port_base = PORT_BASE(mmio_base, port);
-	writel(1, port_base + K2_SATA_SCR_CONTROL_OFFSET);
-	udelay(10000); // wait
 
 	//reset deskew TX FIFO
 	//1. select port
@@ -529,10 +527,22 @@ static void brcm_InitSata2_3Gb(void __iomem *mmio_base, int port)
 
 	//Tweak PLL, Tx, and Rx
 	brcm_SetPllTxRxCtrl(mmio_base, port);
-	brcm_TunePLL(mmio_base, port);
-	brcm_AnalogReset(mmio_base, port);
-	udelay(10000); // wait
 
+	if(!port)
+	{
+		//Lower BW
+#ifdef BRCM_75MHZ_SATA_PLL
+		/* use 75Mhz PLL clock */
+		mdio_write_reg(mmio_base, port, 0, 0x2004);
+#else
+		/* use 100Mhz PLL clock */
+		mdio_write_reg(mmio_base, port, 0, 0x1404);
+#endif
+		brcm_TunePLL(mmio_base, port);
+		brcm_AnalogReset(mmio_base, port);
+		udelay(10000); // wait
+	}
+	
 	writel(0, port_base + K2_SATA_SCR_CONTROL_OFFSET);
 }
 
@@ -545,6 +555,8 @@ static inline void brcm_initsata2(void __iomem *mmio_base, int num_ports)
         unsigned int first=1;
 
 retry_brcm_initsata2:
+        for (port=0; port < num_ports; port++) 
+	writel(1, (void *)(mmio_base + port*K2_SATA_PORT_OFFSET + K2_SATA_SCR_CONTROL_OFFSET));
 
         for (port=0; port < num_ports; port++) {
                 /*
@@ -587,7 +599,7 @@ static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_
 {
 	unsigned int reg;
 	void __iomem *mmio_base = probe_ent->mmio_base;
-	
+
 	/* minimum grant, to avoid Latency being reset to lower value */
 	pci_write_config_byte(dev, PCI_MIN_GNT, 0x0f);
 
@@ -2146,6 +2158,7 @@ static int k2_sata_init_one (struct pci_dev *pdev, const struct pci_device_id *e
 	rc = pci_set_dma_mask(pdev, ATA_DMA_MASK);
 	if (rc)
 		goto err_out_regions;
+
 	rc = pci_set_consistent_dma_mask(pdev, ATA_DMA_MASK);
 	if (rc)
 		goto err_out_regions;

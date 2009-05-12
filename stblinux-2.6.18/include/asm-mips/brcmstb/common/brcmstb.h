@@ -312,6 +312,46 @@
 #define BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_ADDR (0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE_0)
 #define BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_MASK BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_boot_shape_MASK
 
+#elif defined(CONFIG_MIPS_BCM7420B0)
+#include <asm/brcmstb/brcm97420b0/bcmuart.h>
+#include <asm/brcmstb/brcm97420b0/bcmtimer.h>
+#include <asm/brcmstb/brcm97420b0/bcmebi.h>
+#include <asm/brcmstb/brcm97420b0/int1.h>
+#include <asm/brcmstb/brcm97420b0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97420b0/board.h>
+#include <asm/brcmstb/brcm97420b0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97420b0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97420b0/bchp_nand.h>
+#include <asm/brcmstb/brcm97420b0/bchp_edu.h>
+#include <asm/brcmstb/brcm97420b0/bchp_hif_intr2.h> /* For EDU interrupts */
+#include <asm/brcmstb/brcm97420b0/bchp_ebi.h>
+#include <asm/brcmstb/brcm97420b0/bchp_sun_top_ctrl.h>
+#include <asm/brcmstb/brcm97420b0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97420b0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97420b0/bchp_usb_ehci1.h>
+#include <asm/brcmstb/brcm97420b0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97420b0/bchp_usb_ohci1.h>
+#include <asm/brcmstb/brcm97420b0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97420b0/bchp_clk.h>
+#include <asm/brcmstb/brcm97420b0/bchp_memc_ddr_0.h>
+#include <asm/brcmstb/brcm97420b0/bchp_pcie_dma.h>
+#include <asm/brcmstb/brcm97420b0/bchp_pcie_intr2.h>
+#include <asm/brcmstb/brcm97420b0/bchp_pcie_misc.h>
+#include <asm/brcmstb/brcm97420b0/bchp_pcie_misc_perst.h>
+#include <asm/brcmstb/brcm97420b0/bchp_pcie_rc_cfg_type1.h>
+#include <asm/brcmstb/brcm97420b0/bchp_pcie_rc_cfg_vendor.h>
+#include <asm/brcmstb/brcm97420b0/bchp_hif_rgr1.h>
+#include <asm/brcmstb/brcm97420b0/bchp_mips_biu.h>
+#include <asm/brcmstb/brcm97420b0/bchp_moca_hostmisc.h>
+#include <asm/brcmstb/brcm97420b0/bchp_wktmr.h>
+#include <asm/brcmstb/brcm97420b0/bchp_hif_mspi.h>
+#include <asm/brcmstb/brcm97420b0/bchp_hif_spi_intr2.h>
+#include <asm/brcmstb/brcm97420b0/bchp_bspi.h>
+#include <asm/brcmstb/brcm97420b0/bchp_bspi_raf.h>
+
+#define BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_ADDR (0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE_0)
+#define BOOT_ROM_TYPE_STRAP_BOOT_SHAPE_MASK BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_boot_shape_MASK
+
 #elif defined(CONFIG_MIPS_BCM7325B0)
 #include <asm/brcmstb/brcm97325b0/bcmuart.h>
 #include <asm/brcmstb/brcm97325b0/bcmtimer.h>
@@ -642,6 +682,8 @@ struct bcmumac_platform_data {
 #define BRCM_MOCA_REG_END	BCHP_MOCA_MOCAM2M_REG_END
 #endif
 
+#ifdef CONFIG_MIPS_BCM7420A0
+/* old A0 GENET */
 #if defined(BCHP_GENET_UMAC_REG_START)
 #define BRCM_UMAC_0_SUPPORTED	1
 #define BRCM_UMAC_0_REG_START	BCHP_GENET_UMAC_REG_START
@@ -653,6 +695,19 @@ struct bcmumac_platform_data {
 #define BRCM_UMAC_1_REG_START	BCHP_MOCA_GENET_UMAC_REG_START
 #define BRCM_UMAC_1_REG_END	BCHP_MOCA_GENET_SCB_REG_END
 #endif
+#else /* CONFIG_MIPS_BCM7420A0 */
+#if defined(BCHP_GENET_UMAC_REG_START)
+#define BRCM_UMAC_0_SUPPORTED	1
+#define BRCM_UMAC_0_REG_START	BCHP_GENET_UMAC_REG_START
+#define BRCM_UMAC_0_REG_END	BCHP_GENET_TDMA_REG_END
+#endif
+
+#if defined(BCHP_MOCA_GENET_UMAC_REG_START)
+#define BRCM_UMAC_1_SUPPORTED	1
+#define BRCM_UMAC_1_REG_START	BCHP_MOCA_GENET_UMAC_REG_START
+#define BRCM_UMAC_1_REG_END	BCHP_MOCA_GENET_TDMA_REG_END
+#endif
+#endif /* CONFIG_MIPS_BCM7420A0 */
 
 /* BCM3548, BCM7420, and later chips do not have straps for memory size */
 #if defined(CONFIG_MIPS_BCM3560) || defined(CONFIG_MIPS_BCM7038) || \

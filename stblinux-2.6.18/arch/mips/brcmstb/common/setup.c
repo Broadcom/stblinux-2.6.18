@@ -428,11 +428,24 @@ static struct resource umac_0_resources[] = {
 		.end =		BPHYSADDR(BRCM_UMAC_0_REG_END),
 		.flags =	IORESOURCE_MEM,
 	},
+#ifdef CONFIG_MIPS_BCM7420A0
 	[1] = {
 		.start =	BCM_LINUX_CPU_ENET_IRQ,
 		.end =		BCM_LINUX_CPU_ENET_IRQ,
 		.flags =	IORESOURCE_IRQ,
 	},
+#else
+	[1] = {
+		.start =	BCM_LINUX_GENET_0_A_IRQ,
+		.end =		BCM_LINUX_GENET_0_A_IRQ,
+		.flags =	IORESOURCE_IRQ,
+	},
+	[2] = {
+		.start =	BCM_LINUX_GENET_0_B_IRQ,
+		.end =		BCM_LINUX_GENET_0_B_IRQ,
+		.flags =	IORESOURCE_IRQ,
+	},
+#endif
 };
 
 static struct platform_device umac_0_plat_dev = {
@@ -465,11 +478,24 @@ static struct resource umac_1_resources[] = {
 		.end =		BPHYSADDR(BRCM_UMAC_1_REG_END),
 		.flags =	IORESOURCE_MEM,
 	},
+#ifdef CONFIG_MIPS_BCM7420A0
 	[1] = {
 		.start =	BCM_LINUX_CPU_ENET_1_IRQ,
 		.end =		BCM_LINUX_CPU_ENET_1_IRQ,
 		.flags =	IORESOURCE_IRQ,
 	},
+#else
+	[1] = {
+		.start =	BCM_LINUX_GENET_1_A_IRQ,
+		.end =		BCM_LINUX_GENET_1_A_IRQ,
+		.flags =	IORESOURCE_IRQ,
+	},
+	[2] = {
+		.start =	BCM_LINUX_GENET_1_B_IRQ,
+		.end =		BCM_LINUX_GENET_1_B_IRQ,
+		.flags =	IORESOURCE_IRQ,
+	},
+#endif
 };
 
 static struct platform_device umac_1_plat_dev = {
@@ -495,6 +521,8 @@ static int __init umac_moca_initcall(void)
 
 	spin_lock_irqsave(&g_magnum_spinlock, flags);
 #if defined(BRCM_UMAC_0_SUPPORTED)
+	BDEV_WR_F(SUN_TOP_CTRL_SW_RESET, enet_sw_reset, 1);
+	BDEV_RD(BCHP_SUN_TOP_CTRL_SW_RESET);
 	BDEV_WR_F(SUN_TOP_CTRL_SW_RESET, enet_sw_reset, 0);
 #endif
 #if defined(BRCM_MOCA_SUPPORTED)

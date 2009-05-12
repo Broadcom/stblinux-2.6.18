@@ -186,6 +186,8 @@ initrd: kinit
 	chmod +x $(ROMFSDIR)/usr/sbin/stbutil
 	cp -f usr/sbin/usb* $(ROMFSDIR)/usr/sbin/
 	chmod +x $(ROMFSDIR)/usr/sbin/usb*
+	cp -f usr/sbin/bridge* $(ROMFSDIR)/usr/sbin/
+	chmod +x $(ROMFSDIR)/usr/sbin/bridge*
 	#Enabling 2nd serial port
 	chmod u+w $(ROMFSDIR)/etc/inittab
 	# THT: Disable UARTB for now 

@@ -375,6 +375,44 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	BUILD_HANDLER dsp dsp sti silent		/* #26 */
 	BUILD_HANDLER reserved reserved sti verbose	/* others */
 
+#ifdef CONFIG_MIPS_BRCM97XXX
+	/* PR54187: rdhwr fastpath, backported from 2.6.29 */
+
+#ifdef _brcm_rdhwr	/* assumption: same toolchain for user + kernel */
+	/* 0xec03e83b: brdhwr v1,$29 */
+#define RDHWR_INST	0xec03e83b
+#else
+	/* 0x7c03e83b: rdhwr  v1,$29 */
+#define RDHWR_INST	0x7c03e83b
+#endif
+
+	LEAF(handle_ri_rdhwr)
+	.set	push
+	.set	noat
+	.set	noreorder
+	MFC0	k1, CP0_EPC
+	lui	k0, (RDHWR_INST >> 16)
+	lw	k1, (k1)
+	ori	k0, (RDHWR_INST & 0xffff)
+	.set	reorder
+	bne	k0, k1, handle_ri	/* if not ours */
+	/* The insn is rdhwr.  No need to check CAUSE.BD here. */
+	get_saved_sp	/* k1 := current_thread_info */
+	.set	noreorder
+	MFC0	k0, CP0_EPC
+	LONG_ADDIU	k0, 4		/* stall on $k0 */
+	MTC0	k0, CP0_EPC
+	/* I hope three instructions between MTC0 and ERET are enough... */
+	ori	k1, _THREAD_MASK
+	xori	k1, _THREAD_MASK
+	LONG_L	v1, TI_TP_VALUE(k1)
+	.set	mips3
+	eret
+	.set	mips0
+	.set	pop
+	END(handle_ri_rdhwr)
+#endif /* CONFIG_MIPS_BRCM97XXX */
+
 #ifdef CONFIG_64BIT
 /* A temporary overflow handler used by check_daddi(). */
 

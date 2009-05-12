@@ -32,7 +32,7 @@
 #define CPU_PHYS_FPGA_BASE          0x1A000000
 #define CPU_PHYS_1394_BASE          0x19000000
 #define CPU_PHYS_POD_BASE			0x19800000
-#define BRCM_FLASH_SIZE             0x04000000
+#define BRCM_FLASH_SIZE             	0x00400000
 
 /*****************************************************************************/
 /*                   CPU to PCI Bridge Memory Map                            */

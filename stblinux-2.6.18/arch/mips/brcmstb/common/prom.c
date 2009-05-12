@@ -229,7 +229,6 @@ unsigned long
 get_RAM_size(void)
 {
 	BUG_ON(! brcm_dram0_size);
-printk("%s: brcm_dram0_size=%08x\n", __FUNCTION__, brcm_dram0_size);
 	return(brcm_dram0_size);
 }
 
@@ -352,6 +351,7 @@ static void __init board_pinmux_setup(void)
 	PINMUX(20, gpio_109, 5);
 
 	/* set RGMII lines to 2.5V */
+#ifdef CONFIG_MIPS_BCM7420A0
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_002, 1);
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_003, 1);
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_004, 1);
@@ -364,6 +364,9 @@ static void __init board_pinmux_setup(void)
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_012, 1);
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_013, 1);
 	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, pad_mode_gpio_014, 1);
+#else
+	BDEV_WR_F(SUN_TOP_CTRL_GENERAL_CTRL_NO_SCAN_1, rgmii_pad_mode, 1);
+#endif /* CONFIG_MIPS_BCM7420A0 */
 #endif /* CONFIG_MIPS_BCM7420 */
 #endif /* ! CONFIG_MIPS_BRCM_SIM */
 }

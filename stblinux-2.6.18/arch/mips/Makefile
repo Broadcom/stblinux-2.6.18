@@ -743,9 +743,9 @@ ifdef CONFIG_MIPS_BCM97459B0
 else
 	UTS_MACHINE:=7405b0
 endif
+endif
 ifdef CONFIG_MIPS_BCM7405D0
         UTS_MACHINE:=7405d0
-endif
 endif
 
 #
@@ -785,6 +785,9 @@ load-$(CONFIG_MIPS_BCM7420) := 0x80001000
 endif
 ifdef CONFIG_MIPS_BCM7420A0
         UTS_MACHINE:=7420a0
+endif
+ifdef CONFIG_MIPS_BCM7420B0
+        UTS_MACHINE:=7420b0
 endif
 
 

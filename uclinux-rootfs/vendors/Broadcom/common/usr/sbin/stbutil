@@ -253,9 +253,8 @@ fi
 	    rm -f /etc/moca/mocacore.bin /bin/mocad
 	    cp bin/{mocad,mocactl,soapserver} /bin/
 	    cp fw/mocacore.bin /etc/moca/
-	    killall mocad
-	    sleep 1
-	    mocad -D
+	    mocacfg kill
+	    mocacfg boot
 	    sleep 1
 	fi
         echo ""
@@ -420,10 +419,11 @@ do
      case "$FLASH_TYPE" in
      NAND*)
         pgsize=`flash_info "$FDEV" | grep Page | awk '{print $3}'`
-	if [ $pgsize -eq 512 ]; then
-	   echo "YAFFS2 not supported on small page NAND"
-	   exit 0
-	fi
+# PR50162: Now force YAFFS2 onto small page SLC devices
+#	if [ $pgsize -eq 512 ]; then
+#	   echo "YAFFS2 not supported on small page NAND"
+#	   exit 0
+#	fi
      	break  # OK to proceed
         ;;
      *)

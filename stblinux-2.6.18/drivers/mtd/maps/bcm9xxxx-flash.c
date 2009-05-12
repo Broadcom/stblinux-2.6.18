@@ -33,8 +33,8 @@
 #include <linux/init.h>
 #include <asm/brcmstb/common/brcmstb.h>
 
-#define PRINTK(...)
-//#define PRINTK printk
+//#define PRINTK(...)
+#define PRINTK printk
 
 extern int gFlashSize;
 
@@ -179,7 +179,13 @@ struct map_info bcm9XXXX_map
 
 static struct mtd_partition bcm9XXXX_parts[] = {
 
-#if defined( CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601) 
+#if defined( CONFIG_MTD_BRCMNAND ) 
+#define DEFAULT_SIZE_MB ( BRCM_FLASH_SIZE >> 20)
+
+	/* In a NOR+NAND configuration, the NOR flash is only 4MB or less */
+	 { name: "nor",		offset: 0,		size: DEFAULT_SIZE_MB*1024*1024 },
+	 
+#elif defined( CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601) 
 
 #define DEFAULT_SIZE_MB 64 /* 64MB flash */
 
@@ -225,6 +231,17 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 };
 
 
+#ifdef CONFIG_MTD_BRCMNAND
+static void bcm_add_nor_partition(void)
+{
+	printk(KERN_INFO "Mapped %dMB NOR flash at virtual address %08X\n", DEFAULT_SIZE_MB, bcm9XXXX_map.virt );
+	add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, 1);
+}
+
+void (*gInitialize_Nor_Partition)(void) = (void (*)(void)) 0;
+EXPORT_SYMBOL(gInitialize_Nor_Partition);
+#endif
+
 int __init init_bcm9XXXX_map(void)
 {
 	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
@@ -238,7 +255,7 @@ int __init init_bcm9XXXX_map(void)
 	printk(KERN_NOTICE "BCM97XXX flash device: 0x%08lx @ 0x%08lx\n", WINDOW_SIZE, WINDOW_ADDR);
 	bcm9XXXX_map.size = WINDOW_SIZE;
 	numparts = ARRAY_SIZE(bcm9XXXX_parts) - 2; /* Minus the 2 extra place holders */
-	
+
 	/* Adjust partition table */
 #ifdef CONFIG_MTD_ECM_PARTITION
 	if (WINDOW_SIZE < (64<<20)) {
@@ -294,6 +311,7 @@ PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm9XXXX_parts[i].name, bcm9
 	}
 #endif
 
+
 	if (gBcmSplash) {		
 PRINTK("In bcmSplash, numParts=%d\n", numparts);
 		for (i=0; i<numparts; i++) {
@@ -341,6 +359,8 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	
 	bcm9XXXX_map.virt = ioremap((unsigned long)WINDOW_ADDR, WINDOW_SIZE);
 
+	
+
 	if (!bcm9XXXX_map.virt) {
 		printk("Failed to ioremap\n");
 		return -EIO;
@@ -348,12 +368,35 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	
 	bcm9XXXX_mtd = do_map_probe("cfi_probe", &bcm9XXXX_map);
 	if (!bcm9XXXX_mtd) {
+
 		iounmap((void *)bcm9XXXX_map.virt);
 		return -ENXIO;
 	}
-		
+	
+#if defined(CONFIG_MTD_BRCMNAND)
+  #if defined(CONFIG_MTD_BRCMNAND_NOR_ACCESS)
+	// Delay calling add_partition, since we want NAND to get assigned mtd0.
+	if (!gInitialize_Nor_Partition) {
+		// Nor is loaded before Nand
+		gInitialize_Nor_Partition = bcm_add_nor_partition;
+	}
+	else {
+		// Nand is loaded before Nor
+		//gInitialize_Nor_Partition = bcm_add_nor_partition;
+		add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, numparts);
+	}
+	
+  #else
+  	// Brcmnand but access to NOR is turned off: Do nothing
+  	;
+  #endif
+  
+#else
+	// Regular Nor access
 	add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, numparts);
+#endif
 	bcm9XXXX_mtd->owner = THIS_MODULE;
+
 	return 0;
 }
 

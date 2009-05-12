@@ -174,6 +174,8 @@ endif
 	chmod +x $(ROMFSDIR)/usr/sbin/stbutil
 	cp -f usr/sbin/usb* $(ROMFSDIR)/usr/sbin/
 	chmod +x $(ROMFSDIR)/usr/sbin/usb*
+	cp -f usr/sbin/bridge* $(ROMFSDIR)/usr/sbin/
+	chmod +x $(ROMFSDIR)/usr/sbin/bridge*
 	#Enabling 2nd serial port
 	# chmod u+w $(ROMFSDIR)/etc/inittab
 	sed 's,#@@@@@ttyS1::respawn:/bin/getty -L ttyS1,ttyS64::respawn:/bin/getty -L ttyS64,g' \

@@ -24,6 +24,8 @@
 #include <linux/ctype.h>
 #include <linux/init.h>
 #include <linux/mm.h>
+#include <linux/module.h> // SYM EXPORT */
+
 #include <asm/bootinfo.h>
 
 #include "../common/cfe_xiocb.h"
@@ -31,6 +33,19 @@
 #include <asm/brcmstb/common/brcmstb.h>
 
 extern unsigned int cfe_seal;
+
+cfeEnvVarPairs_t gCfeEnvVarPairs[] = {
+	{ "LINUX_FFS_STARTAD", 		"LINUX_FFS_SIZE" },
+	{ "SPLASH_PART_STARTAD", 	"SPLASH_PART_SIZE" },
+	{ "LINUX_PART_STARTAD", 		"LINUX_PART_SIZE" },
+	{ "OCAP_PART_STARTAD", 		"OCAP_PART_SIZE" },
+/*
+	{ "DRAM0_OFFSET", 			"DRAM0_SIZE" },
+	{ "DRAM1_OFFSET", 			"DRAM1_SIZE" },
+*/
+	{ NULL, NULL },
+};
+EXPORT_SYMBOL(gCfeEnvVarPairs);
 
 /*
  * Convert ch from a hex digit to an int
@@ -228,17 +243,7 @@ int get_cfe_boot_parms(void)
 }
 
 
-cfeEnvVarPairs_t gCfeEnvVarPairs[] = {
-	{ "LINUX_FFS_STARTAD", 		"LINUX_FFS_SIZE" },
-	{ "SPLASH_PART_STARTAD", 	"SPLASH_PART_SIZE" },
-	{ "LINUX_PART_STARTAD", 		"LINUX_PART_SIZE" },
-	{ "OCAP_PART_STARTAD", 		"OCAP_PART_SIZE" },
-/*
-	{ "DRAM0_OFFSET", 			"DRAM0_SIZE" },
-	{ "DRAM1_OFFSET", 			"DRAM1_SIZE" },
-*/
-	{ NULL, NULL },
-};
+
 
 static inline int bcm_atoi(const char *s, int base)
 {
@@ -314,15 +319,16 @@ void __init bcm_get_cfe_partition_env(void)
 		}
 	}
 
-{
-int i;
-	for (i=0; i < gCfePartitions.numParts; i++) {
-	int p = gCfePartitions.parts[i].part;
+    {
+	int i;
 	
+	for (i=0; i < gCfePartitions.numParts; i++) {
+		int p = gCfePartitions.parts[i].part;
+		
 printk("CFE EnvVar: %s: %08x, %s: %08x\n", 
-	gCfeEnvVarPairs[p].offset, gCfePartitions.parts[i].offset,
-	gCfeEnvVarPairs[p].size, gCfePartitions.parts[i].size);
-}
-}
+		gCfeEnvVarPairs[p].offset, gCfePartitions.parts[i].offset,
+		gCfeEnvVarPairs[p].size, gCfePartitions.parts[i].size);
+	}
+    }
 }
 

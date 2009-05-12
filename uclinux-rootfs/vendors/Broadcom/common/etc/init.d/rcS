@@ -61,9 +61,9 @@ echo "Configure Network interface"
 ###insmod /lib/modules/`uname -r`/kernel/drivers/net/et.o
 # sleep 6
 
-if [ -e /bin/mocad ]; then
+if [ -e /bin/mocacfg ]; then
 	echo "Starting mocad"
-	mocad &
+	mocacfg boot
 fi
 
 # If we boot from NFS, then we don't need the Network, use whatever

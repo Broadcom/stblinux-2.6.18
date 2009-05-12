@@ -6335,7 +6335,7 @@ int yaffs_GutsInitialise(yaffs_Device * dev)
 
 	/* Check geometry parameters. */
 
-	if ((dev->isYaffs2 && dev->nDataBytesPerChunk < 1024) || 
+	if ((dev->isYaffs2 && dev->nDataBytesPerChunk < YAFFS_MIN_YAFFS2_CHUNK_SIZE) || 
 	    (!dev->isYaffs2 && dev->nDataBytesPerChunk != 512) || 
 	     dev->nChunksPerBlock < 2 || 
 	     dev->nReservedBlocks < 2 || 

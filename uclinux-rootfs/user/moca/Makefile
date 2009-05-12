@@ -18,5 +18,6 @@ distclean: clean
 romfs:
 	mkdir -p $(ROMFSDIR)/etc/moca
 	cp -f simple_mocad $(ROMFSDIR)/bin/
-	ln -sf simple_mocad $(ROMFSDIR)/bin/mocad
+	cp -f mocacfg $(ROMFSDIR)/bin/
+	chmod 0755 $(ROMFSDIR)/bin/mocacfg
 	cp -f mocacore.bin $(ROMFSDIR)/etc/moca/

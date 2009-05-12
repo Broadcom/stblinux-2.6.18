@@ -730,7 +730,7 @@ int EDU_write(volatile const void* virtual_addr_buffer, uint32_t external_physic
 {
 	uint32_t  phys_mem;
 	// uint32_t  rd_data;
-	unsigned long flags;
+	//unsigned long flags;
 
 edu_debug = gdebug;
 	phys_mem = EDU_virt_to_phys((void *)virtual_addr_buffer);
@@ -740,11 +740,11 @@ edu_debug = gdebug;
 
 //edu_debug = 4;
 	
-//PRINTK("EDU_write: vBuff: %p physDev: %08x, PA=%08x\n", 
-//virtual_addr_buffer, external_physical_device_address, phys_mem);
+//printk("EDU_write: vBuff: %p physDev: %08x, PA=%08x\n", 
+//	virtual_addr_buffer, external_physical_device_address, phys_mem);
 
 #ifdef CONFIG_MTD_BRCMNAND_USE_ISR
-	spin_lock_irqsave(&gEduIsrData.lock, flags);
+	down(&gEduIsrData.lock);
  	gEduIsrData.flashAddr = external_physical_device_address;
  	gEduIsrData.dramAddr = phys_mem;
 	
@@ -761,7 +761,7 @@ edu_debug = gdebug;
 	gEduIsrData.error = HIF_INTR2_EDU_ERR;
 	gEduIsrData.intr = HIF_INTR2_EDU_DONE_MASK|HIF_INTR2_CTRL_READY;
 
-	spin_unlock_irqrestore(&gEduIsrData.lock, flags);
+	up(&gEduIsrData.lock);
 	ISR_enable_irq();
 
 #else
@@ -785,6 +785,7 @@ edu_debug = gdebug;
 //      EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
 
 //edu_debug = 0;
+//printk("<-- %s\n", __FUNCTION__);
 	return 0;
 }
 
@@ -799,7 +800,7 @@ int EDU_read(volatile void* virtual_addr_buffer, uint32_t external_physical_devi
 	// uint32_t  rd_data;
 	int ret;
 	int retries = 4;
-	unsigned long flags;
+	//unsigned long flags;
 		
 
 static int toggle;
@@ -822,7 +823,7 @@ if (edu_debug) PRINTK("EDU_read: vBuff: %p physDev: %08x, PA=%08x\n",
 virtual_addr_buffer, external_physical_device_address, phys_mem);
 
  #ifdef CONFIG_MTD_BRCMNAND_USE_ISR
- 	spin_lock_irqsave(&gEduIsrData.lock, flags);
+ 	down(&gEduIsrData.lock);
  	gEduIsrData.flashAddr = external_physical_device_address;
  	gEduIsrData.dramAddr = phys_mem;
 	
@@ -848,7 +849,7 @@ virtual_addr_buffer, external_physical_device_address, phys_mem);
 	// On error we also want Ctrlr-Ready because for COR ERR, the Hamming WAR depends on the OOB bytes.
 	gEduIsrData.error = HIF_INTR2_EDU_ERR;
 	gEduIsrData.intr = HIF_INTR2_EDU_DONE_MASK;
-	spin_unlock_irqrestore(&gEduIsrData.lock, flags);
+	up(&gEduIsrData.lock);
 	
 	ISR_enable_irq();
 #else

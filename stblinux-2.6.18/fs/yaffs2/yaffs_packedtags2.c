@@ -42,6 +42,10 @@
 #define EXTRA_OBJECT_TYPE_SHIFT (28)
 #define EXTRA_OBJECT_TYPE_MASK  ((0x0F) << EXTRA_OBJECT_TYPE_SHIFT)
 
+#ifndef CONFIG_YAFFS_DOES_ECC  //mfi: From the android project
+#define YAFFS_IGNORE_TAGS_ECC 1
+#endif
+
 /* THT static */ void yaffs_DumpPackedTags2(const yaffs_PackedTags2 * pt)
 {
 if (pt->t.byteCount < 0 && pt->t.chunkId < 0) dump_stack();

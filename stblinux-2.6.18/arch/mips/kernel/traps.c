@@ -58,6 +58,7 @@ extern asmlinkage void handle_dbe(void);
 extern asmlinkage void handle_sys(void);
 extern asmlinkage void handle_bp(void);
 extern asmlinkage void handle_ri(void);
+extern asmlinkage void handle_ri_rdhwr(void);
 extern asmlinkage void handle_cpu(void);
 extern asmlinkage void handle_ov(void);
 extern asmlinkage void handle_tr(void);
@@ -1645,7 +1646,12 @@ void __init trap_init(void)
 
 	set_except_vector(8, handle_sys);
 	set_except_vector(9, handle_bp);
+#ifdef CONFIG_MIPS_BRCM97XXX
+	/* PR54187: rdhwr fastpath, backported from 2.6.29 */
+	set_except_vector(10, handle_ri_rdhwr);
+#else
 	set_except_vector(10, handle_ri);
+#endif
 	set_except_vector(11, handle_cpu);
 	set_except_vector(12, handle_ov);
 	set_except_vector(13, handle_tr);

@@ -572,7 +572,7 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 		{
 			if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_UART0_CPU_INTR_SHIFT) {
 PRINTK("UART A\n");
-				do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
+				brcm_int2_do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
 			}
 
 			else if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT 
@@ -580,14 +580,14 @@ PRINTK("UART A\n");
 				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ub_irqen_MASK) )
 			{
 PRINTK("UART B\n");
-					do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
+				brcm_int2_do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
 			}
 			else if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT 
 				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ucirq_MASK) 
 				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_uc_irqen_MASK) )
 			{
 PRINTK("UART C\n");
-					do_IRQ(BCM_LINUX_UARTC_IRQ, regs);
+				brcm_int2_do_IRQ(BCM_LINUX_UARTC_IRQ, regs);
 			}
 			else if (irq == BCM_LINUX_CPU_ENET_IRQ)
 			{

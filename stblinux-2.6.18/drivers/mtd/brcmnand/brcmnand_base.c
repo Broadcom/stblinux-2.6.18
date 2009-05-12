@@ -1245,7 +1245,10 @@ static int brcmnand_select_cache_is_valid(struct mtd_info* mtd,  int state, loff
 #endif
 
 
-
+/*
+ * Returns 1 on success,
+ *		  0 on error
+ */
 
 
 static int brcmnand_ctrl_write_is_complete(struct mtd_info *mtd, int* outp_needBBT)
@@ -1271,6 +1274,12 @@ static int brcmnand_ctrl_write_is_complete(struct mtd_info *mtd, int* outp_needB
 
 
 #ifdef CONFIG_MTD_BRCMNAND_EDU
+
+
+/*
+ * Returns 1 on success,
+ *		  0 on error
+ */
 
 static int brcmnand_EDU_write_is_complete(struct mtd_info *mtd, int* outp_needBBT)
 {
@@ -1298,19 +1307,22 @@ static int brcmnand_EDU_write_is_complete(struct mtd_info *mtd, int* outp_needBB
 		HIF_INTR2_EDU_DONE, 
 		HIF_INTR2_EDU_ERR, 
 		HIF_INTR2_EDU_DONE_MASK);
+
 #endif
 
 	if (hif_err != 0) // No timeout
 	{
 		int flashStatus; // = chip->ctrl_read(BCHP_NAND_INTFC_STATUS);
 
-		
+if (!(hif_err & HIF_INTR2_EDU_DONE))
+printk("hif_err=%08x\n", hif_err);
 			
 		
 		/******************* BUG BUG BUG *****************
 		 * THT 01/06/09: What if EDU returns bus error?  We should not mark the block bad then.
 		 */
 		 //Get status:  should we check HIF_INTR2_ERR?
+		//if (hif_err & HIF_INTR2_EDU_ERR)
 		edu_err = EDU_get_error_status_register();
 
 		//Clear interrupt:
@@ -1935,11 +1947,14 @@ static uint32_t debug_buf32[512];
 static u_char* ver_buf = (u_char*) &debug_buf32[0];
 static u_char ver_oob[16];
 
+/*
+ * Clear the controller cache by reading at a location we don't normally read
+ */
 static void debug_clear_ctrl_cache(struct mtd_info* mtd)
 {
 	/* clear the internal cache by writing a new address */
 	struct brcmnand_chip* chip = mtd->priv;
-	loff_t offset = chip->chipSize-0x100000; // Start of BBT region
+	loff_t offset = chip->chipSize-chip->blockSize; // Start of BBT region
 	
 	chip->ctrl_writeAddr(chip, offset, 0); 
 	PLATFORM_IOFLUSH_WAR();
@@ -2165,7 +2180,7 @@ if (gdebug>3) printk("++++++++++++++++++++++++ %s: buffer not 32B aligned, tryin
 
 	buffer = edu_buf;
 
-#elif defined( EDU_DEBUG_4 ) 
+#elif defined( EDU_DEBUG_4 )
 	init_edu_buf();
 	
 #endif
@@ -2180,6 +2195,7 @@ if (gdebug>3) printk("++++++++++++++++++++++++ %s: buffer not 32B aligned, tryin
 			EDU_volatileWrite(EDU_BASE_ADDRESS + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EBI_TIMEOUT);
 		}
 		intr_status = EDU_read(buffer, EDU_ldw);
+		
 
 #if 0
 if ((intr_status == ERESTARTSYS) || (intr_status & HIF_INTR2_EBI_TIMEOUT) ) {
@@ -2191,7 +2207,7 @@ printk("%s: EDU_read returns error %08x , intr=%08x at offset %0llx\n", __FUNCTI
 
 	if (retries <= 0 && ((intr_status == ERESTARTSYS) || (intr_status & HIF_INTR2_EBI_TIMEOUT))) { // EBI Timeout
 		// Use controller read
-		printk("%s: EBI timeout, use controller read at offset %0llx\n", __FUNCTION__, offset);
+		printk("%s: EBI timeout, use controller read at offset %0llx, intr_status=%08x\n", __FUNCTION__, offset, intr_status);
 		ret = brcmnand_ctrl_posted_read_cache(mtd, buffer, oobarea, offset);
 		return (ret); 
 	}
@@ -2433,7 +2449,7 @@ printk("$$$$$$$$$$$$ Read buffer from Ctrl & EDU read-ops differ at offset %0llx
 printk("$$$$$$$$$$$$ EDU Read:\n");
 print_databuf(buffer, 512);
 printk("------------ Ctrl Read: \n");
-print_databuf(edu_buf, 512);
+print_databuf(ctrl_buf, 512);
 		BUG();
 	}
 	//if (oobarea) 
@@ -2689,10 +2705,13 @@ out:
 //#define EDU_DEBUG_3
 #undef EDU_DEBUG_3
 
-#ifdef EDU_DEBUG_3
+#if defined( EDU_DEBUG_3 ) || defined( EDU_DEBUG_5 )
 
 static uint8_t edu_write_buf[512];
 
+/*
+ * Returns 0 on no errors
+ */
 static int edu_write_verify(struct mtd_info *mtd,
         const void* buffer, const u_char* oobarea, loff_t offset)
 {
@@ -2704,21 +2723,27 @@ static int edu_write_verify(struct mtd_info *mtd,
 	int ret = 0;
 
 	if (chip->ecclevel != BRCMNAND_ECC_HAMMING) {
+		// Read back the data, but first clear the internal cache first.
+		debug_clear_ctrl_cache(mtd);
+
 		ret = brcmnand_ctrl_posted_read_cache(mtd, edu_write_buf, oobpoi, offset);
 		if (ret) {
 			printk("+++++++++++++++++++++++ %s: Read Verify returns %d\n", __FUNCTION__, ret);
-			return ret;
+			goto out;
 		}
 		if (0 != memcmp(buffer, edu_write_buf, 512)) {
 			printk("+++++++++++++++++++++++ %s: WRITE buffer differ with READ-Back buffer\n",
 			__FUNCTION__);
-			return (-1);
+			ret = (-1);
+			goto out;
 		}
 		if (oobarea) {
 			if (memcmp(oobarea, oobpoi, 16)) {
 				printk("+++++++++++++++++++++++ %s: OOB comp failed\n", __FUNCTION__);
 				printk("In OOB:\n"); print_oobbuf(oobarea, 16);
 				printk("\nVerify OOB:\n"); print_oobbuf(oobpoi, 16);
+				ret = (-2);
+				goto out;
 			}
 		}
 		return 0;
@@ -2736,14 +2761,16 @@ in_verify = 0;
 
 	if (ret) {
 		printk("+++++++++++++++++++++++ %s: Read Verify returns %d\n", __FUNCTION__, ret);
-		return ret;
+		goto out;
 	}
 
 	if (sw_ecc[0] != oobpoi[6] || sw_ecc[1] != oobpoi[7] || sw_ecc[2] != oobpoi[8]) {
 		printk("+++++++++++++++++++++++ %s: SWECC=%02x%02x%02x ReadOOB=%02x%02x%02x\n",
 			__FUNCTION__, 
 			sw_ecc[0], sw_ecc[1], sw_ecc[2], oobpoi[6], oobpoi[7], oobpoi[8]);
-		return (-1);
+		
+		ret = (-1);
+		goto out;
 	}
 
 	// Verify the OOB if not NULL
@@ -2756,8 +2783,19 @@ in_verify = 0;
 			printk("+++++++++++++++++++++++ %s: OOB comp failed\n", __FUNCTION__);
 			printk("In OOB:\n"); print_oobbuf(write_oob, 16);
 			printk("\nVerify OOB:\n"); print_oobbuf(oobpoi, 16);
+			ret = (-2);
+			goto out;
 		}
 	}
+
+out:
+if (ret) {
+printk("EDU_write 99, ret=%d, offset=%0llx\n", ret, offset);
+printk("Write buffer:\n"); print_databuf(buffer, 512);
+if (oobarea) { printk("Wite OOB: "); print_oobbuf(oobarea, 512); }
+printk("Read back buffer:\n"); print_databuf(edu_write_buf, 512);
+if (oobarea) { printk("Read OOB: "); print_oobbuf(write_oob, 512); }
+}
 	return ret;
 }
 
@@ -2783,6 +2821,7 @@ static int brcmnand_EDU_posted_write_cache(struct mtd_info *mtd,
 	uint32_t* p32;
 	int i; 
 	int ret;
+	int comp = 0;
 
 	struct brcmnand_chip* chip = mtd->priv;    
 	int needBBT=0;
@@ -2836,8 +2875,9 @@ if (gdebug) {printk("%s: oob=\n", __FUNCTION__); print_oobbuf(oobarea, 16);}
 
 		PLATFORM_IOFLUSH_WAR(); // Check if this line may be taken-out
 
+#if 0 // Debugging
 	//chip->ctrl_write(BCHP_NAND_CMD_START, OP_PROGRAM_PAGE);
-
+#endif
 		if (ret & HIF_INTR2_EBI_TIMEOUT) {
 			EDU_volatileWrite(EDU_BASE_ADDRESS + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EBI_TIMEOUT);
 		}
@@ -2845,14 +2885,15 @@ if (gdebug) {printk("%s: oob=\n", __FUNCTION__); print_oobbuf(oobarea, 16);}
 		if (ret) {
 			// Nothing we can do, because, unlike read op, where we can just call the traditional read,
 			// here we may need to erase the flash first before we can write again.
+printk("EDU_write returns %d, trying ctrl write \n", ret);
 			ret = brcmnand_ctrl_posted_write_cache(mtd, buffer, oobarea, offset);
 			goto out;
 		}
 	
-// printk("EDU50\n");
+//printk("EDU50\n");
 
 		// Wait until flash is ready
-		ret = brcmnand_EDU_write_is_complete(mtd, &needBBT);
+		comp = brcmnand_EDU_write_is_complete(mtd, &needBBT);
 	}while (retries-- > 0 && ((ret == ERESTARTSYS) || (ret & HIF_INTR2_EBI_TIMEOUT)));
 
 	if (retries <= 0 && ((ret == ERESTARTSYS) || (ret & HIF_INTR2_EBI_TIMEOUT))) { 
@@ -2872,7 +2913,7 @@ printk("%s: brcmnand_EDU_write_is_complete timeout, intr_status=%08x\n", __FUNCT
 	}
 #endif 
 
-	if (ret) 
+	if (comp) 
 	{
 		if (!needBBT) 
 		{
@@ -2905,10 +2946,10 @@ printk("%s: brcmnand_EDU_write_is_complete timeout, intr_status=%08x\n", __FUNCT
 	ret = -ETIMEDOUT;
 
 out:
-// printk("EDU99\n");
-//gdebug = 0;
+
 
 #if defined(EDU_DEBUG_5) // || defined( CONFIG_MTD_BRCMNAND_VERIFY_WRITE )
+//gdebug = 0;
  	if (0 == ret) {
 		if (edu_write_verify(mtd, buffer, oobarea, offset)) {
 			BUG();
@@ -2920,15 +2961,15 @@ out:
     return ret;
 }
 
-#if 1
-
-static int (*brcmnand_posted_write_cache)(struct mtd_info*, 
+  #ifndef CONFIG_MIPS_BCM7420A0
+// EDU Write does not work on 7420A0
+  static int (*brcmnand_posted_write_cache)(struct mtd_info*, 
 		const void*, const u_char*, loff_t) = brcmnand_EDU_posted_write_cache; 
-#else
-/* Testing 1 2 3, use controller write */
-static int (*brcmnand_posted_write_cache)(struct mtd_info*, 
+
+  #else
+  static int (*brcmnand_posted_write_cache)(struct mtd_info*, 
 		const void*, const u_char*, loff_t) = brcmnand_ctrl_posted_write_cache;
-#endif
+  #endif
 
 #else
 static int (*brcmnand_posted_write_cache)(struct mtd_info*, 
@@ -6653,7 +6694,31 @@ printk("Corrected ECC to Hamming for SLC flashes: ACC_CONTROL = %08lx from %08lx
 				printk("SLC flash: Corrected ACC_CONTROL = %08lx from %08lx\n", acc_control, org_acc_control);
 			}
 		}
+
+
+		/*
+		 * If ECC level is BCH, set CORR Threshold according to # bits corrected
+		 */
+		if (chip->ecclevel != 0 && chip->ecclevel != BRCMNAND_ECC_HAMMING) {
+			int corr_threshold;
+
+			if (chip->ecclevel >= BRCMNAND_ECC_BCH_8) {
+				corr_threshold = 6;  // 6 out of 8
+			} 
+			else if ( chip->ecclevel >=  BRCMNAND_ECC_BCH_4) {
+				corr_threshold = 3;  // 3 out of 4
+			} 
+			else {
+				corr_threshold = 1;  // 1 , default for Hamming
+			}
+			printk(KERN_INFO "%s: CORR ERR threshold set to %d bits\n", __FUNCTION__, corr_threshold);
+			corr_threshold <<= BCHP_NAND_CORR_STAT_THRESHOLD_CORR_STAT_THRESHOLD_SHIFT;
+			brcmnand_ctrl_write(BCHP_NAND_CORR_STAT_THRESHOLD, corr_threshold);
+		}
+			
 	}
+
+
 #endif // Version 3.0+
 #endif // Version 1.0+
 

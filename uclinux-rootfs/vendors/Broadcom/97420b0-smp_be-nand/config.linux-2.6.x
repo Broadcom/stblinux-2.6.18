@@ -1,0 +1,1 @@
+../../../linux-2.6.x/arch/mips/configs/bcm97420b0-smp_be-nand_initrd_defconfig

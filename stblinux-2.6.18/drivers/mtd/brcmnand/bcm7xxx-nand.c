@@ -587,6 +587,20 @@ static int __devinit brcmnanddrv_probe(struct device *dev)
 //printk("	dev_set_drvdata\n");	
 	dev_set_drvdata(&pdev->dev, info);
 //printk("<-- brcmnanddrv_probe\n");
+
+/* NOR+NAND configuration */
+#ifdef CONFIG_MTD_BRCMNAND_NOR_ACCESS
+	/* Append NOR partition to the end */
+	{
+		extern void (*gInitialize_Nor_Partition)(void);
+
+		if (gInitialize_Nor_Partition) {
+			(*gInitialize_Nor_Partition) ();
+		}
+		// Else NAND is loaded first, NOR will append when it is started.
+	}
+
+#endif
 	return 0;
 
 

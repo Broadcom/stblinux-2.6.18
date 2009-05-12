@@ -1,0 +1,99 @@
+#!/bin/sh
+
+INTERFACE="default"
+CFG_FILE="/etc/moca/moca.conf.${INTERFACE}"
+MOCACTL="/bin/mocactl"
+MOCAD="/bin/mocad"
+SIMPLE_MOCAD="/bin/simple_mocad"
+
+# note: any duplicated options in CFG_OPTS will override these
+DEFAULT_OPTS="--nc auto --autoScan on --privacy off --tpc on --constTxMode normal --maxTxPower 3 --nwSearchMask 0xff00 --mcastMode bcast --qtagMode off --labMode off --tabooStartChan 0 --tabooChanMask 0x0 --padPower -7 --preferedNC off"
+
+function nonfree_warn()
+{
+	if [ $NONFREE_PRESENT = 0 ]; then
+		echo "warning: nonfree binaries not present" >&2
+	fi
+}
+
+function nonfree_err()
+{
+	if [ $NONFREE_PRESENT = 0 ]; then
+		echo "ERROR: mocacfg requires the nonfree MoCA package" >&2
+		echo "Please run stbutil option 10 to install it" >&2
+		exit 1
+	fi
+}
+
+#
+# MAIN
+#
+
+CFG_OPTS=""
+[ -e $CFG_FILE ] && source $CFG_FILE
+
+cmd="$1"
+shift
+
+if [ -e $MOCACTL ]; then
+	NONFREE_PRESENT=1
+else
+	NONFREE_PRESENT=0
+fi
+
+case "$cmd" in
+	set)
+		nonfree_warn
+		echo "CFG_OPTS=\"$@\"" > $CFG_FILE
+		exit 0
+		;;
+	
+	show)
+		nonfree_warn
+		echo "$CFG_OPTS"
+		exit 0
+		;;
+	
+	boot)
+		if [ $NONFREE_PRESENT = 1 ]; then
+			$MOCAD -wD
+			exec $MOCACTL start $DEFAULT_OPTS $CFG_OPTS
+			exit 1
+		else
+			$SIMPLE_MOCAD &
+			exit 0
+		fi
+		;;
+
+	kill)
+		killall mocad simple_mocad >& /dev/null
+		sleep 1
+		exit 0
+		;;
+
+	start)
+		nonfree_err
+		exec $MOCACTL start $DEFAULT_OPTS $CFG_OPTS
+		exit 1
+		;;
+	
+	restart)
+		nonfree_err
+		exec $MOCACTL restart $DEFAULT_OPTS $CFG_OPTS
+		exit 1
+		;;
+	
+	stop)
+		nonfree_err
+		exec $MOCACTL stop
+		exit 1
+		;;
+esac
+
+echo "usage:"
+echo "  mocacfg set [ <options> ]"
+echo "  mocacfg show"
+echo "  mocacfg { start | restart | stop }"
+echo "  mocacfg { boot | kill }"
+
+exit 1

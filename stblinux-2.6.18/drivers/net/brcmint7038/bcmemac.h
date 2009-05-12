@@ -20,8 +20,6 @@
 #ifndef _BCMINTENET_H_
 #define _BCMINTENET_H_
 
-#define CONFIG_BCMINTEMAC_NETLINK 1
-
 #include <linux/skbuff.h>
 #include <linux/if_ether.h>
 #include <linux/netdevice.h>

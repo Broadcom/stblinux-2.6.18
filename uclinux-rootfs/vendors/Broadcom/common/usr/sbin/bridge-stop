@@ -1,0 +1,36 @@
+#!/bin/sh
+
+if [ ! -e /sbin/brctl ]; then
+	echo "ERROR: brctl not present"
+	exit 1
+fi
+
+if ! ifconfig br0 >& /dev/null; then
+	echo "ERROR: bridge is not running"
+	exit 1
+fi
+
+echo -n "Killing DHCP clients... "
+killall dhcpcd &> /dev/null
+usleep 200000
+killall -9 dhcpcd &> /dev/null
+echo "done"
+
+echo -n "Tearing down the bridge... "
+ifconfig br0 down
+brctl delbr br0
+
+echo -n "Restarting DHCP client on each interface... "
+for x in $(ls /sys/class/net); do
+	case $x in
+		lo|br*)
+			;;
+		*)
+			dhcpcd -Hd -L /var/run $x &
+			;;
+	esac
+done
+
+echo "done"
+
+exit 0

@@ -22,12 +22,36 @@
  * 20090318	tht		Original coding
  */
 
+//#define ISR_DEBUG_SMP
+#undef ISR_DEBUG_SMP
+
+#ifdef ISR_DEBUG_SMP
+#include <asm/atomic.h>
+#endif
 
 #include "brcmnand_priv.h"
 #include "edu.h"
 
 #define PRINTK(...)
-//define PRINTK printk
+//#define PRINTK printk
+
+#ifdef ISR_DEBUG_SMP
+static atomic_t v = ATOMIC_INIT(1);
+#define PRINTK1(...) if (!atomic_dec_and_test(&v)) printk("<")
+#define PRINTK2(...) atomic_inc(&v)  //, printk(">"))
+#define PRINTK5(...) if (!atomic_dec_and_test(&v))  printk("+");
+#define PRINTK6(...) atomic_inc(&v)  // printk("-");
+#define PRINTK3(...) if (!atomic_dec_and_test(&v)) printk("[");
+#define PRINTK4(...) atomic_inc(&v) // printk("]");
+
+#else
+#define PRINTK1(...)
+#define PRINTK2(...)
+#define PRINTK3(...)
+#define PRINTK4(...)
+#define PRINTK5(...)
+#define PRINTK6(...)
+#endif
  
 
  // Wakes up the sleeping calling thread.
@@ -39,7 +63,6 @@ static irqreturn_t ISR_isr(int irq, void *devid, struct pt_regs *regs)
 {
 	uint32_t status, rd_data;
 	uint32_t intrMask;  
-	unsigned long flags;
 
 	/*
 	 * Not mine
@@ -47,21 +70,25 @@ static irqreturn_t ISR_isr(int irq, void *devid, struct pt_regs *regs)
 	if (devid != (void*) &gEduIsrData) {
 		return IRQ_NONE;
 	}
-
+	
+	/*
+	 * Remember the status, as there can be several L1 interrupts before completion.
+	 * Grab the lock first, we don't want any race condition.
+	 */
+	down(&gEduIsrData.lock);
 	intrMask = ISR_volatileRead(BCM_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_MASK_STATUS);
 	rd_data = ISR_volatileRead(BCM_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS);
 	
-PRINTK("%s: Awaken rd_data=%08x, intrMask=%08x, cmd=%d, flashAddr=%08x\n", __FUNCTION__, 
+PRINTK1("==> %s: Awaken rd_data=%08x, intrMask=%08x, cmd=%d, flashAddr=%08x\n", __FUNCTION__, 
 	rd_data, intrMask, gEduIsrData.cmd, gEduIsrData.flashAddr);
 
-	/*
-	 * Remember the status, as there can be several L1 interrupts before completion
-	 */
-	spin_lock_irqsave(&gEduIsrData.lock, flags);
 	gEduIsrData.status |= rd_data;
 	status = gEduIsrData.status & gEduIsrData.mask;
 	
-	// Evaluate exit/completion condition
+	/*
+	 * Evaluate exit/completion condition.  On an SMP system,
+	 * it is too complicated to be evaluated atomically without a semaphore.
+	 */
 	switch (gEduIsrData.cmd) {
 	case EDU_READ:
 	case NAND_CTRL_READY:
@@ -81,13 +108,14 @@ PRINTK("%s: Awaken rd_data=%08x, intrMask=%08x, cmd=%d, flashAddr=%08x\n", __FUN
 	}
 	if (gEduIsrData.opComplete) {
 		ISR_disable_irq(gEduIsrData.intr);
-		wake_up_interruptible(&gEduWaitQ);
+		//wake_up_interruptible(&gEduWaitQ);
+		wake_up(&gEduWaitQ);
 	}
 	else {
 		/* Ack only the ones that show */
 		uint32_t ack = gEduIsrData.status & gEduIsrData.intr;
 		
-printk("%s: opComp=0, intr=%08x, mask=%08x, expect=%08x, err=%08x, status=%08x, rd_data=%08x, intrMask=%08x, flashAddr=%08x, DRAM=%08x\n", __FUNCTION__, 
+PRINTK("%s: opComp=0, intr=%08x, mask=%08x, expect=%08x, err=%08x, status=%08x, rd_data=%08x, intrMask=%08x, flashAddr=%08x, DRAM=%08x\n", __FUNCTION__, 
 gEduIsrData.intr, gEduIsrData.mask, gEduIsrData.expect, gEduIsrData.error, gEduIsrData.status, rd_data, intrMask, gEduIsrData.flashAddr, gEduIsrData.dramAddr);
 
 		// Just disable the ones that are triggered
@@ -103,45 +131,79 @@ gEduIsrData.intr, gEduIsrData.mask, gEduIsrData.expect, gEduIsrData.error, gEduI
 			BUG();
 		}
 	}
-	spin_unlock_irqrestore(&gEduIsrData.lock, flags);
+	up(&gEduIsrData.lock);
+PRINTK2("<== %s: \n", __FUNCTION__);
 	return IRQ_HANDLED;
 }
 
 uint32_t ISR_wait_for_completion(void)
 {
 	//uint32_t rd_data;
-	int ret;
+//volatile unsigned int c = 0xfedeadad;
+	int ret = -ERESTARTSYS;
 	unsigned long to_jiffies = 3*HZ; /* 3 secs */
+	//unsigned long cur_jiffies = jiffies;
+	unsigned long expired = jiffies + to_jiffies;
 	int cmd;
-	unsigned long flags;
+	int retries = 2;
+	//unsigned long flags;
+//volatile unsigned int counter = 0xAABBCCDD;
+//static int erestartsys = 0;
+
 	
-	ret = wait_event_interruptible_timeout(gEduWaitQ, gEduIsrData.opComplete, to_jiffies);
-
-	spin_lock_irqsave(&gEduIsrData.lock, flags);
-
-	cmd = gEduIsrData.cmd;
-	gEduIsrData.cmd = -1;
-
-	if (!gEduIsrData.opComplete && ret <= 0) {
-		ISR_disable_irq(gEduIsrData.intr);
-		if (ret == -ERESTARTSYS) {
-			spin_unlock_irqrestore(&gEduIsrData.lock, flags);
-			return (uint32_t) (ERESTARTSYS);  // Retry on Read
-		}	
-		else if (ret == 0) { 
-			//gEduIsrData.opComplete = 1;
-			printk("%s: DMA timedout\n", __FUNCTION__);
-			spin_unlock_irqrestore(&gEduIsrData.lock, flags);
-			return 0; // Timed Out
+	while (ret == -ERESTARTSYS ) {
+//printk("%s: jiffies=%08lx, expired=%08lx\n", __FUNCTION__, jiffies, expired);
+		if (((retries--) < 0) || time_after(jiffies, expired)) {
+			ret = 0; // Timed out
+			return ERESTARTSYS;
 		}
-	
-		// DMA completes on Done or Error.
-		//rd_data = ISR_volatileRead(BCM_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS);
-	
-		printk("%s: EDU completes but Status is %08x\n", __FUNCTION__, gEduIsrData.status);
-		//rd_data = 0; // Treat as a timeout
+		else  {
+			// Recalculate TO, for retries
+			to_jiffies = expired - jiffies;
+			//ret = wait_event_interruptible_timeout(gEduWaitQ, gEduIsrData.opComplete, to_jiffies);
+			ret = wait_event_timeout(gEduWaitQ, gEduIsrData.opComplete, to_jiffies);
+		}
+
+PRINTK3("==>%s\n", __FUNCTION__);
+		down(&gEduIsrData.lock);
+
+		cmd = gEduIsrData.cmd;
+		gEduIsrData.cmd = -1;
+
+		if (!gEduIsrData.opComplete && ret <= 0) {
+			ISR_disable_irq(gEduIsrData.intr);
+
+			if (ret == -ERESTARTSYS) {
+				up(&gEduIsrData.lock);
+
+//if (5 >= erestartsys++)
+//printk("Pending signals: %08lx-%08lx-%08lx-%08lx\n", 
+//current->pending.signal.sig[0], current->pending.signal.sig[1],current->pending.signal.sig[2], current->pending.signal.sig[3]);
+				continue;
+			}	
+			else if (ret == 0) { 
+				//gEduIsrData.opComplete = 1;
+				PRINTK("%s: DMA timedout\n", __FUNCTION__);
+
+				up(&gEduIsrData.lock);
+//printk("<==%s, ret=0 TimeOut\n", __FUNCTION__);
+PRINTK4("<==%s, ret=0 TimeOut\n", __FUNCTION__);
+
+				return 0; // Timed Out
+			}
+
+			
+			
+			// DMA completes on Done or Error.
+			//rd_data = ISR_volatileRead(BCM_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS);
+		
+PRINTK("%s: EDU completes but Status is %08x\n", __FUNCTION__, gEduIsrData.status);
+			//rd_data = 0; // Treat as a timeout
+		}
+
+		up(&gEduIsrData.lock);
 	}
-	spin_unlock_irqrestore(&gEduIsrData.lock, flags);
+
 	return gEduIsrData.status;
 }
 
@@ -149,7 +211,7 @@ uint32_t ISR_wait_for_completion(void)
 uint32_t ISR_cache_is_valid(uint32_t clearMask)
 {
 	uint32_t rd_data = ISR_volatileRead(BCM_BASE_ADDRESS+BCHP_HIF_INTR2_CPU_STATUS);
-	unsigned long flags;
+	//unsigned long flags;
 
 	/*
 	 * Already there, no need to wait
@@ -161,7 +223,8 @@ uint32_t ISR_cache_is_valid(uint32_t clearMask)
 	ISR_volatileWrite(BCM_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_MASK_SET, clearMask);
 	
 	 do {
-		spin_lock_irqsave(&gEduIsrData.lock, flags);
+PRINTK5("==>%s\n", __FUNCTION__);
+		down(&gEduIsrData.lock);
 	 	gEduIsrData.flashAddr = 0;
 	 	gEduIsrData.dramAddr = 0;
 		
@@ -177,8 +240,8 @@ uint32_t ISR_cache_is_valid(uint32_t clearMask)
 		gEduIsrData.error = 0;
 		gEduIsrData.intr = HIF_INTR2_CTRL_READY;
 
-		spin_unlock_irqrestore(&gEduIsrData.lock, flags);
-
+		up(&gEduIsrData.lock);
+PRINTK6("<==%s\n", __FUNCTION__);
 		ISR_enable_irq();
 	
 		rd_data = ISR_wait_for_completion();
@@ -192,7 +255,7 @@ void ISR_init(void)
 	int ret;
 	uint32_t intrMask;
 
-	spin_lock_init(&gEduIsrData.lock);
+	init_MUTEX(&gEduIsrData.lock);
 	
 	// Mask all L2 interrupts
 	intrMask = ISR_volatileRead(BCM_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_MASK_STATUS);
