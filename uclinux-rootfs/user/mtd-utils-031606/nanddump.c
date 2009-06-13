@@ -36,6 +36,9 @@
 #define PROGRAM "nanddump"
 #define VERSION "$Revision: 1.29 $"
 
+#define MAX_PAGE_SIZE	4096
+#define MAX_OOB_SIZE	256
+
 void display_help (void)
 {
 	printf("Usage: nanddump [OPTIONS] MTD-device\n"
@@ -164,8 +167,9 @@ void process_options (int argc, char *argv[])
 /*
  * Buffers for reading data from flash
  */
-unsigned char readbuf[4096];
-unsigned char oobbuf[128];
+unsigned char readbuf2[MAX_PAGE_SIZE+127];
+unsigned char* readbuf = NULL;
+unsigned char oobbuf[MAX_OOB_SIZE];
 
 /*
  * Main program
@@ -193,16 +197,27 @@ int main(int argc, char **argv)
 		close(fd);
 		exit (1);
 	}
+	
 
 	/* Make sure device page sizes are valid */
-	if (!(meminfo.oobsize == 128 && meminfo.writesize == 4096) &&
+	if (!(meminfo.oobsize == 16 && meminfo.writesize == 512) &&
+	    !(meminfo.oobsize == 8 && meminfo.writesize == 256) &&
 	    !(meminfo.oobsize == 64 && meminfo.writesize == 2048) &&
-	    !(meminfo.oobsize == 16 && meminfo.writesize == 512) &&
-	    !(meminfo.oobsize == 8 && meminfo.writesize == 256)) {
+	    !(meminfo.oobsize == 128 && meminfo.writesize == 4096) &&
+	    !(meminfo.oobsize == 216 && meminfo.writesize == 4096)
+	    ) 
+	{
 		fprintf(stderr, "Unknown flash (not normal NAND)\n");
 		close(fd);
 		exit(1);
 	}
+	
+	/* 
+	 * Align buffer on 32B boundary, required by EDU
+	 * and 128B for cacheline
+	 */
+	readbuf = (unsigned char*) ((((unsigned int) &readbuf2[0]) + 127) & (~127));
+
 	/* Read the real oob length */
 	oob.length = meminfo.oobsize;
 

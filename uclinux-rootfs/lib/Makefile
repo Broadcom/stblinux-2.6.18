@@ -101,6 +101,7 @@ endif
 	(cd $(ROMFSDIR)/lib; ln -s libuuid.so.1 libuuid.so)
 
 romfs:
+	mkdir -p $(ROMFSDIR)/usr/{lib,bin}
 	for i in $(dir_y) ; do \
 		[ ! -d $$i ] || $(MAKEARCH) -C $$i romfs || exit $$? ; \
 	done

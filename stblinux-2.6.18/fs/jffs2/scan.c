@@ -468,6 +468,17 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 		default: 	return ret;
 		}
 	}
+
+	/*
+	 * THT 6/03/09: PR55695: For SLC NAND with BCH-n ECCs, jffs2_cleanmarker_oob() returns false, 
+	 * but we still need to make sure that the block is not bad
+	 */
+	else {
+		if (c->mtd->block_isbad(c->mtd, jeb->offset)) {
+			D1 (printk(KERN_WARNING "%s: Bad block at %08x\n", __FUNCTION__, jeb->offset));
+			return BLK_STATE_BADBLOCK;
+		}
+	}
 #endif
 
 	if (jffs2_sum_active()) {

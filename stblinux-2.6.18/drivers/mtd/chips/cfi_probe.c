@@ -39,23 +39,20 @@ struct mtd_info *cfi_probe(struct map_info *map);
 #define xip_allowed(base, map) \
 do { \
 	(void) map_read(map, base); \
-	asm volatile (".rep 8; nop; .endr"); \
+	xip_iprefetch(); \
 	local_irq_enable(); \
 } while (0)
 
 #define xip_enable(base, map, cfi) \
 do { \
-	cfi_send_gen_cmd(0xF0, 0, base, map, cfi, cfi->device_type, NULL); \
-	cfi_send_gen_cmd(0xFF, 0, base, map, cfi, cfi->device_type, NULL); \
+	cfi_qry_mode_off(base, map, cfi);		\
 	xip_allowed(base, map); \
 } while (0)
 
 #define xip_disable_qry(base, map, cfi) \
 do { \
 	xip_disable(); \
-	cfi_send_gen_cmd(0xF0, 0, base, map, cfi, cfi->device_type, NULL); \
-	cfi_send_gen_cmd(0xFF, 0, base, map, cfi, cfi->device_type, NULL); \
-	cfi_send_gen_cmd(0x98, 0x55, base, map, cfi, cfi->device_type, NULL); \
+	cfi_qry_mode_on(base, map, cfi); \
 } while (0)
 
 #else
@@ -66,6 +63,9 @@ do { \
 #define xip_disable_qry(base, map, cfi) do { } while (0)
 
 #endif
+
+#if 0 
+// THT Use cfi_query_present
 
 /* check for QRY.
    in: interleave,type,mode
@@ -98,6 +98,8 @@ static int __xipram qry_present(struct map_info *map, __u32 base,
 	return 1; 	// "QRY" found
 }
 
+#endif
+
 static int __xipram cfi_probe_chip(struct map_info *map, __u32 base,
 				   unsigned long *chip_map, struct cfi_private *cfi)
 {
@@ -117,11 +119,7 @@ static int __xipram cfi_probe_chip(struct map_info *map, __u32 base,
 	}
 
 	xip_disable();
-	cfi_send_gen_cmd(0xF0, 0, base, map, cfi, cfi->device_type, NULL);
-	cfi_send_gen_cmd(0xFF, 0, base, map, cfi, cfi->device_type, NULL);
-	cfi_send_gen_cmd(0x98, 0x55, base, map, cfi, cfi->device_type, NULL);
-
-	if (!qry_present(map,base,cfi)) {
+	if (!cfi_qry_mode_on(base, map, cfi)) {
 		xip_enable(base, map, cfi);
 		return 0;
 	}
@@ -142,14 +140,13 @@ static int __xipram cfi_probe_chip(struct map_info *map, __u32 base,
  		start = i << cfi->chipshift;
 		/* This chip should be in read mode if it's one
 		   we've already touched. */
-		if (qry_present(map, start, cfi)) {
+		if (cfi_qry_present(map, start, cfi)) {
 			/* Eep. This chip also had the QRY marker.
 			 * Is it an alias for the new one? */
-			cfi_send_gen_cmd(0xF0, 0, start, map, cfi, cfi->device_type, NULL);
-			cfi_send_gen_cmd(0xFF, 0, start, map, cfi, cfi->device_type, NULL);
+			cfi_qry_mode_off(start, map, cfi);
 
 			/* If the QRY marker goes away, it's an alias */
-			if (!qry_present(map, start, cfi)) {
+			if (!cfi_qry_present(map, start, cfi)) {
 				xip_allowed(base, map);
 				printk(KERN_DEBUG "%s: Found an alias at 0x%x for the chip at 0x%lx\n",
 				       map->name, base, start);
@@ -159,10 +156,9 @@ static int __xipram cfi_probe_chip(struct map_info *map, __u32 base,
 			 * unfortunate. Stick the new chip in read mode
 			 * too and if it's the same, assume it's an alias. */
 			/* FIXME: Use other modes to do a proper check */
-			cfi_send_gen_cmd(0xF0, 0, base, map, cfi, cfi->device_type, NULL);
-			cfi_send_gen_cmd(0xFF, 0, start, map, cfi, cfi->device_type, NULL);
+			cfi_qry_mode_off(base, map, cfi);
 
-			if (qry_present(map, base, cfi)) {
+			if (cfi_qry_present(map, base, cfi)) {
 				xip_allowed(base, map);
 				printk(KERN_DEBUG "%s: Found an alias at 0x%x for the chip at 0x%lx\n",
 				       map->name, base, start);
@@ -177,8 +173,7 @@ static int __xipram cfi_probe_chip(struct map_info *map, __u32 base,
 	cfi->numchips++;
 
 	/* Put it back into Read Mode */
-	cfi_send_gen_cmd(0xF0, 0, base, map, cfi, cfi->device_type, NULL);
-	cfi_send_gen_cmd(0xFF, 0, base, map, cfi, cfi->device_type, NULL);
+	cfi_qry_mode_off(base, map, cfi);
 	xip_allowed(base, map);
 
 	printk(KERN_INFO "%s: Found %d x%d devices at 0x%x in %d-bit bank\n",
@@ -232,10 +227,13 @@ static int __xipram cfi_chip_setup(struct map_info *map,
 	cfi->mfr = cfi_read_query16(map, base);
 	cfi->id = cfi_read_query16(map, base + ofs_factor);
 
+	/* Get AMD/Spansion extended JEDEC ID */
+	if (cfi->mfr == CFI_MFR_AMD && (cfi->id & 0xff) == 0x7e)
+		cfi->id = cfi_read_query(map, base + 0xe * ofs_factor) << 8 |
+			  cfi_read_query(map, base + 0xf * ofs_factor);
+
 	/* Put it back into Read Mode */
-	cfi_send_gen_cmd(0xF0, 0, base, map, cfi, cfi->device_type, NULL);
-	/* ... even if it's an Intel chip */
-	cfi_send_gen_cmd(0xFF, 0, base, map, cfi, cfi->device_type, NULL);
+	cfi_qry_mode_off(base, map, cfi);
 	xip_allowed(base, map);
 
 	/* Do any necessary byteswapping */
@@ -348,12 +346,12 @@ static void print_cfi_ident(struct cfi_ident *cfip)
 	else
 		printk("No Vpp line\n");
 
-	printk("Typical byte/word write timeout: %d µs\n", 1<<cfip->WordWriteTimeoutTyp);
-	printk("Maximum byte/word write timeout: %d µs\n", (1<<cfip->WordWriteTimeoutMax) * (1<<cfip->WordWriteTimeoutTyp));
+	printk("Typical byte/word write timeout: %d s\n", 1<<cfip->WordWriteTimeoutTyp);
+	printk("Maximum byte/word write timeout: %d s\n", (1<<cfip->WordWriteTimeoutMax) * (1<<cfip->WordWriteTimeoutTyp));
 
 	if (cfip->BufWriteTimeoutTyp || cfip->BufWriteTimeoutMax) {
-		printk("Typical full buffer write timeout: %d µs\n", 1<<cfip->BufWriteTimeoutTyp);
-		printk("Maximum full buffer write timeout: %d µs\n", (1<<cfip->BufWriteTimeoutMax) * (1<<cfip->BufWriteTimeoutTyp));
+		printk("Typical full buffer write timeout: %d s\n", 1<<cfip->BufWriteTimeoutTyp);
+		printk("Maximum full buffer write timeout: %d s\n", (1<<cfip->BufWriteTimeoutMax) * (1<<cfip->BufWriteTimeoutTyp));
 	}
 	else
 		printk("Full buffer write not supported\n");

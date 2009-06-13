@@ -80,7 +80,18 @@ obj-$(CONFIG_RIONET) += rionet.o
 obj-$(CONFIG_MII) += mii.o
 obj-$(CONFIG_PHYLIB) += phy/
 obj-$(CONFIG_BCMINTEMAC_7038) += brcmint7038/
-obj-$(CONFIG_BCMUMAC) += brcmunimac/
+ifeq ($(CONFIG_MIPS_BCM7420AX),y)
+	obj-$(CONFIG_BCMUMAC) += brcmunimac/
+endif
+ifeq ($(CONFIG_MIPS_BCM7420AX_NAND),y)
+	obj-$(CONFIG_BCMUMAC) += brcmunimac/
+endif
+ifeq ($(CONFIG_MIPS_BCM7420BX),y)
+	obj-$(CONFIG_BCMUMAC) += brcmgenet/
+endif
+ifeq ($(CONFIG_MIPS_BCM7420BX_NAND),y)
+	obj-$(CONFIG_BCMUMAC) += brcmgenet/
+endif
 obj-$(CONFIG_SUNDANCE) += sundance.o
 obj-$(CONFIG_HAMACHI) += hamachi.o
 obj-$(CONFIG_NET) += Space.o loopback.o

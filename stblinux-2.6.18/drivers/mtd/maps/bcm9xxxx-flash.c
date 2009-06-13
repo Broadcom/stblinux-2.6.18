@@ -185,7 +185,7 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 	/* In a NOR+NAND configuration, the NOR flash is only 4MB or less */
 	 { name: "nor",		offset: 0,		size: DEFAULT_SIZE_MB*1024*1024 },
 	 
-#elif defined( CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601) 
+#elif defined( CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601) || defined(CONFIG_MIPS_BCM7635) 
 
 #define DEFAULT_SIZE_MB 64 /* 64MB flash */
 

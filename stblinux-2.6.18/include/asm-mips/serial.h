@@ -94,12 +94,16 @@
 	}
 
 /* 3 or more 16550 UART on 7400 and 7118 and 7405 and above */
-#if defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7405) \
- || defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_MIPS_BCM7335) || defined(CONFIG_MIPS_BCM7440B0) \
- || defined(CONFIG_MIPS_BCM7443) || defined(CONFIG_MIPS_BCM7420) || defined(CONFIG_MIPS_BCM7601) \
- || defined(CONFIG_MIPS_BCM7336)
-
-
+/*
+#if defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7405)	\
+ || defined(CONFIG_MIPS_BCM7325) || defined(CONFIG_MIPS_BCM7335) || defined(CONFIG_MIPS_BCM7440B0) 	\
+ || defined(CONFIG_MIPS_BCM7443) || defined(CONFIG_MIPS_BCM7420) || defined(CONFIG_MIPS_BCM7601) 	\
+ || defined(CONFIG_MIPS_BCM7336) || defined(CONFIG_MIPS_BCM7340) || defined(CONFIG_MIPS_BCM7635)
+*/
+#if defined(CONFIG_MIPS_BCM7400) || defined(CONFIG_MIPS_BCM7118) || defined(CONFIG_MIPS_BCM7405)	\
+ || defined(CONFIG_MIPS_BCM7335) || defined(CONFIG_MIPS_BCM7440B0) 	\
+ || defined(CONFIG_MIPS_BCM7443) || defined(CONFIG_MIPS_BCM7420) || defined(CONFIG_MIPS_BCM7601) 	\
+ || defined(CONFIG_MIPS_BCM7336) || defined(CONFIG_MIPS_BCM7340) || defined(CONFIG_MIPS_BCM7635)
 
 #ifdef CONFIG_MIPS_BRCM_SIM
 /* 2 16550A compatible UARTs */
@@ -123,7 +127,7 @@
 	_BRCM_16550_INIT(BRCM_SERIAL3_IRQ, BRCM_SERIAL3_BASE),	
 #endif  //end SIM
 
-#elif defined(CONFIG_MIPS_BCM7440A0) 
+#elif defined(CONFIG_MIPS_BCM7440A0) || defined(CONFIG_MIPS_BCM7325)
 // 7440A0 uses UARTB as default UART.  Hopefully this will be fixed in a later revision.
 #define BRCM_UART_PORT_DEFNS				\
 	_BRCM_16550_INIT(BRCM_SERIAL1_IRQ, BRCM_SERIAL1_BASE),      \

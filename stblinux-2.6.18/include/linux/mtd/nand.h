@@ -37,7 +37,7 @@ extern void nand_release (struct mtd_info *mtd);
  * is supported now. If you add a chip with bigger oobsize/page
  * adjust this accordingly.
  */
-#define NAND_MAX_OOBSIZE	128
+#define NAND_MAX_OOBSIZE	256	/* 216+2, but align it on boundaries */
 #define NAND_MAX_PAGESIZE	4096
 
 /*

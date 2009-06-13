@@ -6,14 +6,15 @@
 TOOL_DIR_PREFIX=$(shell dirname $(shell which $(CC)))/..
 XFSPROGS_DIR=$(shell pwd)
 
-#CFLAGS += -I$(TOOL_DIR_PREFIX)/mipsel-linux/include/linux/xfs_support/ \
+#CFLAGS += -I$(TOOL_DIR_PREFIX)/mipsel-linux/include/linux/xfs_support/
 CFLAGS += \
-		-I$(XFSPROGS_DIR) -I$(XFSPROGS_DIR)/include -I. -I$(ROOTDIR)/romfs/include \
+		-I$(XFSPROGS_DIR) -I$(XFSPROGS_DIR)/include -I. \
+		-I$(ROOTDIR)/user/e2fsprogs/lib \
 		-D _LARGEFILE_SOURCE -D _LARGEFILE64_SOURCE \
 		-D __USE_LARGEFILE64 -D __USE_FILE_OFFSET64 \
 		-DHAVE_BUILDDEFS -DHAVE_32BIT_LONG -DHAVE_32BIT_PTR \
 		-DVERSION="\"2.5.6\"" -fPIC
-LDFLAGS += -L$(ROOTDIR)/romfs/lib
+LDFLAGS += -L$(ROOTDIR)/user/e2fsprogs/lib
 
 .EXPORT_ALL_VARIABLES:
 

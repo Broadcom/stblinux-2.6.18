@@ -1052,6 +1052,7 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 		else
 			blast_scache_range(addr, addr + size);
 		CACHE_EXIT(dmawb);
+		BCM_LOCAL_EXTRA_CACHEOP_WAR;
 		return;
 	}
 

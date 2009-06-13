@@ -333,8 +333,6 @@ endif
 endif
 
 all:
-# Force a rebuild of the Makefiles in the e2fsprogs tree.
-	if [ -d e2fsprogs ]; then $(RM) e2fsprogs/Makefile e2fsprogs/config.cache; fi
 	for i in $(dir_v) $(sort $(dir_y)) ; do  $(MAKE) -C $$i || exit $? ; done
 
 romfs:

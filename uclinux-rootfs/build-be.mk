@@ -4,19 +4,19 @@
 # Root access is no longer required to build anything.
 #
 # To build all kernels (initrd and regular kernels)
-# % make -f build.mk [platform]
+# % make -f build-be.mk [platform]
 #
 # To build just the initrd kernel for one platform
-# % make -f build.mk vmlinuz-initrd-7038b0
+# % make -f build-be.mk vmlinuz-initrd-7038b0
 #
 # To build just the regular kernel for one platform
-# % make -f build.mk vmlinuz-7038b0
+# % make -f build-be.mk vmlinuz-7038b0
 #
 # To build just the rootfs images for 1 platform, after building the kernels for the 7038b0 platform
-# % make -f build.mk rootfs-7038b0
+# % make -f build-be.mk rootfs-7038b0
 #
 # To build the kernel and images for all platforms:
-# % make -f build.mk all
+# % make -f build-be.mk all
 #
 WHOAMI ?= $(shell who am i | cut -d" " -f1 | cut -d'!' -f2)
 MYGID = $(shell id -g)
@@ -60,12 +60,15 @@ XFS_INITRD_PLATFORMS := $(addprefix vmlinuz-initrd-,$(XFS_PLATFORMS))
 KGDB_PLATFORMS := $(addprefix vmlinuz-,$(addsuffix -kgdb,$(ALL_PLATFORMS)))
 # Pass this flag with a value of "y" to enable kgdb debugging
 # over Single Serial Port
-# make -f build.mk SINGLE_SERIAL_PORT=y vmlinuz-3560-kgdb
+# make -f build-be.mk SINGLE_SERIAL_PORT=y vmlinuz-3560-kgdb
 SINGLE_SERIAL_PORT=n
 
 OPROF_PLATFORMS := $(addprefix vmlinuz-,$(addsuffix -opf,$(ALL_PLATFORMS)))
 OPROF_INITRD_PLATFORMS := $(addprefix vmlinuz-initrd-,$(addsuffix -opf,$(ALL_PLATFORMS)))
 OPROFILE_PLATFORMS := $(addsuffix -opf,$(ALL_PLATFORMS))
+
+NFSROOT_PLATFORMS := $(addprefix nfsroot-,$(ALL_PLATFORMS))
+NFSROOT_EXTRACT_PLATFORMS := $(addprefix extract-nfsroot-,$(ALL_PLATFORMS))
 
 ROOTFS_PLATFORMS := $(addprefix rootfs-,$(ALL_PLATFORMS))
 
@@ -93,7 +96,7 @@ else
 	INITRD_DEFCONFIG:=$$CONFIG_LINUXDIR/.config.orig
 endif
 
-# jipeng - "make -f build.mk vmlinuz-initrd-XXXX dir="linux-2.6.x user/XXX lib/YYY"" to rebuild initrd image incrementally
+# jipeng - "make -f build-be.mk vmlinuz-initrd-XXXX dir="linux-2.6.x user/XXX lib/YYY"" to rebuild initrd image incrementally
 INITRD_SUBDIR=
 INITRD_LINUXDIR=
 
@@ -386,6 +389,25 @@ $(OPROF_PLATFORMS) : prepare
 	else \
 		cp -f $(KERNEL_DIR)/vmlinux $(TFTPDIR)/$(subst vmlinuz,vmlinux,$@); \
 	fi
+
+$(NFSROOT_EXTRACT_PLATFORMS) :
+	@if [ $(MYUID) -ne 0 ]; then 				\
+		echo "Making target $@ requires root access"; 	\
+		exit 1; 					\
+	else 							\
+		su -m -c "cd $$MY_NFSROOT_DIR;			\
+		$(CROSS_COMPILE)objcopy -j .init.ramfs -O binary vmlinux /dev/stdout | gunzip -cd | cpio -ivd --no-absolute-filenames" $(ROOT);	\
+	fi						
+	echo "==== NFS mountable rootfs can be found out at $$MY_NFSROOT_DIR ===="	
+
+$(NFSROOT_PLATFORMS) :
+	make -f build-be.mk vmlinuz-initrd-$(subst nfsroot-,,$@)
+	-test -f $(KERNEL_DIR)/vmlinux && ( test -d images/$(subst nfsroot-,,$@) && 						\
+	( test -d images/$(subst nfsroot-,,$@)/initramfs_nfsroot || mkdir images/$(subst nfsroot-,,$@)/initramfs_nfsroot));	\
+	cp  $(KERNEL_DIR)/vmlinux images/$(subst nfsroot-,,$@)/initramfs_nfsroot/;						\
+	export MY_NFSROOT_DIR=images/$(subst nfsroot-,,$@)/initramfs_nfsroot/;							\
+	echo "make -f build-be.mk extract-$@ requires root access. Please enter root password:";					\
+	su -m -c '$(shell echo "make -f build-be.mk extract-$@")' $(ROOT)
 	
 clean:
 	rm -f $(ALL_PLATFORMS) $(BB_INITRD_PLATFORMS) $(BB_PLATFORMS)
@@ -421,4 +443,6 @@ show_targets:
  	done
 	@for i in $(ALL_PLATFORMS); do \
 		echo "rootfs-"$$i; \
+	@for i in $(ALL_PLATFORMS); do \
+		echo "nfsroot-"$$i; \
  	done

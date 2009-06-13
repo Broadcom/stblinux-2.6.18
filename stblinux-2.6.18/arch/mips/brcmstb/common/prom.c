@@ -112,6 +112,14 @@ EXPORT_SYMBOL(gNandCS);
 int gNumNand = 0;
 EXPORT_SYMBOL(gNumNand);
 
+/*
+ * NAND controller timing parameters
+ */
+uint32_t gNandTiming1;
+uint32_t gNandTiming2;
+EXPORT_SYMBOL(gNandTiming1);
+EXPORT_SYMBOL(gNandTiming2);
+
 /* SATA interpolation */
 int gSataInterpolation = 0;
 EXPORT_SYMBOL(gSataInterpolation);
@@ -146,13 +154,7 @@ __default_get_discontig_RAM_size(void)
 unsigned long (* __get_discontig_RAM_size) (void) = __default_get_discontig_RAM_size;
 EXPORT_SYMBOL(__get_discontig_RAM_size);
 
-#if defined( CONFIG_MIPS_BCM7400 ) || defined( CONFIG_MIPS_BCM7325 ) || \
-	defined( CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601)
-#define CONSOLE_KARGS " console=uart,mmio,0x10400b00,115200n8"
-
-#else
 #define CONSOLE_KARGS " console=ttyS0,115200"
-#endif
 
 #define RW_KARGS " rw"
 #define DEFAULT_KARGS CONSOLE_KARGS RW_KARGS
@@ -312,6 +314,16 @@ static void early_read_int(char *param, int *var)
 		return;
 	cp += strlen(param);
 	*var = memparse(cp, &cp);
+}
+
+static void early_read_hex(char *param, uint32_t *var)
+{
+	char *cp = strstr(cfeBootParms, param);
+
+	if(cp == NULL)
+		return;
+	cp += strlen(param);
+	*var = simple_strtoul(cp, &cp, 16);
 }
 
 #define PINMUX(reg, field, val) do { \
@@ -592,6 +604,10 @@ void __init prom_init(void)
 	early_read_int("flashcode=", &gFlashCode);
 	early_read_int("bcmsplash=", &gBcmSplash);
 
+	/* NAND Timings, in Hex */
+	early_read_hex("nandTiming1=", &gNandTiming1);
+	early_read_hex("nandTiming2=", &gNandTiming2);
+
 	/* brcmnand=
 	 *	rescan: 	1. Rescan for bad blocks, and update existing BBT
 	 *	showbbt:	2. Print out the contents of the BBT on boot up.
@@ -791,7 +807,7 @@ printk("g_board_RAM_size=%dMB\n", ramSizeMB);
 			add_memory_region(0, g_board_RAM_size, BOOT_MEM_RAM);
 		}
 		else {
-#if defined (CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM7601)
+#if defined (CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM7601) || defined(CONFIG_MIPS_BCM7635)
 			/*
 			** On the 7440B0, Memory Region 0
 			** is split into a DMA region sized

@@ -129,22 +129,13 @@ struct inode * udf_new_inode (struct inode *dir, int mode, int * err)
 	{
 		UDF_I_EFE(inode) = 1;
 		UDF_UPDATE_UDFREV(inode->i_sb, UDF_VERS_USE_EXTENDED_FE);
-#ifdef CONFIG_DISCONTIGMEM
-                UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct extendedFileEntry), GFP_KERNEL|GFP_DMA);
-#else
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct extendedFileEntry), GFP_KERNEL);
-#endif
 		memset(UDF_I_DATA(inode), 0x00, inode->i_sb->s_blocksize - sizeof(struct extendedFileEntry));
 	}
 	else
 	{
 		UDF_I_EFE(inode) = 0;
-#if defined ( CONFIG_MIPS_BCM97438 ) || defined (CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601)
-                UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct fileEntry), GFP_KERNEL|GFP_DMA);
-#else
-
 		UDF_I_DATA(inode) = kmalloc(inode->i_sb->s_blocksize - sizeof(struct fileEntry), GFP_KERNEL);
-#endif
 		memset(UDF_I_DATA(inode), 0x00, inode->i_sb->s_blocksize - sizeof(struct fileEntry));
 	}
 	if (UDF_QUERY_FLAG(inode->i_sb, UDF_FLAG_USE_AD_IN_ICB))

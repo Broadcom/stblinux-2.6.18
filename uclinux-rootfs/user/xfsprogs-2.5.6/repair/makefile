@@ -22,14 +22,12 @@ CFLAGS += -I../include -I.. -I. \
 		-DVERSION="\"2.5.6\"" \
 		-fPIC
 
-LDADD  = $(ROOTDIR)/romfs/lib/libxfs.so $(ROOTDIR)/romfs/lib/libdisk.so \
-	 $(ROOTDIR)/romfs/lib/libuuid.so
-LDFLAGS += -L$(ROOTDIR)/romfs/lib
 LDLIBS  += -lxfs -lxlog -luuid
+LDFLAGS += -L../libxfs -L../libxlog
 
 all: $(EXEC)
 
-$(EXEC): $(OBJS) $(LDADD)
+$(EXEC): $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS)  $(LDLIBS)
 
 romfs:

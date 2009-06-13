@@ -2276,8 +2276,11 @@ serial8250_console_write(struct console *co, const char *s, unsigned int count)
 	 *	and restore the IER
 	 */
 	wait_for_xmitr(up);
+
+#if     0       /* jipeng - should not unconditionally enable TX intr since irq handler may not be installed yet */
 	/* enable TX interrupt by hyun */
 	ier |= UART_IER_THRI;	
+#endif
 	serial_out(up, UART_IER, ier);
 }
 

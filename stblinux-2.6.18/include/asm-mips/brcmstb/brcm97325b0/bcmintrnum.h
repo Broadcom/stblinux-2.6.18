@@ -35,73 +35,9 @@ extern "C" {
 #endif
 
 /*
- * Following is the complete map of interrupts in the system. Please
- * keep this up to date and make sure you comment your changes in the
- * comment block above with the date, your initials and what you did.
- *
- * There are two different interrupts in the system. The first type
- * is an actual hardware interrupt. We have a total of eight MIPS
- * interrupts. Two of them are software interrupts and are ignored.
- * The remaining six interrupts are actually monitored and handled
- * by low-level interrupt code in 'int-handler.S' that call dispatch
- * functions in this file to call the IRQ descriptors in the Linux
- * kernel.
- * 
- * The second type is the Linux kernel system interrupt which is
- * a table of IRQ descriptors (see 'include/linux/irq.h' and
- * 'include/linux/interrupt.h') that relate the hardware interrupt
- * handler types to the software IRQ descriptors. This is where all
- * of the status information and function pointers are defined so
- * that registration, releasing, disabling and enabling of interrupts
- * can be performed. Multiple system interrupts can be tied to a
- * single hardware interrupt. Examining this file along with the
- * other three aforementioned files should solidify the concepts.
- *
- * The first table simply shows the MIPS IRQ mapping:
- *
- *   MIPS IRQ   Source
- *   --------   ------
- *       0      Software (Used for SMP IPC)
- *       1      Software (Used for SMP IPC)
- *       2      Hardware BRCMSTB chip Internal
- *       3      Hardware External *Unused*
- *       4      Hardware External *Unused*
- *       5      Hardware External *Unused*
- *       6      R4k timer 
- *       7      Performance Counters
-*
- * The second table shows the table of Linux system interrupt
- * descriptors and the mapping to the hardware IRQ sources:
- *
- *   System IRQ   MIPS IRQ   Source
- *   ----------   --------   ------
- *
- *        0         2         Chip Interrupt Controller/Dedicated Handler
- *      1- 32       2         The L1 32 Interrupt Controller Bits W0
- *      33 - 64     2         The L1 32 Interrupt Controller Bits W1
- *       65         2      	  UARTA
- *       66         2         UARTB
- *       67         2         UARTC
- *       68         6         R4k timer (used for master system time)
- *       69         6         R4k timer CPU2 (used for SMP)
- *       70         2         POD
- *       71         0         IPC 0 (used for SMP)
- *       72         1         IPC 1 (used for SMP)
- *       73         7         Performance Counter
- *       74         2         PATA
- *       75         2         GR Bridge
- *
-
- *
- * Again, I cannot stress this enough, keep this table up to date!!!
- */
-
-
-/* JPF Serial Code depends on a unique IRQ for each serial port */
-
-// THT 2/01/06  No longer used #define BCM_LINUX_USB_HOST_IRQ 	(1+BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_USB_CPU_INTR_SHIFT)
-
-/* JPF Each line in the INTC has an IRQ */
+ refer to arch/mips/brcmstb/brcm97325b0/mt_irq.c for SMTC kernel interrupt assignment,
+ or, arch/mips/brcmstb/brcm97325b0/irq.c for UP kernel interrupt assignment
+*/
 
 #define	BCM_LINUX_CPU_ENET_IRQ        	(1+BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_ENET_EMAC1_CPU_INTR_SHIFT)
 #define POD_IRQ_NUM  			(1+32+BCHP_HIF_CPU_INTR1_INTR_W1_STATUS_EXT_IRQ_3_CPU_INTR_SHIFT )

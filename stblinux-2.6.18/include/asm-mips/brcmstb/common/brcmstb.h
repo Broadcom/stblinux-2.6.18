@@ -277,6 +277,30 @@
 #include <asm/brcmstb/brcm97336a0/bchp_memc_0_ddr.h>
 #include <asm/brcmstb/brcm97336a0/bchp_vcxo_ctl_misc.h>
 
+#elif defined(CONFIG_MIPS_BCM7340A0)
+#include <asm/brcmstb/brcm97340a0/bcmuart.h>
+#include <asm/brcmstb/brcm97340a0/bcmtimer.h>
+#include <asm/brcmstb/brcm97340a0/bcmebi.h>
+#include <asm/brcmstb/brcm97340a0/int1.h>
+#include <asm/brcmstb/brcm97340a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97340a0/board.h>
+#include <asm/brcmstb/brcm97340a0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97340a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97340a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97340a0/bchp_ebi.h>
+#include <asm/brcmstb/brcm97340a0/bchp_sun_top_ctrl.h>
+#include <asm/brcmstb/brcm97340a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97340a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97340a0/bchp_usb_ehci1.h>
+#include <asm/brcmstb/brcm97340a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97340a0/bchp_usb_ohci1.h>
+// #include <asm/brcmstb/brcm97340a0/bchp_pcix_bridge.h>
+#include <asm/brcmstb/brcm97340a0/bchp_clkgen.h>
+#include <asm/brcmstb/brcm97340a0/bchp_bmips4380.h>
+#include <asm/brcmstb/brcm97340a0/bchp_memc_ddr_0.h>
+#include <asm/brcmstb/brcm97340a0/bchp_vcxo_ctl_misc.h>
+
+
 #elif defined(CONFIG_MIPS_BCM7420A0)
 #include <asm/brcmstb/brcm97420a0/bcmuart.h>
 #include <asm/brcmstb/brcm97420a0/bcmtimer.h>
@@ -484,6 +508,30 @@
 #include <asm/brcmstb/brcm97601b0/bchp_sun_top_ctrl.h>
 #include <asm/brcmstb/brcm97601b0/bchp_pcix_bridge.h>
 #include <asm/brcmstb/brcm97601b0/boardmap.h>		/* BCM7601b0 address space is special */
+
+#define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE_0)
+#define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_nand_flash_MASK
+
+#elif defined(CONFIG_MIPS_BCM7635A0)
+#include <asm/brcmstb/brcm97635a0/bcmuart.h>
+#include <asm/brcmstb/brcm97635a0/bcmtimer.h>
+#include <asm/brcmstb/brcm97635a0/bcmebi.h>
+#include <asm/brcmstb/brcm97635a0/int1.h>
+#include <asm/brcmstb/brcm97635a0/bchp_pci_cfg.h>
+#include <asm/brcmstb/brcm97635a0/board.h>
+#include <asm/brcmstb/brcm97635a0/bchp_irq0.h>
+#include <asm/brcmstb/brcm97635a0/bchp_irq1.h>
+#include <asm/brcmstb/brcm97635a0/bchp_hif_cpu_intr1.h>
+#include <asm/brcmstb/brcm97635a0/bcmintrnum.h>
+#include <asm/brcmstb/brcm97635a0/bchp_edu.h>
+#include <asm/brcmstb/brcm97635a0/bchp_hif_intr2.h>
+#include <asm/brcmstb/brcm97635a0/bchp_nand.h>
+#include <asm/brcmstb/brcm97635a0/bchp_usb_ctrl.h>
+#include <asm/brcmstb/brcm97635a0/bchp_usb_ehci.h>
+#include <asm/brcmstb/brcm97635a0/bchp_usb_ohci.h>
+#include <asm/brcmstb/brcm97635a0/bchp_sun_top_ctrl.h>
+#include <asm/brcmstb/brcm97635a0/bchp_pcix_bridge_0.h>
+#include <asm/brcmstb/brcm97635a0/boardmap.h>		/* BCM7635a0 address space is special */
 
 #define	BOOT_ROM_TYPE_STRAP_ADDR	(0xb0000000 | BCHP_SUN_TOP_CTRL_STRAP_VALUE_0)
 #define	BOOT_ROM_TYPE_STRAP_MASK	BCHP_SUN_TOP_CTRL_STRAP_VALUE_0_strap_nand_flash_MASK
@@ -716,7 +764,9 @@ struct bcmumac_platform_data {
 	defined(CONFIG_MIPS_BCM7401) || defined(CONFIG_MIPS_BCM7402) || \
 	defined(CONFIG_MIPS_BCM7403) || defined(CONFIG_MIPS_BCM7405) || \
 	defined(CONFIG_MIPS_BCM7440) || defined(CONFIG_MIPS_BCM7601) || \
-	defined(CONFIG_MIPS_BCM7336)
+	defined(CONFIG_MIPS_BCM7336) || defined(CONFIG_MIPS_BCM7340) ||	\
+	defined(CONFIG_MIPS_BCM7635)
+
 #define BRCM_MEMORY_STRAPS	1
 #endif
 

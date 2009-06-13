@@ -45,8 +45,8 @@ config MTD_BRCMNAND_VERSION
 		7	3.1.0	RDB reads as 3.0: 3548b0,3548b1,7420a0: PR2516 fix (OOB Read) 
 		8	3.1.1	RDB reads as 3.0: 3548b2,7336a0,7443b0: PR2371 fix (Hamming)
 		9	3.2	Device ID decode update, 7413b0
-		10	3.3	Expand ACC/CONFIG to allow per chip registers, 7420b0, 7635a0
-				Allow XOR only on block0
+		10	3.3	Expand ACC/CONFIG to allow per chip registers
+				Allow XOR only on block0, 7420b0, 7635a0, 7340a0, 7125a0
 
 config MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
 	bool "Refresh a block on a one bit correctable ECC error"
@@ -63,11 +63,11 @@ config MTD_BRCMNAND_EDU
 	bool "Enable Broadcom NAND EDU"
 	default n
 	select MTD_BRCMNAND_USE_ISR
-	depends on MTD_BRCMNAND && (MIPS_BCM7440B0 || MIPS_BCM3548B0 || MIPS_BCM7601 || MIPS_BCM7420)
+	depends on MTD_BRCMNAND && (MIPS_BCM7440B0 || MIPS_BCM3548B0 || MIPS_BCM7601 || MIPS_BCM7420 || MIPS_BCM7635)
 	help
 	   Enable DMA capability of the NAND controller.  
 	   Currently only present on the following chips:
-	   7440bx, 7440cx, 3548b0, 7601 and 7420
+	   7440bx, 7440cx, 3548b0, 7601, 7635 and 7420
 	   
 #	# select MTD_BRCMNAND_USE_ISR
 
@@ -76,8 +76,16 @@ config MTD_BRCMNAND_USE_ISR
 	bool "Enable Broadcom NAND ISR"
 	default n
 	depends on MTD_BRCMNAND_EDU 
+	select MTD_BRCMNAND_ISR_QUEUE
 	help
 	   Use Interrupt Service Routine instead of polling mode
+	   
+config MTD_BRCMNAND_ISR_QUEUE
+	bool "Enable queue mode"
+	default y
+	depends on MTD_BRCMNAND_USE_ISR
+	help
+	   Queue per-page read/write ops for better performance
 	   
 config MTD_BRCMNAND_NOR_ACCESS
 	bool "Enable Access to the NOR flash"

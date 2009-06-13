@@ -77,7 +77,7 @@ extern uint32_t EDU_poll(uint32_t, uint32_t, uint32_t, uint32_t);
 
 
 extern void EDU_init(void);
-extern int EDU_write(volatile const void*, uint32_t);
+extern int EDU_write(volatile const void*, uint32_t, uint32_t*);
 extern int EDU_read(volatile void*, uint32_t);
 
 extern uint32_t EDU_get_error_status_register(void);

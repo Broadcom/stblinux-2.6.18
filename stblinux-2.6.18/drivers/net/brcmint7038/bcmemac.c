@@ -429,6 +429,10 @@ static int bcmemac_net_open(struct net_device * dev)
     }
 
     pDevCtrl->linkState = bcmIsEnetUp(pDevCtrl->dev);
+    if (pDevCtrl->linkState)
+        netif_carrier_on(pDevCtrl->dev);
+    else
+        netif_carrier_off(pDevCtrl->dev);
 
 #ifdef DISABLE_INTERRUPTS
     if(!timer_pending(&pDevCtrl->poll_timer)) {
@@ -631,36 +635,40 @@ static void tx_reclaim_timer(unsigned long arg)
                     unsigned long v = mii_read(pDevCtrl->dev, pDevCtrl->EnetInfo.ucPhyAddress, MII_AUX_CTRL_STATUS);
                     if( (v & MII_AUX_CTRL_STATUS_FULL_DUPLEX) != 0) {
                         pDevCtrl->emac->txControl |= EMAC_FD;
-                        pDevCtrl->dmaRegs->flowctl_ch1_alloc = (IUDMA_CH1_FLOW_ALLOC_FORCE | NR_RX_BDS);
-                        pDevCtrl->rxDma->cfg |= DMA_ENABLE;
                     }
-                    else
+                    else {
                         pDevCtrl->emac->txControl &= ~EMAC_FD;
+                    }
+                    pDevCtrl->dmaRegs->flowctl_ch1_alloc = (IUDMA_CH1_FLOW_ALLOC_FORCE | 0);
+                    pDevCtrl->dmaRegs->flowctl_ch1_alloc = NR_RX_BDS;
+                    pDevCtrl->rxDma->cfg |= DMA_ENABLE;
                 }
 
 #ifdef CONFIG_BCMINTEMAC_NETLINK
                 if (pDevCtrl->linkState == 0) {
-			netif_carrier_on(pDevCtrl->dev);
-			schedule_work(&pDevCtrl->link_change_task);	
-        	        printk((KERN_CRIT "%s Link UP.\n"),pDevCtrl->dev->name);
-	    	}
+                    netif_carrier_on(pDevCtrl->dev);
+                    schedule_work(&pDevCtrl->link_change_task);
+                    printk(KERN_CRIT "%s Link UP.\n",pDevCtrl->dev->name);
+                }
 #else
                 if (pDevCtrl->linkState == 0) {
-                    printk((KERN_CRIT "%s Link UP.\n"),pDevCtrl->dev->name);
+                    netif_carrier_on(pDevCtrl->dev);
+                    printk(KERN_CRIT "%s Link UP.\n",pDevCtrl->dev->name);
                 }
 #endif
             } else {
 #ifdef CONFIG_BCMINTEMAC_NETLINK
                 if (pDevCtrl->linkState != 0) {
-			netif_carrier_off(pDevCtrl->dev);
-			schedule_work(&pDevCtrl->link_change_task);
-                	printk((KERN_CRIT "%s Link DOWN.\n"),pDevCtrl->dev->name);
-	    	}
+                    netif_carrier_off(pDevCtrl->dev);
+                    schedule_work(&pDevCtrl->link_change_task);
+                    printk(KERN_CRIT "%s Link DOWN.\n",pDevCtrl->dev->name);
+                }
 #else
                 if (pDevCtrl->linkState != 0)
                 {
+                    netif_carrier_off(pDevCtrl->dev);
                     pDevCtrl->rxDma->cfg &= ~DMA_ENABLE;
-                    printk((KERN_CRIT "%s Link DOWN.\n"),pDevCtrl->dev->name);
+                    printk(KERN_CRIT "%s Link DOWN.\n",pDevCtrl->dev->name);
                 }
 #endif
             }

@@ -41,12 +41,13 @@
 #define VERSION "$Revision: 1.32 $"
 
 #define MAX_PAGE_SIZE	4096
-#define MAX_OOB_SIZE	128
+#define MAX_OOB_SIZE	256
 
 /*
  * Buffer array used for writing data
  */
-unsigned char writebuf[MAX_PAGE_SIZE];
+unsigned char writebuf2[MAX_PAGE_SIZE+31];
+unsigned char* writebuf = NULL;
 unsigned char oobbuf[MAX_OOB_SIZE];
 unsigned char oobreadbuf[MAX_OOB_SIZE];
 
@@ -241,6 +242,8 @@ int main(int argc, char **argv)
 		close(fd);
 		exit(1);
 	}
+	
+	
 	if (MTD_IS_MLC(&meminfo)) {
 		if (autoplace)	printf("Warning autoplace ignored with MLC NAND\n");
 		if (noecc)	printf("Warning noecc ignored with MLC NAND\n");
@@ -257,11 +260,20 @@ int main(int argc, char **argv)
 	if (!(meminfo.oobsize == 16 && meminfo.writesize == 512) &&
 	    !(meminfo.oobsize == 8 && meminfo.writesize == 256) &&
 	    !(meminfo.oobsize == 64 && meminfo.writesize == 2048) &&
-	    !(meminfo.oobsize == 128 && meminfo.writesize == 4096)) {
+	    !(meminfo.oobsize == 128 && meminfo.writesize == 4096) &&
+	    !(meminfo.oobsize == 216 && meminfo.writesize == 4096)
+	    ) 
+	{
 		fprintf(stderr, "Unknown flash (not normal NAND)\n");
 		close(fd);
 		exit(1);
 	}
+	
+	/* 
+	 * Align buffer on 32B boundary, required by EDU
+	 * and 128B for cacheline
+	 */
+	writebuf = (unsigned char*) ((((unsigned int) &writebuf2[0]) + 127) & (~127));
 
 	if (!MTD_IS_MLC(&meminfo)) {
 		/* Read the current oob info */

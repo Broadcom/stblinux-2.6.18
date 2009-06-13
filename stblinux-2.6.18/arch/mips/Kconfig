@@ -180,6 +180,15 @@ config MIPS_BCM7335BX
         select HW_HAS_PCI
 	select BMIPS4380
 
+config MIPS_BCM7340AX
+        bool "Support for BCM97340Ax with NOR flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7340A0
+        select MIPS_BCM7340
+        select HW_HAS_PCI
+	select BMIPS4380
+
+
 config MIPS_BCM7336AX
         bool "Support for BCM97336Ax with NOR flash"
         select MIPS_BRCM97XXX
@@ -455,6 +464,17 @@ config MIPS_BCM7601BX_NAND
 	select HW_HAS_PCI
 
 #     select BRCM_COMMON_PCI
+config MIPS_BCM7635AX_NAND
+	bool "Support for BCM97635Ax with NAND flash"
+	select MIPS_BRCM97XXX
+	select MIPS_BCM7635A0
+	select MIPS_BCM7635
+	select MTI_R24K
+       #select MIPS_CPU_SCACHE
+	select MTD_BRCMNAND
+	select MTD_BRCMNAND_VERIFY_WRITE
+	select MTD_BLOCK_ROMBLOCK
+	select HW_HAS_PCI
 
 config MIPS_MTX1
 	bool "4G Systems MTX-1 board"
@@ -1455,7 +1475,9 @@ config MIPS_BRCM97XXX
 	select BRCM_7XXX_SERIAL if ! (MIPS_BCM7400 || MIPS_BCM7440 || \
 		MIPS_BCM7443 || MIPS_BCM7118 || MIPS_BCM7405 || \
 		MIPS_BCM7325 || MIPS_BCM7335 || MIPS_BCM7420 || \
-		MIPS_BCM7601 || MIPS_BCM7336)
+		MIPS_BCM7601 || MIPS_BCM7336 || MIPS_BCM7635 || \
+		MIPS_BCM7340)
+
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_BIG_ENDIAN
 	select SYS_SUPPORTS_LITTLE_ENDIAN
@@ -1652,6 +1674,16 @@ config MIPS_BCM7335
 	bool
 	depends MIPS_BCM7335B0
 
+config MIPS_BCM7340A0
+	bool
+	depends MIPS_BCM7340AX
+
+config MIPS_BCM7340
+	bool
+	depends MIPS_BCM7340A0
+
+
+
 config MIPS_BCM7336A0
 	bool
 	depends MIPS_BCM7336AX
@@ -1706,6 +1738,13 @@ config MIPS_BCM7601
 config MIPS_BCM7601B0
 	bool
 	depends MIPS_BCM7601BX_NAND
+config MIPS_BCM7635A0
+	bool
+	depends MIPS_BCM7635AX_NAND
+
+config MIPS_BCM7635
+	bool
+	depends MIPS_BCM7635A0
 
 config MIPS_BRCM
 	bool
@@ -2551,7 +2590,8 @@ config ARCH_FLATMEM_ENABLE
 
 config ARCH_DISCONTIGMEM_ENABLE
 	bool
-	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0 || MIPS_BCM3563C0 || MIPS_BCM7440B0 || MIPS_BCM7601B0 || MIPS_BCM7336 || MIPS_BCM3548B0
+	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0 || MIPS_BCM3563C0 ||\
+	MIPS_BCM7440B0 || MIPS_BCM7601B0 || MIPS_BCM7336 || MIPS_BCM3548B0 || MIPS_BCM7635A0
 	help
 	  Say Y to upport efficient handling of discontiguous physical memory,
 	  for architectures which are either NUMA (Non-Uniform Memory Access)

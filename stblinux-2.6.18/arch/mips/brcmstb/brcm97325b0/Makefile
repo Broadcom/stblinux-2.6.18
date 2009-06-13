@@ -30,6 +30,8 @@
 
 obj-y	 += bcm_uart.o hw_init.o board.o bchip.o 
 
+EXTRA_CFLAGS	+=-Iarch/mips/brcmstb/common/
+
 ifdef	CONFIG_MIPS_MT_SMTC
 obj-y	 += mt_irq.o
 else

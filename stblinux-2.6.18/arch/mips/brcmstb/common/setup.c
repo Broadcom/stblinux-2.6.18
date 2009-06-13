@@ -199,7 +199,8 @@ void __init plat_mem_setup(void)
         || defined( CONFIG_MIPS_BCM7403 ) || defined( CONFIG_MIPS_BCM7405 ) \
 	|| defined( CONFIG_MIPS_BCM7335 ) || defined( CONFIG_MIPS_BCM7325 ) \
 	|| defined( CONFIG_MIPS_BCM3548 ) || defined( CONFIG_MIPS_BCM7420 ) \
-	|| defined( CONFIG_MIPS_BCM7336 )
+	|| defined( CONFIG_MIPS_BCM7336 ) || defined( CONFIG_MIPS_BCM7340 )
+
 	
 	set_io_port_base(0xf0000000);  /* start of PCI IO space. */
 #elif defined( CONFIG_MIPS_BCM7329 )
@@ -207,7 +208,7 @@ void __init plat_mem_setup(void)
 #elif defined ( CONFIG_BCM93730 )
 	set_io_port_base(KSEG1ADDR(0x13000000));
 
-#elif defined( CONFIG_MIPS_BCM7440 ) || defined (CONFIG_MIPS_BCM7601)
+#elif defined( CONFIG_MIPS_BCM7440 ) || defined (CONFIG_MIPS_BCM7601) || defined (CONFIG_MIPS_BCM7635)
 	set_io_port_base(PCI_IO_WIN_BASE);  /* 0xf8000000 in boardmap.h. */
 #else
        
@@ -225,8 +226,9 @@ void __init plat_mem_setup(void)
 	board_time_init = brcm_time_init;
  	panic_timeout = 180;
 
-#if defined( CONFIG_MIPS_BCM7440B0 ) || defined( CONFIG_MIPS_BCM7325B0 ) \
-	|| defined( CONFIG_MIPS_BCM7443A0 ) || defined (CONFIG_MIPS_BCM7601)
+#if	defined( CONFIG_MIPS_BCM7440B0 ) || defined( CONFIG_MIPS_BCM7325B0 ) 	\
+	|| defined( CONFIG_MIPS_BCM7443A0 ) || defined (CONFIG_MIPS_BCM7601)	\
+	|| defined( CONFIG_MIPS_BCM7635A0 ) 
 	
     // Set externalize IO sync bit (CP0 $16, sel 7, bit 8)
 	{

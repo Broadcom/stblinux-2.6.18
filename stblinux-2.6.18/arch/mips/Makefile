@@ -840,6 +840,19 @@ endif
 
 #
 #
+# BCM97340A0
+#
+core-$(CONFIG_MIPS_BCM7340A0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7340A0) += arch/mips/brcmstb/brcm97340a0/
+cflags-$(CONFIG_MIPS_BCM7340A0) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7340A0) := 0x80001000
+ifdef CONFIG_MIPS_BCM7340A0
+UTS_MACHINE:=7340a0
+endif
+
+#
+#
+
 # BCM97440A0
 #
 core-$(CONFIG_MIPS_BCM7440A0) += arch/mips/brcmstb/common/
@@ -898,6 +911,18 @@ cflags-$(CONFIG_MIPS_BCM7403A0)	+= -Iinclude/asm-mips/mach-brcmstb
 load-$(CONFIG_MIPS_BCM7403A0) := 0x80001000
 ifdef CONFIG_MIPS_BCM7403A0
 UTS_MACHINE:=7403a0
+endif
+
+#
+#
+# BCM97635A0
+#
+core-$(CONFIG_MIPS_BCM7635A0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7635A0) += arch/mips/brcmstb/brcm97635a0/
+cflags-$(CONFIG_MIPS_BCM7635A0)       += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7635A0) := 0x80001000
+ifdef CONFIG_MIPS_BCM7635A0
+UTS_MACHINE:=7635a0
 endif
 
 #Append -n (and) to machine name, must be done prior to -smp

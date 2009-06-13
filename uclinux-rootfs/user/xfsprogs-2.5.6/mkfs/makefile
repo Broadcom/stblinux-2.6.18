@@ -18,8 +18,6 @@ CFLAGS += -I../include -I.. -I. \
 		-DVERSION="\"2.5.6\"" \
 		-fPIC
 		
-LDADD  = $(ROOTDIR)/romfs/lib/libxfs.so $(ROOTDIR)/romfs/lib/libdisk.so \
-	 $(ROOTDIR)/romfs/lib/libuuid.so
 LDLIBS	+= -lxfs -ldisk -luuid
 LDFLAGS += -L$(ROOTDIR)/romfs/lib
 
@@ -36,7 +34,7 @@ BUILD_MAXTRLIBS = $(BUILD_LIBXFS) $(BUILD_LIBUUID)
 
 all: $(EXEC)
 
-$(EXEC): $(MAXTRRES).h $(OBJS) $(LDADD)
+$(EXEC): $(MAXTRRES).h $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
 # THT: Remove build rule for maxtress.h as some platforms (RHEL) does not have the optional library libuuid installed

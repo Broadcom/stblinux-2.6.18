@@ -27,6 +27,7 @@ for x in $(ls /sys/class/net); do
 		lo|br*)
 			;;
 		*)
+			ifconfig $x 0.0.0.0 up
 			brctl addif br0 $x
 			;;
 	esac

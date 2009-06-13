@@ -321,8 +321,11 @@ static int brcm_ohci_hcd_init (int ohci_id)
 	}
 
 	// Set up dma_mask for our platform device
+	/*
+		PR53481: make sure dma_mask at upper boundary of low RAM so it is DMAable and uncached (in kseg1)
+	*/
 	plat_dev[ohci_id]->dev.dma_mask = &plat_dev[ohci_id]->dev.coherent_dma_mask;
-	plat_dev[ohci_id]->dev.coherent_dma_mask = DMA_32BIT_MASK;
+	plat_dev[ohci_id]->dev.coherent_dma_mask = (u64)(0x10000000UL - 1UL);
 		
 	err = driver_register(&ohci_hcd_brcm_driver[ohci_id]);
 	if (err) {

@@ -677,10 +677,12 @@ int brcmnand_create_cet(struct mtd_info *mtd)
 	if (unlikely(gdebug)) {
 		printk(KERN_INFO "brcmnandCET: Creating correctable error table ...\n");
 	}
-	if (NAND_IS_MLC(this)) {
+	if (NAND_IS_MLC(this) || this->ecclevel != BRCMNAND_ECC_HAMMING) {
 		this->cet = cet = &cet_descr_mlc;
+if (gdebug) printk("%s: CET = cet_desc_mlc\n", __FUNCTION__);
 	} else {
 		this->cet = cet = &cet_descr;
+if (gdebug) printk("%s: CET = cet_descr\n", __FUNCTION__);
 	}
 	cet->flags = 0x00;
 	/* Check that BBT table and mirror exist */

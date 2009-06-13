@@ -438,7 +438,7 @@ void __init paging_init(void)
 #elif defined(CONFIG_DISCONTIGMEM) && \
 	(defined(CONFIG_MIPS_BCM7405) || defined(CONFIG_MIPS_BCM7335) \
 	  || defined(CONFIG_MIPS_BCM7400D0) || defined(CONFIG_MIPS_BCM3548) \
-	  || defined(CONFIG_MIPS_BCM7336))
+	  || defined(CONFIG_MIPS_BCM7336)) || defined(CONFIG_MIPS_BCM7340) 
 
 	/* Old 2.6.12-5.0 API */
 	if(g_board_RAM_size <= LOWER_RAM_SIZE) {
@@ -462,8 +462,9 @@ void __init paging_init(void)
 			PFN_DOWN(UPPER_RAM_BASE), 0);
 		node_set_online(1);
 	}
-#elif defined(CONFIG_DISCONTIGMEM) && \
-	(defined(CONFIG_MIPS_BCM3563C0) || defined(CONFIG_MIPS_BCM7440) || defined(CONFIG_MIPS_BCM7601))
+#elif	defined(CONFIG_DISCONTIGMEM) && \
+	(defined(CONFIG_MIPS_BCM3563C0) || defined(CONFIG_MIPS_BCM7440)	\
+	|| defined(CONFIG_MIPS_BCM7601)	|| defined(CONFIG_MIPS_BCM7635))
 	/* New 2.6.12-5.1 API */
 	{
 		int node = 0;

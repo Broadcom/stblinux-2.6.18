@@ -37,6 +37,7 @@
 
 
 #include <linux/mm.h>
+#include <linux/dma-mapping.h>
 #include <asm/page.h>
 
 
@@ -133,11 +134,11 @@ int DisplayMemDebug(void)
  * Returns 1 if OK
  *		0 otherwise
  */
-int EDU_buffer_OK(volatile void* vaddr)
+int EDU_buffer_OK(volatile void* vaddr, int command)
 {
 	unsigned long addr = (unsigned long) vaddr;
 
-#if !defined(CONFIG_MIPS_BCM7440) && !defined(CONFIG_MIPS_BCM7601)
+#if !defined(CONFIG_MIPS_BCM7440) && !defined(CONFIG_MIPS_BCM7601) && !defined(CONFIG_MIPS_BCM7635)
 // Requires 32byte alignment only of platforms other than 7440 and 7601 (and Dune)
 	if (addr & 0x1f) {
 		// Must be 32-byte-aligned
@@ -154,10 +155,13 @@ dump_stack();
 		return 0;
 	}
 #endif
+
 	else if (!(addr & KSEG0)) { 
 		// User Space
 		return 0;
 	}
+
+	
 
 	// TBD: Since we only enable block for MEM0, we should make sure that the physical
 	// address falls in MEM0.
@@ -166,6 +170,13 @@ dump_stack();
 		// VM Address
 		return 0;
 	}
+
+#if 0 //def CONFIG_MIPS_BCM7420
+	else if (command == EDU_WRITE && (addr & 0xff)) { // Write must be aligned on 256B
+printk("Write must be aligned on 128B (addr=%08x)\n", addr);
+		return 0;
+	}
+#endif
 	return 1;
 }
 
@@ -507,6 +518,10 @@ uint16_t EDU_checkNandCacheAndBuffer(uint32_t buffer, int length)
  * Read data on success or error.
  */
 
+extern void 
+dump_nand_regs(struct brcmnand_chip* chip, loff_t offset, uint32_t pa, int which);
+#define MAX_DUMPS 10
+extern int numDumps;
 
 uint32_t EDU_poll(uint32_t address, uint32_t expect, uint32_t error, uint32_t mask)
 {
@@ -520,6 +535,11 @@ if (edu_debug)         PRINTK("Start Polling addr=%08x, expect=%08x, mask=%08x, 
 	address, expect, mask, error);
         __sync();
         rd_data = EDU_volatileRead(address);
+if (numDumps < MAX_DUMPS)
+ {
+ dump_nand_regs(NULL, 0, 0, numDumps++);
+ }
+   
 //edu_debug = 0;
 	  
         timeout = jiffies + msecs_to_jiffies(1000); // 3 sec timeout for now (testing)
@@ -528,18 +548,23 @@ if (edu_debug)         PRINTK("Start Polling addr=%08x, expect=%08x, mask=%08x, 
 // 	 while ((rd_data & mask) != (expect & mask)) /* && (i<cnt) */
 	 while (((rd_data & mask) != (expect & mask)) && !((rd_data & mask) & error))
         {
+
          	   if ( 0 /*(i %1000000) == 1 */) 
 			   {PRINTK("Polling addr=%08x, expect=%08x, mask=%08x!\n", address, expect, mask);
 			    PRINTK("EDU_poll read: %08x\n", rd_data);}
 			  
                 //__sync(); //PLATFORM_IOFLUSH_WAR();
                 rd_data = EDU_volatileRead(address);
-                
-                // JR+ 2008-02-01 Allow other tasks to run while waiting
+
+             // JR+ 2008-02-01 Allow other tasks to run while waiting
                 //cond_resched();
                 cond_resched();
                 // JR- 2008-02-01 Allow other tasks to run while waiting
-                
+if (numDumps < MAX_DUMPS)
+ {
+ dump_nand_regs(NULL, 0, 0, numDumps++);
+ }
+                   
                 i++;
                 if(!time_before(jiffies, timeout))
                 {
@@ -637,7 +662,7 @@ printk(KERN_INFO "-->%s:\n", __FUNCTION__);
  	  // SUN_GISB_ARB_TIMER = 0x10000
         EDU_volatileWrite(0xb040600c, 0x00010000);
 
-#elif defined( CONFIG_MIPS_BCM7601 )
+#elif defined( CONFIG_MIPS_BCM7601 ) || defined( CONFIG_MIPS_BCM7635 )
 	{
 #define ENABLE_256MB_GISB_WINDOW 0x1
 		volatile unsigned long* PCI_GEN_GISB_WINDOW_SIZE = 
@@ -666,7 +691,7 @@ printk(KERN_INFO "-->%s:\n", __FUNCTION__);
 	}
 
 #elif defined( CONFIG_MIPS_BCM7420 )
-	// Make sure that RTS grant some cycle to EDU, or we have to steal some
+	// Make sure that RTS grants some cycle to EDU, or we have to steal some from RR
 	{
 #define BLOCKED_OUT 0x001fff00
 #define RR_ENABLED	0x80   /* Bit 7 */
@@ -683,6 +708,29 @@ printk(KERN_INFO "-->%s:\n", __FUNCTION__);
 		volatile unsigned long* PCI_GEN_PCI_CTRL = 
 			(volatile unsigned long*) KSEG1ADDR(0x10440104);
 		volatile unsigned long pci_gen_pci_ctrl;
+
+#if 0 // Block out MoCA
+		volatile unsigned long* MEMC_0_1_CLIENT_INFO_59= 
+			(volatile unsigned long*) KSEG1ADDR(0x103b10f0);
+		volatile unsigned long memc_client_59;
+		volatile unsigned long* MEMC_0_1_CLIENT_INFO_62= 
+			(volatile unsigned long*) KSEG1ADDR(0x103b10fc);
+		volatile unsigned long memc_client_62;
+
+		/* Bits 08-20 are all 1 == Blocked */
+		memc_client_59 = *MEMC_0_1_CLIENT_INFO_59;
+		printk("MEMC_0_1_CLIENT_INFO_59 Before=%08lx\n", memc_client_59);
+		*MEMC_0_1_CLIENT_INFO_59 = memc_client_59|0x001fff00;
+		*MEMC_0_1_CLIENT_INFO_59 &= ~RR_ENABLED;
+		printk("MEMC_0_1_CLIENT_INFO_59 After blocked out=%08lx\n", *MEMC_0_1_CLIENT_INFO_59);
+
+		memc_client_62 = *MEMC_0_1_CLIENT_INFO_62;
+		printk("MEMC_0_1_CLIENT_INFO_62 Before=%08lx\n", memc_client_62);
+		*MEMC_0_1_CLIENT_INFO_62 = memc_client_62|0x001fff00;
+		*MEMC_0_1_CLIENT_INFO_62 &= ~RR_ENABLED;
+		printk("MEMC_0_1_CLIENT_INFO_62 After blocked out=%08lx\n", *MEMC_0_1_CLIENT_INFO_62);
+		
+#endif
         
 		/* Bits 08-20 are all 1 == Blocked */
 		memc_client_17 = *MEMC_0_1_CLIENT_INFO_17;
@@ -722,19 +770,32 @@ PRINTK("<--%s:\n", __FUNCTION__);
 //edu_debug = 0;
 }
 
+#ifndef CONFIG_MTD_BRCMNAND_ISR_QUEUE // batch mode
+
 /*
  * THT: 07/31/08: This does not work.  One has to write the 512B Array from the NAND controller into 
  * the EXT registers for it to work.  Will fix it when I come back.
  */
-int EDU_write(volatile const void* virtual_addr_buffer, uint32_t external_physical_device_address)
+int EDU_write(volatile const void* virtual_addr_buffer, 
+	uint32_t external_physical_device_address,
+	uint32_t* physAddr)
 {
-	uint32_t  phys_mem;
+	//uint32_t  phys_mem;
 	// uint32_t  rd_data;
 	//unsigned long flags;
 
 edu_debug = gdebug;
+
+#if 0
 	phys_mem = EDU_virt_to_phys((void *)virtual_addr_buffer);
-	if (!phys_mem) {
+
+#else
+	// EDU is not a PCI device
+	// THT: TBD: Need to adjust for cache line size here, especially on 7420.
+	*physAddr = dma_map_single(NULL, virtual_addr_buffer, EDU_LENGTH_VALUE, DMA_TO_DEVICE);
+#endif
+
+	if (!(*physAddr)) {
 		return (-1);
 	}
 
@@ -745,14 +806,14 @@ edu_debug = gdebug;
 
 #ifdef CONFIG_MTD_BRCMNAND_USE_ISR
 	down(&gEduIsrData.lock);
- 	gEduIsrData.flashAddr = external_physical_device_address;
- 	gEduIsrData.dramAddr = phys_mem;
+ 	gEduIsrData.edu_ldw = external_physical_device_address;
+ 	gEduIsrData.physAddr = *physAddr;
 	
 	/*
 	 * Enable L2 Interrupt
 	 */
 	gEduIsrData.cmd = EDU_WRITE;
-	gEduIsrData.opComplete = 0;
+	gEduIsrData.opComplete = ISR_OP_SUBMITTED;
 	gEduIsrData.status = 0;
 	
 	/* On write we wait for both DMA done|error and Flash Status */
@@ -762,7 +823,7 @@ edu_debug = gdebug;
 	gEduIsrData.intr = HIF_INTR2_EDU_DONE_MASK|HIF_INTR2_CTRL_READY;
 
 	up(&gEduIsrData.lock);
-	ISR_enable_irq();
+	ISR_enable_irq(&gEduIsrData);
 
 #else
 	EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR_MASK);
@@ -776,16 +837,17 @@ edu_debug = gdebug;
 
 	//EDU_waitForNoPendingAndActiveBit();
 
+//	Already covered by dma_map_single()
+//	dma_cache_wback((unsigned long) virtual_addr_buffer, EDU_LENGTH_VALUE);
 
-	dma_cache_wback((unsigned long) virtual_addr_buffer, 512);
-
-	EDU_issue_command(phys_mem, external_physical_device_address, EDU_WRITE); /* 1: Is a Read, 0 Is a Write */
+	EDU_issue_command(*physAddr, external_physical_device_address, EDU_WRITE); /* 1: Is a Read, 0 Is a Write */
 
 //      rd_data = EDU_poll(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, HIF_INTR2_EDU_DONE, HIF_INTR2_EDU_DONE);
 //      EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
 
 //edu_debug = 0;
 //printk("<-- %s\n", __FUNCTION__);
+
 	return 0;
 }
 
@@ -814,33 +876,31 @@ if (toggle) edu_debug = 4;
 #endif
 
 //PRINTK("--> %s: vAddr=%p, ext=%08x\n", __FUNCTION__, virtual_addr_buffer, external_physical_device_address);
+#if 0
 	phys_mem = EDU_virt_to_phys((void *)virtual_addr_buffer);
 	if (!phys_mem) {
 		return (-1);
 	}
+#else
+	// THT: TBD: Need to adjust for cache line size here, especially on 7420.
+	phys_mem = dma_map_single(NULL, virtual_addr_buffer, EDU_LENGTH_VALUE, DMA_FROM_DEVICE);
+#endif
 
 if (edu_debug) PRINTK("EDU_read: vBuff: %p physDev: %08x, PA=%08x\n", 
 virtual_addr_buffer, external_physical_device_address, phys_mem);
 
  #ifdef CONFIG_MTD_BRCMNAND_USE_ISR
  	down(&gEduIsrData.lock);
- 	gEduIsrData.flashAddr = external_physical_device_address;
- 	gEduIsrData.dramAddr = phys_mem;
+ 	gEduIsrData.edu_ldw = external_physical_device_address;
+ 	gEduIsrData.physAddr = phys_mem;
 	
 	/*
 	 * Enable L2 Interrupt
 	 */
 	gEduIsrData.cmd = EDU_READ;
-	gEduIsrData.opComplete = 0;
+	gEduIsrData.opComplete = ISR_OP_SUBMITTED;
 	gEduIsrData.status = 0;
 
-#if 0
-	/* On Read we only wait for DMA completion or Error */
-	gEduIsrData.mask = HIF_INTR2_EDU_CLEAR_MASK|HIF_INTR2_CTRL_READY;
-	gEduIsrData.expect = HIF_INTR2_EDU_DONE;
-	gEduIsrData.error = HIF_INTR2_EDU_ERR;
-	gEduIsrData.intr = HIF_INTR2_EDU_DONE_MASK;
-#endif
 
 	// We must also wait for Ctlr_Ready, otherwise the OOB is not correct, since we read the OOB bytes off the controller
 
@@ -851,7 +911,7 @@ virtual_addr_buffer, external_physical_device_address, phys_mem);
 	gEduIsrData.intr = HIF_INTR2_EDU_DONE_MASK;
 	up(&gEduIsrData.lock);
 	
-	ISR_enable_irq();
+	ISR_enable_irq(&gEduIsrData);
 #else
 
         EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_CLEAR, HIF_INTR2_EDU_CLEAR_MASK);
@@ -867,29 +927,7 @@ virtual_addr_buffer, external_physical_device_address, phys_mem);
         //EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_DONE, 0x00000000);
         EDU_reset_done();
 
-#if 0
-        if( (EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE) && 0x00000003) != 0)
-        {
-                PRINTK("EDU_DONE != 0!!!\n");
-        }
-#endif
         EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_ERR_STATUS, 0x00000000);
-#if 0
-        if( EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_ERR_STATUS) != 0)
-        {
-                PRINTK("EDU_ERR_STATUS != 0!!!\n");
-        }
-
-#endif
-#if 1 //ndef CONFIG_BMIPS4380
-	 dma_cache_inv((unsigned long) virtual_addr_buffer, EDU_LENGTH_VALUE);
-#else
-	{
-		extern void (*flush_cache_all)(void);
-
-		flush_cache_all();
-	}
-#endif
         
 	 EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_LENGTH, EDU_LENGTH_VALUE);
 
@@ -917,8 +955,13 @@ virtual_addr_buffer, external_physical_device_address, phys_mem);
         	HIF_INTR2_EDU_DONE_MASK);
 #endif
 
+	(void) dma_unmap_single(NULL, phys_mem, EDU_LENGTH_VALUE, DMA_FROM_DEVICE);
+
 if (edu_debug) PRINTK("<-- %s ret=%08x\n", __FUNCTION__, ret);
 //edu_debug = 0;
 if (edu_debug > 3 && ret) {show_stack(current,NULL);dump_stack();}
         return ret;
 } 
+
+#endif // Batch mode
+

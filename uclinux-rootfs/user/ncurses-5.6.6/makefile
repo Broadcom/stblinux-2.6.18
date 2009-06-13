@@ -22,39 +22,44 @@ all:
 	cd narrowc ; \
 	mkdir -p $(INSTALL_DIR) ; \
 	[ ! -L configure ] && ln -s ../configure . ; \
-	./configure --build=i686-linux-gnu --host=$(MACHINE)-linux --target=$(MACHINE)-linux --datadir=/usr/share --enable-colorfgbg --enable-hard-tabs --enable-overwrite --enable-xmc-glitch --localstatedir=/var --prefix=/usr --sysconfdir=/etc --with-build-cppflags=-D_FORTIFY_SOURCE=2 --with-chtype=long --with-install-prefix=$(INSTALL_DIR) --with-ospeed=unsigned --without-ada --with-shared --with-terminfo-dirs=/usr/share/terminfo --with-termlib=tinfo --with-progs --with-ticlib --includedir=/usr/include/ncurses ; \
+	./configure --build=i686-linux-gnu --host=$(MACHINE)-linux --target=$(MACHINE)-linux --datadir=/usr/share --enable-colorfgbg --enable-hard-tabs --enable-overwrite --enable-xmc-glitch --localstatedir=/var --prefix=/usr --sysconfdir=/etc --with-build-cppflags=-D_FORTIFY_SOURCE=2 --with-chtype=long --with-install-prefix=$(INSTALL_DIR) --with-ospeed=unsigned --without-ada --with-shared --with-progs --enable-termcap --includedir=/usr/include/ncurses ; \
 	[ $$? -ne 0 ] && exit -1 ; \
 	make libs ; \
 	make -C progs ; \
 	make install.libs install.progs install.includes install.man install.data ; \
 	cd ../widec ; \
 	[ ! -L configure ] && ln -s ../configure . ; \
-	./configure --build=i686-linux-gnu --host=$(MACHINE)-linux --target=$(MACHINE)-linux --datadir=/usr/share --enable-colorfgbg --enable-hard-tabs --enable-overwrite --enable-xmc-glitch --localstatedir=/var --prefix=/usr --sysconfdir=/etc --with-build-cppflags=-D_FORTIFY_SOURCE=2 --with-chtype=long --with-install-prefix=$(INSTALL_DIR) --with-ospeed=unsigned --without-ada --with-shared --with-terminfo-dirs=/usr/share/terminfo --with-termlib=tinfo --with-ticlib --enable-widec --without-progs --includedir=/usr/include/ncursesw ; \
+	./configure --build=i686-linux-gnu --host=$(MACHINE)-linux --target=$(MACHINE)-linux --datadir=/usr/share --enable-colorfgbg --enable-hard-tabs --enable-overwrite --enable-xmc-glitch --localstatedir=/var --prefix=/usr --sysconfdir=/etc --with-build-cppflags=-D_FORTIFY_SOURCE=2 --with-chtype=long --with-install-prefix=$(INSTALL_DIR) --with-ospeed=unsigned --without-ada --with-shared --enable-termcap --enable-widec --without-progs --includedir=/usr/include/ncursesw ; \
 	make libs ; \
 	make install.libs install.includes install.man ; \
 	cd .. ; \
 	make romfs ; \
 	)
 
+# "top" is the only app using ncurses and it's statically linking it so
+# we don't need to install the library
+# Curses is configured to use termcap instead of terminfo so we don't \
+# need to install the terminfo database.
 romfs:
-	if [ $(CONFIG_LIB_NCURSES) = y ]; then \
-		( mkdir -p $(ROMFSDIR)/usr/share; \
-		  cd $(INSTALL_DIR)/usr/share; \
-		  file_list=`find terminfo \( -name \*vt100\* -o -name \*xterm\* \)` ;\
-		  echo "file_list = $$file_list" ; \
-		  [ "x$$file_list" != "x" ] && tar -cf - $$file_list | tar -C $(ROMFSDIR)/usr/share -xvpf - ; \
-		  cp -f $(INSTALL_DIR)/usr/lib/libncurses.so.5.6 $(ROMFSDIR)/lib/libncurses.so.5.6 ; \
-		  rm -f $(ROMFSDIR)/lib/libncurses.so.5 ; \
-		  ln -sf libncurses.so.5.6 $(ROMFSDIR)/lib/libncurses.so.5 ; \
-		  rm -f $(ROMFSDIR)/lib/libcurses.so ; \
-		  ln -sf libncurses.so.5.6 $(ROMFSDIR)/lib/libcurses.so ; \
-		  rm -f $(ROMFSDIR)/lib/libncurses.so ; \
-		  ln -sf libncurses.so.5 $(ROMFSDIR)/lib/libncurses.so ; \
-		  rm -f $(ROMFSDIR)/lib/terminfo ; \
-		  ln -sf /usr/share/terminfo $(ROMFSDIR)/lib/terminfo ; \
-		  chmod 755 $(ROMFSDIR)/lib/lib*.so* ; \
-		  ); \
-	fi
+#	if [ $(CONFIG_LIB_NCURSES) = y ]; then \
+#		( mkdir -p $(ROMFSDIR)/usr/share; \
+#		  cd $(INSTALL_DIR)/usr/share; \
+#		  file_list=`find terminfo \( -name \*vt100\* -o -name \*xterm\* \)` ;\
+#		  echo "file_list = $$file_list" ; \
+#		  [ "x$$file_list" != "x" ] && tar -cf - $$file_list | tar -C $(ROMFSDIR)/usr/share -xvpf - ; \
+#		  rm -f $(ROMFSDIR)/lib/terminfo ; \
+#		  ln -sf /usr/share/terminfo $(ROMFSDIR)/lib/terminfo ; \
+# 
+#		  cp -f $(INSTALL_DIR)/usr/lib/libncurses.so.5.6 $(ROMFSDIR)/lib/libncurses.so.5.6 ; \
+#		  rm -f $(ROMFSDIR)/lib/libncurses.so.5 ; \
+#		  ln -sf libncurses.so.5.6 $(ROMFSDIR)/lib/libncurses.so.5 ; \
+#		  rm -f $(ROMFSDIR)/lib/libcurses.so ; \
+#		  ln -sf libncurses.so.5.6 $(ROMFSDIR)/lib/libcurses.so ; \
+#		  rm -f $(ROMFSDIR)/lib/libncurses.so ; \
+#		  ln -sf libncurses.so.5 $(ROMFSDIR)/lib/libncurses.so ; \
+#		  chmod 755 $(ROMFSDIR)/lib/lib*.so* ; \
+#		  ); \
+#	fi
 
 # These Libraries are not needed by STB because no app needs them at this time
 #		  cp -f $(INSTALL_DIR)/usr/lib/libncurses++.a $(ROMFSDIR)/lib/libncurses++.a ; \

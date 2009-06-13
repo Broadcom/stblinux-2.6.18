@@ -599,7 +599,7 @@ static inline void parse_cmdline_early(void)
 	unsigned long start_at, mem_size;
 	int len = 0;
 	int usermem = 0;
-#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601) || defined (CONFIG_MIPS_BCM7635)
 	int retVal;
 	phys_t rsvdSize;
 	phys_t pgStructSize = sizeof(struct page);
@@ -653,14 +653,15 @@ static inline void parse_cmdline_early(void)
 				usermem = 1;
 			}
 			mem_size = memparse(from + 4, &from);
-#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601) || defined (CONFIG_MIPS_BCM7635)
+
 			upper_mem_ram_size = 0;
 #endif
 
 			switch (*from) {
 			case '@':
 				start_at = memparse(from + 1, &from);
-#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601) || defined (CONFIG_MIPS_BCM7635) 
 				if (mmap_defaulted) {
 					/*
 					** This combination of boot parameters will surely cause
@@ -679,7 +680,7 @@ static inline void parse_cmdline_early(void)
 			case '$':
 			case '#': /* CFE will interprete $, so non-conformant alternate syntax is supported */
 				start_at = memparse(from + 1, &from);
-#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601)
+#if defined (CONFIG_MIPS_BCM7440) || defined (CONFIG_MIPS_BCM7601) || defined (CONFIG_MIPS_BCM7635)
 				{
 					if (mmap_defaulted) {
 						/*
@@ -967,7 +968,9 @@ static inline void bootmem_init(void)
 	bootmap_size = init_bootmem(first_usable_pfn, max_low_pfn);
 
 
-#elif defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0) || defined (CONFIG_MIPS_BCM7601)
+#elif	defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0)	\
+	|| defined (CONFIG_MIPS_BCM7601) || defined (CONFIG_MIPS_BCM7635)
+
 	{
 	   int ddr, node;
 
@@ -1089,7 +1092,8 @@ static inline void bootmem_init(void)
 #ifndef CONFIG_DISCONTIGMEM
 		free_bootmem(PFN_PHYS(curr_pfn), PFN_PHYS(size));
 
-#elif defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0) || defined (CONFIG_MIPS_BCM7601)
+#elif	defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0)	\
+	|| defined (CONFIG_MIPS_BCM7601) || defined (CONFIG_MIPS_BCM7635)
 		{
 			unsigned long paddr = PFN_PHYS(curr_pfn);
 			int node;
@@ -1125,8 +1129,10 @@ static inline void bootmem_init(void)
 	reserve_bootmem(PFN_PHYS(first_usable_pfn), bootmap_size);
 	firstUsableAddr = PFN_PHYS(first_usable_pfn) + bootmap_size;
 
-#elif defined(CONFIG_DISCONTIGMEM) && \
-	(defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0)) || defined (CONFIG_MIPS_BCM7601)
+#elif	defined(CONFIG_DISCONTIGMEM) && \
+	(defined(CONFIG_MIPS_BCM7440B0) || defined(CONFIG_MIPS_BCM3563C0))	\
+	|| defined (CONFIG_MIPS_BCM7601) || defined (CONFIG_MIPS_BCM7635)
+
 	/*
 	 * reserve the memory bitmaps so they can't be allocated
 	 */

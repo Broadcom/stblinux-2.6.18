@@ -97,6 +97,31 @@ static void brcm97601_pci_init(void)
 }
 
 arch_initcall(brcm97601_pci_init);
+#elif	defined( CONFIG_MIPS_BCM7635A0 )
+extern struct pci_ops bcm7635_pci_ops; 
+
+struct pci_controller bcm7635_controller = {
+	.pci_ops 		= &bcm7635_pci_ops, 
+	.io_resource 	= &pci_io_resource, 
+	.mem_resource   = &pci_mem_resource,
+};
+
+// same as Primary extern struct pci_ops bcm7038_sata_pci_ops; 
+
+struct pci_controller bcm7635_sata_controller = {
+	.pci_ops 		= &bcm7635_pci_ops, 
+	.io_resource 	= &pci_sata_io_resource, 
+	.mem_resource   = &pci_sata_mem_resource,
+};
+
+static void brcm97635_pci_init(void)
+{
+	register_pci_controller(&bcm7635_controller);
+	register_pci_controller(&bcm7635_sata_controller);
+}
+
+arch_initcall(brcm97635_pci_init);
+
 #else
 extern struct pci_ops bcm7440_pci_ops; 
 

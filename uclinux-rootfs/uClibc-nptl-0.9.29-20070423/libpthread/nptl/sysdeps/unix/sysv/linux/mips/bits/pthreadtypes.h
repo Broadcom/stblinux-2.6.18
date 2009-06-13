@@ -20,7 +20,7 @@
 #ifndef _BITS_PTHREADTYPES_H
 #define _BITS_PTHREADTYPES_H	1
 
-#if _MIPS_SIM == _ABI64
+#if defined(_ABI64) && (_MIPS_SIM == _ABI64)
 # define __SIZEOF_PTHREAD_ATTR_T 56
 # define __SIZEOF_PTHREAD_MUTEX_T 40
 # define __SIZEOF_PTHREAD_MUTEXATTR_T 4
@@ -64,13 +64,13 @@ typedef union
     int __lock;
     unsigned int __count;
     int __owner;
-#if _MIPS_SIM == _ABI64
+#if defined(_ABI64) && (_MIPS_SIM == _ABI64)
     unsigned int __nusers;
 #endif
     /* KIND must stay at this position in the structure to maintain
        binary compatibility.  */
     int __kind;
-#if _MIPS_SIM != _ABI64
+#if ! defined(_ABI64) || (_MIPS_SIM != _ABI64)
     unsigned int __nusers;
 #endif
     int __spins;
@@ -125,7 +125,7 @@ typedef int pthread_once_t;
    structure of the attribute type is deliberately not exposed.  */
 typedef union
 {
-# if _MIPS_SIM == _ABI64
+# if defined(_ABI64) && (_MIPS_SIM == _ABI64)
   struct
   {
     int __lock;

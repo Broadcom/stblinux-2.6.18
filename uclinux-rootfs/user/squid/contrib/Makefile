@@ -64,5 +64,5 @@ install-linux:
 clean: 
 
 distclean: clean
-	$(RM) Makefile
+	$(RM) -f Makefile
 

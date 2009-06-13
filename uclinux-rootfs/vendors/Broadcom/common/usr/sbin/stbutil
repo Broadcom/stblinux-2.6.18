@@ -280,7 +280,7 @@ Please select an action:
     4) Install RO CRAMFS rootfs on flash
     5) Install RO SQUASHFS rootfs on flash  (recommended for RO fs)
     6) Install RO YAFFS2 rootfs on NAND flash
-    7) Install RW YAFFS2 rootfs on NAND flash (RW on Large Page devices only)
+    7) Install RW YAFFS2 rootfs on NAND flash 
     8) Install non-free WLAN drivers from network
     9) Install non-free HPNA drivers from network
    10) Install non-free MoCA drivers from network
@@ -595,10 +595,10 @@ fi
                 echo "Writing flash image..."
 		case "$NAND_TECH" in
 		SLC)
-      			nandwrite -p ${FDEV} /tmp/${IMAGE}
+      			nandwrite -q -p ${FDEV} /tmp/${IMAGE}
 			;;
 		MLC)	# Pad to pagesize, but no OOB writes.
-			nandwrite -p ${FDEV} /tmp/${IMAGE} 
+			nandwrite -q -p ${FDEV} /tmp/${IMAGE} 
 			;;
 		esac
 		;;

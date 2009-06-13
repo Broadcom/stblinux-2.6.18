@@ -40,7 +40,7 @@ unexport $(shell test -f config/cleanenv.pl && \
 
 # THT For 2.6.18-2.0 we only support a few platforms
 # THT: Note there is no 7440b0 NOR flash build. 
-PLATFORMS=7325b0 7325b0-smtc 7401c0 97455c0 7400d0 7400d0-smp 7400d0-smp-discontig 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7118c0-nand 7038c0 3563c0 3563c0-nand 3563c0-ddr1 7335b0 7335b0-smp 7336a0-smp 7405b0 7405b0-smp 7405b0-nand 7405b0-smp-nand 7405b0-smp-nor-nand 7405d0-smp 7405d0-smp-nand 97459b0 97459b0-smp 97459b0-nand 97459b0-smp-nand 3548b0-spi 3548b0-smp-spi 3548b0-nand 3548b0-smp-nand 7440b0-nand 7601b0-nand 7420a0 7420a0-nand 7325b0-nand # 3563c0-ddr1-nand (until CFE support it) 7400d0-smp-nand 97456d0-smp-nand 
+PLATFORMS=7325b0 7325b0-smtc 7401c0 97455c0 7400d0 7400d0-smp 7400d0-smp-discontig 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7118c0-nand 7038c0 3563c0 3563c0-nand 3563c0-ddr1 7335b0 7335b0-smp 7336a0-smp 7405b0 7405b0-smp 7405b0-nand 7405b0-smp-nand 7405b0-smp-nor-nand 7405d0-smp 7405d0-smp-nand 97459b0 97459b0-smp 97459b0-nand 97459b0-smp-nand 3548b0-spi 3548b0-smp-spi 3548b0-nand 3548b0-smp-nand 7440b0-nand 7601b0-nand 7635a0-nand 7420a0 7420a0-nand 7325b0-nand 7325b0-nor-nand # 7340a0 3563c0-ddr1-nand (until CFE support it) 7400d0-smp-nand 97456d0-smp-nand 
     # Obsoleted
     # 7400a0 7400a0-smp 7440a0 97398 7402 7402c0 7403a0 3560b0 3563 97456
     # 7318 7400a0-nand  7401b0-nand
@@ -67,6 +67,9 @@ SINGLE_SERIAL_PORT=n
 OPROF_PLATFORMS := $(addprefix vmlinuz-,$(addsuffix -opf,$(ALL_PLATFORMS)))
 OPROF_INITRD_PLATFORMS := $(addprefix vmlinuz-initrd-,$(addsuffix -opf,$(ALL_PLATFORMS)))
 OPROFILE_PLATFORMS := $(addsuffix -opf,$(ALL_PLATFORMS))
+
+NFSROOT_PLATFORMS := $(addprefix nfsroot-,$(ALL_PLATFORMS))
+NFSROOT_EXTRACT_PLATFORMS := $(addprefix extract-nfsroot-,$(ALL_PLATFORMS))
 
 NO_ROOTFS_PLATFORMS := $(addprefix rootfs-,$(ROOTLESS_PLATFORMS))
 ROOTFS_PLATFORMS := $(addprefix rootfs-,$(ROOTED_PLATFORMS))
@@ -391,6 +394,25 @@ $(OPROF_PLATFORMS) : prepare
 	else \
 		cp -f $(KERNEL_DIR)/vmlinux $(TFTPDIR)/$(subst vmlinuz,vmlinux,$@); \
 	fi
+
+$(NFSROOT_EXTRACT_PLATFORMS) :
+	@if [ $(MYUID) -ne 0 ]; then 				\
+		echo "Making target $@ requires root access"; 	\
+		exit 1; 					\
+	else 							\
+		su -m -c "cd $$MY_NFSROOT_DIR;			\
+		$(CROSS_COMPILE)objcopy -j .init.ramfs -O binary vmlinux /dev/stdout | gunzip -cd | cpio -ivd --no-absolute-filenames" $(ROOT);	\
+	fi						
+	echo "==== NFS mountable rootfs can be found out at $$MY_NFSROOT_DIR ===="	
+
+$(NFSROOT_PLATFORMS) :
+	make -f build.mk vmlinuz-initrd-$(subst nfsroot-,,$@)
+	-test -f $(KERNEL_DIR)/vmlinux && ( test -d images/$(subst nfsroot-,,$@) && 						\
+	( test -d images/$(subst nfsroot-,,$@)/initramfs_nfsroot || mkdir images/$(subst nfsroot-,,$@)/initramfs_nfsroot));	\
+	cp  $(KERNEL_DIR)/vmlinux images/$(subst nfsroot-,,$@)/initramfs_nfsroot/;						\
+	export MY_NFSROOT_DIR=images/$(subst nfsroot-,,$@)/initramfs_nfsroot/;							\
+	echo "make -f build.mk extract-$@ requires root access. Please enter root password:";					\
+	su -m -c '$(shell echo "make -f build.mk extract-$@")' $(ROOT)
 	
 clean:
 	rm -f $(ALL_PLATFORMS) $(BB_INITRD_PLATFORMS) $(BB_PLATFORMS)
@@ -426,4 +448,6 @@ show_targets:
  	done
 	@for i in $(ALL_PLATFORMS); do \
 		echo "rootfs-"$$i; \
+	@for i in $(ALL_PLATFORMS); do \
+		echo "nfsroot-"$$i; \
  	done

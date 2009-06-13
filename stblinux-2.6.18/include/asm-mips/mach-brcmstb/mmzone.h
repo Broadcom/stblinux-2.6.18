@@ -29,7 +29,7 @@
 
 #include <linux/mmzone.h>
 
-#if defined ( CONFIG_MIPS_BCM7440B0 ) || defined (CONFIG_MIPS_BCM7601B0)
+#if defined ( CONFIG_MIPS_BCM7440B0 ) || defined (CONFIG_MIPS_BCM7601B0) || defined (CONFIG_MIPS_BCM7635A0)
 
 #include <asm/brcmstb/common/brcmstb.h>
 
@@ -62,7 +62,8 @@ extern int numnodes;
 #endif
 #define HIGHMEM_START	0x80000000UL
 
-#if defined ( CONFIG_MIPS_BCM7440B0 ) || defined (CONFIG_MIPS_BCM7601B0)
+#if defined ( CONFIG_MIPS_BCM7440B0 ) || defined (CONFIG_MIPS_BCM7601B0) || defined (CONFIG_MIPS_BCM7635A0)
+
 #define UPPER_RAM_BASE  0x20000000UL    // 512MB
 #define IDE_WINDOW_END  0x08000000UL    // 128MB
 extern volatile unsigned int  NR_NODES;
@@ -95,7 +96,8 @@ extern volatile unsigned long LOWER_RAM_END;
 /* PCI/PCIe address for SCB 2000_0000 is 1000_0000 */
 #define UPPER_RAM_PCI_OFFSET	0x10000000UL
 
-#if defined ( CONFIG_MIPS_BCM7440 ) || defined (CONFIG_MIPS_BCM7601)
+#if defined ( CONFIG_MIPS_BCM7440 ) || defined (CONFIG_MIPS_BCM7601) || defined (CONFIG_MIPS_BCM7635A0)
+
 
 #define UPPER_RAM_VBASE 0xd8000000UL
 #define LOWER_RAM_VBASE PAGE_OFFSET
@@ -111,7 +113,7 @@ extern volatile unsigned long LOWER_RAM_END;
 				   (u32)kaddr < (LOWER_RAM_VBASE + LOWER_RAM_SIZE))
 #define IS_KADDR_UPPER_RAM(kaddr) ((u32)kaddr >= UPPER_RAM_VBASE && \
 				   (u32)kaddr < (UPPER_RAM_VBASE + UPPER_RAM_SIZE))
-#if defined (CONFIG_MIPS_BCM7440B0) || defined (CONFIG_MIPS_BCM7601B0) 
+#if defined (CONFIG_MIPS_BCM7440B0) || defined (CONFIG_MIPS_BCM7601B0) || defined (CONFIG_MIPS_BCM7635A0)
 #define IS_KADDR_IDE_WINDOW(kaddr) (kaddr >= LOWER_RAM_VBASE && kaddr < (LOWER_RAM_VBASE + IDE_WINDOW_END))
 #endif
 

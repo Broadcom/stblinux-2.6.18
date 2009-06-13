@@ -34,6 +34,11 @@
 
 #include <asm/uaccess.h>
 
+#ifdef CONFIG_MIPS_BRCM97XXX
+static int _console_initialized = 0;
+#endif
+
+
 #define __LOG_BUF_LEN	(1 << CONFIG_LOG_BUF_SHIFT)
 
 /* printk's without a loglevel use this.. */
@@ -511,21 +516,21 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	static char printk_buf[1024];
 	static int log_level_unknown = 1;
 
+#ifdef CONFIG_MIPS_BRCM97XXX
 /************* THT: HACK HACK HACK Provide early printk *******************/
-	extern int brcm_console_initialized(void);
 	extern void uart_puts(const char *);
 	
-    if (/*1*/ !brcm_console_initialized() /**/) {
-	    /* This stops the holder of console_sem just where we want him */
-	    spin_lock_irqsave(&logbuf_lock, flags);
-        printed_len = vsprintf(printk_buf, fmt, args);
-        spin_unlock_irqrestore(&logbuf_lock, flags);
-        uart_puts(printk_buf);
+	if (!_console_initialized) {
+	    	/* This stops the holder of console_sem just where we want him */
+		spin_lock_irqsave(&logbuf_lock, flags);
+	        printed_len = vsprintf(printk_buf, fmt, args);
+        	spin_unlock_irqrestore(&logbuf_lock, flags);
+	        uart_puts(printk_buf);
         
-        return printed_len;
-    }
-
+        	return printed_len;
+    	}
 /************* END HACK END HACK END HACK **********************************/
+#endif
 
 	preempt_disable();
 	if (unlikely(oops_in_progress) && printk_cpu == smp_processor_id())
@@ -734,6 +739,10 @@ int __init add_preferred_console(char *name, int idx, char *options)
 	c->name[sizeof(c->name) - 1] = 0;
 	c->options = options;
 	c->index = idx;
+#ifdef CONFIG_MIPS_BRCM97XXX
+	_console_initialized = 1;
+#endif
+
 	return 0;
 }
 

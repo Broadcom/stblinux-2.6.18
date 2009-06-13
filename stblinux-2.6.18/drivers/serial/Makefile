@@ -16,7 +16,10 @@ endif
 obj-$(CONFIG_SERIAL_8250_HP300) += 8250_hp300.o
 obj-$(CONFIG_SERIAL_8250_CS) += serial_cs.o
 obj-$(CONFIG_SERIAL_8250_ACORN) += 8250_acorn.o
+ifneq ($(CONFIG_MIPS_BRCM97XXX),y)
 obj-$(CONFIG_SERIAL_8250_CONSOLE) += 8250_early.o
+endif
+
 obj-$(CONFIG_SERIAL_8250_FOURPORT) += 8250_fourport.o
 obj-$(CONFIG_SERIAL_8250_ACCENT) += 8250_accent.o
 obj-$(CONFIG_SERIAL_8250_BOCA) += 8250_boca.o
