@@ -109,7 +109,9 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 		if (!ret && pointlen < device_size(c->mtd)) {
 			/* Don't muck about if it won't let us point to the whole flash */
 			D1(printk(KERN_DEBUG "MTD point returned len too short: 0x%zx\n", pointlen));
-			c->mtd->unpoint(c->mtd, flashbuf, 0, device_size(c->mtd));
+			if (c->mtd->unpoint) {
+				c->mtd->unpoint(c->mtd, flashbuf, 0, device_size(c->mtd));
+			}
 			flashbuf = NULL;
 		}
 		if (ret)
@@ -272,8 +274,11 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 	if (buf_size)
 		kfree(flashbuf);
 #ifndef __ECOS
-	else
-		c->mtd->unpoint(c->mtd, flashbuf, 0, device_size(c->mtd));
+	else {
+		if (c->mtd->unpoint) {
+			c->mtd->unpoint(c->mtd, flashbuf, 0, device_size(c->mtd));
+		}
+	}
 #endif
 	if (s)
 		kfree(s);
@@ -474,7 +479,7 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 	 * but we still need to make sure that the block is not bad
 	 */
 	else {
-		if (c->mtd->block_isbad(c->mtd, jeb->offset)) {
+		if (c->mtd->block_isbad && c->mtd->block_isbad(c->mtd, jeb->offset)) {
 			D1 (printk(KERN_WARNING "%s: Bad block at %08x\n", __FUNCTION__, jeb->offset));
 			return BLK_STATE_BADBLOCK;
 		}

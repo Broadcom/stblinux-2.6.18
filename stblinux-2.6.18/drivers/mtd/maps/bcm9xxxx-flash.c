@@ -33,8 +33,8 @@
 #include <linux/init.h>
 #include <asm/brcmstb/common/brcmstb.h>
 
-//#define PRINTK(...)
-#define PRINTK printk
+#define PRINTK(...)
+//#define PRINTK printk
 
 extern int gFlashSize;
 
@@ -179,12 +179,13 @@ struct map_info bcm9XXXX_map
 
 static struct mtd_partition bcm9XXXX_parts[] = {
 
-#if defined( CONFIG_MTD_BRCMNAND ) 
+#if defined( CONFIG_MTD_BRCMNAND_NOR_ACCESS ) 
 #define DEFAULT_SIZE_MB ( BRCM_FLASH_SIZE >> 20)
 
 	/* In a NOR+NAND configuration, the NOR flash is only 4MB or less */
-	 { name: "nor",		offset: 0,		size: DEFAULT_SIZE_MB*1024*1024 },
-	 
+	 { name: "cfe",	offset: (DEFAULT_SIZE_MB-4)*1024*1024,	size: 4*1024*1024 },
+	 { name: "nor",	offset: 0,								size: (DEFAULT_SIZE_MB-4)*1024*1024 },
+
 #elif defined( CONFIG_MIPS_BCM7440 ) || defined(CONFIG_MIPS_BCM7601) || defined(CONFIG_MIPS_BCM7635) 
 
 #define DEFAULT_SIZE_MB 64 /* 64MB flash */
@@ -230,12 +231,16 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 	{name: NULL, offset: 0, size: 0}
 };
 
+static int gNumParts;
 
 #ifdef CONFIG_MTD_BRCMNAND
+
+
+
 static void bcm_add_nor_partition(void)
 {
 	printk(KERN_INFO "Mapped %dMB NOR flash at virtual address %08X\n", DEFAULT_SIZE_MB, bcm9XXXX_map.virt );
-	add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, 1);
+	add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, gNumParts);
 }
 
 void (*gInitialize_Nor_Partition)(void) = (void (*)(void)) 0;
@@ -245,7 +250,7 @@ EXPORT_SYMBOL(gInitialize_Nor_Partition);
 int __init init_bcm9XXXX_map(void)
 {
 	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
-	int i, numparts;
+	int i;
 
 #ifdef CONFIG_MTD_ECM_PARTITION
 	unsigned int ecm_size = DEFAULT_ECM_SIZE;
@@ -254,7 +259,16 @@ int __init init_bcm9XXXX_map(void)
 	
 	printk(KERN_NOTICE "BCM97XXX flash device: 0x%08lx @ 0x%08lx\n", WINDOW_SIZE, WINDOW_ADDR);
 	bcm9XXXX_map.size = WINDOW_SIZE;
-	numparts = ARRAY_SIZE(bcm9XXXX_parts) - 2; /* Minus the 2 extra place holders */
+	gNumParts = ARRAY_SIZE(bcm9XXXX_parts) - 2; /* Minus the 2 extra place holders */
+
+
+#ifdef CONFIG_MTD_BRCMNAND_NOR_ACCESS
+	/* If NOR flash is only 4MB, remove the NOR partition, leaving only CFE partition */
+	if ( (DEFAULT_SIZE_MB - ((int) (bcm9XXXX_parts[0].size>>20))) <= 0) {
+		gNumParts--;
+	}
+
+#endif
 
 	/* Adjust partition table */
 #ifdef CONFIG_MTD_ECM_PARTITION
@@ -262,7 +276,7 @@ int __init init_bcm9XXXX_map(void)
 		ecm_size = DEFAULT_OCAP_SIZE;
 		avail1_size = 0;
 		bcm9XXXX_parts[AVAIL1_PART].size = avail1_size;
-		numparts--;
+		gNumParts--;
 	}
 	else {
 		int factor = WINDOW_SIZE / (64 << 20);
@@ -272,8 +286,8 @@ int __init init_bcm9XXXX_map(void)
 		ecm_size = ocap_size + avail1_size;
 	}
 
-	bcm9XXXX_parts[0].size = WINDOW_SIZE - (DEFAULT_RESERVED_SIZE + ecm_size);
-PRINTK("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
+	bcm9XXXX_parts[0].size = (DEFAULT_SIZE_MB <<20 ) - (DEFAULT_RESERVED_SIZE + ecm_size);
+PRINTK("Part[0] name=%s, size=%llx, offset=%llx\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
 	for (i=1; i<ARRAY_SIZE(bcm9XXXX_parts); i++) {
 		
 		/* Skip avail1 if 0 size */
@@ -284,39 +298,46 @@ PRINTK("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX
 	
 		bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i-1].size + bcm9XXXX_parts[i-1].offset;
 		
-PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", avail1_size ? i : i-1, 
+PRINTK("Part[%d] name=%s, size=%llx, offset=%llx\n", avail1_size ? i : i-1, 
 bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	}
 
 	/* Shift partitions 1 up if avail1_size is 0 */
 	if (0 == avail1_size) {
-		for (i=AVAIL1_PART; i < numparts; i++) {
+		for (i=AVAIL1_PART; i < gNumParts; i++) {
 			bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i+1].offset;
 			bcm9XXXX_parts[i].size = bcm9XXXX_parts[i+1].size;
 		}
-		bcm9XXXX_parts[numparts].offset = 0;
-		bcm9XXXX_parts[numparts].size = 0;
+		bcm9XXXX_parts[gNumParts].offset = 0;
+		bcm9XXXX_parts[gNumParts].size = 0;
 	}
 
 		
 #elif defined( DEFAULT_SIZE_MB )
 	if (WINDOW_SIZE != (DEFAULT_SIZE_MB << 20)) {
-		
-		bcm9XXXX_parts[0].size += WINDOW_SIZE - (DEFAULT_SIZE_MB << 20);
-PRINTK("Part[0] name=%s, size=%x, offset=%x\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
+		int64_t diffSize = (uint64_t) WINDOW_SIZE - (uint64_t) (DEFAULT_SIZE_MB << 20);
+
+//printk("WINDOW_SIZE=%dMB, Default=%dMB, diff=%llx\n", 
+//	WINDOW_SIZE>>20, DEFAULT_SIZE_MB, diffSize);
+
+		// Only size of rootfs is shrunk/enlarged
+		bcm9XXXX_parts[0].size += diffSize;
+PRINTK("Part[0] After name=%s, size=%llx, offset=%llx\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
+
+		// Adjust offset of other partitions accordingly
 		for (i=1; i<ARRAY_SIZE(bcm9XXXX_parts); i++) {
-			bcm9XXXX_parts[i].offset += WINDOW_SIZE - (DEFAULT_SIZE_MB << 20);
-PRINTK("Part[%d] name=%s, size=%x, offset=%x\n", i, bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
+			bcm9XXXX_parts[i].offset +=  diffSize;
+PRINTK("Part[%d] After: name=%s, size=%llx, offset=%llx\n", i, bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 		}
 	}
 #endif
 
 
 	if (gBcmSplash) {		
-PRINTK("In bcmSplash, numParts=%d\n", numparts);
-		for (i=0; i<numparts; i++) {
+PRINTK("In bcmSplash, numParts=%d\n", gNumParts);
+		for (i=0; i<gNumParts; i++) {
 PRINTK("bcm9xxxx-flash.c: i=%d\n", i);
-PRINTK("B4 Part[%d] name=%s, size=%x, offset=%x\n",  i, 
+PRINTK("B4 Part[%d] name=%s, size=%llx, offset=%llx\n",  i, 
 	bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 			
 
@@ -334,13 +355,13 @@ PRINTK("B4 Part[%d] name=%s, size=%x, offset=%x\n",  i,
 				}
 				
 				/* Move all partitions that follow one down */
-				for (j=numparts - 1; j > i; j--) {
+				for (j=gNumParts - 1; j > i; j--) {
 					bcm9XXXX_parts[j+1] = bcm9XXXX_parts[j];
 	PRINTK("Moved partition[%d] down to [%d], name=%s\n", j, j+1, bcm9XXXX_parts[j+1].name);
 				}	
-				numparts++;
+				gNumParts++;
 				
-	PRINTK("original: #parts=%d, Part[%d] name=%s, size=%x, offset=%x\n", numparts,  i, 
+	PRINTK("original: #parts=%d, Part[%d] name=%s, size=%llx, offset=%llx\n", gNumParts,  i, 
 bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 
 				i++;
@@ -349,7 +370,7 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 				bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i-1].size + bcm9XXXX_parts[i-1].offset;
 				bcm9XXXX_parts[i].size = DEFAULT_SPLASH_SIZE;
 				bcm9XXXX_parts[i].name = "splash";
-	PRINTK("splash: #parts=%d, Part[%d] name=%s, size=%x, offset=%x\n", numparts,  i, 
+	PRINTK("splash: #parts=%d, Part[%d] name=%s, size=%llx, offset=%llx\n", gNumParts,  i, 
 bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 			}
 
@@ -383,7 +404,7 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	else {
 		// Nand is loaded before Nor
 		//gInitialize_Nor_Partition = bcm_add_nor_partition;
-		add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, numparts);
+		add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, gNumParts);
 	}
 	
   #else
@@ -393,7 +414,7 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
   
 #else
 	// Regular Nor access
-	add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, numparts);
+	add_mtd_partitions(bcm9XXXX_mtd, bcm9XXXX_parts, gNumParts);
 #endif
 	bcm9XXXX_mtd->owner = THIS_MODULE;
 

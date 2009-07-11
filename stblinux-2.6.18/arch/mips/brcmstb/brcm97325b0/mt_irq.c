@@ -20,6 +20,7 @@
  *
  * Interrupt routines for Broadcom eval boards
  *
+ *	06/02/2009	jipeng - clean up the mess
  */
 #include <linux/init.h>
 #include <linux/sched.h>
@@ -93,11 +94,8 @@ extern unsigned long irq_hwmask[NR_IRQS];
  *      1- 32       2         The L1 32 Interrupt Controller Bits W0
  *      33 - 64     2         The L1 32 Interrupt Controller Bits W1
  *      65 - 96     2         The L1 32 Interrupt Controller Bits W2
- *       97         2         UARTA
- *       98         2         UARTB
+ *	101         1         Software IPI 1
  *      107         7         R4k timer (used for master system time)
- *	100	    0	 	Software IPI 0
- *	101	    1		Software IPI 1
  * Again, I cannot stress this enough, keep this table up to date!!!
  */
 
@@ -115,8 +113,6 @@ static void brcm_intc_enable(unsigned int irq)
 	{
 		shift = irq - 1;
 		CPUINT1C->IntrW0MaskClear = (0x1UL<<shift);
-		if (irq == BCM_LINUX_CPU_ENET_IRQ)
-		*((volatile unsigned long *)0xb0082424) |= 0x2;
 	}
 	else if (irq > 32 && 
 			irq <= 32+32)
@@ -146,8 +142,6 @@ static void brcm_intc_disable(unsigned int irq)
 		shift = irq - 1;
 
 		CPUINT1C->IntrW0MaskSet = (0x1UL<<shift);
-		if (irq == BCM_LINUX_CPU_ENET_IRQ)
-		*((volatile unsigned long *)0xb0082424) &= ~0x2;
 	}
 	else if (irq > 32 && 
 			irq <= 32+32)
@@ -167,7 +161,7 @@ static void brcm_intc_disable(unsigned int irq)
 
 
 static unsigned int brcm_intc_startup(unsigned int irq)
-{
+{ 
 	brcm_intc_enable(irq);
 	return 0; /* never anything pending */
 }
@@ -194,72 +188,6 @@ static struct hw_interrupt_type brcm_intc_type = {
 	disable: brcm_intc_disable,
 	ack: brcm_intc_disable,	
 	end: brcm_intc_end,
-	NULL
-};
-
-/*
- * UART functions
- *
- */
-static void brcm_uart_enable(unsigned int irq)
-{
-	unsigned int flags;
-	local_irq_save(flags);
-
-	if (irq == BCM_LINUX_UARTA_IRQ)
-	{
-		PRINTK("$$$$$$$$ UART A irq enabled. \n");
-		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_CLEAR_UPG_UART0_CPU_INTR_MASK;
-	}
-	else if (irq == BCM_LINUX_UARTB_IRQ)
-	{
-		PRINTK("$$$$$$$$ UART B irq enabled. \n");
-		CPUINT1C->IntrW2MaskClear = BCHP_HIF_CPU_INTR1_INTR_W2_MASK_CLEAR_UPG_UART1_CPU_INTR_MASK;
-	}
-
-	local_irq_restore(flags);
-}
-
-static void brcm_uart_disable(unsigned int irq)
-{
-	unsigned long flags;
-	local_irq_save(flags);
-
-	if (irq == BCM_LINUX_UARTA_IRQ)
-	{
-		PRINTK("########## UART A irq Disabled. \n");
-		CPUINT1C->IntrW0MaskSet = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_SET_UPG_UART0_CPU_INTR_MASK;
-	}
-	else if (irq == BCM_LINUX_UARTB_IRQ)
-	{
-		PRINTK("########## UART B irq Disabled. \n");
-		CPUINT1C->IntrW2MaskSet = BCHP_HIF_CPU_INTR1_INTR_W2_MASK_SET_UPG_UART1_CPU_INTR_MASK;
-	}
-
-	local_irq_restore(flags);
-}
-
-static unsigned int brcm_uart_startup(unsigned int irq)
-{ 
-	brcm_uart_enable(irq);
-
-	return 0; /* never anything pending */
-}
-
-static void brcm_uart_end(unsigned int irq)
-{
-	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
-		brcm_uart_enable(irq);
-}
-
-static struct hw_interrupt_type brcm_uart_type = {
-	typename: "BCM UART",
-	startup: brcm_uart_startup,
-	shutdown: brcm_uart_disable,
-	enable: brcm_uart_enable,
-	disable: brcm_uart_disable,
-	ack: brcm_uart_disable,
-	end: brcm_uart_end,
 	NULL
 };
 
@@ -296,35 +224,6 @@ static void brcm_mips_int2_disable(unsigned int irq)
 	emt(vpflags);
 }
 
-static void brcm_mips_int2_ack(unsigned int irq)
-{
-	/* Already done in brcm_irq_dispatch */
-}
-
-static unsigned int brcm_mips_int2_startup(unsigned int irq)
-{ 
-	brcm_mips_int2_enable(irq);
-
-	return 0; /* never anything pending */
-}
-
-static void brcm_mips_int2_end(unsigned int irq)
-{
-	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
-		brcm_mips_int2_enable(irq);
-}
-
-static struct hw_interrupt_type brcm_mips_int2_type = {
-	typename: "BCM MIPS INT2",
-	startup: brcm_mips_int2_startup,
-	shutdown: brcm_mips_int2_disable,
-	enable: brcm_mips_int2_enable,
-	disable: brcm_mips_int2_disable,
-	ack: brcm_mips_int2_ack,
-	end: brcm_mips_int2_end,
-	NULL
-};
-
 void brcm_mips_int2_dispatch(struct pt_regs *regs)
 {
     	unsigned int pendingIrqs,pendingIrqs1,pendingIrqs2, shift,irq;
@@ -346,32 +245,7 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 	{
 		shift = irq-1;
 		if ((0x1 << shift) & pendingIrqs)
-		{
-			if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_UART0_CPU_INTR_SHIFT) {
-				PRINTK("UART A\n");
-				do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
-			}
-
-			else if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT 
-				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ubirq_MASK) 
-				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ub_irqen_MASK) )
-			{
-				PRINTK("UART B\n");
-				do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
-			}
-			else if (irq == BCM_LINUX_CPU_ENET_IRQ)
-			{
-#ifndef CONFIG_MIPS_BRCM_IKOS
-				if (*((volatile unsigned long *)0xb0082420) & *((volatile unsigned long *)0xb0082424) & 0x2 )
-					do_IRQ(BCM_LINUX_CPU_ENET_IRQ, regs);
-				else
-#endif
-					printk("unsolicited ENET interrupt!!!\n");
-
-			}
-			else
 			do_IRQ(irq, regs);
-		}
 	}
 	
 	for (irq = 32+1; irq <= 32+32; irq++)
@@ -420,21 +294,10 @@ void __init brcm_irq_setup(void)
 		DECLARE_SMTC_IRQ(irq, 2);
 	}
 
-	/* Handle the Serial IRQs differently so they can have unique IRQs */
-	irq_desc[BCM_LINUX_UARTA_IRQ].status = IRQ_PER_CPU;
-	irq_desc[BCM_LINUX_UARTA_IRQ].chip = &brcm_uart_type;
-	irq_desc[BCM_LINUX_UARTA_IRQ].action = NULL;
-	DECLARE_SMTC_IRQ(BCM_LINUX_UARTA_IRQ, 2);
-
-	irq_desc[BCM_LINUX_UARTB_IRQ].status = IRQ_PER_CPU;
-	irq_desc[BCM_LINUX_UARTB_IRQ].chip = &brcm_uart_type;
-	irq_desc[BCM_LINUX_UARTB_IRQ].action = NULL;
-	DECLARE_SMTC_IRQ(BCM_LINUX_UARTB_IRQ, 2);
-
 	noirqdebug = 1; // THT Disable spurious interrupt checking, as UARTA would cause in BE, (USB also).
 	brcm_mips_int2_enable(0);
-	//enable the UPG level UARTA int. 
-	*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_uarta_irqen_MASK;
+	//enable the UARTA/B in L2 
+	*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_uarta_irqen_MASK | BCHP_IRQ0_IRQEN_uartb_irqen_MASK;
 }
 
 void __init arch_init_irq(void)

@@ -115,29 +115,40 @@ int gDebugMaskW0, gDebugMaskW1, gDebugMaskW2;
 #ifdef	DEBUG_UARTA_INTR_FROM_INT2IRQ
 static inline void dump_INTC_regs(void)
 {
+	unsigned int status0, status1, status2;
 	unsigned int pendingIrqs, pendingIrqs1, pendingIrqs2;
 	unsigned int mask0, mask1, mask2;
 	char msg[80];
 	pendingIrqs2 = mask2 = 0;
 
-	pendingIrqs = CPUINT1C->IntrW0Status;
+	pendingIrqs = status0 = CPUINT1C->IntrW0Status;
 	pendingIrqs &= ~(mask0 = CPUINT1C->IntrW0MaskStatus);
-	pendingIrqs1 = CPUINT1C->IntrW1Status;
+
+	pendingIrqs1 = status1 = CPUINT1C->IntrW1Status;
 	pendingIrqs1 &= ~(mask1 = CPUINT1C->IntrW1MaskStatus);
 
 #if	 L1_IRQS > 64
-	pendingIrqs2 = CPUINT1C->IntrW2Status;
+	pendingIrqs2 = status2 = CPUINT1C->IntrW2Status;
 	pendingIrqs2 &= ~(mask2 = CPUINT1C->IntrW2MaskStatus);
 #endif
 
-	sprintf(msg, "\nLast pending0=%08x, pd1=%08x, pd2=%08x\n", 
-		gDebugPendingIrq0, gDebugPendingIrq1, gDebugPendingIrq2);
+	sprintf(msg, "\n");
 	uartB_puts(msg);
 
-	sprintf(msg, "Last MaskW0=%08x, mW1=%08x, mW2=%08x\n", 
-		gDebugMaskW0, gDebugMaskW1, gDebugMaskW2);
-	uartB_puts(msg);
-	
+	if((gDebugPendingIrq0 != pendingIrqs) || (gDebugPendingIrq1 != pendingIrqs1) || (gDebugPendingIrq2 != pendingIrqs2))
+	{
+		sprintf(msg, "Last pending0=%08x, pd1=%08x, pd2=%08x\n", 
+			gDebugPendingIrq0, gDebugPendingIrq1, gDebugPendingIrq2);
+		uartB_puts(msg);
+	}
+
+	if((gDebugMaskW0 != mask0) || (gDebugMaskW1 != mask1) || (gDebugMaskW2 != mask2))
+	{
+		sprintf(msg, "Last MaskW0=%08x, mW1=%08x, mW2=%08x\n", 
+			gDebugMaskW0, gDebugMaskW1, gDebugMaskW2);
+		uartB_puts(msg);
+	}
+
 	sprintf(msg, "Current pending0=%08x, pd1=%08x,  pd2=%08x\n", 
 		pendingIrqs, pendingIrqs1, pendingIrqs2);
 	uartB_puts(msg);
@@ -145,6 +156,13 @@ static inline void dump_INTC_regs(void)
 	sprintf(msg, "Current MaskW0=%08x, mW1=%08x, mW2=%08x\n", 
 		mask0, mask1, mask2);
 	uartB_puts(msg);
+
+	if((status0 != pendingIrqs) || (status1 != pendingIrqs1) || (status2 != pendingIrqs2))
+	{
+		sprintf(msg, "Current status W0=%08x, W1=%08x, W2=%08x\n", 
+			status0, status1, status2);
+		uartB_puts(msg);
+	}
 }
 #else
 static inline void dump_INTC_regs(void)		{}

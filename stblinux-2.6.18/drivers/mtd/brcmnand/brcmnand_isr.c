@@ -79,12 +79,16 @@ ISR_queue_read_request(struct mtd_info *mtd,
 	struct list_head* node;
 
 	// Grab one request from avail list
+	if (list_empty(&gJobQ.availList)) {
+		printk("%s: Empty avail list\n", __FUNCTION__);
+		BUG();
+	}
 	node = gJobQ.availList.next;
 	if (!node) {
 		printk("%s: Empty avail list\n", __FUNCTION__);
 		BUG();
 	}
-	entry = container_of(node, eduIsrNode_t, list);
+	entry = list_entry(node, eduIsrNode_t, list);
 	list_del(node);
 
 	// Queue entry
@@ -109,13 +113,16 @@ ISR_queue_write_request(struct mtd_info *mtd,
 	struct list_head* node;
 
 	// Grab one request from avail list
-
+	if (list_empty(&gJobQ.availList)) {
+		printk("%s: Empty avail list\n", __FUNCTION__);
+		BUG();
+	}
 	node = gJobQ.availList.next;
 	if (!node) {
 		printk("%s: Empty avail list\n", __FUNCTION__);
 		BUG();
 	}
-	entry = container_of(node, eduIsrNode_t, list);
+	entry = list_entry(node, eduIsrNode_t, list);
 	list_del(node);
 
 	// Queue entry
@@ -145,13 +152,16 @@ ISR_push_request(struct mtd_info *mtd,
 	struct list_head* node;
 
 	// Grab one request from avail list
-
+	if (list_empty(&gJobQ.availList)) {
+		printk("%s: Empty avail list\n", __FUNCTION__);
+		BUG();
+	}
 	node = gJobQ.availList.next;
 	if (!node) {
 		printk("%s: Empty avail list\n", __FUNCTION__);
 		BUG();
 	}
-	entry = container_of(node, eduIsrNode_t, list);
+	entry = list_entry(node, eduIsrNode_t, list);
 	list_del(node);
 
 	// Push to head of queue
@@ -191,6 +201,23 @@ ISR_find_request( isrOpStatus_t opStatus)
 	return (eduIsrNode_t*) 0;;
 }
 
+#if 0
+static void
+ISR_print_queue(void)
+{
+	eduIsrNode_t* req;
+	int i=0;
+
+	list_for_each_entry(req, &gJobQ.jobQ, list) {
+		
+		// We called this with spin_lock_irqsave on queue lock, so no need for the irq variant
+		printk("I=%d req=%p, offset=%0llx, opComp=%d, list=%p, next=%p, prev=%p\n",
+			i, req, req->offset, req->opComplete, &req->list, req->list.next, req->list.prev);
+		i++;
+	}
+	return (eduIsrNode_t*) 0;;
+}
+#endif
 
 
 /*
@@ -544,9 +571,10 @@ ISR_wait_for_queue_completion(void)
 				submitted = brcmnand_isr_submit_job();
 			}
 			else {
+				eduIsrNode_t* tmp;
+
 				// Abort queue, TBD
-				// printk("%s: Fix me at %s:%d\n", __FUNCTION__, __FILE__, __LINE__);
-				list_for_each_entry(req, &gJobQ.jobQ, list) {
+				list_for_each_entry_safe(req, tmp, &gJobQ.jobQ, list) {
 					list_del(&req->list);
 
 					list_add_tail(&req->list, &gJobQ.availList);

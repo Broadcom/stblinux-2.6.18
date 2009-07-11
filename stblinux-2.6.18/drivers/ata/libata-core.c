@@ -2836,13 +2836,13 @@ int ata_std_prereset(struct ata_link *link)
 		  }
 #else
 			ata_link_printk(link, KERN_WARNING, "device not ready "
-					"(errno=%d), forcing hardreset\n", rc);
-			ehc->i.action |= ATA_EH_HARDRESET;
+					"(errno=%d), forcing softreset\n", rc);
+			ehc->i.action |= ATA_EH_SOFTRESET;
 #endif
 		}
 	}
 
-	return rc;
+	return 0;
 }
 
 /**

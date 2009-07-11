@@ -639,8 +639,7 @@ static void tx_reclaim_timer(unsigned long arg)
                     else {
                         pDevCtrl->emac->txControl &= ~EMAC_FD;
                     }
-                    pDevCtrl->dmaRegs->flowctl_ch1_alloc = (IUDMA_CH1_FLOW_ALLOC_FORCE | 0);
-                    pDevCtrl->dmaRegs->flowctl_ch1_alloc = NR_RX_BDS;
+                    pDevCtrl->dmaRegs->flowctl_ch1_alloc = (IUDMA_CH1_FLOW_ALLOC_FORCE | NR_RX_BDS);
                     pDevCtrl->rxDma->cfg |= DMA_ENABLE;
                 }
 
@@ -1178,24 +1177,14 @@ static int bcmemac_enet_poll(struct net_device * dev, int * budget)
     *budget -= work_done;
     dev->quota -= work_done;
 
-    if (work_done < work_to_do && ret_done != ENET_POLL_DONE) {
-       /* Did as much as could, but we are not done yet */
-       return 1;
-    }
-
-    /* We are done */
-    netif_rx_complete(dev);
-
-#ifndef DISABLE_INTERRUPTS 
-    /* Reschedule if there are more packets on the DMA ring to be received. */
-    if( (((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff) & DMA_OWN) == 0 ) {
-        netif_rx_reschedule(pDevCtrl->dev, work_done);
-    } else {
+    if (work_done == 0 || !netif_running(dev)) {
+        /* nothing left to do, so quit polling and re-enable interrupts */
+        netif_rx_complete(dev);
         pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk |= DMA_DONE;
+        return 0;
     }
-#endif
 
-    return 0;
+    return 1;
 }
 
 /*
@@ -1414,7 +1403,7 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
         rxpktgood++;
 
         /* Notify kernel */
-        netif_rx(skb);
+        netif_receive_skb(skb);
         
         if (--budget <= 0) {
             break;

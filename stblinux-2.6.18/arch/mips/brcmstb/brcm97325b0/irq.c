@@ -1,5 +1,5 @@
 /*
- * arch/mips/brcm/irq.c
+ * arch/mips/brcm97325b0/irq.c
  *
  * Copyright (C) 2001-2007 Broadcom Corporation
  *                    Steven J. Hill <shill@broadcom.com>
@@ -20,13 +20,7 @@
  *
  * Interrupt routines for Broadcom eval boards
  *
- * 10-23-2001   SJH    Created
- * 10-25-2001   SJH    Added comments on interrupt handling
- * 09-29-2003   QY     Added support for bcm97038
- * 06-03-2005   THT    Ported to 2.6.12
- * 03-10-2006   TDT    Modified for SMP
- * 01-11-2007   TDT    Modified for 7440B0
- * 01-15-2007	TDT    Adding interrupt control to both CPUs
+ *	06/02/2009	jipeng - clean up the mess
  */
 #include <linux/init.h>
 #include <linux/sched.h>
@@ -94,8 +88,6 @@ asmlinkage void plat_irq_dispatch(struct pt_regs *regs);
  *      1- 32       2         	The L1 32 Interrupt Controller Bits W0
  *      33 - 64     2         	The L1 32 Interrupt Controller Bits W1
  *      65 - 96     2         	The L1 32 Interrupt Controller Bits W2
- *       97         2     	UARTA
- *       98         2         	UARTB
  *      100         7		R4k timer (used for master system time)
  * Again, I cannot stress this enough, keep this table up to date!!!
  */
@@ -113,8 +105,6 @@ static void brcm_intc_enable(unsigned int irq)
 	{
 		shift = irq - 1;
 		CPUINT1C->IntrW0MaskClear = (0x1UL<<shift);
-		if (irq == BCM_LINUX_CPU_ENET_IRQ)
-		*((volatile unsigned long *)0xb0082424) |= 0x2;
 	}
 	else if (irq > 32 && 
 			irq <= 32+32)
@@ -142,8 +132,6 @@ static void brcm_intc_disable(unsigned int irq)
 		shift = irq - 1;
 
 		CPUINT1C->IntrW0MaskSet = (0x1UL<<shift);
-		if (irq == BCM_LINUX_CPU_ENET_IRQ)
-		*((volatile unsigned long *)0xb0082424) &= ~0x2;
 	}
 	else if (irq > 32 && 
 			irq <= 32+32)
@@ -193,72 +181,8 @@ static struct hw_interrupt_type brcm_intc_type = {
 };
 
 /*
- * UART functions
- *
- */
-static void brcm_uart_enable(unsigned int irq)
-{
-	unsigned int flags;
-	local_irq_save(flags);
-	if (irq == BCM_LINUX_UARTA_IRQ)
-	{
-		PRINTK("$$$$$$$$ UART A irq enabled. \n");
-		CPUINT1C->IntrW0MaskClear = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_CLEAR_UPG_UART0_CPU_INTR_MASK;
-	}
-	else if (irq == BCM_LINUX_UARTB_IRQ)
-	{
-		PRINTK("$$$$$$$$ UART B irq enabled. \n");
-		CPUINT1C->IntrW2MaskClear = BCHP_HIF_CPU_INTR1_INTR_W2_MASK_CLEAR_UPG_UART1_CPU_INTR_MASK;
-	}
-	local_irq_restore(flags);
-}
-
-static void brcm_uart_disable(unsigned int irq)
-{
-	unsigned long flags;
-
-	local_irq_save(flags);
-	if (irq == BCM_LINUX_UARTA_IRQ)
-	{
-		PRINTK("########## UART A irq Disabled. \n");
-		CPUINT1C->IntrW0MaskSet = BCHP_HIF_CPU_INTR1_INTR_W0_MASK_SET_UPG_UART0_CPU_INTR_MASK;
-	}
-	else if (irq == BCM_LINUX_UARTB_IRQ)
-	{
-		PRINTK("########## UART B irq Disabled. \n");
-		CPUINT1C->IntrW2MaskSet = BCHP_HIF_CPU_INTR1_INTR_W2_MASK_SET_UPG_UART1_CPU_INTR_MASK;
-	}
-	local_irq_restore(flags);
-}
-
-static unsigned int brcm_uart_startup(unsigned int irq)
-{ 
-	brcm_uart_enable(irq);
-
-	return 0; /* never anything pending */
-}
-
-static void brcm_uart_end(unsigned int irq)
-{
-	if (!(irq_desc[irq].status & (IRQ_DISABLED|IRQ_INPROGRESS)))
-		brcm_uart_enable(irq);
-}
-
-static struct hw_interrupt_type brcm_uart_type = {
-	typename: "BCM UART",
-	startup: brcm_uart_startup,
-	shutdown: brcm_uart_disable,
-	enable: brcm_uart_enable,
-	disable: brcm_uart_disable,
-	ack: brcm_uart_disable,
-	end: brcm_uart_end,
-	NULL
-};
-
-/*
  * IRQ7 functions
  */
- #define HEARTBEAT_FREQ 100
 void brcm_mips_int7_dispatch(struct pt_regs *regs)
 {		
 	do_IRQ(BCM_LINUX_SYSTIMER_IRQ, regs);
@@ -342,34 +266,9 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 	{
 		shift = irq-1;
 		if ((0x1 << shift) & pendingIrqs)
-		{
-			if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_UART0_CPU_INTR_SHIFT) {
-				PRINTK("UART A\n");
-				do_IRQ(BCM_LINUX_UARTA_IRQ, regs);
-			}
-
-			else if (shift == BCHP_HIF_CPU_INTR1_INTR_W0_STATUS_UPG_CPU_INTR_SHIFT 
-				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQSTAT) & BCHP_IRQ0_IRQSTAT_ubirq_MASK) 
-				&& (*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) & BCHP_IRQ0_IRQEN_ub_irqen_MASK) )
-			{
-				PRINTK("UART B\n");
-				do_IRQ(BCM_LINUX_UARTB_IRQ, regs);
-			}
-			else if (irq == BCM_LINUX_CPU_ENET_IRQ)
-			{
-#ifndef CONFIG_MIPS_BRCM_IKOS
-				if (*((volatile unsigned long *)0xb0082420) & *((volatile unsigned long *)0xb0082424) & 0x2 )
-					do_IRQ(BCM_LINUX_CPU_ENET_IRQ, regs);
-				else
-#endif
-					printk("unsolicited ENET interrupt!!!\n");
-
-			}
-			else
-				do_IRQ(irq, regs);
-		}
+			do_IRQ(irq, regs);
 	}
-
+	
 	for (irq = 32+1; irq <= 32+32; irq++)
 	{
 		shift = irq - 32 -1;
@@ -385,13 +284,6 @@ void brcm_mips_int2_dispatch(struct pt_regs *regs)
 	}
 
 	brcm_mips_int2_enable(0);
-}
-
-
-
-void brcm_mips_int3_dispatch(struct pt_regs *regs)
-{
-	printk("brcm_mips_int3_dispatch: Placeholder only, should not be here \n");
 }
 
 /*
@@ -427,24 +319,11 @@ void __init brcm_irq_setup(void)
 	}
 	PRINTK("setup int 1 to 96\n");
 
-	/* Handle the Serial IRQs differently so they can have unique IRQs */
-	irq_desc[BCM_LINUX_UARTA_IRQ].status = IRQ_DISABLED;
-	irq_desc[BCM_LINUX_UARTA_IRQ].action = 0;
-	irq_desc[BCM_LINUX_UARTA_IRQ].depth = 1;
-	irq_desc[BCM_LINUX_UARTA_IRQ].chip = &brcm_uart_type;
-	PRINTK("setup UARTA int\n");
-
-	irq_desc[BCM_LINUX_UARTB_IRQ].status = IRQ_DISABLED;
-	irq_desc[BCM_LINUX_UARTB_IRQ].action = 0;
-	irq_desc[BCM_LINUX_UARTB_IRQ].depth = 1;
-	irq_desc[BCM_LINUX_UARTB_IRQ].chip = &brcm_uart_type;
-	PRINTK("setup UARTB int\n");
-
 	noirqdebug = 1; // THT Disable spurious interrupt checking, as UARTA would cause in BE, (USB also).
 	
 	brcm_mips_int2_enable(0);
-	//enable the UPG level UARTA int. 
-	*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_uarta_irqen_MASK;
+	//enable the UARTA/B in L2 
+	*((volatile unsigned long*)BCM_UPG_IRQ0_IRQEN) |= BCHP_IRQ0_IRQEN_uarta_irqen_MASK | BCHP_IRQ0_IRQEN_uartb_irqen_MASK;
 }
 
 void __init arch_init_irq(void)

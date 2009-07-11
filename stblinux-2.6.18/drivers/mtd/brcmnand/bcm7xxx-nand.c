@@ -97,18 +97,25 @@ when	who what
 #define DEFAULT_ECM_SIZE	(0)
 #define DEFAULT_AVAIL1_SIZE	(0)
 
-#elif defined( CONFIG_MTD_ECM_PARTITION )
+#else
+  #if defined( CONFIG_MTD_ECM_PARTITION )
 #define DEFAULT_OCAP_SIZE	(6<<20)
 #define DEFAULT_AVAIL1_SIZE (32<<20)
 #define DEFAULT_ECM_SIZE (DEFAULT_OCAP_SIZE+DEFAULT_AVAIL1_SIZE)
 #define AVAIL1_PART	(1)
 #define OCAP_PART	(2)
-#else
+  #else
 #define DEFAULT_ECM_SIZE	(0)
 #define DEFAULT_OCAP_SIZE	(0)
 #define DEFAULT_AVAIL1_SIZE	(0)
 #define AVAIL1_PART	(-1)
 #define OCAP_PART	(-1)
+  #endif // if ECM
+
+  /* Definitions for NOR+NAND */
+#define ALL_PART				(1)
+#define KERNEL_PART 			(2)
+#define DATA_PART 			(3)
 #endif
 #define DEFAULT_ROOTFS_SIZE (SMALLEST_FLASH_SIZE - DEFAULT_RESERVED_SIZE - DEFAULT_ECM_SIZE)
 
@@ -123,8 +130,9 @@ when	who what
 #define N_ALL		"all"
 
 
-static struct mtd_partition bcm7XXX_nand_parts[] = 
-#ifdef CONFIG_MTD_NEW_PARTITION
+
+
+static struct mtd_partition bcm7XXX_new_partition[] = 
 {
 	{ name: N_ROOTFS,	offset: 0,					size: DEFAULT_ROOTFS_SIZE },	
 	{ name: N_ALL,		offset: 0x0,					size: DEFAULT_ROOTFS_SIZE - (DEFAULT_BBT0_SIZE_MB <<20) },
@@ -137,7 +145,7 @@ static struct mtd_partition bcm7XXX_nand_parts[] =
 	{name: NULL, 		offset: 0, 					size: 0} 	/* End marker */
 };
 
-#else
+static struct mtd_partition bcm7XXX_old_partition[] = 
 {
 	{ name: N_ROOTFS,	offset: 0,					size: DEFAULT_ROOTFS_SIZE },	
 #ifdef CONFIG_MTD_ECM_PARTITION
@@ -153,6 +161,12 @@ static struct mtd_partition bcm7XXX_nand_parts[] =
 	{name: NULL, offset: 0, size: 0},
 	{name: NULL, offset: 0, size: 0}
 };
+
+#ifdef CONFIG_MTD_NEW_PARTITION
+static struct mtd_partition* bcm7XXX_nand_parts = bcm7XXX_new_partition;
+
+#else
+static struct mtd_partition* bcm7XXX_nand_parts = bcm7XXX_old_partition;
 #endif
 
 struct brcmnand_info {
@@ -207,17 +221,11 @@ brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo, int *numParts)
 	unsigned int ocap_size = DEFAULT_OCAP_SIZE;
 #endif
 	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
+	int oldNumParts = ARRAY_SIZE(bcm7XXX_old_partition);
 
-	if (device_size(mtd) <= (512ULL <<20)) {
-		size = (unsigned long) device_size(mtd);	// mtd->size may be different than nandinfo->size
-		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts) - 3; /* take into account the extra 2 parts
-								   and the data partition */
-	} else {
-		size = 512 << 20;
-		*numParts = ARRAY_SIZE(bcm7XXX_nand_parts) - 2; // take into account the extra 2 parts
-	}
+//printk("========================> %s\n", __FUNCTION__);
 
-#ifdef CONFIG_MTD_NEW_PARTITION
+#if defined( CONFIG_MTD_NEW_PARTITION ) 
 	if (device_size(mtd) <= (512ULL <<20)) {
 		bcm7XXX_nand_parts[ALL_PART].size = 
 			device_size(mtd) - (uint64_t) (DEFAULT_BBT0_SIZE_MB<<20);
@@ -238,7 +246,44 @@ brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo, int *numParts)
 	nandinfo->parts = bcm7XXX_nand_parts;
 	
 	return;
-#elif defined( CONFIG_MTD_ECM_PARTITION )
+#else
+								   
+  	/* NAND on CS1, same partition as that of CONFIG_MTD_NEW_PARTITION */
+PRINTK("nandinfo->brcmnand.CS[0] = %d\n", nandinfo->brcmnand.CS[0]);
+PRINTK("bcm7XXX_nand_parts=%p, bcm7XXX_new_partition=%p, bcm7XXX_old_partition=%p\n",
+	bcm7XXX_nand_parts, &bcm7XXX_new_partition[0], &bcm7XXX_old_partition[0]);
+	if (nandinfo->brcmnand.CS[0] != 0) {
+		bcm7XXX_nand_parts = bcm7XXX_new_partition;
+		if (device_size(mtd) <= (512ULL <<20)) {
+			bcm7XXX_nand_parts[ALL_PART].size = 
+				device_size(mtd) - ((uint64_t) (DEFAULT_BBT0_SIZE_MB) <<20);
+			*numParts = 3;
+		} 
+		else {
+			bcm7XXX_nand_parts[ALL_PART].size = 
+				device_size(mtd) - ((uint64_t) (DEFAULT_BBT1_SIZE_MB)<<20);
+			*numParts = 4;
+		}
+		for (i=0; i<*numParts;i++) {
+			bcm7XXX_nand_parts[i].ecclayout = mtd->ecclayout;
+		}
+
+		nandinfo->parts = bcm7XXX_nand_parts;
+		
+		return;
+	  }
+
+	/* From now on, we are only dealing with old partition table */
+	if (device_size(mtd) <= (512ULL <<20)) {
+		size = (unsigned long) device_size(mtd);	// mtd->size may be different than nandinfo->size
+		*numParts =  oldNumParts - 3; /* take into account the extra 2 parts
+								   and the data partition */
+	} else {
+		size = 512 << 20;
+		*numParts =  oldNumParts - 2; // take into account the extra 2 parts
+	}
+  
+  #if defined( CONFIG_MTD_ECM_PARTITION )
 
 	/* Do not generate AVAIL1 partition if usable flash size is less than 64MB */
 	
@@ -255,11 +300,12 @@ brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo, int *numParts)
 		ecm_size = ocap_size + avail1_size;
 	}
 	
-
+  #endif
 #endif
 	nandinfo->parts = bcm7XXX_nand_parts;
 	bcm7XXX_nand_parts[0].size = size - DEFAULT_RESERVED_SIZE - ecm_size;
 	bcm7XXX_nand_parts[0].ecclayout = mtd->ecclayout;
+PRINTK("numParts=%d\n", numParts);
 PRINTK("Part[%d] name=%s, size=%llx, offset=%llx\n", i, bcm7XXX_nand_parts[0].name, 
 bcm7XXX_nand_parts[0].size, bcm7XXX_nand_parts[0].offset);
 
@@ -524,6 +570,7 @@ static int __devinit brcmnanddrv_probe(struct device *dev)
 	//unsigned long size = res->end - res->start + 1;
 	int err = 0;
 	int numParts = 0;
+	struct brcmnand_chip* chip;
 
 	gPageBuffer = NULL;
 	info = kmalloc(sizeof(struct brcmnand_info), GFP_KERNEL);
@@ -555,7 +602,7 @@ static int __devinit brcmnanddrv_probe(struct device *dev)
 	//info->brcmnand.mmcontrol = NULL;  // THT: Sync Burst Read TBD.  pdata->mmcontrol;
 
 	info->mtd.name = pdev->dev.bus_id;
-	info->mtd.priv = &info->brcmnand;
+	chip = info->mtd.priv = &info->brcmnand;
 	info->mtd.owner = THIS_MODULE;
 
 	/* Enable the following for a flash based bad block table */
@@ -573,12 +620,19 @@ static int __devinit brcmnanddrv_probe(struct device *dev)
 
 //print_partition(numParts);
 
+	// Nand not on CS0, set it up to allow 1 partition, as in the new partition scheme
+	if (chip->CS[0] != 0) { 
+		bcm7XXX_nand_parts = bcm7XXX_new_partition;
+	}
+	
 	if (gCfePartitions.numParts == 0) {
 		brcmnanddrv_setup_mtd_partitions(info, &numParts);
 	}
 	else {
 		brcmnanddrv_setup_mtdpart_cfe_env(info, &numParts);
 	}
+	
+	
 
 //print_partition(numParts);
 		

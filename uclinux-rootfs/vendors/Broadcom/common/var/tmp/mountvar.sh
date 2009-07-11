@@ -17,11 +17,8 @@ if [ -f /tmpfsvar.img ]; then
 fi
 
 if [ -f /tmpfsetc.img ]; then
-	echo "mount -nt tmpfs -o size=512k,mode=777 /tmpfsetc.img /etc"
-	mount -nt tmpfs -o size=512k,mode=777 /tmpfsetc.img /etc
+	echo "mount -nt tmpfs -o size=768k,mode=777 /tmpfsetc.img /etc"
+	mount -nt tmpfs -o size=768k,mode=777 /tmpfsetc.img /etc
 	cd /etc
 	tar -xf /etc.img 
 fi
-
-
-

@@ -179,7 +179,17 @@ config MIPS_BCM7335BX
         select MIPS_BCM7335
         select HW_HAS_PCI
 	select BMIPS4380
-
+	
+config MIPS_BCM7335BX_NAND
+        bool "Support for BCM97335Ax with NOR+NAND flash"
+        select MIPS_BRCM97XXX
+        select MIPS_BCM7335B0
+        select MIPS_BCM7335
+        select HW_HAS_PCI
+	select BMIPS4380
+	select MTD_BRCMNAND
+	select MTD_BLOCK_ROMBLOCK
+	
 config MIPS_BCM7340AX
         bool "Support for BCM97340Ax with NOR flash"
         select MIPS_BRCM97XXX
@@ -1668,7 +1678,7 @@ config MIPS_BCM7405
 
 config MIPS_BCM7335B0
 	bool
-	depends MIPS_BCM7335BX
+	depends MIPS_BCM7335BX || MIPS_BCM7335BX_NAND
 
 config MIPS_BCM7335
 	bool

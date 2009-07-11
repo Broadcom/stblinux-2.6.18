@@ -1069,7 +1069,9 @@ static void bcmumac_task(BcmEnet_devctrl *pDevCtrl)
 
 	TRACE(("%s\n", __FUNCTION__));
 	/* Cable plugged/unplugged event */
-	if (pDevCtrl->irq_stat & UMAC_IRQ_PHY_DET_R) {
+	if ((pDevCtrl->irq_stat & UMAC_IRQ_PHY_DET_R) &&
+		!(pDevCtrl->intrl2->cpu_mask_status & UMAC_IRQ_PHY_DET_R)) 
+	{
 		pDevCtrl->irq_stat &= ~UMAC_IRQ_PHY_DET_R;
 		printk(KERN_CRIT "Cable plugged in UMAC%d powering up\n", pDevCtrl->devnum);
 		bcmumac_power_up(pDevCtrl, BCMUMAC_POWER_CABLE_SENSE);
@@ -1078,7 +1080,9 @@ static void bcmumac_task(BcmEnet_devctrl *pDevCtrl)
 			mii_setup(pDevCtrl->dev);
 		}
 
-	}else if (pDevCtrl->irq_stat & UMAC_IRQ_PHY_DET_F) {
+	}else if ((pDevCtrl->irq_stat & UMAC_IRQ_PHY_DET_F) &&
+		!(pDevCtrl->intrl2->cpu_mask_status & UMAC_IRQ_PHY_DET_F)) 
+	{
 		pDevCtrl->irq_stat &= ~UMAC_IRQ_PHY_DET_F;
 		printk(KERN_CRIT "Cable unplugged in UMAC%d powering down\n", pDevCtrl->devnum);
 		bcmumac_power_down(pDevCtrl, BCMUMAC_POWER_CABLE_SENSE);
@@ -1619,8 +1623,7 @@ static int init_umac(BcmEnet_devctrl *pDevCtrl)
     
 	/* Monitor cable plug/unpluged event for internal PHY */
 	if (pDevCtrl->EnetInfo.PhyType == BP_ENET_INTERNAL_PHY ||
-		pDevCtrl->EnetInfo.PhyType == BP_ENET_EXTERNAL_PHY ||
-		pDevCtrl->EnetInfo.PhyType == BP_ENET_EXTERNAL_GPHY ) 
+		pDevCtrl->EnetInfo.PhyType == BP_ENET_EXTERNAL_PHY )
 	{
 		intrl2->cpu_mask_clear |= UMAC_IRQ_PHY_DET_R | UMAC_IRQ_PHY_DET_F;
 		intrl2->cpu_mask_clear |= UMAC_IRQ_LINK_DOWN | UMAC_IRQ_LINK_UP ;

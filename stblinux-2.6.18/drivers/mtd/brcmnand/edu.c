@@ -753,6 +753,7 @@ printk(KERN_INFO "-->%s:\n", __FUNCTION__);
 		  pci_gen_pci_ctrl = *PCI_GEN_PCI_CTRL;
 		  pci_gen_pci_ctrl &= ~PARK_ON_MASK;
 		  pci_gen_pci_ctrl |= PARK_ON_EBI;
+		  EDU_volatileWrite(PCI_GEN_PCI_CTRL, pci_gen_pci_ctrl);
 	}
 #endif
 

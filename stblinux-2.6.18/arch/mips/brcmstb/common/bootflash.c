@@ -60,14 +60,16 @@ EXPORT_SYMBOL(getPhysFlashBase);
 #if defined(CONFIG_BRCM_SKIP_CHECK_BOOTROM)
 void determineBootFromFlashOrRom(void)
 {
-	//char msg[64];
+static char msg[128];
 	extern int gFlashSize;
 
-       	if (gFlashSize) 
-     	RT_PHYS_FLASH_BASE = (0x20000000 - (gFlashSize << 20));
+       	if (gFlashSize) {
+     	RT_PHYS_FLASH_BASE = (0x20000000 - (gFlashSize));
 
-	//sprintf(msg, "**********BOOTEDFROMFLASH, Base=%08lx\n", RT_PHYS_FLASH_BASE);
-	//uart_puts(msg);
+sprintf(msg, "**********SKIP_CHECK_BOOTROM: BOOTEDFROMFLASH, Base=%08lx, flashSize=%dMB\n", 
+	RT_PHYS_FLASH_BASE, gFlashSize>>20);
+uart_puts(msg);
+       	}
 
 	return;
 }
@@ -127,10 +129,12 @@ void determineBootFromFlashOrRom(void)
 #endif
         	}
        	else {
-            		RT_PHYS_FLASH_BASE = (0x20000000 - (gFlashSize << 20));
+            		RT_PHYS_FLASH_BASE = (0x20000000 - (gFlashSize));
+sprintf(msg, "**********!SKIP_CHECK_BOOTROM: BOOTEDFROMFLASH, Base=%08lx, flashSize=%dMB\n", 
+	RT_PHYS_FLASH_BASE, gFlashSize>>20);
+uart_puts(msg);
         	}
-		//sprintf(msg, "**********BOOTEDFROMFLASH, Base=%08lx\n", RT_PHYS_FLASH_BASE);
-		//uart_puts(msg);
+
 	
 	} else {
 		RT_PHYS_FLASH_BASE = ROM_FLASH_BASE;
