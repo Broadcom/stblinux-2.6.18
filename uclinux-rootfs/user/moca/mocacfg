@@ -56,7 +56,7 @@ case "$cmd" in
 	
 	boot)
 		if [ $NONFREE_PRESENT = 1 ]; then
-			$MOCAD -wD
+			$MOCAD -wqD
 			exec $MOCACTL start $DEFAULT_OPTS $CFG_OPTS
 			exit 1
 		else

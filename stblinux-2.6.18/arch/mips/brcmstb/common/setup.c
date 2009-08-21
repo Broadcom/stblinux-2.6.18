@@ -381,6 +381,9 @@ static struct moca_platform_data moca_data = {
 
 	.bcm3450_i2c_base =	BPHYSADDR(BCHP_BSCB_REG_START),
 	.bcm3450_i2c_addr =	0x70,
+
+	.hw_rev =		1,
+	.rf_band =		MOCA_BAND_HIGHRF,
 };
 
 static struct resource moca_resources[] = {
@@ -530,6 +533,7 @@ static int __init umac_moca_initcall(void)
 #if defined(BRCM_MOCA_SUPPORTED)
 	BDEV_WR_F(SUN_TOP_CTRL_SW_RESET, moca_sw_reset, 0);
 	BDEV_WR_F(MOCA_HOSTMISC_SW_RESET, moca_enet_reset, 0);
+	BDEV_WR_F(CLK_SYS_PLL_1_CTRL, M3DIV, 11);
 #endif
 	BDEV_RD(BCHP_SUN_TOP_CTRL_SW_RESET);
 	spin_unlock_irqrestore(&g_magnum_spinlock, flags);

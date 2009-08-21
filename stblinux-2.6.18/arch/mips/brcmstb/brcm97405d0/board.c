@@ -158,6 +158,11 @@ get_RAM_size(void)
 			printk("Extra RAM beyond 256MB ignored.  Please "
 				"use a kernel that supports DISCONTIG.\n");
 		}
+#else
+		if (dramSize > 0x20000000) {
+			dramSize = 0x20000000;
+			printk("Extra RAM beyond 512MB ignored.\n");
+		}
 #endif
 	}
 	if (dramSize)

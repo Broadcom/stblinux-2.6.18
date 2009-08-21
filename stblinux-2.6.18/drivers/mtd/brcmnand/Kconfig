@@ -47,6 +47,7 @@ config MTD_BRCMNAND_VERSION
 		9	3.2	Device ID decode update, 7413b0
 		10	3.3	Expand ACC/CONFIG to allow per chip registers
 				Allow XOR only on block0, 7420b0, 7635a0, 7340a0, 7125a0
+		11	3.4	Add support for 8KB page & read-OOB past 16th byte. 7550a0
 
 config MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
 	bool "Refresh a block on a one bit correctable ECC error"

@@ -93,6 +93,40 @@ static struct nand_ecclayout brcmnand_oob_bch4_512 = {
 };
 
 /*
+ * 4K page SLC with Hamming ECC 
+ */
+static struct nand_ecclayout brcmnand_oob_128 = {
+	.eccbytes	= 12,
+	.eccpos		= {
+		6,7,8,
+		22,23,24,
+		38,39,40,
+		54,55,56,
+		70,71,72,
+		86,87,88,
+		102,103,104,
+		118,119,120
+		},
+	.oobfree	= { /* 0-1 used for BBT and/or manufacturer bad block marker, 
+	                    * first slice loses 2 bytes for BBT */
+				{.offset=2, .length=4}, 
+				{.offset=9,.length=13}, 		/* First slice {9,7} 2nd slice {16,6}are combined */ 
+									/* ST uses 6th byte (offset=5) as Bad Block Indicator, 
+									  * in addition to the 1st byte, and will be adjusted at run time */
+				{.offset=25, .length=13},				/* 2nd slice  */
+				{.offset=41, .length=13},				/* 3rd slice */
+				{.offset=57, .length=13},				/* 4th slice */
+				{.offset=73, .length=13},				/* 5th slice  */
+				{.offset=89, .length=13},				/* 6th slice */
+				{.offset=105, .length=13},				/* 7th slice */
+				{.offset=121, .length=7},				/* 8th slice */
+	            {.offset=0, .length=0}				/* End marker */
+			}
+};
+
+
+
+/*
  * 4K page MLC with BCH-4 ECC, uses 7 ECC bytes per 512B ECC step
  */
 static struct nand_ecclayout brcmnand_oob_bch4_4k = {

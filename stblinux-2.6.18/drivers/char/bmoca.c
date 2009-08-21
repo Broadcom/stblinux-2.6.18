@@ -41,33 +41,42 @@
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/version.h>
+#include <linux/scatterlist.h>
+
 #include <asm/io.h>
-#include <asm/semaphore.h>
-#include <asm/scatterlist.h>
-#include <linux/bmoca.h>
 
-#define DRV_VERSION		0x00000001
+#define DRV_VERSION		0x00040000
+#define DRV_BUILD_NUMBER	0x07300901
 
-#if   defined(CONFIG_MIPS_BCM7405)
+#if   defined(CONFIG_MIPS_BCM7405) || defined(CONFIG_BCM7405)
 #define M2M_64_WAR		1
 #define MOCA6816		1
 #define NATIVE			0
-#elif defined(CONFIG_MIPS_BCM7420)
+#include <linux/bmoca.h>
+#elif defined(CONFIG_MIPS_BCM7420) || defined(CONFIG_BCM7420)
 #define M2M_64_WAR		1
 #define MOCA6816		0
 #define NATIVE			1
+#include <linux/bmoca.h>
+#elif defined(DSL_MOCA)
+#define M2M_64_WAR	1
+#define MOCA6816		1
+#define NATIVE			1
+#include "bmoca.h"
+#include <linux/netdevice.h>
+#include <boardparms.h>
 #else
 #define M2M_64_WAR		1
 #define MOCA6816		1
 #define NATIVE			1
+#include <linux/bmoca.h>
 #endif
 
-#if ! MOCA6816 || ! NATIVE
+#if defined(CONFIG_MIPS_BRCM97XXX)
 #include <asm/brcmstb/common/brcmstb.h>
-#endif
-
-#ifdef CONFIG_BRCM_PM
 #include <asm/brcmstb/common/brcm-pm.h>
+#elif defined(CONFIG_BRCMSTB)
+#include <asm/brcmstb/brcmstb.h>
 #endif
 
 #define MOCA_ENABLE		1
@@ -122,6 +131,7 @@
 #define NUM_CORE_MSG		8
 #define NUM_HOST_MSG		8
 
+#define FW_CHUNK_SIZE		4096
 #define MAX_FW_PAGES		((DATA_MEM_SIZE >> PAGE_SHIFT) + 1)
 #define MAX_LAB_PRINTF		104
 
@@ -156,7 +166,11 @@ struct moca_core_msg {
 
 struct moca_priv_data {
 	struct platform_device	*pdev;
-	struct class_device	*class_dev;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
+	struct class_device	*dev;
+#else
+	struct device		*dev;
+#endif
 
 	unsigned int		minor;
 	int			irq;
@@ -168,6 +182,7 @@ struct moca_priv_data {
 	struct page		*fw_pages[MAX_FW_PAGES];
 	struct scatterlist	fw_sg[MAX_FW_PAGES];
 	struct completion	copy_complete;
+	struct completion	chunk_complete;
 
 	struct list_head	host_msg_free_list;
 	struct list_head	host_msg_pend_list;
@@ -182,6 +197,7 @@ struct moca_priv_data {
 
 	spinlock_t		list_lock;
 	struct mutex		dev_mutex;
+	struct mutex		copy_mutex;
 	int			host_mbx_busy;
 	int			host_resp_pending;
 	int			core_req_pending;
@@ -193,6 +209,7 @@ struct moca_priv_data {
 
 	int			refcount;
 	unsigned long		start_time;
+	int			continuous_power_tx_mode;
 };
 
 /* support for multiple MoCA devices */
@@ -214,6 +231,7 @@ static DEFINE_MUTEX(moca_i2c_mutex);
 #define M2H_RESP		(1 << 0)
 #define M2H_REQ			(1 << 1)
 #define M2H_ASSERT		(1 << 2)
+#define M2H_NEXTCHUNK		(1 << 3)
 #define M2H_WDT			(1 << 10)
 #define M2H_DMA			(1 << 11)
 
@@ -229,6 +247,26 @@ static DEFINE_MUTEX(moca_i2c_mutex);
 #define MOCA_UNSET(x, y)	do { \
 	MOCA_WR(x, MOCA_RD(x) & ~(y)); \
 } while(0)
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 23)
+static inline void sg_set_page(struct scatterlist *sg, struct page *page,
+			       unsigned int len, unsigned int offset)
+{
+	sg->page = page;
+	sg->length = len;
+	sg->offset = offset;
+}
+static inline struct page *sg_page(struct scatterlist *sg)
+{
+	return sg->page;
+}
+#endif
+
+#ifdef CONFIG_BRCM_MOCA_BUILTIN_FW
+#error Not supported in this version
+#else
+static const char *bmoca_fw_image = NULL;
+#endif
 
 #if MOCA6816
 
@@ -313,8 +351,9 @@ static u32 moca_irq_status(struct moca_priv_data *priv, int flush)
 		MOCA_WR(priv->base + OFF_L2_CLEAR, stat);
 		MOCA_RD(priv->base + OFF_L2_CLEAR);
 	}
-	if((flush == FLUSH_DMA_ONLY) && (stat & M2H_DMA)) {
-		MOCA_WR(priv->base + OFF_L2_CLEAR, M2H_DMA);
+	if(flush == FLUSH_DMA_ONLY) {
+		MOCA_WR(priv->base + OFF_L2_CLEAR,
+			stat & (M2H_DMA | M2H_NEXTCHUNK));
 		MOCA_RD(priv->base + OFF_L2_CLEAR);
 	}
 	return(stat);
@@ -324,7 +363,8 @@ static void moca_enable_irq(struct moca_priv_data *priv)
 {
 	/* unmask everything */
 	MOCA_WR(priv->base + OFF_L2_MASK_CLEAR,
-		M2H_REQ | M2H_RESP | M2H_ASSERT | M2H_WDT | M2H_DMA);
+		M2H_REQ | M2H_RESP | M2H_ASSERT | M2H_WDT |
+		M2H_NEXTCHUNK | M2H_DMA);
 	MOCA_RD(priv->base + OFF_L2_MASK_CLEAR);
 }
 
@@ -332,7 +372,7 @@ static void moca_disable_irq(struct moca_priv_data *priv)
 {
 	/* mask everything except DMA completions */
 	MOCA_WR(priv->base + OFF_L2_MASK_SET,
-		M2H_REQ | M2H_RESP | M2H_ASSERT | M2H_WDT);
+		M2H_REQ | M2H_RESP | M2H_ASSERT | M2H_WDT | M2H_NEXTCHUNK);
 	MOCA_RD(priv->base + OFF_L2_MASK_SET);
 }
 
@@ -433,12 +473,11 @@ static void moca_read_sg(struct moca_priv_data *priv,
 			sg[j].length | M2M_READ);
 
 		addr += sg[j].length;
-		SetPageDirty(sg[j].page);
+		SetPageDirty(sg_page(&sg[j]));
 	}
 
 	dma_unmap_sg(&priv->pdev->dev, sg, nents, DMA_TO_DEVICE);
 }
-
 #endif
 
 static void moca_put_pages(struct moca_priv_data *priv, int pages)
@@ -495,37 +534,53 @@ static int moca_get_pages(struct moca_priv_data *priv, unsigned long addr,
 	if(size < chunk_size)
 		chunk_size = size;
 
-	priv->fw_sg[0].page = priv->fw_pages[0];
-	priv->fw_sg[0].offset = addr & ~PAGE_MASK;
-	priv->fw_sg[0].length = chunk_size;
+	sg_set_page(&priv->fw_sg[0], priv->fw_pages[0], chunk_size,
+		addr & ~PAGE_MASK);
 	size -= chunk_size;
 
 	for(i = 1; i < pages; i++) {
-		priv->fw_sg[i].page = priv->fw_pages[i];
-		priv->fw_sg[i].offset = 0;
-		priv->fw_sg[i].length = size > PAGE_SIZE ? PAGE_SIZE : size;
+		sg_set_page(&priv->fw_sg[i], priv->fw_pages[i],
+			size > PAGE_SIZE ? PAGE_SIZE : size, 0);
 		size -= PAGE_SIZE;
 	}
 	return(ret);
 }
 
-static int moca_write_img(struct moca_priv_data *priv, unsigned long xfer_uaddr)
+static int moca_write_img(struct moca_priv_data *priv, struct moca_xfer * x)
 {
-	struct moca_xfer x;
-	int pages;
+	int pages, i, ret = -EINVAL;
 
-	if(copy_from_user(&x, (void __user *)xfer_uaddr, sizeof(x)))
-		return(-EFAULT);
-	
-	pages = moca_get_pages(priv, (unsigned long)x.buf, x.len, 0, 0);
+	pages = moca_get_pages(priv, (unsigned long)x->buf, x->len, 0, 0);
 	if(pages < 0)
 		return(pages);
+	if(pages < 3)
+		goto out;
 
-	moca_write_sg(priv, 0, priv->fw_sg, pages);
-	moca_put_pages(priv, pages);
+	/* host must use FW_CHUNK_SIZE MMU pages (for now) */
+	BUG_ON(FW_CHUNK_SIZE != PAGE_SIZE);
+
+	/* write the first two chunks, then start the MIPS */
+	moca_write_sg(priv, 0, &priv->fw_sg[0], 2);
+	moca_enable_irq(priv);
 	moca_start_mips(priv);
+	ret = 0;
 
-	return(0);
+	/* wait for an ACK, then write each successive chunk */
+	for(i = 2; i < pages; i++) {
+		if(wait_for_completion_timeout(&priv->chunk_complete,
+				1000 * M2M_TIMEOUT_MS) <= 0) {
+			moca_disable_irq(priv);
+			printk(KERN_WARNING "%s: chunk ack timed out\n",
+				__FUNCTION__);
+			ret = -EIO;
+			break;
+		}
+		moca_write_sg(priv, FW_CHUNK_SIZE, &priv->fw_sg[i], 1);
+	}
+
+out:
+	moca_put_pages(priv, pages);
+	return ret;
 }
 
 /*
@@ -877,9 +932,15 @@ static irqreturn_t moca_interrupt(int irq, void *arg, struct pt_regs *regs)
 	/* need to handle DMA completions ASAP */
 	if(mask & M2H_DMA) {
 		complete(&priv->copy_complete);
-		if((mask & ~M2H_DMA) == 0)
-			return(IRQ_HANDLED);
+		mask &= ~M2H_DMA;
 	}
+	if(mask & M2H_NEXTCHUNK) {
+		complete(&priv->chunk_complete);
+		mask &= ~M2H_NEXTCHUNK;
+	}
+
+	if(!mask)
+		return(IRQ_HANDLED);
 #endif
 
 	moca_disable_irq(priv);
@@ -965,34 +1026,43 @@ static u32 moca_3450_read(struct moca_priv_data *priv, u8 addr)
 #define BCM3450_PACNTL		0x18
 #define BCM3450_MISC		0x1c
 
-static void moca_3450_init(struct moca_priv_data *priv)
+static void moca_3450_init(struct moca_priv_data *priv, int action)
 {
 	u32 data;
 
 	mutex_lock(&moca_i2c_mutex);
 
-	/* reset the 3450's I2C block */
-	moca_3450_write(priv, BCM3450_MISC,
-		moca_3450_read(priv, BCM3450_MISC) | 1);
+	if (action == MOCA_ENABLE) 
+	{
+		/* reset the 3450's I2C block */
+		moca_3450_write(priv, BCM3450_MISC,
+			moca_3450_read(priv, BCM3450_MISC) | 1);
 
-	/* verify chip ID */
-	data = moca_3450_read(priv, BCM3450_CHIP_ID);
-	if(data != 0x3450)
-		printk(KERN_WARNING "%s: invalid 3450 chip ID 0x%08x\n",
-			__FUNCTION__, data);
+		/* verify chip ID */
+		data = moca_3450_read(priv, BCM3450_CHIP_ID);
+		if(data != 0x3450)
+			printk(KERN_WARNING "%s: invalid 3450 chip ID 0x%08x\n",
+				__FUNCTION__, data);
 
-	/* reset the 3450's deserializer */
-	data = moca_3450_read(priv, BCM3450_MISC);
-	moca_3450_write(priv, BCM3450_MISC, data | 2);
-	moca_3450_write(priv, BCM3450_MISC, data & ~2);
+		/* reset the 3450's deserializer */
+		data = moca_3450_read(priv, BCM3450_MISC);
+		data &= ~0x8000; /* power on PA/LNA */
+		moca_3450_write(priv, BCM3450_MISC, data | 2);
+		moca_3450_write(priv, BCM3450_MISC, data & ~2);
 
-	/* set new PA gain */
-	data = moca_3450_read(priv, BCM3450_PACNTL);
-	moca_3450_write(priv, BCM3450_PACNTL, (data & ~0x7ffc) |
-		(0x09 << 11) |		// RDEG
-		(0x38 << 5) |		// CURR_CONT
-		(0x05 << 2));		// CURR_FOLLOWER
-
+		/* set new PA gain */
+		data = moca_3450_read(priv, BCM3450_PACNTL);
+		moca_3450_write(priv, BCM3450_PACNTL, (data & ~0x7ffc) |
+			(0x09 << 11) |		// RDEG
+			(0x38 << 5) |		// CURR_CONT
+			(0x05 << 2));		// CURR_FOLLOWER
+	}
+	else
+	{
+		/* power down the PA/LNA */
+		data = moca_3450_read(priv, BCM3450_MISC);
+		moca_3450_write(priv, BCM3450_MISC, data | 0x8000);
+	}
 	mutex_unlock(&moca_i2c_mutex);
 }
 
@@ -1058,6 +1128,9 @@ static int moca_ioctl_get_drv_info(struct moca_priv_data *priv,
 	struct moca_platform_data *pd = priv->pdev->dev.platform_data;
 
 	info.version = DRV_VERSION;
+	info.build_number = DRV_BUILD_NUMBER;
+	info.builtin_fw = !!bmoca_fw_image;
+
 	info.uptime = (jiffies - priv->start_time) / HZ;
 	info.refcount = priv->refcount;
 	info.gp1 = priv->running ? MOCA_RD(priv->base + OFF_GP1) : 0;
@@ -1066,6 +1139,8 @@ static int moca_ioctl_get_drv_info(struct moca_priv_data *priv,
 	info.enet_id = pd->enet_id;
 	info.macaddr_hi = pd->macaddr_hi;
 	info.macaddr_lo = pd->macaddr_lo;
+	info.hw_rev = pd->hw_rev;
+	info.rf_band = pd->rf_band;
 
 	if(copy_to_user((void *)arg, &info, sizeof(info)))
 		return(-EFAULT);
@@ -1077,24 +1152,33 @@ static long moca_file_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
 	struct moca_priv_data *priv = file->private_data;
+	struct moca_start     start;
 	long ret = -ENOTTY;
 
 	mutex_lock(&priv->dev_mutex);
 	switch(cmd) {
 		case MOCA_IOCTL_START:
 			ret = 0;
-			moca_msg_reset(priv);
-			moca_hw_init(priv, MOCA_ENABLE);
-			moca_3450_init(priv);
-			moca_irq_status(priv, FLUSH_IRQ);
-			ret = moca_write_img(priv, arg);
+
+			if(copy_from_user(&start, (void __user *)arg,
+					sizeof(start)))
+				ret = -EFAULT;
+
 			if(ret >= 0) {
-				moca_enable_irq(priv);
-				priv->running = 1;
+				moca_msg_reset(priv);
+				priv->continuous_power_tx_mode =
+					start.continuous_power_tx_mode;
+				moca_hw_init(priv, MOCA_ENABLE);
+				moca_3450_init(priv, MOCA_ENABLE);
+				moca_irq_status(priv, FLUSH_IRQ);
+				ret = moca_write_img(priv, &start.x);
+				if(ret >= 0)
+					priv->running = 1;
 			}
 			break;
 		case MOCA_IOCTL_STOP:
 			moca_msg_reset(priv);
+			moca_3450_init(priv, MOCA_DISABLE);
 			moca_hw_init(priv, MOCA_DISABLE);
 			ret = 0;
 			break;
@@ -1116,7 +1200,7 @@ static ssize_t moca_file_read(struct file *file, char __user *buf,
 	struct moca_priv_data *priv = file->private_data;
 	DECLARE_WAITQUEUE(wait, current);
 	struct list_head *ml = NULL;
-	struct moca_core_msg *m;
+	struct moca_core_msg *m = NULL;
 	ssize_t ret;
 	int empty_free_list = 0;
 
@@ -1193,7 +1277,7 @@ static ssize_t moca_file_write(struct file *file, const char __user *buf,
 	struct moca_priv_data *priv = file->private_data;
 	DECLARE_WAITQUEUE(wait, current);
 	struct list_head *ml = NULL;
-	struct moca_host_msg *m;
+	struct moca_host_msg *m = NULL;
 	ssize_t ret;
 
 	if(count > HOST_REQ_SIZE)
@@ -1305,9 +1389,11 @@ static int moca_probe(struct platform_device *pdev)
 	init_waitqueue_head(&priv->host_msg_wq);
 	init_waitqueue_head(&priv->core_msg_wq);
 	init_completion(&priv->copy_complete);
+	init_completion(&priv->chunk_complete);
 	
 	spin_lock_init(&priv->list_lock);
 	mutex_init(&priv->dev_mutex);
+	mutex_init(&priv->copy_mutex);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
 	INIT_WORK(&priv->work, moca_work_handler);
 #else
@@ -1359,12 +1445,17 @@ static int moca_probe(struct platform_device *pdev)
 		pd->bcm3450_i2c_base, pd->bcm3450_i2c_addr);
 
 	minor_tbl[priv->minor] = priv;
-	priv->class_dev = class_device_create(moca_class, NULL,
-		MKDEV(MOCA_MAJOR, priv->minor),
-		&pdev->dev, "bmoca%d", priv->minor);
-	if(IS_ERR(priv->class_dev)) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
+	priv->dev = class_device_create(moca_class, NULL,
+		MKDEV(MOCA_MAJOR, priv->minor), &pdev->dev,
+		"bmoca%d", priv->minor);
+#else
+	priv->dev = device_create(moca_class, NULL,
+		MKDEV(MOCA_MAJOR, priv->minor), NULL, "bmoca%d", priv->minor);
+#endif
+	if(IS_ERR(priv->dev)) {
 		printk(KERN_WARNING "bmoca: can't register class device\n");
-		priv->class_dev = NULL;
+		priv->dev = NULL;
 	}
 
 	return(0);
@@ -1383,9 +1474,13 @@ static int moca_remove(struct platform_device *pdev)
 {
 	struct moca_priv_data *priv = dev_get_drvdata(&pdev->dev);
 
-	if(priv->class_dev)
+	if(priv->dev)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 26)
 		class_device_destroy(moca_class,
 			MKDEV(MOCA_MAJOR, priv->minor));
+#else
+		device_destroy(moca_class, MKDEV(MOCA_MAJOR, priv->minor));
+#endif
 	minor_tbl[priv->minor] = NULL;
 
 	free_irq(priv->irq, priv);
@@ -1409,6 +1504,7 @@ static int moca_init(void)
 {
 	int ret;
 #if MOCA6816
+	moca_read_mac_addr(NULL, &moca_data.macaddr_hi, &moca_data.macaddr_lo);
 	platform_device_register(&moca_plat_dev);
 #endif
 	memset(minor_tbl, 0, sizeof(minor_tbl));

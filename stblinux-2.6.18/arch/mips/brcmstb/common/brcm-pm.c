@@ -89,6 +89,18 @@ static void usb_enable(void)
 
 	spin_lock_irqsave(&g_magnum_spinlock, flags);
 
+#if defined(BCHP_CLK_SYS_PLL_0_PLL_4_DIS_CH_MASK)
+	BDEV_UNSET(BCHP_CLK_SYS_PLL_0_PLL_4, 
+		BCHP_CLK_SYS_PLL_0_PLL_4_DIS_CH_MASK);
+	BDEV_RD(BCHP_CLK_SYS_PLL_0_PLL_4);
+#endif
+
+#if defined(BCHP_CLK_USB_PM_CTRL_DIS_216M_CLK_MASK)
+	BDEV_UNSET(BCHP_CLK_USB_PM_CTRL, 
+		BCHP_CLK_USB_PM_CTRL_DIS_216M_CLK_MASK);
+	BDEV_RD(BCHP_CLK_USB_PM_CTRL);
+#endif
+
 #if defined(BCHP_CLK_PM_CTRL_2_DIS_USB_216M_CLK_MASK)
 	BDEV_UNSET(BCHP_CLK_PM_CTRL_2,
 		BCHP_CLK_PM_CTRL_2_DIS_USB_216M_CLK_MASK);
@@ -101,8 +113,15 @@ static void usb_enable(void)
 	BDEV_RD(BCHP_CLKGEN_PWRDN_CTRL_0);
 #endif
 
+#if defined(BCHP_CLK_USB_PM_CTRL_DIS_108M_CLK_MASK)
+	BDEV_UNSET(BCHP_CLK_USB_PM_CTRL, 
+		BCHP_CLK_USB_PM_CTRL_DIS_108M_CLK_MASK);
+	BDEV_RD(BCHP_CLK_USB_PM_CTRL);
+#endif
+
 #if defined(BCHP_CLK_PM_CTRL_DIS_USB_108M_CLK_MASK)
-	BDEV_UNSET(BCHP_CLK_PM_CTRL, BCHP_CLK_PM_CTRL_DIS_USB_108M_CLK_MASK);
+	BDEV_UNSET(BCHP_CLK_PM_CTRL, 
+		BCHP_CLK_PM_CTRL_DIS_USB_108M_CLK_MASK);
 	BDEV_RD(BCHP_CLK_PM_CTRL);
 #endif
 
@@ -159,8 +178,15 @@ static void usb_disable(void)
 #endif
 
 #if defined(BCHP_CLK_PM_CTRL_DIS_USB_108M_CLK_MASK)
-	BDEV_SET(BCHP_CLK_PM_CTRL, BCHP_CLK_PM_CTRL_DIS_USB_108M_CLK_MASK);
+	BDEV_SET(BCHP_CLK_PM_CTRL, 
+		BCHP_CLK_PM_CTRL_DIS_USB_108M_CLK_MASK);
 	BDEV_RD(BCHP_CLK_PM_CTRL);
+#endif
+
+#if defined(BCHP_CLK_USB_PM_CTRL_DIS_108M_CLK_MASK)
+	BDEV_SET(BCHP_CLK_USB_PM_CTRL,
+		BCHP_CLK_USB_PM_CTRL_DIS_108M_CLK_MASK);
+	BDEV_RD(BCHP_CLK_USB_PM_CTRL);
 #endif
 
 #if defined(BCHP_CLKGEN_PWRDN_CTRL_0_PWRDN_CLOCK_216_CG_USB_MASK)
@@ -174,6 +200,19 @@ static void usb_disable(void)
 		BCHP_CLK_PM_CTRL_2_DIS_USB_216M_CLK_MASK);
 	BDEV_RD(BCHP_CLK_PM_CTRL_2);
 #endif
+
+#if defined(BCHP_CLK_USB_PM_CTRL_DIS_216M_CLK_MASK)
+	BDEV_SET(BCHP_CLK_USB_PM_CTRL, 
+		BCHP_CLK_USB_PM_CTRL_DIS_216M_CLK_MASK);
+	BDEV_RD(BCHP_CLK_USB_PM_CTRL);
+#endif
+
+#if defined(BCHP_CLK_SYS_PLL_0_PLL_4_DIS_CH_MASK)
+	BDEV_SET(BCHP_CLK_SYS_PLL_0_PLL_4, 
+		BCHP_CLK_SYS_PLL_0_PLL_4_DIS_CH_MASK);
+	BDEV_RD(BCHP_CLK_SYS_PLL_0_PLL_4);
+#endif
+
 	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
 }
 
@@ -182,14 +221,16 @@ static void usb_disable(void)
 #define MII_DATA	(BCHP_ENET_TOP_REG_START + 0x14)
 #define EMAC_INT	(BCHP_ENET_TOP_REG_START + 0x1c)
 #define CONTROL		(BCHP_ENET_TOP_REG_START + 0x2c)
+#define ENET_PM_SUPPORTED 1
 #elif defined(BCHP_EMAC_0_REG_START)
 #define MII_S_C		(BCHP_EMAC_0_REG_START + 0x10)
 #define MII_DATA	(BCHP_EMAC_0_REG_START + 0x14)
 #define EMAC_INT	(BCHP_EMAC_0_REG_START + 0x1c)
 #define CONTROL		(BCHP_EMAC_0_REG_START + 0x2c)
-#else
-#error EMAC base address not defined on this platform
+#define ENET_PM_SUPPORTED 1
 #endif
+
+#ifdef ENET_PM_SUPPORTED
 
 #define MDIO_WR		0x50020000
 #define MDIO_PMD_SHIFT	23
@@ -351,6 +392,11 @@ static void enet_disable(void)
 	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
 }
 
+#else /* ENET_PM_SUPPORTED */
+
+
+#endif
+
 static void sata_enable(void)
 {
 #if defined(BRCM_SATA_SUPPORTED)
@@ -359,6 +405,15 @@ static void sata_enable(void)
 	printk(KERN_INFO "brcm-pm: enabling power to SATA block\n");
 
 	spin_lock_irqsave(&g_magnum_spinlock, flags);
+
+#if defined(BCHP_CLK_GENET_NETWORK_PLL_4_DIS_CH_MASK)
+		BDEV_SET(BCHP_CLK_GENET_NETWORK_PLL_4,
+		BCHP_CLK_GENET_NETWORK_PLL_4_CLOCK_ENA_MASK |
+		BCHP_CLK_GENET_NETWORK_PLL_4_EN_CMLBUF_MASK);
+	BDEV_UNSET(BCHP_CLK_GENET_NETWORK_PLL_4,
+		BCHP_CLK_GENET_NETWORK_PLL_4_DIS_CH_MASK);
+	BDEV_RD(BCHP_CLK_GENET_NETWORK_PLL_4);
+#endif
 
 #if defined(BCHP_CLK_PM_CTRL_2_DIS_SATA_PCI_CLK_MASK)
 	BDEV_UNSET(BCHP_CLK_PM_CTRL_2,
@@ -373,8 +428,27 @@ static void sata_enable(void)
 #endif
 
 #if defined(BCHP_CLK_PM_CTRL_DIS_SATA_108M_CLK_MASK)
-	BDEV_UNSET(BCHP_CLK_PM_CTRL, BCHP_CLK_PM_CTRL_DIS_SATA_108M_CLK_MASK);
+	BDEV_UNSET(BCHP_CLK_PM_CTRL, 
+		BCHP_CLK_PM_CTRL_DIS_SATA_108M_CLK_MASK);
 	BDEV_RD(BCHP_CLK_PM_CTRL);
+#endif
+
+#if defined(BCHP_CLK_SATA_CLK_PM_CTRL_DIS_SATA_PCI_CLK_MASK)
+	BDEV_UNSET(BCHP_CLK_SATA_CLK_PM_CTRL,
+		BCHP_CLK_SATA_CLK_PM_CTRL_DIS_SATA_PCI_CLK_MASK);
+	BDEV_RD(BCHP_CLK_SATA_CLK_PM_CTRL);
+#endif
+
+#if defined(BCHP_CLK_SATA_CLK_PM_CTRL_DIS_216M_CLK_MASK)
+	BDEV_UNSET(BCHP_CLK_SATA_CLK_PM_CTRL,
+		BCHP_CLK_SATA_CLK_PM_CTRL_DIS_216M_CLK_MASK);
+	BDEV_RD(BCHP_CLK_SATA_CLK_PM_CTRL);
+#endif
+
+#if defined(BCHP_CLK_SATA_CLK_PM_CTRL_DIS_108M_CLK_MASK)
+	BDEV_UNSET(BCHP_CLK_SATA_CLK_PM_CTRL, 
+		BCHP_CLK_SATA_CLK_PM_CTRL_DIS_108M_CLK_MASK);
+	BDEV_RD(BCHP_CLK_SATA_CLK_PM_CTRL);
 #endif
 
 #if defined(BCHP_SUN_TOP_CTRL_GENERAL_CTRL_1_sata_ana_pwrdn_MASK)
@@ -401,8 +475,27 @@ static void sata_disable(void)
 	BDEV_RD(BCHP_SUN_TOP_CTRL_GENERAL_CTRL_1);
 #endif
 
+#if defined(BCHP_CLK_SATA_CLK_PM_CTRL_DIS_108M_CLK_MASK)
+	BDEV_SET(BCHP_CLK_SATA_CLK_PM_CTRL, 
+		BCHP_CLK_SATA_CLK_PM_CTRL_DIS_108M_CLK_MASK);
+	BDEV_RD(BCHP_CLK_SATA_CLK_PM_CTRL);
+#endif
+
+#if defined(BCHP_CLK_SATA_CLK_PM_CTRL_DIS_216M_CLK_MASK)
+	BDEV_SET(BCHP_CLK_SATA_CLK_PM_CTRL,
+		BCHP_CLK_SATA_CLK_PM_CTRL_DIS_216M_CLK_MASK);
+	BDEV_RD(BCHP_CLK_SATA_CLK_PM_CTRL);
+#endif
+
+#if defined(BCHP_CLK_SATA_CLK_PM_CTRL_DIS_SATA_PCI_CLK_MASK)
+	BDEV_SET(BCHP_CLK_SATA_CLK_PM_CTRL,
+		BCHP_CLK_SATA_CLK_PM_CTRL_DIS_SATA_PCI_CLK_MASK);
+	BDEV_RD(BCHP_CLK_SATA_CLK_PM_CTRL);
+#endif
+
 #if defined(BCHP_CLK_PM_CTRL_DIS_SATA_108M_CLK_MASK)
-	BDEV_SET(BCHP_CLK_PM_CTRL, BCHP_CLK_PM_CTRL_DIS_SATA_108M_CLK_MASK);
+	BDEV_SET(BCHP_CLK_PM_CTRL, 
+		BCHP_CLK_PM_CTRL_DIS_SATA_108M_CLK_MASK);
 	BDEV_RD(BCHP_CLK_PM_CTRL);
 #endif
 
@@ -417,8 +510,28 @@ static void sata_disable(void)
 		BCHP_CLK_PM_CTRL_2_DIS_SATA_216M_CLK_MASK);
 	BDEV_RD(BCHP_CLK_PM_CTRL_2);
 #endif
+
+#if defined(BCHP_CLK_GENET_NETWORK_PLL_4_DIS_CH_MASK)
+		BDEV_UNSET(BCHP_CLK_GENET_NETWORK_PLL_4,
+		BCHP_CLK_GENET_NETWORK_PLL_4_CLOCK_ENA_MASK |
+		BCHP_CLK_GENET_NETWORK_PLL_4_EN_CMLBUF_MASK);
+	BDEV_SET(BCHP_CLK_GENET_NETWORK_PLL_4,
+		BCHP_CLK_GENET_NETWORK_PLL_4_DIS_CH_MASK); 
+		BDEV_RD(BCHP_CLK_GENET_NETWORK_PLL_4);
+#endif
+
 	spin_unlock_irqrestore(&g_magnum_spinlock, flags);
 #endif /* BRCM_SATA_SUPPORTED */
+}
+
+static void moca_enable(void)
+{
+	/*XXX*/
+}
+
+static void moca_disable(void)
+{
+	/*XXX*/
 }
 
 /*
@@ -432,17 +545,20 @@ static uint32_t ddr_get(void)
 {
 	uint32_t reg, inact_cnt, pdn_en, val;
 
+#if defined (BCHP_MEMC_0_DDR_POWER_DOWN_MODE)
 	reg = BDEV_RD(BCHP_MEMC_0_DDR_POWER_DOWN_MODE);
 	pdn_en = (reg & BCHP_MEMC_0_DDR_POWER_DOWN_MODE_PDN_EN_MASK) >>
 		BCHP_MEMC_0_DDR_POWER_DOWN_MODE_PDN_EN_SHIFT;
 	inact_cnt = (reg & BCHP_MEMC_0_DDR_POWER_DOWN_MODE_INACT_CNT_MASK) >>
 		BCHP_MEMC_0_DDR_POWER_DOWN_MODE_INACT_CNT_SHIFT;
 	val = pdn_en ? inact_cnt : 0;
+#endif
 	return(val);
 }
 
 static void ddr_set(uint32_t val)
 {
+#if defined (BCHP_MEMC_0_DDR_POWER_DOWN_MODE)
 	if(! val) {
 		BDEV_WR(BCHP_MEMC_0_DDR_POWER_DOWN_MODE, 0);
 	} else {
@@ -452,6 +568,7 @@ static void ddr_set(uint32_t val)
 			((val << BCHP_MEMC_0_DDR_POWER_DOWN_MODE_INACT_CNT_SHIFT)
 			& BCHP_MEMC_0_DDR_POWER_DOWN_MODE_INACT_CNT_MASK));
 	}
+#endif
 }
 
 /*
@@ -472,6 +589,8 @@ void brcm_pm_usb_remove(void)
 }
 EXPORT_SYMBOL(brcm_pm_usb_remove);
 
+#ifdef ENET_PM_SUPPORTED
+
 void brcm_pm_enet_add(void)
 {
 	if(atomic_inc_return(&enet_count) == 1)
@@ -486,6 +605,8 @@ void brcm_pm_enet_remove(void)
 }
 EXPORT_SYMBOL(brcm_pm_enet_remove);
 
+#endif
+
 void brcm_pm_sata_add(void)
 {
 	if(atomic_inc_return(&sata_count) == 1)
@@ -499,6 +620,18 @@ void brcm_pm_sata_remove(void)
 		sata_disable();
 }
 EXPORT_SYMBOL(brcm_pm_sata_remove);
+
+void brcm_pm_moca_enable(void)
+{
+		moca_enable();
+}
+EXPORT_SYMBOL(brcm_pm_moca_enable);
+
+void brcm_pm_moca_disable(void)
+{
+		moca_disable();
+}
+EXPORT_SYMBOL(brcm_pm_moca_disable);
 
 #define DECLARE_PM_REGISTER(func, name) \
 	void func(int (*off_cb)(void *), int (*on_cb)(void *), void *arg) \
@@ -614,7 +747,9 @@ static ssize_t usb_store(struct device *dev, struct device_attribute *attr,
 DEVICE_ATTR(usb,0644,usb_show,usb_store);
 DEVICE_ATTR(enet,0644,enet_show,enet_store);
 DEVICE_ATTR(sata,0644,sata_show,sata_store);
+#if defined (BCHP_MEMC_0_DDR_POWER_DOWN_MODE)
 DEVICE_ATTR(ddr,0644,ddr_show,ddr_store);
+#endif
 
 static struct platform_driver brcm_pm_platform_driver = {
 	.driver		= {
@@ -633,7 +768,9 @@ static int __init brcm_pm_init(void)
 
 	/* power down all devices if nobody is using them */
 	brcm_pm_usb_remove();
+#ifdef ENET_PM_SUPPORTED
 	brcm_pm_enet_remove();
+#endif
 	brcm_pm_sata_remove();
 
 	ret = platform_driver_register(&brcm_pm_platform_driver);
@@ -661,7 +798,9 @@ static int __init brcm_pm_init(void)
 	device_create_file(cdev, &dev_attr_usb);
 	device_create_file(cdev, &dev_attr_enet);
 	device_create_file(cdev, &dev_attr_sata);
+#if defined (BCHP_MEMC_0_DDR_POWER_DOWN_MODE)
 	device_create_file(cdev, &dev_attr_ddr);
+#endif
 
 	return(0);
 
@@ -681,14 +820,18 @@ static void __exit brcm_pm_exit(void)
 	device_remove_file(cdev, &dev_attr_usb);
 	device_remove_file(cdev, &dev_attr_enet);
 	device_remove_file(cdev, &dev_attr_sata);
+#if defined (BCHP_MEMC_0_DDR_POWER_DOWN_MODE)
 	device_remove_file(cdev, &dev_attr_ddr);
+#endif
 
 	platform_device_unregister(brcm_pm_platform_device);
 	platform_driver_unregister(&brcm_pm_platform_driver);
 
 	/* power up all devices, then exit */
 	brcm_pm_usb_add();
+#ifdef ENET_PM_SUPPORTED
 	brcm_pm_enet_add();
+#endif
 	brcm_pm_sata_add();
 	ddr_set(0);
 }
