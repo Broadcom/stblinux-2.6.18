@@ -97,7 +97,7 @@ int main (int argc, char *argv[])
 
 	erase.length = meminfo.erasesize;
 	isNAND = meminfo.type == MTD_NANDFLASH ? 1 : 0;
-	isNandMLC = MTD_IS_MLC(&meminfo);
+	isNandMLC = isNAND && MTD_IS_MLC(&meminfo);
 
 	if (jffs2) {
 		if (isNandMLC) {

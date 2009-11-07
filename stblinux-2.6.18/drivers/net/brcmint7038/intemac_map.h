@@ -41,8 +41,8 @@ extern "C" {
 */
 typedef struct DmaChannel {
   unsigned long cfg;                    /* (00) assorted configuration */
-#define         DMA_BURST_HALT  0x00000004  /* idle after finish current memory burst */
-#define         DMA_PKT_HALT    0x00000002  /* idle after an EOP flag is detected */
+#define         DMA_BURST_HALT  0x00000040  /* idle after finish current memory burst, from 7405 RDB!!! */
+#define         DMA_PKT_HALT    0x00000020  /* idle after an EOP flag is detected, from 7405 RDB!!! */
 #define         DMA_ENABLE      0x00000001  /* set to enable channel */
   unsigned long intStat;                /* (04) interrupts control and status */
   unsigned long intMask;                /* (08) interrupts mask */

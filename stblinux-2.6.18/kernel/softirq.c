@@ -227,6 +227,9 @@ restart:
 
 	do {
 		if (pending & 1) {
+#ifdef	CONFIG_PROC_SOFTIRQS
+			kstat_incr_softirqs_this_cpu(h - softirq_vec);
+#endif
 			h->action(h);
 			rcu_bh_qsctr_inc(cpu);
 		}

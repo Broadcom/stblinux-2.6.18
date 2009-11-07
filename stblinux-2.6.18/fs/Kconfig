@@ -826,6 +826,13 @@ config PROC_VMCORE
         help
         Exports the dump image of crashed kernel in ELF format.
 
+config PROC_SOFTIRQS
+	bool "/proc/softirqs support"
+        depends on PROC_FS 
+	default y
+        help
+        Exports the per CPU count of softirqs from /proc/softirqs.
+
 config SYSFS
 	bool "sysfs file system support" if EMBEDDED
 	default y

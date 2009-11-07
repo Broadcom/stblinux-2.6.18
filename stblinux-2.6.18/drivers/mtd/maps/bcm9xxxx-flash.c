@@ -33,6 +33,8 @@
 #include <linux/init.h>
 #include <asm/brcmstb/common/brcmstb.h>
 
+#include <linux/mtd/cfi.h>	/* To find real size of NOR flash */
+
 #define PRINTK(...)
 //#define PRINTK printk
 
@@ -182,7 +184,7 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 #if defined( CONFIG_MTD_BRCMNAND_NOR_ACCESS ) 
 #define DEFAULT_SIZE_MB ( BRCM_FLASH_SIZE >> 20)
 
-	/* In a NOR+NAND configuration, the NOR flash is only 4MB or less */
+	/* In a NOR+NAND configuration, normally, the NOR flash is only 4MB or less */
 	 { name: "cfe",	offset: (DEFAULT_SIZE_MB-4)*1024*1024,	size: 4*1024*1024 },
 	 { name: "nor",	offset: 0,								size: (DEFAULT_SIZE_MB-4)*1024*1024 },
 
@@ -251,35 +253,91 @@ int __init init_bcm9XXXX_map(void)
 {
 	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
 	int i;
+	struct cfi_private *cfi;
+	u_int64_t ACTUAL_FLASH_SIZE = (u_int64_t) WINDOW_SIZE;
+	unsigned long FLASH_BASE = WINDOW_ADDR;
 
 #ifdef CONFIG_MTD_ECM_PARTITION
 	unsigned int ecm_size = DEFAULT_ECM_SIZE;
 	unsigned int ocap_size = DEFAULT_OCAP_SIZE;
 #endif
 	
-	printk(KERN_NOTICE "BCM97XXX flash device: 0x%08lx @ 0x%08lx\n", WINDOW_SIZE, WINDOW_ADDR);
-	bcm9XXXX_map.size = WINDOW_SIZE;
+	//printk(KERN_NOTICE "BCM97XXX flash device: 0x%08lx @ 0x%08lx\n", WINDOW_SIZE, WINDOW_ADDR);
+
+	// ** New in 2618-7.3: Dry run: Map only the 4MB at 1FC0_0000H, since we don't know the actual size 
+	// ** of the NOR flash till we probe it.
+	// WINDOW_SIZE was just a guess at compile time, so try to find the actual size at run time using CFI
+	
+	bcm9XXXX_map.size = 2<<20; // Yuk, some flash is only 2MB size.
+
+	bcm9XXXX_map.virt = ioremap(0x1FC00000, 2<<20); 
+	
+	bcm9XXXX_mtd = do_map_probe("cfi_probe", &bcm9XXXX_map);
+	if (!bcm9XXXX_mtd) {
+
+		iounmap((void *)bcm9XXXX_map.virt);
+		return -ENXIO;
+	}
+
+	cfi = (struct cfi_private*) bcm9XXXX_map.fldrv_priv;
+
+	
+	//bcm9XXXX_map.size = WINDOW_SIZE;
+	ACTUAL_FLASH_SIZE = 1 << cfi->cfiq->DevSize;
+	if (ACTUAL_FLASH_SIZE >= (4<<20)) {
+		FLASH_BASE = 0x20000000 - ACTUAL_FLASH_SIZE;
+	}
+	else {
+		FLASH_BASE = 0x1FC00000; // NOR flash aligned at boot vector when size < 4MB.
+	}
+	
+
+	/*
+	 * Now that we know the NOR flash size, map again with correct size and base address.
+	 */
+	map_destroy(bcm9XXXX_mtd);
+	iounmap((void *)bcm9XXXX_map.virt);
+
+	printk(KERN_NOTICE "BCM97XXX flash device: 0x%08lx bytes @ 0x%08lx\n", ACTUAL_FLASH_SIZE, FLASH_BASE);
+
+	bcm9XXXX_map.size = ACTUAL_FLASH_SIZE;
+	bcm9XXXX_map.virt = ioremap(FLASH_BASE, ACTUAL_FLASH_SIZE);
+
+	if (!bcm9XXXX_map.virt) {
+		printk("Failed to ioremap\n");
+		return -EIO;
+	}
+
+	bcm9XXXX_mtd = do_map_probe("cfi_probe", &bcm9XXXX_map);
+	if (!bcm9XXXX_mtd) {
+
+		iounmap((void *)bcm9XXXX_map.virt);
+		return -ENXIO;
+	}
 	gNumParts = ARRAY_SIZE(bcm9XXXX_parts) - 2; /* Minus the 2 extra place holders */
 
 
 #ifdef CONFIG_MTD_BRCMNAND_NOR_ACCESS
 	/* If NOR flash is only 4MB, remove the NOR partition, leaving only CFE partition */
-	if ( (DEFAULT_SIZE_MB - ((int) (bcm9XXXX_parts[0].size>>20))) <= 0) {
+	if (ACTUAL_FLASH_SIZE <= (4<<20)) {
 		gNumParts--;
 	}
 
-#endif
+	// Adjust partition size
+	bcm9XXXX_parts[0].offset = ACTUAL_FLASH_SIZE - (4<<20); // CFE starts at 1FC00000H
+	bcm9XXXX_parts[0].size = 4<<20;
+	bcm9XXXX_parts[1].size = bcm9XXXX_parts[0].offset; // NOR flash ends where CFE starts.
+	bcm9XXXX_parts[1].offset = 0;
 
-	/* Adjust partition table */
-#ifdef CONFIG_MTD_ECM_PARTITION
-	if (WINDOW_SIZE < (64<<20)) {
+#elif defined( CONFIG_MTD_ECM_PARTITION )
+	if (ACTUAL_FLASH_SIZE < (64<<20)) {
 		ecm_size = DEFAULT_OCAP_SIZE;
 		avail1_size = 0;
 		bcm9XXXX_parts[AVAIL1_PART].size = avail1_size;
 		gNumParts--;
 	}
 	else {
-		int factor = WINDOW_SIZE / (64 << 20);
+		int factor = ACTUAL_FLASH_SIZE / (64 << 20);
 		
 		bcm9XXXX_parts[OCAP_PART].size = ocap_size = factor*DEFAULT_OCAP_SIZE;
 		bcm9XXXX_parts[AVAIL1_PART].size = avail1_size = factor*DEFAULT_AVAIL1_SIZE;
@@ -314,8 +372,8 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 
 		
 #elif defined( DEFAULT_SIZE_MB )
-	if (WINDOW_SIZE != (DEFAULT_SIZE_MB << 20)) {
-		int64_t diffSize = (uint64_t) WINDOW_SIZE - (uint64_t) (DEFAULT_SIZE_MB << 20);
+	if (ACTUAL_FLASH_SIZE != (DEFAULT_SIZE_MB << 20)) {
+		int64_t diffSize = (uint64_t) ACTUAL_FLASH_SIZE - (uint64_t) (DEFAULT_SIZE_MB << 20);
 
 //printk("WINDOW_SIZE=%dMB, Default=%dMB, diff=%llx\n", 
 //	WINDOW_SIZE>>20, DEFAULT_SIZE_MB, diffSize);
@@ -378,21 +436,7 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	}
 
 	
-	bcm9XXXX_map.virt = ioremap((unsigned long)WINDOW_ADDR, WINDOW_SIZE);
 
-	
-
-	if (!bcm9XXXX_map.virt) {
-		printk("Failed to ioremap\n");
-		return -EIO;
-	}
-	
-	bcm9XXXX_mtd = do_map_probe("cfi_probe", &bcm9XXXX_map);
-	if (!bcm9XXXX_mtd) {
-
-		iounmap((void *)bcm9XXXX_map.virt);
-		return -ENXIO;
-	}
 	
 #if defined(CONFIG_MTD_BRCMNAND)
   #if defined(CONFIG_MTD_BRCMNAND_NOR_ACCESS)

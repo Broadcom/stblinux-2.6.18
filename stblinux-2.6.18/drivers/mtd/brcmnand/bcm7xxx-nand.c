@@ -81,7 +81,24 @@ when	who what
 
 #define ROOTFS_PART	(0)
 
-#ifdef CONFIG_MTD_NEW_PARTITION
+#if defined( CONFIG_MTD_BRCMNAND_DISABLE_XOR )
+/* Implies new partition scheme, starting with 7420
+	cfe: 0-4MB (not mapped)
+	mtd0: rootfs: Starts at 4MB offset
+	mtd1: all flash less BBT0 (1MB) for flash <= 512MB
+	mtd2: Kernel (4MB)
+	mtd3: Data, for flash>512MB, from 512MB up to flash - BBT1 (4MB)
+ */
+
+#define ALL_PART				(1)
+#define KERNEL_PART 			(2)
+#define DATA_PART 			(3)
+#define AVAIL1_PART			(-1)
+
+#define DEFAULT_ECM_SIZE	(0)
+#define DEFAULT_AVAIL1_SIZE	(0)
+
+#elif defined( CONFIG_MTD_NEW_PARTITION )
 /* New partition scheme, starting with 7420
 	mtd0: rootfs
 	mtd1: all flash less BBT0 (1MB) for flash <= 512MB
@@ -130,7 +147,19 @@ when	who what
 #define N_ALL		"all"
 
 
+static struct mtd_partition bcm7XXX_no_xor_partition[] = 
+{
+	/* XOR disabled: Everything is shifted down 4MB */
+	{ name: N_ROOTFS,	offset: 0x00400000,			size: DEFAULT_ROOTFS_SIZE - (DEFAULT_BBT0_SIZE_MB <<20) },	// Less 1MB for BBT
+	{ name: N_ALL,		offset: 0,					size: DEFAULT_ROOTFS_SIZE - (DEFAULT_BBT0_SIZE_MB <<20) },
+	{ name: N_KERNEL,	offset: 0x00b00000,			size: 4<<20 }, 
+	/* BBT0 1MB not mountable by anyone */
 
+	/* Following partitions only present on flash with size > 512MB */
+	{ name: N_DATA, 	offset: 0x20000000,			size: 0 },
+	/* BBT1 4MB not mountable by anyone */
+	{name: NULL, 		offset: 0, 					size: 0} 	/* End marker */
+};
 
 static struct mtd_partition bcm7XXX_new_partition[] = 
 {
@@ -162,7 +191,10 @@ static struct mtd_partition bcm7XXX_old_partition[] =
 	{name: NULL, offset: 0, size: 0}
 };
 
-#ifdef CONFIG_MTD_NEW_PARTITION
+#if defined( CONFIG_MTD_BRCMNAND_DISABLE_XOR )
+static struct mtd_partition* bcm7XXX_nand_parts = bcm7XXX_no_xor_partition;
+
+#elif defined( CONFIG_MTD_NEW_PARTITION )
 static struct mtd_partition* bcm7XXX_nand_parts = bcm7XXX_new_partition;
 
 #else
@@ -225,6 +257,36 @@ brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo, int *numParts)
 
 //printk("========================> %s\n", __FUNCTION__);
 
+
+	/* 
+	 * Is XOR disabled? if so use the new partition.
+	 */
+	if (nandinfo->brcmnand.xor_disable) {
+		bcm7XXX_nand_parts = bcm7XXX_no_xor_partition;
+
+		if (device_size(mtd) <= (512ULL <<20)) {
+			bcm7XXX_nand_parts[ALL_PART].size = 
+				device_size(mtd) - (uint64_t) (DEFAULT_BBT0_SIZE_MB<<20);
+			*numParts = 3;
+		} 
+		else {
+			bcm7XXX_nand_parts[ALL_PART].size = ((512-DEFAULT_BBT1_SIZE_MB)<<20);
+			*numParts = 4;
+		}
+		for (i=0; i<*numParts;i++) {
+			bcm7XXX_nand_parts[i].ecclayout = mtd->ecclayout;
+		}
+	
+		// Kernel partition will be initialized by Env Vars.
+	//printk("<-- %s, device_size=%0llx\n", __FUNCTION__, device_size(mtd));
+	//print_partition(*numParts);
+
+		nandinfo->parts = bcm7XXX_nand_parts;
+		
+		return;
+	}
+
+
 #if defined( CONFIG_MTD_NEW_PARTITION ) 
 	if (device_size(mtd) <= (512ULL <<20)) {
 		bcm7XXX_nand_parts[ALL_PART].size = 
@@ -254,12 +316,15 @@ PRINTK("bcm7XXX_nand_parts=%p, bcm7XXX_new_partition=%p, bcm7XXX_old_partition=%
 	bcm7XXX_nand_parts, &bcm7XXX_new_partition[0], &bcm7XXX_old_partition[0]);
 	if (nandinfo->brcmnand.CS[0] != 0) {
 		bcm7XXX_nand_parts = bcm7XXX_new_partition;
+		
 		if (device_size(mtd) <= (512ULL <<20)) {
+			bcm7XXX_nand_parts[0].size = device_size(mtd) - DEFAULT_RESERVED_SIZE - ecm_size;
 			bcm7XXX_nand_parts[ALL_PART].size = 
 				device_size(mtd) - ((uint64_t) (DEFAULT_BBT0_SIZE_MB) <<20);
 			*numParts = 3;
 		} 
 		else {
+			bcm7XXX_nand_parts[0].size = (512ULL <<20) - DEFAULT_RESERVED_SIZE - ecm_size;
 			bcm7XXX_nand_parts[ALL_PART].size = 
 				device_size(mtd) - ((uint64_t) (DEFAULT_BBT1_SIZE_MB)<<20);
 			*numParts = 4;
@@ -269,7 +334,12 @@ PRINTK("bcm7XXX_nand_parts=%p, bcm7XXX_new_partition=%p, bcm7XXX_old_partition=%
 		}
 
 		nandinfo->parts = bcm7XXX_nand_parts;
-		
+
+#if 1
+PRINTK("%s: NAND on CS1: numparts=%d\n", __FUNCTION__, *numParts);
+print_partition(*numParts);
+#endif
+
 		return;
 	  }
 

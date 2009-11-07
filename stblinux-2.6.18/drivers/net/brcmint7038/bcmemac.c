@@ -489,6 +489,7 @@ static int bcmemac_net_close(struct net_device * dev)
 
     MOD_DEC_USE_COUNT;
 
+	pDevCtrl->rxDma->cfg |= DMA_PKT_HALT;
     pDevCtrl->rxDma->cfg &= ~DMA_ENABLE;
     pDevCtrl->emac->config |= EMAC_DISABLE;           
 
@@ -1199,6 +1200,14 @@ static irqreturn_t bcmemac_net_isr(int irq, void * dev_id, struct pt_regs * regs
      * Disable IRQ and use NAPI polling loop.  IRQ will be re-enabled after all
      * packets are processed.
      */
+	if(pDevCtrl->rxDma->intStat & DMA_NO_DESC)
+	{
+		pDevCtrl->rxDma->intStat |= DMA_NO_DESC;
+		printk(KERN_CRIT "No Rx Descriptor, disabling rx DMA\n");
+		pDevCtrl->rxDma->cfg |= DMA_PKT_HALT;
+		pDevCtrl->rxDma->cfg &= ~DMA_ENABLE;
+		atomic_set(&pDevCtrl->rxDmaRefill, 1);
+	}
     pDevCtrl->rxDma->intStat = DMA_DONE;            // clr interrupt
     pDevCtrl->dmaRegs->enet_iudma_r5k_irq_msk &= ~DMA_DONE;
     netif_rx_schedule(pDevCtrl->dev);
@@ -1237,36 +1246,21 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
     int brcm_hdr_len = 0;
     int brcm_fcs_len = 0;
 
-    dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff);
-    gLastDmaFlag = dmaFlag;
     loopCount = 0;
 
     /* Loop here for each received packet */
-    while(!(dmaFlag & DMA_OWN) && (dmaFlag & DMA_EOP)) {
-        if (dmaFlag & DMA_OWN) {
-            break;
-        }
-        rxpktprocessed++;
+	while(rxpktprocessed < budget)
+	{
+    	dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff);
+    	gLastDmaFlag = dmaFlag;
 
+		if(dmaFlag & DMA_OWN)
+			break;
+		rxpktprocessed++;
 
-        // Stop when we hit a buffer with no data, or a BD w/ no buffer.
-        // This implies that we caught up with DMA, or that we haven't been
-        // able to fill the buffers.
-        if ( (pDevCtrl->rxBdReadPtr->address == (uint32) NULL)) {
-            // PR5760 - If there are no more packets available, and the last
-            // one we saw had an overflow, we need to assume that the EMAC
-            // has wedged and reset it.  This is the workaround for a
-            // variant of this problem, where the MAC can stop sending us
-            // packets altogether (the "silent wedge" condition).
-            if (gNumberOfOverflows > 0) {
-                printk(KERN_CRIT "Handling last packet overflow, resetting pDevCtrl->emac->config, ovf=%d\n", gNumberOfOverflows);
-                ResetEMAConErrors(pDevCtrl);
-            }
-
-            break;
-        }
-
-        if (dmaFlag & (EMAC_CRC_ERROR | EMAC_OV | EMAC_NO | EMAC_LG |EMAC_RXER)) {
+        if ((dmaFlag & (EMAC_CRC_ERROR | EMAC_OV | EMAC_NO | EMAC_LG |EMAC_RXER)) ||
+				!(dmaFlag & DMA_EOP) || !(dmaFlag & DMA_SOP)) 
+		{
             if (dmaFlag & EMAC_CRC_ERROR) {
                 pDevCtrl->stats.rx_crc_errors++;
             }
@@ -1282,69 +1276,13 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
             pDevCtrl->stats.rx_dropped++;
             pDevCtrl->stats.rx_errors++;
 
-            if( rxpktprocessed < rxpktmax ) {
-                continue;
-            }
-
-            /* Debug */
-            gLastErrorDmaFlag = dmaFlag;
-
-            /* THT Starting with 7110B0 (Atlanta's PR5760), look for resetting the
-             * EMAC on overflow condition
-             */
-            if ((dmaFlag & DMA_OWN) == 0) {
-                uint32 bufferAddress;
-
-                // PR5760 - keep track of the number of overflow packets.
-                if (dmaFlag & EMAC_OV) {
-                    gNumberOfOverflows++;
-                    gNumOverflowErrors++;
-                }
-
-                // Keep a running total of the packet length.
-                packetLength += ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status))>>16);
-
-                // Pull the buffer from the BD and clear the BD so that it can be
-                // reassigned later.
-                bufferAddress = (uint32) EMAC_SWAP32(pDevCtrl->rxBdReadPtr->address);
-                pDevCtrl->rxBdReadPtr->address = 0;
-
-                pBuf = (unsigned char *)phys_to_virt(bufferAddress);
-                skb = (struct sk_buff *)*(unsigned long *)(pBuf-4);
-                atomic_set(&skb->users, 1);
-
-                if (atomic_read(&pDevCtrl->rxDmaRefill) == 0) {
-                    bdfilled = assign_rx_buffers(pDevCtrl);
-                }
-
-                /* Advance BD ptr to next in ring */
-                IncRxBDptr(pDevCtrl->rxBdReadPtr, pDevCtrl);
-
-                // If this is the last buffer in the packet, stop.
-                if (dmaFlag & DMA_EOP) {
-                    packetLength = 0;
-                }
-            }
-
-            // Clear the EMAC block receive logic for oversized packets.  On
-            // a really, really long packet (often caused by duplex
-            // mismatches), the EMAC_LG bit may not be set, so I need to
-            // check for this condition separately.
-            if ((packetLength >= 2048) ||
-
-            // PR5760 - if there are too many packets with the overflow bit set,
-            // then reset the EMAC.  We arrived at a threshold of 8 packets based
-            // on empirical analysis and testing (smaller values are too aggressive
-            // and larger values wait too long).
-                (gNumberOfOverflows > OVERFLOW_THRESHOLD)) {
-                ResetEMAConErrors(pDevCtrl);
-            }
-
-            //Read more until EOP or good packet
-            dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status)) & 0xffff);
-            gLastDmaFlag = dmaFlag; 
-            
-            /* Exit if we surpass number of packets */
+        	pDevCtrl->rxBdReadPtr->length_status &= EMAC_SWAP32(0xffff0000); //clear status.
+        	pDevCtrl->rxBdReadPtr->address = EMAC_SWAP32(0);
+            IncRxBDptr(pDevCtrl->rxBdReadPtr, pDevCtrl);
+        	/* Allocate a new SKB for the ring */
+        	if (atomic_read(&pDevCtrl->rxDmaRefill) == 0) {
+            	bdfilled = assign_rx_buffers(pDevCtrl);
+        	}
             continue;
         }/* if error packet */
 
@@ -1369,14 +1307,11 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
         // Recover the SKB pointer saved during assignment.
         skb = (struct sk_buff *)*(unsigned long *)(pBuf-4);
 
-        dmaFlag = ((EMAC_SWAP32(pDevCtrl->rxBdReadPtr->length_status))&0xffff);
-        gLastDmaFlag = dmaFlag;
-
         skb_pull(skb, brcm_hdr_len);
 		/* Remove 2 bytes trailer if in promiscous mode, for PR44081 */
 #ifdef CONFIG_NET_POLL_CONTROLLER
 
-	skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len - 2);
+		skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len - 2);
 #else
 		if(pDevCtrl->emac->rxControl & EMAC_PROM)
 			skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len - 2);

@@ -257,7 +257,7 @@ initramfs_dir: $(IMAGEDIR)/$(PLATFORM)/initramfs_data_nodev.cpio
 $(JFFS2IMG): initramfs_dir
 	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -b -o $(JFFS2IMG) -q -e 131072 -d \
 		$(INITRAMFS_DIR)
-	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -b -o ${JFFS2IMG}-64k -q -e 65536 -d \
+	$(ROOTDIR)/user/mtd-utils/build/mkfs.jffs2 -b -o ${JFFS264KIMG} -q -e 65536 -d \
 		$(INITRAMFS_DIR)
 ifdef CONFIG_JFFS2_SUMMARY
 	mv ${JFFS2IMG} ${JFFS2IMG}.nosummary

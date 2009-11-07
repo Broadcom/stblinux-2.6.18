@@ -1112,7 +1112,7 @@ static void clocksource_adjust(struct clocksource *clock, s64 offset)
  *
  * Called from the timer interrupt, must hold a write on xtime_lock.
  */
-static void update_wall_time(void)
+static void update_wall_time(unsigned long ticks)
 {
 	cycle_t offset;
 
@@ -1123,7 +1123,7 @@ static void update_wall_time(void)
 #ifdef CONFIG_GENERIC_TIME
 	offset = (clocksource_read(clock) - clock->cycle_last) & clock->mask;
 #else
-	offset = clock->cycle_interval;
+	offset = ticks * clock->cycle_interval;
 #endif
 	clock->xtime_nsec += (s64)xtime.tv_nsec << clock->shift;
 
@@ -1269,13 +1269,10 @@ void run_local_timers(void)
  * Called by the timer interrupt. xtime_lock must already be taken
  * by the timer IRQ!
  */
-static inline void update_times(void)
+static inline void update_times(unsigned long ticks)
 {
-	unsigned long ticks;
-
-	ticks = jiffies - wall_jiffies;
 	wall_jiffies += ticks;
-	update_wall_time();
+	update_wall_time(ticks);
 	calc_load(ticks);
 }
   
@@ -1285,12 +1282,12 @@ static inline void update_times(void)
  * jiffies is defined in the linker script...
  */
 
-void do_timer(struct pt_regs *regs)
+void do_timer(unsigned long ticks, struct pt_regs *regs)
 {
-	jiffies_64++;
+	jiffies_64 += ticks;
 	/* prevent loading jiffies before storing new jiffies_64 value. */
 	barrier();
-	update_times();
+	update_times(ticks);
 }
 
 #ifdef __ARCH_WANT_SYS_ALARM

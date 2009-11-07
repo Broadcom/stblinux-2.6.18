@@ -87,7 +87,7 @@ static unsigned int expirelo;
 /*
  * Null timer ack for systems not needing one (e.g. i8254).
  */
-static void null_timer_ack(void) { /* nothing */ }
+static unsigned long null_timer_ack(void) { return 1; }
 
 /*
  * Null high precision timer functions for systems lacking one.
@@ -106,9 +106,10 @@ static void null_hpt_init(unsigned int count)
 /*
  * Timer ack for an R4k-compatible timer of a known frequency.
  */
-static void c0_timer_ack(void)
+static unsigned long c0_timer_ack(void)
 {
 	unsigned int count;
+	unsigned long ticks = 1;
 
 #ifndef CONFIG_SOC_PNX8550	/* pnx8550 resets to zero */
 	/* Ack this timer interrupt and set the next one.  */
@@ -124,12 +125,16 @@ static void c0_timer_ack(void)
 
 		expirelo += cycles_per_jiffy * (missed + 2);
 		write_c0_compare(expirelo);
+		ticks += missed + 1;
 #else
 		/* missed_timer_count++; */
-		expirelo = count + cycles_per_jiffy;
+		expirelo += cycles_per_jiffy;
 		write_c0_compare(expirelo);
+		ticks++;
 #endif
 	}
+
+	return ticks;
 }
 
 /*
@@ -157,7 +162,7 @@ static void c0_hpt_timer_init(unsigned int count)
 }
 
 int (*mips_timer_state)(void);
-void (*mips_timer_ack)(void);
+unsigned long (*mips_timer_ack)(void);
 unsigned int (*mips_hpt_read)(void);
 void (*mips_hpt_init)(unsigned int);
 
@@ -281,13 +286,14 @@ static unsigned long fixed_rate_gettimeoffset(void)
 		: "r" (count), "r" (sll32_usecs_per_cycle)
 		: "lo", GCC_REG_ACCUM);
 
+#if	0
 	/*
 	 * Due to possible jiffies inconsistencies, we need to check
 	 * the result so that we'll get a timer that is monotonic.
 	 */
 	if (res >= USECS_PER_JIFFY)
 		res = USECS_PER_JIFFY - 1;
-
+#endif
 	return res;
 }
 
@@ -444,36 +450,31 @@ irqreturn_t timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
 	unsigned long j;
 	unsigned int count;
+	unsigned int last_timerlo = timerlo;
 
 	write_seqlock(&xtime_lock);
 
-	count = mips_hpt_read();
-	mips_timer_ack();
+	count = expirelo;
+	j = mips_timer_ack();
 
 	/* Update timerhi/timerlo for intra-jiffy calibration. */
-	timerhi += count < timerlo;			/* Wrap around */
-	timerlo = count;
+	timerlo = count + (j - 1)*cycles_per_jiffy;
+	timerhi += timerlo < last_timerlo;			/* Wrap around */
 
 #if defined(CONFIG_OPROFILE) && (defined(CONFIG_MTI_R34K) || defined(CONFIG_MTI_R24K))
-if ((performance_enabled) && (perf_irq != null_perf_irq) && (read_c0_cause() & (1 << 26)))
-	{
-               perf_irq(regs);
-	}
+	if ((performance_enabled) && (perf_irq != null_perf_irq) && (read_c0_cause() & (1 << 26)))
+	perf_irq(regs);
 #endif
 
 #if defined(CONFIG_OPROFILE) && defined(CONFIG_BMIPS5000)
 	if( performance_enabled && (perf_irq != null_perf_irq) && test_all_counters() )
-	{
-//		printk("timer_interupt  perf_irq--------------------------------------------------------------------r\n");
-		perf_irq(regs);
-    	}
+	perf_irq(regs);
 #endif
-
 
 	/*
 	 * call the generic timer interrupt handling
 	 */
-	do_timer(regs);
+	do_timer(j, regs);
 
 	/*
 	 * If we have an externally synchronized Linux clock, then update
@@ -492,6 +493,7 @@ if ((performance_enabled) && (perf_irq != null_perf_irq) && (read_c0_cause() & (
 		}
 	}
 
+#if	0
 	/*
 	 * If jiffies has overflown in this timer_interrupt, we must
 	 * update the timer[hi]/[lo] to make fast gettimeoffset funcs
@@ -532,7 +534,7 @@ if ((performance_enabled) && (perf_irq != null_perf_irq) && (read_c0_cause() & (
 			break;
 		}
 	}
-
+#endif
 	write_sequnlock(&xtime_lock);
 
 	/*

@@ -454,7 +454,8 @@ void __init prom_init(void)
 			brcm_smp_enabled = 0;
 			break;
 		case 0x4:
-			/* 7205 */
+		case 0x6:
+			/* 7205/7213 */
 			brcm_emac_1_enabled = 0;
 			break;
 	}

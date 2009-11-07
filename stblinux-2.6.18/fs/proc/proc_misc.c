@@ -484,6 +484,9 @@ static int show_stat(struct seq_file *p, void *v)
 	unsigned long jif;
 	cputime64_t user, nice, system, idle, iowait, irq, softirq, steal;
 	u64 sum = 0;
+#ifdef	CONFIG_PROC_SOFTIRQS
+	u64 sum_softirq = 0;
+#endif
 
 	user = nice = system = idle = iowait =
 		irq = softirq = steal = cputime64_zero;
@@ -502,8 +505,12 @@ static int show_stat(struct seq_file *p, void *v)
 		irq = cputime64_add(irq, kstat_cpu(i).cpustat.irq);
 		softirq = cputime64_add(softirq, kstat_cpu(i).cpustat.softirq);
 		steal = cputime64_add(steal, kstat_cpu(i).cpustat.steal);
-		for (j = 0 ; j < NR_IRQS ; j++)
+		for (j = 0 ; j < NR_IRQS ; j++) 
 			sum += kstat_cpu(i).irqs[j];
+#ifdef	CONFIG_PROC_SOFTIRQS
+		for_each_softirq_nr(j)
+			sum_softirq += kstat_softirqs_cpu(j, i);
+#endif
 	}
 
 	seq_printf(p, "cpu  %llu %llu %llu %llu %llu %llu %llu %llu\n",
@@ -555,6 +562,21 @@ static int show_stat(struct seq_file *p, void *v)
 		total_forks,
 		nr_running(),
 		nr_iowait());
+
+#ifdef	CONFIG_PROC_SOFTIRQS
+	seq_printf(p, "softirq %llu", (unsigned long long)sum_softirq);
+
+	for_each_softirq_nr(i) {
+		unsigned int per_irq_sum = 0;
+		unsigned int j;
+
+		for_each_possible_cpu(j)
+			per_irq_sum += kstat_softirqs_cpu(i, j);
+
+		seq_printf(p, " %u", per_irq_sum);
+	}
+	seq_printf(p, "\n");
+#endif
 
 	return 0;
 }

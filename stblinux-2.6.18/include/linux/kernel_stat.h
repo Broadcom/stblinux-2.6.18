@@ -8,6 +8,10 @@
 #include <linux/cpumask.h>
 #include <asm/cputime.h>
 
+#ifdef	CONFIG_PROC_SOFTIRQS
+#include <linux/interrupt.h>
+#endif
+
 /*
  * 'kernel_stat.h' contains the definitions needed for doing
  * some kernel statistics (CPU usage, context switches ...),
@@ -28,6 +32,9 @@ struct cpu_usage_stat {
 struct kernel_stat {
 	struct cpu_usage_stat	cpustat;
 	unsigned int irqs[NR_IRQS];
+#ifdef	CONFIG_PROC_SOFTIRQS
+	unsigned int softirqs[NR_SOFTIRQS];
+#endif
 };
 
 DECLARE_PER_CPU(struct kernel_stat, kstat);
@@ -50,6 +57,18 @@ static inline int kstat_irqs(int irq)
 
 	return sum;
 }
+
+#ifdef	CONFIG_PROC_SOFTIRQS
+static inline void kstat_incr_softirqs_this_cpu(unsigned int irq)
+{
+	kstat_this_cpu.softirqs[irq]++;
+}
+
+static inline unsigned int kstat_softirqs_cpu(unsigned int irq, int cpu)
+{
+	return kstat_cpu(cpu).softirqs[irq];
+}
+#endif
 
 extern void account_user_time(struct task_struct *, cputime_t);
 extern void account_system_time(struct task_struct *, int, cputime_t);

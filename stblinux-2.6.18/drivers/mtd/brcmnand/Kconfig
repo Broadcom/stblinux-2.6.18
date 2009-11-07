@@ -94,3 +94,11 @@ config MTD_BRCMNAND_NOR_ACCESS
 	depends on MTD_BRCMNAND && MTD_CFI
 	help
 	   Enable Access to the NOR flash
+	   
+config MTD_BRCMNAND_DISABLE_XOR
+	bool
+	default n
+	select MTD_NEW_PARTITION
+	depends on MTD_BRCMNAND
+	help
+	   Disable XOR address inversion when NAND is on CS0

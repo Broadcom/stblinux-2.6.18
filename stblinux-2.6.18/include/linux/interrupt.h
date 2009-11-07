@@ -219,8 +219,18 @@ enum
 	NET_TX_SOFTIRQ,
 	NET_RX_SOFTIRQ,
 	BLOCK_SOFTIRQ,
+#ifdef	CONFIG_PROC_SOFTIRQS
+	TASKLET_SOFTIRQ,
+	NR_SOFTIRQS
+#else
 	TASKLET_SOFTIRQ
+#endif
 };
+
+#ifdef	CONFIG_PROC_SOFTIRQS
+#define for_each_softirq_nr(irq)		\
+	for (irq = 0; irq < NR_SOFTIRQS; irq++)
+#endif
 
 /* softirq mask and active fields moved to irq_cpustat_t in
  * asm/hardirq.h to get better cache usage.  KAO

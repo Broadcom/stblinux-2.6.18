@@ -271,7 +271,7 @@ enum {
 
 // 1. port is SATA port ( 0 or 1)
 // 2. reg is the address of the MDIO register ( see spec )
-// 3. MMIO_BASE_ADDR  is MMIO base address from SATA PCI configuration
+// 3. MMIO_BASE_ADDR is MMIO base address from SATA PCI configuration
 // registers addr 24-27
 static uint16_t mdio_read_reg(void __iomem *mmio_base, int port,
 	int reg)
@@ -329,7 +329,7 @@ static void EnablePHY(void __iomem *mmio_base, int port)
 
 static void bcm_sg_workaround(void __iomem *mmio_base, int port)
 {
-	int tmp16;
+	volatile uint16_t tmp16;
 	extern int gSataInterpolation;
  
 	DisablePHY(mmio_base, port);
@@ -365,7 +365,7 @@ static void bcm_sg_workaround(void __iomem *mmio_base, int port)
 //This routine change (lower) bandwidth of SATA PLL to lower jitter from main internal // ref clk in attempt to use on chip refclock.
 static void brcm_SetPllTxRxCtrl(void __iomem *mmio_base, int port)
 {
-	uint16_t tmp16;
+	volatile uint16_t tmp16;
 
 	//Change Tx control
 	mdio_write_reg(mmio_base, port, 0xa, 0x0260);
@@ -393,7 +393,7 @@ static void brcm_TunePLL(void __iomem *mmio_base, int port)
 	udelay(10000); // wait
 
 	//check lock bit
-	tmp = mdio_read_reg(mmio_base, port,0x7);
+	tmp = mdio_read_reg(mmio_base, port, 0x7);
 
 	for(i = 0; i < 10000; i++) {
 		tmp = mdio_read_reg(mmio_base, port, 0x7);
@@ -412,6 +412,34 @@ static void brcm_AnalogReset(void __iomem *mmio_base, int port)
 	mdio_write_reg(mmio_base, port, 0x4, 0);
 
 	bcm_sg_workaround(mmio_base,port);
+}
+
+static void EnableNewAsyncRecovery(void __iomem *mmio_base, int port)
+{
+	volatile uint32_t tmp32;
+	void __iomem *port_mmio = PORT_BASE(mmio_base, port);
+
+	//Clear legacy mode
+	tmp32 = readl(port_mmio + K2_SATA_SICR1_OFFSET);
+	writel((tmp32 & 0xFDFFFFFF), port_mmio + K2_SATA_SICR1_OFFSET);
+
+	//Enable new Async recovery mode
+	tmp32 = readl(port_mmio + K2_SATA_SICR2_OFFSET);
+	writel((tmp32 | 0x00400000), port_mmio + K2_SATA_SICR2_OFFSET);
+}
+
+static void Enable256ConsecAlignDetection(void __iomem *mmio_base, int port)
+{
+	volatile uint32_t tmp32;
+	void __iomem *port_mmio = PORT_BASE(mmio_base, port);
+
+	//Enable 256 consecutive align mode
+	tmp32 = readl(port_mmio + K2_SATA_SICR1_OFFSET);
+	writel((tmp32 | 0x08000000), port_mmio + K2_SATA_SICR1_OFFSET);
+
+	//Enable 256 align detection
+	tmp32 = readl(port_mmio + K2_SATA_SICR2_OFFSET);
+	writel((tmp32 | 0x00800000), port_mmio + K2_SATA_SICR2_OFFSET);
 }
 
 static void brcm_InitSata_1_5Gb(void __iomem *mmio_base, int port)
@@ -479,6 +507,9 @@ static void brcm_InitSata_1_5Gb(void __iomem *mmio_base, int port)
 		udelay(10000); // wait
 	}
 
+	EnableNewAsyncRecovery(mmio_base, port);
+        Enable256ConsecAlignDetection(mmio_base, port);
+
 	writel(0, port_mmio + K2_SATA_SCR_CONTROL_OFFSET);
 }
 
@@ -542,6 +573,9 @@ static void brcm_InitSata2_3Gb(void __iomem *mmio_base, int port)
 		brcm_AnalogReset(mmio_base, port);
 		udelay(10000); // wait
 	}
+
+	EnableNewAsyncRecovery(mmio_base, port);
+        Enable256ConsecAlignDetection(mmio_base, port);
 	
 	writel(0, port_base + K2_SATA_SCR_CONTROL_OFFSET);
 }
@@ -597,7 +631,7 @@ retry_brcm_initsata2:
 
 static void bcm97xxx_sata_init(struct pci_dev *dev, struct ata_probe_ent *probe_ent)
 {
-	unsigned int reg;
+	volatile uint16_t reg;
 	void __iomem *mmio_base = probe_ent->mmio_base;
 
 	/* minimum grant, to avoid Latency being reset to lower value */
@@ -2318,6 +2352,8 @@ static void __exit k2_sata_exit(void)
 	brcm_pm_sata_remove();
 #endif
 }
+
+
 
 MODULE_AUTHOR("Benjamin Herrenschmidt");
 MODULE_DESCRIPTION("low-level driver for K2 SATA controller");

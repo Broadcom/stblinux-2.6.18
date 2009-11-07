@@ -181,7 +181,8 @@ void __init  plat_timer_setup(struct irqaction *irq)
 	irq_desc[BCM_LINUX_SYSTIMER_IRQ].status |= IRQ_PER_CPU;
 #endif
 
-	/* Generate first timer interrupt */
+	/* reset COMPARE for first timer interrupt if it is missed */
+	if(read_c0_count() > read_c0_compare())
 	write_c0_compare(read_c0_count() + (mips_hpt_frequency/HZ));
 }
 
@@ -233,7 +234,7 @@ void __init plat_mem_setup(void)
     // Set externalize IO sync bit (CP0 $16, sel 7, bit 8)
 	{
         uint32_t extIO = __read_32bit_c0_register($16, 7);
-(16, 7, extIO | 0x100);
+        __write_32bit_c0_register($16, 7, extIO | 0x100);
         extIO = __read_32bit_c0_register($16, 7);
 	}
 
