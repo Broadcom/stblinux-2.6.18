@@ -67,6 +67,7 @@ when	who what
  */
 
 
+#include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/mtd/mtd.h>
@@ -76,6 +77,7 @@ when	who what
 #include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/vmalloc.h>
+#include <linux/syscalls.h>
 
 #include "brcmnand_priv.h"
 
@@ -84,10 +86,50 @@ when	who what
 #define PRINTK(...)
 //#define PRINTK printk
 
+char brcmNandBBTMsg[1024];
+// #define BBT_DEBUG
+#ifdef BBT_DEBUG // Bypass quiet flag
+
+static int do_printk = 0; // To be turned on when we hit BBT out of space
+asmlinkage int bbt_vprintk(const char *fmt, va_list args)
+{
+	//unsigned long flags;
+	int printed_len;
+	//char *p;
+	//static char printk_buf[1024];
+	//static int log_level_unknown = 1;
+
+	extern void uart_puts(const char *);
+	
+       printed_len = vsprintf(brcmNandBBTMsg, fmt, args);
+       uart_puts(brcmNandBBTMsg);
+    
+    	return printed_len;
+
+}
+asmlinkage int bbt_printk(const char *fmt, ...)
+{
+	va_list args;
+	int r;
+
+	if (!do_printk)
+		return 0;
+	
+	va_start(args, fmt);
+	r = bbt_vprintk(fmt, args);
+	va_end(args);
+
+	return r;
+}
+
+#define PRINTK bbt_printk
+//#define printk bbt_printk
+
+#endif
+
 extern int gClearBBT;
 extern int gdebug;
 
-char brcmNandBBTMsg[1024];
 
 	/* brcmnand=
 	 *	rescan: 	1. Rescan for bad blocks, and update existing BBT
@@ -204,7 +246,7 @@ __FUNCTION__,i, i, td->pattern[i], td->offs+i, p[td->offs + i]);
  * Read the bad block table starting from page.
  *
  */
-static int brcmnand_read_bbt (struct mtd_info *mtd, uint8_t *buf, int page, int num,
+static int brcmnand_read_bbt (struct mtd_info *mtd, uint8_t *buf, uint64_t page, int num,
 	int bits, int offs, int reserved_block_code)
 {
 	int res, i, j, act = 0;
@@ -212,7 +254,9 @@ static int brcmnand_read_bbt (struct mtd_info *mtd, uint8_t *buf, int page, int 
 	size_t retlen, len, totlen;
 	loff_t from;
 	uint8_t msk = (uint8_t) ((1 << bits) - 1);
-
+#ifdef BBT_DEBUG
+int save_do_printk = do_printk;
+#endif
 	totlen = (num * bits) >> 3;
 	from = ((loff_t)page) << this->page_shift;
 
@@ -222,6 +266,8 @@ static int brcmnand_read_bbt (struct mtd_info *mtd, uint8_t *buf, int page, int 
 	this->ctrl_write(BCHP_NAND_ECC_CORR_ADDR, 0);
 	this->ctrl_write(BCHP_NAND_ECC_UNC_ADDR, 0);
 
+//do_printk=1;
+
 
 	while (totlen) {
 		len = min (totlen, (size_t) (1 << this->bbt_erase_shift));
@@ -229,10 +275,14 @@ PRINTK("%s: calling read_ecc len=%d, bits=%d, num=%d, totallen=%d\n", __FUNCTION
 		res = mtd->read(mtd, from, len, &retlen, buf);
 		if (res < 0) {
 			if (retlen != len) {
-				printk (KERN_INFO "brcmnand_bbt: Error reading bad block table\n");
+				printk (KERN_ERR "%s: Error reading bad block table, retlen=%d\n", __FUNCTION__);
 				return res;
 			}
-			printk (KERN_WARNING "brcmnand_bbt: ECC error while reading bad block table\n");
+			printk (KERN_ERR "%s: ECC error while reading bad block table\n", __FUNCTION__);
+PRINTK ("%s: ECC error while reading bad block table, res=%d\n", __FUNCTION__, res);
+
+			/* THT 11/10/09: If read fails, we should ignore the data, so return w/o analyzing it */
+			return res;
 		}
 
 		/* Analyse data */
@@ -245,6 +295,8 @@ PRINTK("%s: calling read_ecc len=%d, bits=%d, num=%d, totallen=%d\n", __FUNCTION
 				if (reserved_block_code && (tmp == reserved_block_code)) {
 					printk (KERN_DEBUG "nand_read_bbt: Reserved block at 0x%08x\n",
 						((offs << 2) + (act >> 1)) << this->bbt_erase_shift);
+PRINTK ( "nand_read_bbt: Reserved block at 0x%08x\n",
+						((offs << 2) + (act >> 1)) << this->bbt_erase_shift);
 					this->bbt[offs + (act >> 3)] |= 0x2 << (act & 0x06);
 					mtd->ecc_stats.bbtblocks++;
 					continue;
@@ -252,6 +304,8 @@ PRINTK("%s: calling read_ecc len=%d, bits=%d, num=%d, totallen=%d\n", __FUNCTION
 				/* Leave it for now, if its matured we can move this
 				 * message to MTD_DEBUG_LEVEL0 */
 				printk (KERN_DEBUG "nand_read_bbt: Bad block at 0x%08x\n",
+					((offs << 2) + (act >> 1)) << this->bbt_erase_shift);
+PRINTK ( "nand_read_bbt: Bad block at 0x%08x\n",
 					((offs << 2) + (act >> 1)) << this->bbt_erase_shift);
 				/* Factory marked bad or worn out ? */
 				if (tmp == 0)
@@ -261,8 +315,11 @@ PRINTK("%s: calling read_ecc len=%d, bits=%d, num=%d, totallen=%d\n", __FUNCTION
 				mtd->ecc_stats.badblocks++;
 			}
 		}
+#ifdef DEBUG_BBT
+do_printk=save_do_printk;
+#endif
 		totlen -= len;
-		from += len;
+		from += (loff_t)len;
 	}
 	return 0;
 }
@@ -283,6 +340,12 @@ static int brcmnand_read_abs_bbt (struct mtd_info *mtd, uint8_t *buf, struct nan
 	struct brcmnand_chip *this = mtd->priv;
 	int res = 0, i;
 	int bits;
+#ifdef DEBUG_BBT
+int save_do_printk = do_printk;
+do_printk = 1;
+#endif
+PRINTK("-->brcmnand_read_abs_bbt td=%c%c%c%c, td->pages[0]=%llx\n", 
+	td->pattern[0], td->pattern[1],td->pattern[2], td->pattern[3], td->pages[0]);
 
 PRINTK("-->brcmnand_read_abs_bbt\n");
 	bits = td->options & NAND_BBT_NRBITS_MSK;
@@ -293,6 +356,9 @@ PRINTK("-->brcmnand_read_abs_bbt\n");
 				res = brcmnand_read_bbt (mtd, buf, td->pages[i], this->chipSize >> this->bbt_erase_shift, bits, offs, td->reserved_block_code);
 			if (res) {
 PRINTK("<-- brcmnand_read_abs_bbt ret = %d\n", res);
+#ifdef DEBUG_BBT
+do_printk = save_do_printk;
+#endif
 				return res;
 			}
 			offs += this->chipSize >> (this->bbt_erase_shift + 2);
@@ -302,10 +368,16 @@ PRINTK("<-- brcmnand_read_abs_bbt ret = %d\n", res);
 				(uint32_t) (this->mtdSize >> this->bbt_erase_shift), bits, 0, td->reserved_block_code);
 		if (res) {
 PRINTK("<-- brcmnand_read_abs_bbt 2 ret = %d\n", res);
+#ifdef DEBUG_BBT
+do_printk = save_do_printk;
+#endif
 			return res;
 		}
 	}
 PRINTK("<-- brcmnand_read_abs_bbt ret 0\n");
+#ifdef DEBUG_BBT
+do_printk = save_do_printk;
+#endif
 	return 0;
 }
 
@@ -316,15 +388,23 @@ static int brcmnand_scan_read_raw(struct mtd_info *mtd, uint8_t *buf, loff_t off
 			 size_t len)
 {
 	struct mtd_oob_ops ops;
+	int ret;
 
 	ops.mode = MTD_OOB_RAW;
 	ops.ooboffs = 0;
 	ops.ooblen = mtd->oobsize;
-	ops.oobbuf = buf;
+	ops.oobbuf = &buf[mtd->writesize];
 	ops.datbuf = buf;
 	ops.len = len;
 
-	return mtd->read_oob(mtd, offs, &ops);
+	ret = mtd->read_oob(mtd, offs, &ops);
+	
+PRINTK("%s: Reading BBT Sig @%0llx, OOB=\n", __FUNCTION__, offs); 
+#ifdef DEBUG_BBT
+if (do_printk || gdebug) 
+	print_oobbuf(ops.oobbuf, mtd->oobsize);
+#endif
+	return ret;
 }
 
 /*
@@ -377,7 +457,9 @@ PRINTK("read primary version\n");
 		brcmnand_scan_read_raw(mtd, buf, td->pages[0] << this->page_shift,
 			      mtd->writesize);
 		td->version[0] = buf[mtd->writesize + td->veroffs];
-		printk(KERN_DEBUG "Bad block table at page %d, version 0x%02X\n",
+		printk(KERN_DEBUG "Bad block table at page %llx, version 0x%02X\n",
+		       td->pages[0], td->version[0]);
+PRINTK( "Bad block table at page %llx, version 0x%02X\n",
 		       td->pages[0], td->version[0]);
 	}
 
@@ -387,8 +469,10 @@ PRINTK("read mirror version\n");
 		brcmnand_scan_read_raw(mtd, buf, md->pages[0] << this->page_shift,
 			      mtd->writesize);
 		md->version[0] = buf[mtd->writesize + md->veroffs];
-		printk(KERN_DEBUG "Bad block table at page %d, version 0x%02X\n",
+		printk(KERN_DEBUG "Bad block table at page %llx, version 0x%02X\n",
 		       md->pages[0], md->version[0]);
+PRINTK( "Bad block table at page %llx, version 0x%02X\n",
+		       td->pages[0], td->version[0]);
 	}
 PRINTK("<-- %s\n", __FUNCTION__);
 	return 1;
@@ -434,7 +518,7 @@ static int brcmnand_scan_block_fast(struct mtd_info *mtd, struct nand_bbt_descr 
 		int pagesPerBlock = mtd->erasesize/mtd->writesize;
 		
 		dir = -1;
-		offs += (pagesPerBlock -1 ) * mtd->writesize;
+		offs += (loff_t)((pagesPerBlock -1 ) * mtd->writesize);
 	}
 	ops.len = mtd->oobsize;
 	ops.ooblen = mtd->oobsize;
@@ -444,19 +528,26 @@ static int brcmnand_scan_block_fast(struct mtd_info *mtd, struct nand_bbt_descr 
 	ops.mode = MTD_OOB_PLACE;
 
 	for (j=0; j < len; j++) {
-		/*
-		 * Read the full oob until read_oob is fixed to
-		 * handle single byte reads for 16 bit
-		 * buswidth
-		 */
 		ret = mtd->read_oob(mtd, offs, &ops);
+		if (ret == -EBADMSG) {// Uncorrectable errors
+			uint32_t acc0;
+	
+			// Disable ECC
+			acc0 = brcmnand_disable_ecc();
+
+			// Re-read the OOB
+			ret = mtd->read_oob(mtd, offs, &ops);
+
+			// Enable ECC back
+			brcmnand_restore_ecc(acc0);
+		}
 		if (ret)
 			return ret;
 
 		if (check_short_pattern(buf, bd))
 			return 1;
 
-		offs += (dir * mtd->writesize);
+		offs += (loff_t)(dir * mtd->writesize);
 	}
 	return 0;
 }
@@ -489,8 +580,14 @@ PRINTK("-->brcmnand_create_bbt, bbt_erase_shift=%d, this->page_shift=%d\n", this
 	if (bd->options & NAND_BBT_SCANALLPAGES)
 		len = 1 << (this->bbt_erase_shift - this->page_shift);
 	else { // Also for MLC
-		if (bd->options & NAND_BBT_SCAN2NDPAGE)
-			len = 2;
+		if (bd->options & NAND_BBT_SCAN2NDPAGE) {
+			if (this->options & NAND_SCAN_BI_3RD_PAGE) {
+				len = 3; // For Hynix MLC chips
+			}
+			else {
+				len = 2;
+			}
+		}
 		else
 			len = 1;
 	}
@@ -546,7 +643,7 @@ from, bd->options, mtd64_ll_low(startblock), mtd64_ll_low(numblocks));
 		}
 
 		i += 2;
-		from += (1 << this->bbt_erase_shift);
+		from += (loff_t)(1 << this->bbt_erase_shift);
 	}
 	return 0;
 }
@@ -577,6 +674,7 @@ static int brcmnand_search_bbt (struct mtd_info *mtd, uint8_t *buf, struct nand_
 	int scanlen = mtd->writesize + mtd->oobsize;
 	int bbtblocks;
 	int blocktopage = this->bbt_erase_shift - this->page_shift;
+	int ret = 0;
 
 	/* Search direction top -> down ? */
 	if (td->options & NAND_BBT_LASTBLOCK) {
@@ -604,15 +702,22 @@ static int brcmnand_search_bbt (struct mtd_info *mtd, uint8_t *buf, struct nand_
 	for (i = 0; i < chips; i++) {
 		/* Reset version information */
 		td->version[i] = 0;
-		td->pages[i] = -1;
+		td->pages[i] = BBT_NULL_PAGE;
 		/* Scan the maximum number of blocks */
 		for (block = 0; block < td->maxblocks; block++) {
 
-			int actblock = startblock + dir * block;
+			int64_t actblock = startblock + dir * block;
 			loff_t offs = (uint64_t) actblock << this->bbt_erase_shift;
 
+
 			/* Read first page */
-			brcmnand_scan_read_raw(mtd, buf, offs, mtd->writesize);
+			ret = brcmnand_scan_read_raw(mtd, buf, offs, mtd->writesize);
+
+			/* Here if the read routine returns -77 then the BBT data is invalid, ignore it */
+			
+			// Ignore BBT if not there.
+			if (ret)
+				continue;
 			if (!check_pattern(buf, scanlen, mtd->writesize, td)) {
 				td->pages[i] = actblock << blocktopage;
 				if (td->options & NAND_BBT_VERSION) {
@@ -625,10 +730,12 @@ static int brcmnand_search_bbt (struct mtd_info *mtd, uint8_t *buf, struct nand_
 	}
 	/* Check, if we found a bbt for each requested chip */
 	for (i = 0; i < chips; i++) {
-		if (td->pages[i] == -1)
-			printk (KERN_WARNING "Bad block table not found for chip %d\n", i);
+		if (td->pages[i] == BBT_NULL_PAGE)
+			printk (KERN_WARNING "Bad block table %c%c%c%c not found for chip %d\n", 
+				td->pattern[0], td->pattern[1], td->pattern[2], td->pattern[3], i);
+
 		else
-			printk(KERN_DEBUG "Bad block table found at page %d, version 0x%02X\n", td->pages[i],
+			printk(KERN_DEBUG "Bad block table found at page %llx, version 0x%02X\n", td->pages[i],
 			       td->version[i]);
 	}
 	return 0;
@@ -674,6 +781,8 @@ static int brcmnand_search_read_bbts (struct mtd_info *mtd, uint8_t *buf,
  * for BBT.
  *
 */
+// 0 == OK, 1 = outofspace for BBT0, 2=outofspace for BBT1
+static int outofspace_bbt = 0;
 static int brcmnand_write_bbt(struct mtd_info *mtd, uint8_t *buf,
 		     struct nand_bbt_descr *td, struct nand_bbt_descr *md,
 		     int chipsel)
@@ -682,7 +791,7 @@ static int brcmnand_write_bbt(struct mtd_info *mtd, uint8_t *buf,
 	struct erase_info einfo;
 	int i, j, res, chip = 0, skip, dir;
 	uint32_t bits, offs, sft, sftmsk, bbtoffs;
-	uint64_t startblock, numblocks, page, i64;
+	int64_t startblock, numblocks, page, i64;
 	int nrchips,  pageoffs, ooboffs;
 	uint8_t msk[4];
 	uint8_t rcode = td->reserved_block_code;
@@ -690,6 +799,7 @@ static int brcmnand_write_bbt(struct mtd_info *mtd, uint8_t *buf,
 	loff_t to;
 	struct mtd_oob_ops ops;
 
+bbt_outofspace_retry:
 
 DEBUG(MTD_DEBUG_LEVEL3, "-->%s\n", __FUNCTION__);
 	ops.ooblen = mtd->oobsize;
@@ -714,7 +824,8 @@ DEBUG(MTD_DEBUG_LEVEL3, "-->%s\n", __FUNCTION__);
 		nrchips = 1;
 	}
 	
-PRINTK("numblocks=%d, nrchips=%d\n", numblocks, nrchips);
+PRINTK("%s Creating %c%c%c%c numblocks=%d, nrchips=%d, td->pages[0]=%llx\n", 
+__FUNCTION__, td->pattern[0],td->pattern[1], td->pattern[2], td->pattern[3] , numblocks, nrchips, td->pages[0]);
 
 	/* Loop through the chips */
 	for (; chip < nrchips; chip++) {
@@ -723,7 +834,7 @@ PRINTK("numblocks=%d, nrchips=%d\n", numblocks, nrchips);
 		 * This applies for absolute placement too, as we have the
 		 * page nr. in td->pages.
 		 */
-		if (td->pages[chip] != -1LL) {
+		if (td->pages[chip] != BBT_NULL_PAGE) {
 			page = td->pages[chip];
 PRINTK("There is already a version of the table, go ahead and write it\n");
 			goto write;
@@ -741,11 +852,12 @@ PRINTK("There is already a version of the table, go ahead and write it\n");
 		skip = 0;
 
 write_retry:
-printk("%s: write_retry: startblock=%0llx, dir=%d, td->maxblocks=%d, skip=%d\n", 
+PRINTK("%s: write_retry: startblock=%0llx, dir=%d, td->maxblocks=%d, skip=%d\n", 
 	__FUNCTION__, startblock, dir, td->maxblocks, skip);
 
 		for (i = skip; i < td->maxblocks; i++) {
-			uint64_t block = startblock + dir * i;
+			uint64_t block = startblock + (int64_t) (dir * i);
+			// THT One byte contains 4 set of 2-bits, so divide block by 4 to index the BBT byte
 			uint32_t blockindex = (uint32_t) (block >> 2);
 
 			/* Check, if the block is bad */
@@ -753,18 +865,36 @@ printk("%s: write_retry: startblock=%0llx, dir=%d, td->maxblocks=%d, skip=%d\n",
 PRINTK("%s: Checking BBT: i=%d, block=%0llx, BBT=%08x\n", 
 __FUNCTION__, i, block, this->bbt[blockindex]);
 			
-			switch ((this->bbt[blockindex] >>
-				 (2 * (block & 0x03))) & 0x03) {
+			// THT: bbt[blockindex] is the byte we are looking for, now get the 2 bits that
+			// is the BBT for the block (Shift (0,1,2,3) *2 positions depending on the block modulo 4)
+			switch ((this->bbt[blockindex] >> (2 * (block & 0x03))) 
+				      & 0x03) {
 			case 0x01:
 			case 0x03:
 				continue;
 			}
 			page = block << (this->bbt_erase_shift - this->page_shift);
+
+PRINTK("%s: Checking BBT2: page=%llx, md->pages[chip]=%llx\n", 
+	__FUNCTION__, page, md->pages[chip]);
+	
 			/* Check, if the block is used by the mirror table */
 			if (!md || md->pages[chip] != page)
 				goto write;
 		}
-		printk (KERN_ERR "No space left to write bad block table\n");
+
+#ifdef DEBUG_BBT		
+		if (!do_printk) { // If we get here then turn on debugging and retry
+			do_printk=1;
+			chip = 0;
+			len = 0;
+			uint8_t rcode = td->reserved_block_code;
+			goto bbt_outofspace_retry;
+		}
+#endif
+		printk (KERN_ERR "No space left to write bad block table %c%c%c%c\n", 
+			td->pattern[0], td->pattern[1], td->pattern[2], td->pattern[3]);
+		brcmnand_post_mortem_dump(mtd, page<<this->page_shift);
 		return -ENOSPC;
 write:
 
@@ -840,6 +970,11 @@ PRINTK("%s: Not NAND_BBT_SAVECONTENT\n", __FUNCTION__);
 			ooboffs = len;
 			/* Pattern is located in oob area of first page */
 			memcpy(&buf[ooboffs + td->offs], td->pattern, td->len);
+			
+			// Write the version number (1 byte)
+			if (td->options & NAND_BBT_VERSION) {
+				buf[ooboffs + td->veroffs]=td->version[0];
+			}
 		}
 
 		/* walk through the memory table */
@@ -955,21 +1090,30 @@ static int brcmnand_check_create (struct mtd_info *mtd, uint8_t *buf, struct nan
 		rd2 = NULL;
 		/* Per chip or per device ? */
 		chipsel = (td->options & NAND_BBT_PERCHIP) ? i : -1;
+
+		/*
+		 * THT: Reset version to 0 if 0xff
+		 */
+		if ((td->options & NAND_BBT_VERSION) && (td->version[i]==0xff) && td->pages[i] != BBT_NULL_PAGE)
+			td->version[i] = 0;
+		if ((md->options & NAND_BBT_VERSION) && (md->version[i]==0xff) && md->pages[i] != BBT_NULL_PAGE)
+			md->version[i] = 0;
+		
 		/* Mirrored table available ? */
 		if (md) {
-			if (td->pages[i] == -1 && md->pages[i] == -1) {
+			if (td->pages[i] == BBT_NULL_PAGE && md->pages[i] == BBT_NULL_PAGE) {
 				writeops = 0x03;
 				goto create;
 			}
 
-			if (td->pages[i] == -1) {
+			if (td->pages[i] == BBT_NULL_PAGE) {
 				rd = md;
 				td->version[i] = md->version[i];
 				writeops = 1;
 				goto writecheck;
 			}
 
-			if (md->pages[i] == -1) {
+			if (md->pages[i] == BBT_NULL_PAGE) {
 				rd = td;
 				md->version[i] = td->version[i];
 				writeops = 2;
@@ -996,7 +1140,7 @@ static int brcmnand_check_create (struct mtd_info *mtd, uint8_t *buf, struct nan
 			goto writecheck;
 
 		} else {
-			if (td->pages[i] == -1) {
+			if (td->pages[i] == BBT_NULL_PAGE) {
 				writeops = 0x01;
 				goto create;
 			}
@@ -1015,25 +1159,46 @@ create:
 		if (md)
 			md->version[i] = 1;
 writecheck:
+		res = 0;
+		
 		/* read back first ? */
-		if (rd)
-			brcmnand_read_abs_bbt (mtd, buf, rd, chipsel);
+		if (rd) {
+			res = brcmnand_read_abs_bbt (mtd, buf, rd, chipsel);
+		}
 		/* If they weren't versioned, read both. */
-		if (rd2)
-			brcmnand_read_abs_bbt (mtd, buf, rd2, chipsel);
+		if (rd2) {
+			if (res != 0) {
+				int bbtlen = (uint32_t) (this->mtdSize >> (this->bbt_erase_shift + 2));
+				/* Clear the in-memory BBT first */
+PRINTK("%s: Discarding previously read BBT %c%c%c%c, res=%d\n", 
+__FUNCTION__, rd->pattern[0], rd->pattern[1], rd->pattern[2], rd->pattern[3], res);
+				memset(this->bbt, 0, bbtlen);
+			}
+			res = brcmnand_read_abs_bbt (mtd, buf, rd2, chipsel);
+			if (res != 0) {
+PRINTK("%s: Read BBT %c%c%c%c returns res=%d, discarding\n", 
+__FUNCTION__, rd2->pattern[0], rd2->pattern[1], rd2->pattern[2], rd2->pattern[3], res);
+			}
+		}
 
 		/* Write the bad block table to the device ? */
 		if ((writeops & 0x01) && (td->options & NAND_BBT_WRITE)) {
 			res = brcmnand_write_bbt (mtd, buf, td, md, chipsel);
-			if (res < 0)
+			if (res < 0) {
+				if (res ==-ENOSPC)
+					outofspace_bbt |= 1;
 				return res;
+			}
 		}
 
 		/* Write the mirror bad block table to the device ? */
 		if ((writeops & 0x02) && md && (md->options & NAND_BBT_WRITE)) {
 			res = brcmnand_write_bbt (mtd, buf, md, td, chipsel);
-			if (res < 0)
+			if (res < 0) {
+				if (res ==-ENOSPC)
+					outofspace_bbt |= 2;
 				return res;
+			}
 		}
 	}
 	return 0;
@@ -1067,7 +1232,7 @@ static void mark_bbt_region (struct mtd_info *mtd, struct nand_bbt_descr *td)
 	for (i = 0; i < chips; i++) {
 		if ((td->options & NAND_BBT_ABSPAGE) ||
 		    !(td->options & NAND_BBT_WRITE)) {
-			if (td->pages[i] == -1)
+			if (td->pages[i] == BBT_NULL_PAGE)
 				continue;
 			block = td->pages[i] >> (this->bbt_erase_shift - this->page_shift);
 			block <<= 1;
@@ -1231,9 +1396,14 @@ DEBUG(MTD_DEBUG_LEVEL3, "-->%s offs=%0llx\n", __FUNCTION__, offs);
 		chipsel = -1;
 	}
 
-	td->version[chip]++;
+	(td->version[chip])++;
+	// THT Roll over
+	if (td->version[chip] == 0xff)
+		td->version[chip] =1;
 	if (md)
-		md->version[chip]++;
+		(md->version[chip])++;
+	if (md->version[chip] == 0xff)
+		md->version[chip] =1;
 
 	/* Write the bad block table to the device ? */
 	if ((writeops & 0x01) && (td->options & NAND_BBT_WRITE)) {
@@ -1244,6 +1414,219 @@ DEBUG(MTD_DEBUG_LEVEL3, "-->%s offs=%0llx\n", __FUNCTION__, offs);
 	/* Write the mirror bad block table to the device ? */
 	if ((writeops & 0x02) && md && (md->options & NAND_BBT_WRITE)) {
 		res = brcmnand_write_bbt (mtd, buf, md, td, chipsel);
+	}
+
+out:
+	vfree (buf);
+	return res;
+}
+
+/**
+ * brcmnand_reconstruct_bbt - [private] recreate bad block table(s)
+ * @mtd:			MTD device structure
+ * @whichbbt:		1 = TD, 2 = MD
+ *
+ * The function reconstruct the bad block table(s) from the BI indicators.
+*/
+int brcmnand_reconstruct_bbt (struct mtd_info *mtd, int whichbbt)
+{
+	struct brcmnand_chip *this = mtd->priv;
+	int len, res = 0, writeops = 0;
+	int chip, chipsel;
+	uint8_t *buf = NULL;
+	struct nand_bbt_descr *td = this->bbt_td;
+	struct nand_bbt_descr *md = this->bbt_md;
+	uint32_t bbtSize;
+	uint32_t block;
+	uint64_t bOffset, startBlock, badBlock = 0; 
+	int modified = 0;
+
+PRINTK( "-->%s whichBBT=%x\n", __FUNCTION__, whichbbt);
+
+	if (!this->bbt || !td)
+		return -EINVAL;
+
+
+	len = (uint32_t) (this->mtdSize >> (this->bbt_erase_shift + 2));
+	/* Allocate a temporary buffer for one eraseblock incl. oob */
+	len = (1 << this->bbt_erase_shift);
+	len += (len >> this->page_shift) * mtd->oobsize;
+	buf = vmalloc (len);
+	if (!buf) {
+		printk (KERN_ERR "brcmnand_update_bbt: Out of memory\n");
+		return -ENOMEM;
+	}
+
+	/*
+	 * Wipe out the BBT entries for the BBT space, and reconstruct it, 
+	 * but do not modify the other entries outside the BBT
+	 */
+	 if (this->mtdSize <= (512<<20)) {
+	 	bbtSize = 1<<20;
+	 }
+	 else {
+	 	bbtSize = 4<<20;
+	 }
+
+	 /* Here we unset the entries in the BBT for the BBT region */
+	 startBlock = this->mtdSize - bbtSize;
+	 for (bOffset = startBlock; bOffset < this->mtdSize; bOffset += mtd->erasesize) {
+	 	// Calculate index into BBT and wipe it out.
+	 	uint32_t byteIndex = (uint32_t) bOffset >> 2;
+		uint8_t byte = this->bbt[byteIndex];
+		uint8_t byte0 = byte;
+
+		/* Clear the 2 bits for this block, then assign it back */
+		byte &= ~(0x03 << (2 * (bOffset & 0x03)));
+		
+		/* If the contents changed, mark it */
+		if (byte != byte0) {
+			modified = 1;
+			badBlock = bOffset;
+		}
+		
+	 }
+	
+	 /* Now erase the BBT region, adding to bad block if erase fail */
+
+	if (modified) {
+		int64_t goodBlock = BBT_NULL_PAGE;
+
+		switch (writeops & 0x03) {
+		case 0x1:	goodBlock = md->pages[0] >> this->page_shift; break;
+		case 0x2: 	goodBlock = td->pages[0] >> this->page_shift; break;
+		case 0x3:	goodBlock = BBT_NULL_PAGE; break;
+		case 0: /* Impossible */ goodBlock = BBT_NULL_PAGE; break;
+		}
+		
+#if 0
+		static char buf[512+58]; // 31 for alignment, +27 for OOB size
+		uint8_t* all0;
+		uint8_t* oob0;
+
+		all0 = (uint8_t*)  ((((unsigned int) &buf[0]) + 31) & (~31));
+		oob0 = &all0[512];
+
+		memset(all0, 0, 512);
+		memset(oob0, 0, 27);
+#endif	
+		for (bOffset = startBlock; bOffset < this->mtdSize; bOffset += mtd->erasesize) {
+			int needBBT = 0;
+			
+
+			/* Skip over the good BBT */
+			
+			if (bOffset == goodBlock)
+				continue;
+			
+			PRINTK("Erasing block at %0llx\n",  bOffset);
+			this->ctrl_writeAddr(this, bOffset, 0);
+
+			this->ctrl_write(BCHP_NAND_CMD_START, OP_BLOCK_ERASE);
+			// Wait until flash is ready
+			(void)  this->write_is_complete(mtd, &needBBT);
+			if (needBBT) {
+				printk(KERN_WARNING "%s: Erase failure, marking bad block @%016llx\n", __FUNCTION__, bOffset);
+				modified = 1;
+				badBlock = bOffset;
+				(void) this->block_markbad(mtd, bOffset);
+			}
+		}
+		/* TBD: We should follow this with an ECC-disable write with all-0, ECC-enable then a re-erase
+		 * But that is too dangerous for AC-on-off tests, especially for the BBT area
+		 */
+#if 0
+		
+	/* Disable ECC */
+	acc = bbt_ctrl_read(BCHP_NAND_ACC_CONTROL);
+	acc0 = acc & ~(BCHP_NAND_ACC_CONTROL_RD_ECC_EN_MASK | BCHP_NAND_ACC_CONTROL_RD_ECC_BLK0_EN_MASK);
+	bbt_ctrl_write(BCHP_NAND_ACC_CONTROL, acc0);
+
+	chip->ctrl_writeAddr(chip, offset, 0);
+	PLATFORM_IOFLUSH_WAR();
+	chip->ctrl_write(BCHP_NAND_CMD_START, OP_PAGE_PROGRAM);
+
+	// Wait until cache is filled up, disabling ECC checking
+	(void) brcmnand_spare_is_valid(mtd, FL_READING, 1);
+	
+	// Restore acc
+	bbt_ctrl_write(BCHP_NAND_ACC_CONTROL, acc);
+#endif
+	}
+
+	
+	
+
+	writeops = whichbbt;
+	if (modified) writeops = 3; // Do both
+
+#if 0  // THT: TBD when we have per chip BBT
+	/* Do we have a bbt per chip ? */
+	if (td->options & NAND_BBT_PERCHIP) {
+		chip = (int) (offs >> this->chip_shift);
+		chipsel = chip;
+	} else {
+		chip = 0;
+		chipsel = -1;
+	}
+#endif
+
+	/* Warning this codes only support 1 NAND chip */
+do_both:
+	if (((writeops & 3) == 3) && (td->options & NAND_BBT_WRITE)) {
+		int res2 = 0;
+
+PRINTK("%s: Reconstructing both BBTs\n", __FUNCTION__);
+		res = 0;
+		td->pages[0] = md->pages[0] = BBT_NULL_PAGE;
+		res = brcmnand_write_bbt (mtd, buf, td, md, 0);
+	
+		res2 = brcmnand_write_bbt (mtd, buf, md, td, 0);
+
+		if (!res && res2) /* At least one table write succeed. */
+			res = res2;
+		
+		goto out;
+	}
+
+
+	/* Write the bad block table to the device */
+	
+	if ((writeops & 0x01) && (td->options & NAND_BBT_WRITE)) {
+PRINTK("%s: Recreating Bbt0\n", __FUNCTION__);
+		// Reset BBT0
+		td->pages[0] = md->pages[0] = BBT_NULL_PAGE;
+		
+		// Look for the location of 1BBT
+		res = brcmnand_search_bbt(mtd, buf, md);
+
+		if (res) { // Mirror not found
+			PRINTK("%s: Re-creating Bbt0, but 1bBT is also bad, rescan for both\n", __FUNCTION__);
+			writeops = 3;
+			goto do_both;
+		}
+
+PRINTK("%s: Reconstructing both BBT0 from BBT1 at %08x\n", __FUNCTION__, md->pages[0]);		
+		res = brcmnand_write_bbt (mtd, buf, td, md, 0);
+		if (res < 0)
+			goto out;
+	}
+	/* Write the mirror bad block table to the device ? */
+	if ((writeops & 0x02) && md && (md->options & NAND_BBT_WRITE)) {
+PRINTK("%s: Recreating 1bBT\n", __FUNCTION__);
+		// Reset BBT0
+		td->pages[0] = md->pages[0] = BBT_NULL_PAGE;
+
+		// Look for the location of Bbt0:
+		res = brcmnand_search_bbt(mtd, buf, td);
+
+		if (res) { // Mirror not found
+			PRINTK("%s: Re-creating Bbt0, but 1bBT is also bad, rescan for both\n", __FUNCTION__);
+			writeops = 3;
+			goto do_both;
+		}
+PRINTK("%s: Reconstructing both BBT1 from BBT0 at %08x\n", __FUNCTION__, td->pages[0]);			
+		res = brcmnand_write_bbt (mtd, buf, md, td, 0);
 	}
 
 out:
@@ -1388,11 +1771,17 @@ static int brcmnand_displayBBT(struct mtd_info* mtd)
 	//unsigned char oobbuf[64];
 	//struct nand_oobinfo oobsel;
 	int res;
+#ifdef DEBUG_BBT
+ 	int dbg=do_printk;
+#endif
 	// Size of BBT is 1MB if total flash is less than 512MB, 4MB otherwise
 	int bbtSize = this->mtdSize > (512<<20) ? 4 << 20 : 1 << 20;
 
 	bOffsetStart = 0;
-	bOffsetEnd = this->mtdSize - bbtSize; // Skip BBT itself
+	bOffsetEnd = (loff_t)(this->mtdSize - bbtSize); // Skip BBT itself
+#ifdef DEBUG_BBT
+    do_printk=1;
+#endif
 
 	printk(KERN_INFO "----- Contents of BBT -----\n");
 	for (bOffset=bOffsetStart; bOffset < bOffsetEnd; bOffset = bOffset + mtd->erasesize) {
@@ -1402,11 +1791,49 @@ static int brcmnand_displayBBT(struct mtd_info* mtd)
 		}
 	}
 	printk(KERN_INFO "----- END Contents of BBT -----\n");
+
+#ifdef DEBUG_BBT
+    do_printk=dbg;
+#endif
 	return 0;
 }
 
 #if 1
 // Remove this block in production builds.
+
+
+//#define TEST_CLEAR_BBT1
+//#define TEST_INVALIDATE_BBT0
+
+#ifdef TEST_INVALIDATE_BBT0
+static uint32_t bbt_ctrl_read(uint32_t nandCtrlReg) 
+{
+	volatile unsigned long* pReg = (volatile unsigned long*) (BRCMNAND_CTRL_REGS 
+		+ nandCtrlReg - BCHP_NAND_REVISION);
+
+	if (nandCtrlReg < BCHP_NAND_REVISION || nandCtrlReg > BCHP_NAND_BLK_WR_PROTECT ||
+		(nandCtrlReg & 0x3) != 0) {
+		printk("bbt_ctrl_read: Invalid register value %08x\n", nandCtrlReg);
+	}
+if (gdebug > 3) printk("%s: CMDREG=%08x val=%08x\n", __FUNCTION__, (unsigned int) nandCtrlReg, (unsigned int)*pReg);
+	return (uint32_t) (*pReg);
+}
+
+
+static void bbt_ctrl_write(uint32_t nandCtrlReg, uint32_t val) 
+{
+	volatile unsigned long* pReg = (volatile unsigned long*) (BRCMNAND_CTRL_REGS 
+		+ nandCtrlReg - BCHP_NAND_REVISION);
+
+	if (nandCtrlReg < BCHP_NAND_REVISION || nandCtrlReg > BCHP_NAND_BLK_WR_PROTECT ||
+		(nandCtrlReg & 0x3) != 0) {
+		printk( "bbt_ctrl_read: Invalid register value %08x\n", nandCtrlReg);
+	}
+	*pReg = (volatile unsigned long) (val);
+if (gdebug > 3) printk("%s: CMDREG=%08x val=%08x\n", __FUNCTION__, nandCtrlReg, val);
+}
+#endif
+
 
 /*
  * Process brcmnand= kernel command arg, BEFORE building/reading BBT table.
@@ -1424,6 +1851,7 @@ static void brcmnand_preprocessKernelArg(struct mtd_info *mtd)
 	//int page;
 
 
+
 PRINTK("%s: gClearBBT=%d, size=%016llx, erasesize=%08x\n", __FUNCTION__, gClearBBT, device_size(mtd), mtd->erasesize);
 
 
@@ -1431,10 +1859,48 @@ PRINTK("%s: gClearBBT=%d, size=%016llx, erasesize=%08x\n", __FUNCTION__, gClearB
 
 	case NANDCMD_CLEARBBT: // Force rescan of BBT (DANGEROUS, may lose Mfg's BIs).
 
+#ifdef TEST_CLEAR_BBT1
+		bOffsetStart = 0x7ff00000; 
+		bOffsetEnd = 0x7ff00000;
+printk("%s: gClearBBT=clearbbt, start=%0llx, end=%0llx\n", __FUNCTION__, 
+	bOffsetStart, bOffsetEnd);
+#elif defined(TEST_INVALIDATE_BBT0)
+{
+uint32_t oob0[32];
+uint8_t* oob = (uint8_t*) &oob0[0];
+uint32_t acc0;
+uint64_t bbt0Page = ((uint64_t) 0x7ff80000) >> this->page_shift;
+int res;
+
+	bOffsetStart = 0x7ff80000; // FOrce it to skip erase
+	bOffsetEnd = 0x7ff00000;
+	res = this->read_page_oob(mtd, oob, bbt0Page);
+	
+
+memset(&oob[9], 0, 4); // * Overwrite the ECC to force EBADMSG
+//bOffsetStart = 0x7ff80000; 
+//bOffsetEnd = 0x7ff80000;
+
+	/* Disable ECC */
+	acc0 = brcmnand_disable_ecc();
+
+PRINTK("Invalidate ECC at page %llx\n", bbt0Page);
+
+	res = this->write_page_oob(mtd, oob, bbt0Page);
+
+	if (res) PRINTK("%s: write_page_oob failed, res=%d\n", __FUNCTION__, res);
+
+	// Restore acc0
+	brcmnand_restore_ecc(acc0);
+}
+#else
+
 		bOffsetStart = this->mtdSize - bbtSize; 
 		bOffsetEnd = this->mtdSize - mtd->erasesize;
 printk("%s: gClearBBT=clearbbt, start=%0llx, end=%0llx\n", __FUNCTION__, 
 	bOffsetStart, bOffsetEnd);
+#endif
+
 		break;
 
 	case NANDCMD_SHOWBBT:
@@ -1634,7 +2100,12 @@ PRINTK("%s: gClearBBT=%d, size=%016llx, erasesize=%08x\n",
 			
 			/* How many pages should we scan */
 			if (this->badblock_pattern->options & NAND_BBT_SCAN2NDPAGE) {
-				numpages = 2;
+				if (this->options &  NAND_SCAN_BI_3RD_PAGE) {
+					numpages = 3;
+				}
+				else {
+					numpages = 2;
+				}
 			} else {
 				numpages = 1;
 			}
@@ -1863,6 +2334,18 @@ PRINTK("%s: gClearBBT = %d\n", __FUNCTION__, gClearBBT);
 
 	if (gClearBBT) {
 		(void) brcmnand_postprocessKernelArg(mtd);
+	}
+
+	/* TESTING 1 2 3: Once we fixed the bug, there is no longer need for this */
+	if (outofspace_bbt) {
+#ifdef DEBUG_BBT
+		do_printk=1;
+#endif
+		brcmnand_reconstruct_bbt(mtd, outofspace_bbt);
+		outofspace_bbt = 0;
+#ifdef DEBUG_BBT
+		do_printk=0;
+#endif
 	}
 
 	return res;

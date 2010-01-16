@@ -176,7 +176,7 @@ struct map_info bcm9XXXX_map
 #define AVAIL1_PART				(-1)
 #endif
 // DEFAULT_SIZE_MB will be defined later based on platforms.
-#define DEFAULT_ROOTFS_SIZE (DEFAULT_SIZE_MB - DEFAULT_RESERVED_SIZE - DEFAULT_ECM_SIZE)
+#define DEFAULT_ROOTFS_SIZE (((DEFAULT_SIZE_MB)<<20) - DEFAULT_RESERVED_SIZE - DEFAULT_ECM_SIZE)
 
 
 static struct mtd_partition bcm9XXXX_parts[] = {
@@ -213,7 +213,7 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 
 /* default for 32MB+ platforms */
 
-#define DEFAULT_SIZE_MB 32 /* 32MB flash */  
+#define DEFAULT_SIZE_MB 64 /* 32MB flash */  
   #if defined( CONFIG_MTD_ECM_PARTITION)
 	{ name: "rootfs",		offset: 0,		    		size: DEFAULT_ROOTFS_SIZE },
 	{ name: "avail1",		offset: DEFAULT_ROOTFS_SIZE,	size: DEFAULT_AVAIL1_SIZE },
@@ -249,12 +249,27 @@ void (*gInitialize_Nor_Partition)(void) = (void (*)(void)) 0;
 EXPORT_SYMBOL(gInitialize_Nor_Partition);
 #endif
 
+
+
+#if 1 // Debugging
+static void print_partition(void)
+{
+	int i;
+
+	for (i=0; i<gNumParts; i++) {
+		PRINTK("i=%d, name=%s, start=%0llx, size=%0llx\n", 
+			i, bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].offset,
+			bcm9XXXX_parts[i].size);
+	}
+}
+#endif
+
 int __init init_bcm9XXXX_map(void)
 {
 	unsigned int avail1_size = DEFAULT_AVAIL1_SIZE;
 	int i;
 	struct cfi_private *cfi;
-	u_int64_t ACTUAL_FLASH_SIZE = (u_int64_t) WINDOW_SIZE;
+	unsigned long  ACTUAL_FLASH_SIZE = (unsigned long) WINDOW_SIZE;
 	unsigned long FLASH_BASE = WINDOW_ADDR;
 
 #ifdef CONFIG_MTD_ECM_PARTITION
@@ -284,6 +299,7 @@ int __init init_bcm9XXXX_map(void)
 	
 	//bcm9XXXX_map.size = WINDOW_SIZE;
 	ACTUAL_FLASH_SIZE = 1 << cfi->cfiq->DevSize;
+
 	if (ACTUAL_FLASH_SIZE >= (4<<20)) {
 		FLASH_BASE = 0x20000000 - ACTUAL_FLASH_SIZE;
 	}
@@ -292,6 +308,8 @@ int __init init_bcm9XXXX_map(void)
 	}
 	
 
+PRINTK("%s: cfiq->DevSize=%08x, actual_flash_size=%08lx, Base=%08lx\n", 
+	__FUNCTION__,  cfi->cfiq->DevSize, ACTUAL_FLASH_SIZE, FLASH_BASE);
 	/*
 	 * Now that we know the NOR flash size, map again with correct size and base address.
 	 */
@@ -316,6 +334,9 @@ int __init init_bcm9XXXX_map(void)
 	}
 	gNumParts = ARRAY_SIZE(bcm9XXXX_parts) - 2; /* Minus the 2 extra place holders */
 
+PRINTK("Before adjustment, gNumParts=%d, defaultSize=%dMB\n", gNumParts, DEFAULT_SIZE_MB);
+print_partition();
+
 
 #ifdef CONFIG_MTD_BRCMNAND_NOR_ACCESS
 	/* If NOR flash is only 4MB, remove the NOR partition, leaving only CFE partition */
@@ -329,7 +350,30 @@ int __init init_bcm9XXXX_map(void)
 	bcm9XXXX_parts[1].size = bcm9XXXX_parts[0].offset; // NOR flash ends where CFE starts.
 	bcm9XXXX_parts[1].offset = 0;
 
-#elif defined( CONFIG_MTD_ECM_PARTITION )
+#else
+  /* NOR as only device */
+  #if defined (DEFAULT_SIZE_MB )
+  	{
+  		unsigned long defaultSize = DEFAULT_SIZE_MB << 20;
+		int i;
+
+		if (ACTUAL_FLASH_SIZE != defaultSize) {
+			// Adjust rootfs partition size, all others remain the same.
+			// rootfs
+			bcm9XXXX_parts[0].offset = 0;  // CFE starts at 1FC00000H
+			bcm9XXXX_parts[0].size += (int64_t) (ACTUAL_FLASH_SIZE - defaultSize);
+			//avail1
+			for (i=1; i<gNumParts; i++) {
+				// Adjust partition offset, but only for non NULL partitions.  Size remains the same.
+				if ((bcm9XXXX_parts[0].offset != 0 &&  bcm9XXXX_parts[0].size != 0)) 
+				{
+					bcm9XXXX_parts[i].offset += (int64_t) (ACTUAL_FLASH_SIZE - defaultSize);
+				}
+			}
+		}
+  	}
+  #endif
+  #if defined( CONFIG_MTD_ECM_PARTITION )
 	if (ACTUAL_FLASH_SIZE < (64<<20)) {
 		ecm_size = DEFAULT_OCAP_SIZE;
 		avail1_size = 0;
@@ -371,7 +415,7 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	}
 
 		
-#elif defined( DEFAULT_SIZE_MB )
+  #elif defined( DEFAULT_SIZE_MB )
 	if (ACTUAL_FLASH_SIZE != (DEFAULT_SIZE_MB << 20)) {
 		int64_t diffSize = (uint64_t) ACTUAL_FLASH_SIZE - (uint64_t) (DEFAULT_SIZE_MB << 20);
 
@@ -388,7 +432,8 @@ PRINTK("Part[0] After name=%s, size=%llx, offset=%llx\n", bcm9XXXX_parts[0].name
 PRINTK("Part[%d] After: name=%s, size=%llx, offset=%llx\n", i, bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 		}
 	}
-#endif
+  #endif // ECM_PARTITION ... else
+#endif // NOR+NAND ... else
 
 
 	if (gBcmSplash) {		
@@ -436,7 +481,8 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	}
 
 	
-
+PRINTK("After adjustment\n");
+print_partition();
 	
 #if defined(CONFIG_MTD_BRCMNAND)
   #if defined(CONFIG_MTD_BRCMNAND_NOR_ACCESS)

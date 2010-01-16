@@ -96,7 +96,7 @@ static struct nand_ecclayout brcmnand_oob_bch4_512 = {
  * 4K page SLC with Hamming ECC 
  */
 static struct nand_ecclayout brcmnand_oob_128 = {
-	.eccbytes	= 12,
+	.eccbytes	= 3*8,
 	.eccpos		= {
 		6,7,8,
 		22,23,24,
@@ -159,7 +159,7 @@ static struct nand_ecclayout brcmnand_oob_bch4_4k = {
  * 2K page SLC/MLC with BCH-4 ECC, uses 7 ECC bytes per 512B ECC step
  */
 static struct nand_ecclayout brcmnand_oob_bch4_2k = {
-	.eccbytes	= 7*8,  /* 7*8 = 56 bytes */
+	.eccbytes	= 7*4,  /* 7*4 = 28 bytes */
 	.eccpos		= { 
 		9,10,11,12,13,14,15,
 		25,26,27,28,29,30,31,
@@ -181,7 +181,7 @@ static struct nand_ecclayout brcmnand_oob_bch4_2k = {
  * 4K page MLC with BCH-8 ECC, uses 13 ECC bytes per 512B ECC step, and requires OOB size of 27B+
  */
 static struct nand_ecclayout brcmnand_oob_bch8_4k = {
-	.eccbytes	= 13*8,  /* 13*8 = 56 bytes */
+	.eccbytes	= 13*8,  /* 13*8 = 104 bytes */
 	.eccpos		= { 
 		14,15,16,17,18,19,20,21,22,23,24,25,26,
 		41,42,43,44,45,46,47,48,49,50,51,52,53,
