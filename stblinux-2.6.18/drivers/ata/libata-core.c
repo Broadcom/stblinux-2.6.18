@@ -2444,13 +2444,6 @@ int ata_busy_sleep(struct ata_port *ap,
 		msleep(50);
 		status = ata_chk_status(ap);
 	}
-#ifdef CONFIG_MIPS_BRCM97XXX
-	timeout = timer_start + tmout_pat;
-	while (status == 0xff && time_before(jiffies, timeout)) {
-		msleep(50);
-		status = ata_busy_wait(ap, ATA_BUSY, 3);
-	}
-#endif
 
 	if (status == 0xff)
 		return -ENODEV;
@@ -2839,6 +2832,12 @@ int ata_std_prereset(struct ata_link *link)
 					"(errno=%d), forcing softreset\n", rc);
 			ehc->i.action |= ATA_EH_SOFTRESET;
 #endif
+		}
+		else if(rc == -ENODEV && !ata_link_offline(link))
+		{
+			ata_link_printk(link, KERN_WARNING, "device not ready, but online"
+					"(errno=%d), no softreset\n", rc);
+			ehc->i.action &= ~ATA_EH_SOFTRESET;
 		}
 	}
 

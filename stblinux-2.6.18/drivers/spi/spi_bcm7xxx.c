@@ -621,7 +621,7 @@ static irqreturn_t bcmspi_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 static void bcmspi_tasklet(unsigned long param)
 {
 	struct bcmspi_priv *priv = (void *)param;
-	struct list_head completed, *cur;
+	struct list_head completed;
 	struct spi_message *msg;
 	unsigned long flags;
 
@@ -646,11 +646,11 @@ static void bcmspi_tasklet(unsigned long param)
 	write_to_hw(priv);
 	spin_unlock_irqrestore(&priv->lock, flags);
 
-	list_for_each(cur, &completed) {
-		DBG("completion %p\n", cur);
-		msg = list_entry(cur, struct spi_message, queue);
+	while (!list_empty(&completed)) {
+		msg = list_entry(completed.next, struct spi_message, queue);
+		list_del(&msg->queue);
 		msg->status = 0;
-		if(msg->complete)
+		if (msg->complete)
 			msg->complete(msg->context);
 	}
 }

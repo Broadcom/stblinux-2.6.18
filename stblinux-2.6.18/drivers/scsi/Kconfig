@@ -61,6 +61,14 @@ config BLK_DEV_SD
 	  In this case, do not compile the driver for your SCSI host adapter
 	  (below) as a module either.
 
+config SCSI_NO_RW10_RETRIES
+	bool "No retries on SCSI READ/WRITE10 command"
+	depends on SCSI
+	default n
+	---help---
+	  Certain applications prefer minimal retries on reading/writing bad sectors
+	  that will be performed at lower level like libata.
+
 config CHR_DEV_ST
 	tristate "SCSI tape support"
 	depends on SCSI

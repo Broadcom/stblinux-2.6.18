@@ -209,18 +209,19 @@ static struct mtd_partition bcm9XXXX_parts[] = {
 	{ name: "config",	offset: 0x00FFF800,	size: 144 },
 	{ name: "nvram",	offset: 0x00FFF890,	size: 1904 },
 
-#else
+#else // BRCM_FLASH_SIZE >= 0x2000000
 
 /* default for 32MB+ platforms */
 
-#define DEFAULT_SIZE_MB 64 /* 32MB flash */  
+#define DEFAULT_SIZE_MB 64 
+/* Assuming 64MB flash, will adjust to real size at run time */  
   #if defined( CONFIG_MTD_ECM_PARTITION)
-	{ name: "rootfs",		offset: 0,		    		size: DEFAULT_ROOTFS_SIZE },
+	{ name: "rootfs",		offset: 0,		    	size: DEFAULT_ROOTFS_SIZE },
 	{ name: "avail1",		offset: DEFAULT_ROOTFS_SIZE,	size: DEFAULT_AVAIL1_SIZE },
 	{ name: "ocap",		offset: DEFAULT_ROOTFS_SIZE+DEFAULT_AVAIL1_SIZE,	size: DEFAULT_OCAP_SIZE },
 
   #else
-	{ name: "rootfs",		offset: 0,			size: 28*1024*1024 },
+	{ name: "rootfs",		offset: 0,			size: DEFAULT_ROOTFS_SIZE },
   #endif
 	{ name: "cfe",	        offset: 0x01C00000, size: 512*1024 },
 	{ name: "vmlinux",	offset: 0x01C80000, size: 3582*1024 },
@@ -316,7 +317,7 @@ PRINTK("%s: cfiq->DevSize=%08x, actual_flash_size=%08lx, Base=%08lx\n",
 	map_destroy(bcm9XXXX_mtd);
 	iounmap((void *)bcm9XXXX_map.virt);
 
-	printk(KERN_NOTICE "BCM97XXX flash device: 0x%08lx bytes @ 0x%08lx\n", ACTUAL_FLASH_SIZE, FLASH_BASE);
+	printk(KERN_NOTICE "BCM9XXXX flash device: 0x%08lx bytes @ 0x%08lx\n", ACTUAL_FLASH_SIZE, FLASH_BASE);
 
 	bcm9XXXX_map.size = ACTUAL_FLASH_SIZE;
 	bcm9XXXX_map.virt = ioremap(FLASH_BASE, ACTUAL_FLASH_SIZE);
@@ -334,7 +335,8 @@ PRINTK("%s: cfiq->DevSize=%08x, actual_flash_size=%08lx, Base=%08lx\n",
 	}
 	gNumParts = ARRAY_SIZE(bcm9XXXX_parts) - 2; /* Minus the 2 extra place holders */
 
-PRINTK("Before adjustment, gNumParts=%d, defaultSize=%dMB\n", gNumParts, DEFAULT_SIZE_MB);
+PRINTK("Before adjustment, gNumParts=%d, defaultSize=%dMB, actualSize=%dMB\n", 
+	gNumParts, DEFAULT_SIZE_MB, ACTUAL_FLASH_SIZE>>20);
 print_partition();
 
 
@@ -351,29 +353,9 @@ print_partition();
 	bcm9XXXX_parts[1].offset = 0;
 
 #else
-  /* NOR as only device */
-  #if defined (DEFAULT_SIZE_MB )
-  	{
-  		unsigned long defaultSize = DEFAULT_SIZE_MB << 20;
-		int i;
-
-		if (ACTUAL_FLASH_SIZE != defaultSize) {
-			// Adjust rootfs partition size, all others remain the same.
-			// rootfs
-			bcm9XXXX_parts[0].offset = 0;  // CFE starts at 1FC00000H
-			bcm9XXXX_parts[0].size += (int64_t) (ACTUAL_FLASH_SIZE - defaultSize);
-			//avail1
-			for (i=1; i<gNumParts; i++) {
-				// Adjust partition offset, but only for non NULL partitions.  Size remains the same.
-				if ((bcm9XXXX_parts[0].offset != 0 &&  bcm9XXXX_parts[0].size != 0)) 
-				{
-					bcm9XXXX_parts[i].offset += (int64_t) (ACTUAL_FLASH_SIZE - defaultSize);
-				}
-			}
-		}
-  	}
-  #endif
+  
   #if defined( CONFIG_MTD_ECM_PARTITION )
+  PRINTK("ECM partition\n");
 	if (ACTUAL_FLASH_SIZE < (64<<20)) {
 		ecm_size = DEFAULT_OCAP_SIZE;
 		avail1_size = 0;
@@ -388,7 +370,7 @@ print_partition();
 		ecm_size = ocap_size + avail1_size;
 	}
 
-	bcm9XXXX_parts[0].size = (DEFAULT_SIZE_MB <<20 ) - (DEFAULT_RESERVED_SIZE + ecm_size);
+	bcm9XXXX_parts[0].size = ACTUAL_FLASH_SIZE - (int64_t) (DEFAULT_RESERVED_SIZE + ecm_size);
 PRINTK("Part[0] name=%s, size=%llx, offset=%llx\n", bcm9XXXX_parts[0].name, bcm9XXXX_parts[0].size, bcm9XXXX_parts[0].offset);
 	for (i=1; i<ARRAY_SIZE(bcm9XXXX_parts); i++) {
 		
@@ -407,8 +389,7 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	/* Shift partitions 1 up if avail1_size is 0 */
 	if (0 == avail1_size) {
 		for (i=AVAIL1_PART; i < gNumParts; i++) {
-			bcm9XXXX_parts[i].offset = bcm9XXXX_parts[i+1].offset;
-			bcm9XXXX_parts[i].size = bcm9XXXX_parts[i+1].size;
+			bcm9XXXX_parts[i] = bcm9XXXX_parts[i+1];
 		}
 		bcm9XXXX_parts[gNumParts].offset = 0;
 		bcm9XXXX_parts[gNumParts].size = 0;
@@ -416,6 +397,7 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 
 		
   #elif defined( DEFAULT_SIZE_MB )
+  #if 0
 	if (ACTUAL_FLASH_SIZE != (DEFAULT_SIZE_MB << 20)) {
 		int64_t diffSize = (uint64_t) ACTUAL_FLASH_SIZE - (uint64_t) (DEFAULT_SIZE_MB << 20);
 
@@ -432,7 +414,38 @@ PRINTK("Part[0] After name=%s, size=%llx, offset=%llx\n", bcm9XXXX_parts[0].name
 PRINTK("Part[%d] After: name=%s, size=%llx, offset=%llx\n", i, bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 		}
 	}
-  #endif // ECM_PARTITION ... else
+  #endif // old codes
+
+  /* NOR as only device */
+  //#if defined (DEFAULT_SIZE_MB )
+  	{
+  		unsigned long defaultSize = DEFAULT_SIZE_MB << 20;
+		int i;
+
+		if (ACTUAL_FLASH_SIZE != defaultSize) {
+			// Watch out: size/offset adjustment must be done in int64_t or bad result will ensue!!!!
+			// because adjustment can be negative!!!!
+			int64_t adjustedSize = (int64_t) ACTUAL_FLASH_SIZE -  (int64_t) defaultSize;
+			
+			// Adjust rootfs partition size, all others remain the same.
+			// rootfs
+			bcm9XXXX_parts[0].offset = 0;  // CFE starts at 1FC00000H
+			bcm9XXXX_parts[0].size += adjustedSize;
+			//avail1
+			for (i=1; i<gNumParts; i++) {
+				// Adjust partition offset, but only for non NULL partitions.  Size remains the same.
+				if ((bcm9XXXX_parts[0].offset != 0 &&  bcm9XXXX_parts[0].size != 0)) 
+				{
+					bcm9XXXX_parts[i].offset += adjustedSize;
+				}
+			}
+		}
+PRINTK("After adjustment, gNumParts=%d, defaultSize=%dMB, actualSize=%dMB\n", 
+	gNumParts, DEFAULT_SIZE_MB, ACTUAL_FLASH_SIZE>>20);
+print_partition();
+  	}
+  
+  #endif //NOR only case
 #endif // NOR+NAND ... else
 
 

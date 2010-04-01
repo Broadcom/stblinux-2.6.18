@@ -1501,6 +1501,9 @@ void scsi_eh_flush_done_q(struct list_head *done_q)
 #if defined (CONFIG_MIPS_BCM_NDVD)
 		    (scmd->cmnd[0] != READ_12) &&
 #endif
+#if	defined(CONFIG_SCSI_NO_RW10_RETRIES)
+                    (scmd->cmnd[0] != READ_10) && (scmd->cmnd[0] != WRITE_10) &&
+#endif
 		    !blk_noretry_request(scmd->request) &&
 		    (++scmd->retries <= scmd->allowed)) {
 			SCSI_LOG_ERROR_RECOVERY(3, printk("%s: flush"

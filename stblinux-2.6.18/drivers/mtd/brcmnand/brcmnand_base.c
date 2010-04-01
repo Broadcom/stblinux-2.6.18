@@ -137,6 +137,11 @@ loff_t gLastKnownGoodEcc;
 static atomic_t inrefresh = ATOMIC_INIT(0); 
 static int brcmnand_refresh_blk(struct mtd_info *, loff_t);
 static int brcmnand_erase_nolock(struct mtd_info *, struct erase_info *, int);
+
+// Disable CET
+#define brcmnand_create_cet(...) 	(0)
+#define brcmnand_cet_erasecallback(...)	(0)
+#define brcmnand_cet_prepare_reboot(...)	(0)
 #endif
 
 
@@ -4727,8 +4732,10 @@ printk("-->%s, offset=%0llx, len=%08x\n", __FUNCTION__, from, len);}
 	if (unlikely(ret == -EUCLEAN && !atomic_read(&inrefresh))) {
 		atomic_inc(&inrefresh);
 		if(brcmnand_refresh_blk(mtd, from) == 0) { 
-			ret = 0; 
+			ret = 0; // as if there are no correctable errors.
 		}
+		// else return -EUCLEAN and let the fs codes handle it.
+#if 0
 		if (likely(chip->cet)) {
 			if (likely(chip->cet->flags != BRCMNAND_CET_DISABLED)) {
 				if (brcmnand_cet_update(mtd, from, &status) == 0) {
@@ -4752,6 +4759,7 @@ printk("-->%s, offset=%0llx, len=%08x\n", __FUNCTION__, from, len);}
 				}
 			}
 		}
+#endif
 		atomic_dec(&inrefresh);
 	}
 #endif
@@ -4774,15 +4782,16 @@ static int brcmnand_do_read_oob(struct mtd_info *mtd, loff_t from,
 	int realpage = 1;
 	struct brcmnand_chip *chip = mtd->priv;
 	//int blkcheck = (1 << (chip->phys_erase_shift - chip->page_shift)) - 1;
-	int readlen = ops->len;
+	int toBeReadlen = ops->len;
+	int readlen = 0;
 	uint8_t *buf = ops->oobbuf;
 	int ret = 0;
 
 if (gdebug > 3 ) 
-{printk("-->%s, offset=%0llx, buf=%p, len=%d, ooblen=%d\n", __FUNCTION__, from, buf, readlen, ops->ooblen);}
+{printk("-->%s, offset=%0llx, buf=%p, len=%d, ooblen=%d\n", __FUNCTION__, from, buf, toBeReadlen, ops->ooblen);}
 
 	DEBUG(MTD_DEBUG_LEVEL3, "%s: from = 0x%08Lx, len = %i\n",
-	      __FUNCTION__, (unsigned long long)from, readlen);
+	      __FUNCTION__, (unsigned long long)from, toBeReadlen);
 
 	//chipnr = (int)(from >> chip->chip_shift);
 	//chip->select_chip(mtd, chipnr);
@@ -4793,51 +4802,21 @@ if (gdebug > 3 )
 
 	chip->oob_poi = BRCMNAND_OOBBUF(chip->buffers);
 
-	while(1) {
-//		sndcmd = chip->ecc.read_oob(mtd, chip, page, sndcmd);
+	while (toBeReadlen > 0) {
 		ret = chip->read_page_oob(mtd, chip->oob_poi, realpage);
-		if (ret)
-			break;
-		
-		buf = brcmnand_transfer_oob(chip, buf, ops);
-
-#if 0
-		if (!(chip->options & NAND_NO_READRDY)) {
-			/*
-			 * Apply delay or wait for ready/busy pin. Do this
-			 * before the AUTOINCR check, so no problems arise if a
-			 * chip which does auto increment is marked as
-			 * NOAUTOINCR by the board driver.
-			 */
-			if (!chip->dev_ready)
-				udelay(chip->chip_delay);
-			else
-				nand_wait_ready(mtd);
+		if (ret) {
+			ops->retlen = readlen;
+			return ret;
 		}
-#endif
-		readlen -= ops->ooblen;
-		if (!readlen)
-			break;
+		
+		buf = brcmnand_transfer_oob(chip, &buf[readlen], ops);
+
+		toBeReadlen -= mtd->ecclayout->oobavail;
+		readlen += mtd->ecclayout->oobavail;
 
 		/* Increment page address */
 		realpage++;
 
-#if 0
-		page = realpage & chip->pagemask;
-		/* Check, if we cross a chip boundary */
-		if (!page) {
-			chipnr++;
-			chip->select_chip(mtd, -1);
-			chip->select_chip(mtd, chipnr);
-		}
-
-
-		/* Check, if the chip supports auto page increment
-		 * or if we have hit a block boundary.
-		 */
-		if (!NAND_CANAUTOINCR(chip) || !(page & blkcheck))
-			sndcmd = 1;
-#endif
 	}
 
 	ops->retlen = ops->len;
@@ -5732,6 +5711,7 @@ brcmnand_do_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops)
 {
 	int page, status;
 	struct brcmnand_chip *chip = mtd->priv;
+	int toBeWritten, written;
 
 	DEBUG(MTD_DEBUG_LEVEL3, "%s: to = 0x%08x, len = %i\n", __FUNCTION__,
 	      (unsigned int)to, (int)ops->len);
@@ -5752,6 +5732,8 @@ printk("-->%s, to=%08x, len=%d\n", __FUNCTION__, (uint32_t) to, (int)ops->len);}
 
 	/* Shift to get page */
 	page = to >> chip->page_shift;
+	toBeWritten = ops->ooblen;
+	written = 0;
 
 #if 0
 	/*
@@ -5773,15 +5755,52 @@ printk("-->%s, to=%08x, len=%d\n", __FUNCTION__, (uint32_t) to, (int)ops->len);}
 	if ((int64_t) page == chip->pagebuf)
 		chip->pagebuf = -1LL;
 
+	while (toBeWritten > 0) {
+
 	chip->oob_poi = BRCMNAND_OOBBUF(chip->buffers);
 	memset(chip->oob_poi, 0xff, mtd->oobsize);
-	brcmnand_fill_oob(chip, ops->oobbuf, ops);
+		brcmnand_fill_oob(chip, &ops->oobbuf[written], ops);
 	
 	status = chip->write_page_oob(mtd, chip->oob_poi, page);
 	// memset(chip->oob_poi, 0xff, mtd->oobsize);
 
 	if (status)
 		return status;
+
+		page++;
+		written += mtd->ecclayout->oobavail;
+		toBeWritten -= mtd->ecclayout->oobavail;
+	}
+
+
+#if 0
+		ret = chip->read_page_oob(mtd, chip->oob_poi, realpage);
+		if (ret)
+			break;
+		
+		buf = brcmnand_transfer_oob(chip, buf, ops);
+
+#if 0
+		if (!(chip->options & NAND_NO_READRDY)) {
+			/*
+			 * Apply delay or wait for ready/busy pin. Do this
+			 * before the AUTOINCR check, so no problems arise if a
+			 * chip which does auto increment is marked as
+			 * NOAUTOINCR by the board driver.
+			 */
+			if (!chip->dev_ready)
+				udelay(chip->chip_delay);
+			else
+				nand_wait_ready(mtd);
+		}
+#endif
+		readlen -= mtd->ecclayout->oobavail;
+		if (readlen <= 0)
+			break;
+
+		/* Increment page address */
+		realpage++;
+#endif
 
 	ops->retlen = ops->len;
 
@@ -8540,6 +8559,9 @@ printk(KERN_INFO "%s, eccsize=%d, writesize=%d, eccsteps=%d, ecclevel=%d, eccbyt
 	err =  chip->scan_bbt(mtd);
 
 
+
+// Starting with 2618-7.5, we no longer use the CET table (We still use the refresh mechanism
+// All CET functions except cet_refresh_block are stubbed out.
 #ifdef CONFIG_MTD_BRCMNAND_CORRECTABLE_ERR_HANDLING
   #ifdef CONFIG_MTD_BRCMNAND_EDU
 	// For EDU Allocate the buffer early.

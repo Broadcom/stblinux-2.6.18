@@ -40,7 +40,7 @@ unexport $(shell test -f config/cleanenv.pl && \
 
 # THT For 2.6.18-2.0 we only support a few platforms
 # THT: Note there is no 7440b0 NOR flash build. 
-PLATFORMS=7325b0 7325b0-smtc 7401c0 97455c0 7400d0 7400d0-smp 7400d0-smp-discontig 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7118c0-nand 7038c0 3563c0 3563c0-nand 3563c0-ddr1 7335b0 7335b0-smp 7336a0-smp 7405b0 7405b0-smp 7405b0-nand 7405b0-smp-nand 7405b0-smp-nor-nand 7405d0-smp 7405d0-smp-nand 97459b0 97459b0-smp 97459b0-nand 97459b0-smp-nand 97459b0-smp-nor-nand 3548b0-spi 3548b0-smp-spi 3548b0-nand 3548b0-smp-nand 7440b0-nand 7601b0-nand 7635a0-nand 7420a0 7420a0-nand 7325b0-nand 7325b0-nor-nand 7405d0-smp-nor-nand 97456d0-smp-nand # 7340a0 3563c0-ddr1-nand (until CFE support it) 7400d0-smp-nand  
+PLATFORMS=7325b0 7325b0-smtc 7401c0 97455c0 7400d0 7400d0-smp 7400d0-smp-discontig 97456d0 97456d0-smp 97451a0-smb 7403a0 97458a0 7118a0 7454 7401c0-nand 7402c0-nand 97455c0-nand 7400d0-nand 97456d0-nand 7403a0-nand 97458a0-nand 7118a0-nand 7118c0-nand 7038c0 3563c0 3563c0-nand 3563c0-ddr1 7335b0 7335b0-smp 7335b0-smp-nand 7335b0-smp-nor-nand 7336a0-smp 7405b0 7405b0-smp 7405b0-nand 7405b0-smp-nand 7405b0-smp-nor-nand 7405d0-smp 7405d0-smp-nand 97459b0 97459b0-smp 97459b0-nand 97459b0-smp-nand 97459b0-smp-nor-nand 3548b0-spi 3548b0-smp-spi 3548b0-nand 3548b0-smp-nand 7440b0-nand 7601b0-nand 7635a0-nand 7420a0 7420a0-nand 7325b0-nand 7325b0-nor-nand 7405d0-smp-nor-nand 97456d0-smp-nand # 7340a0 3563c0-ddr1-nand (until CFE support it) 7400d0-smp-nand  
     # Obsoleted
     # 7400a0 7400a0-smp 7440a0 97398 7402 7402c0 7403a0 3560b0 3563 97456
     # 7318 7400a0-nand  7401b0-nand

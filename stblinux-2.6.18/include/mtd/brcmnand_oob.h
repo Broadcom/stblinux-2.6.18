@@ -87,7 +87,7 @@ static struct nand_ecclayout brcmnand_oob_bch4_512 = {
 		9,10,11,12,13,14,15
 		},
 	.oobfree	= { 	{.offset=0, .length=5}, 
-				{.offset=7,.length=2}, /* Byte 5 (6th byte) used for BI */
+				{.offset=6,.length=3},         /* Byte at offset 5 (6th byte) used for BI */
 				{.offset=0, .length=0}		/* End marker */
 			   }
 };

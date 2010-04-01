@@ -1188,8 +1188,8 @@ static int k2_sata_do_softreset(struct ata_link *link, unsigned int *class, int 
 	if (*class == ATA_DEV_UNKNOWN)
 		*class = ATA_DEV_NONE;
 
-out:
 	pp->do_port_srst = 1;
+out:
 	return 0;
 }
 
@@ -2041,11 +2041,30 @@ static int k2_pmp_hp_poll(struct ata_port *ap)
 #else	/* !CONFIG_SATA_SVW_PMP_HOTPLUG */
 static int k2_pmp_hp_poll(struct ata_port *ap)
 {
+	struct k2_port_priv *pp = ap->private_data;
+
 #ifdef	CONFIG_BRCM_PM
 	/* don't check for hotplug events while the HW is sleeping */
 	if(SLEEP_FLAG(ap->host) == K2_SLEEPING)
 		return(0);
 #endif /* CONFIG_BRCM_PM */
+
+	if(!pp->do_port_srst)
+	{
+		int status = ata_busy_wait(ap, ATA_BUSY | ATA_DRQ, 3000);
+
+		if(!(status & (ATA_BUSY | ATA_DRQ)))
+		{
+
+			struct ata_link *link = &ap->link;
+		        struct ata_eh_context *ehc = &link->eh_context;
+
+			ehc->i.action |= ATA_EH_SOFTRESET;
+			return 1;
+		}
+
+		return 0;			
+	}
 
 	return(sata_std_hp_poll(ap));
 }

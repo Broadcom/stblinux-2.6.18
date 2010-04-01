@@ -384,7 +384,13 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh, struct pt_regs *regs)
 			 */
 			if ((HALT_BIT & qh->hw_token) == 0) {
 halt:
+#if !defined(CONFIG_MIPS_BRCM97XXX)
+				/*
+				 * Not valid if active bit is set, per
+				 * EHCI specification
+				 */
 				qh->hw_token |= HALT_BIT;
+#endif
 				wmb ();
 			}
 		}

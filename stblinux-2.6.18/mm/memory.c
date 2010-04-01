@@ -1376,10 +1376,15 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 #else
 	/* 
 	 * THT 9/21/05: PR17241: Turning VM_IO on would prevent Direct-IO 
-	 * from mmap()ing the pages, so only do this for pages beyond
-	 * real memory
+	 * from mmap()ing the pages, so only do this for:
+	 *
+	 * 1) pages beyond real memory
+	 * 2) EBI/register region
 	 */
-	vma->vm_flags |= VM_RESERVED | VM_BRCMRSVD;
+	if (((vma->vm_pgoff << PAGE_SHIFT) & 0xf0000000) == 0x10000000)
+		vma->vm_flags |= VM_IO | VM_RESERVED | VM_PFNMAP;
+	else
+		vma->vm_flags |= VM_RESERVED | VM_BRCMRSVD;
 
 	if (pfn >= (((unsigned long) __pa((unsigned long) high_memory)) >> PAGE_SHIFT))
 		vma->vm_flags |= VM_IO;
