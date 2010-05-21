@@ -30,12 +30,11 @@
 #include <linux/wait.h>
 #include <linux/mii.h>
 #include <linux/ethtool.h>
+#include <asm/brcmstb/common/brcmstb.h>
 
 #include "bcmgenet_map.h"
 #include "bcmgenet.h"
 #include "bcmmii.h"
-
-static void mii_soft_reset(struct net_device *dev, int PhyAddr);
 
 /* read a value from the MII */
 int mii_read(struct net_device *dev, int phy_id, int location) 
@@ -46,21 +45,20 @@ int mii_read(struct net_device *dev, int phy_id, int location)
 
 	if(phy_id == BRCM_PHY_ID_NONE)
 		return location == MII_BMSR ? 0x782d : 0;
+	
 	mutex_lock(&pDevCtrl->mdio_mutex);
 	
-    umac->mdio_cmd = MDIO_RD | (phy_id << MDIO_PMD_SHIFT) | (location << MDIO_REG_SHIFT);
+   	umac->mdio_cmd = MDIO_RD | (phy_id << MDIO_PMD_SHIFT) | (location << MDIO_REG_SHIFT);
 	/* Start MDIO transaction*/
 	umac->mdio_cmd |= MDIO_START_BUSY;
-
-	wait_event_timeout(pDevCtrl->wq, !(umac->mdio_cmd & MDIO_START_BUSY) , HZ/1000);
+	wait_event_timeout(pDevCtrl->wq, !(umac->mdio_cmd & MDIO_START_BUSY) , HZ/100);
+	mutex_unlock(&pDevCtrl->mdio_mutex);
 	ret = umac->mdio_cmd;
 	if (ret & MDIO_READ_FAIL)
 	{
 		TRACE(("MDIO read failure\n"));
 		ret = 0;
 	}
-	mutex_unlock(&pDevCtrl->mdio_mutex);
-	
     return ret & 0xffff;
 }
 
@@ -73,35 +71,40 @@ void mii_write(struct net_device *dev, int phy_id, int location, int val)
 	if(phy_id == BRCM_PHY_ID_NONE)
 		return;
 	mutex_lock(&pDevCtrl->mdio_mutex);
-    umac->mdio_cmd = MDIO_WR | (phy_id << MDIO_PMD_SHIFT ) | (location << MDIO_REG_SHIFT) | (0xffff & val);
+   	umac->mdio_cmd = MDIO_WR | (phy_id << MDIO_PMD_SHIFT ) | (location << MDIO_REG_SHIFT) | (0xffff & val);
 	umac->mdio_cmd |= MDIO_START_BUSY;
-	wait_event_timeout(pDevCtrl->wq, !(umac->mdio_cmd & MDIO_START_BUSY), HZ/1000);
+	wait_event_timeout(pDevCtrl->wq, !(umac->mdio_cmd & MDIO_START_BUSY), HZ/100);
 	mutex_unlock(&pDevCtrl->mdio_mutex);
 }
 /* probe for an external PHY via MDIO; return PHY address */
-int mii_probe(struct net_device * dev, int phy_id)
+int mii_probe(struct net_device * dev, void *p)
 {
 	BcmEnet_devctrl * pDevCtrl = netdev_priv(dev);
-	volatile rbufRegs * rbuf = pDevCtrl->rbuf;
 	int i;
+	struct bcmumac_platform_data * cfg = p;
 
-	if(phy_id == BRCM_PHY_ID_AUTO)
+	if(cfg->phy_type != BRCM_PHY_TYPE_EXT_MII)
 	{
-		/* 
-	 	 * Enable RGMII to interface external PHY, disable internal 10/100 MII.
-	 	 */
-		rbuf->rgmii_oob_ctrl |= RGMII_MODE_EN;
-
-		for (i = 0; i < 32; i++) {
-			if( mii_read(dev, i, MII_BMSR) != 0)
-			{
-				pDevCtrl->phyAddr = i;
-				return 0;
-			}
-		}
-		return -ENODEV;
+	   /* 
+ 	 	* Enable RGMII to interface external PHY, disable internal 10/100 MII.
+ 	 	*/
+		GENET_RGMII_OOB_CTRL(pDevCtrl) |= RGMII_MODE_EN;
+		/* Power down EPHY */
+		pDevCtrl->ext->ext_pwr_mgmt |= (EXT_PWR_DOWN_PHY | EXT_PWR_DOWN_DLL | EXT_PWR_DOWN_BIAS);
 	}
-	return 0;
+
+	for (i = 0; i < 32; i++) {
+		if( mii_read(dev, i, MII_BMSR) != 0)
+		{
+			pDevCtrl->phyAddr = i;
+#if defined(CONFIG_BCMGENET_0_GPHY)
+			if(i == 1) continue;
+#endif
+			return 0;
+		}
+		TRACE(("I=%d\n", i));
+	}
+	return -ENODEV;
 }
 
 /*
@@ -112,15 +115,25 @@ void mii_setup(struct net_device *dev)
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
 	struct ethtool_cmd ecmd ;
 	volatile uniMacRegs * umac = pDevCtrl->umac;
-	volatile rbufRegs * rbuf = pDevCtrl->rbuf;
-    //MII_CONFIG * eMiiConfig = NULL;
+	int bmcr;
 
-    //eMiiConfig = mii_autoconfigure(dev);
+	TRACE(("%s: %s\n", __FUNCTION__, netif_carrier_ok(pDevCtrl->dev)? "netif_carrier_on":"netif_carrier_off"));
 	if(pDevCtrl->phyType == BRCM_PHY_TYPE_MOCA)
 	{
 		/* MoCA case */
+		netif_carrier_on(pDevCtrl->dev);
+		pDevCtrl->dev->flags |= IFF_RUNNING;
 		return ;
 	}
+
+	/* Enable autoneg if it's not */
+	bmcr = mii_read(dev, pDevCtrl->phyAddr, MII_BMCR);
+	if(!(bmcr & BMCR_ANENABLE)) {
+		bmcr |= BMCR_ANENABLE;
+		mii_write(dev, pDevCtrl->phyAddr, MII_BMCR, bmcr);
+		mii_nway_restart(&pDevCtrl->mii);
+	}
+
 	mii_ethtool_gset(&pDevCtrl->mii, &ecmd);
 
 	if(mii_link_ok(&pDevCtrl->mii)&& !netif_carrier_ok(pDevCtrl->dev))
@@ -132,6 +145,7 @@ void mii_setup(struct net_device *dev)
 	}else if (!mii_link_ok(&pDevCtrl->mii) && netif_carrier_ok(pDevCtrl->dev))
 	{
 		printk(KERN_INFO "%s: Link is down\n", pDevCtrl->dev->name);
+		return;
 	}
 
 	mii_check_link(&pDevCtrl->mii);
@@ -141,8 +155,8 @@ void mii_setup(struct net_device *dev)
 	 */
 	if(pDevCtrl->phyType != BRCM_PHY_TYPE_EXT_GMII_IBS)
 	{
-		rbuf->rgmii_oob_ctrl &= ~OOB_DISABLE;
-		rbuf->rgmii_oob_ctrl |= RGMII_LINK;
+		GENET_RGMII_OOB_CTRL(pDevCtrl) &= ~OOB_DISABLE;
+		GENET_RGMII_OOB_CTRL(pDevCtrl) |= RGMII_LINK;
 		if(ecmd.duplex == DUPLEX_FULL)
 			umac->cmd &= ~CMD_HD_EN;
 		else
@@ -160,7 +174,7 @@ void mii_setup(struct net_device *dev)
 	if(pDevCtrl->phyType == BRCM_PHY_TYPE_INT ||
 			pDevCtrl->phyType == BRCM_PHY_TYPE_EXT_MII)
 	{
-		uint32 val;
+		unsigned int val;
 		val = mii_read(dev, pDevCtrl->phyAddr, MII_LPA);
 		if(!(val & LPA_PAUSE_CAP))
 		{
@@ -170,7 +184,7 @@ void mii_setup(struct net_device *dev)
 	}else if (pDevCtrl->phyType == BRCM_PHY_TYPE_EXT_GMII ||
 			pDevCtrl->phyType == BRCM_PHY_TYPE_EXT_GMII_IBS)
 	{
-		uint32 val;
+		unsigned int val;
     	val = mii_read(dev, pDevCtrl->phyAddr, MII_BRCM_AUX_STAT_SUM);
 		if(!(val & MII_BRCM_AUX_GPHY_RX_PAUSE))
 			umac->cmd |= CMD_RX_PAUSE_IGNORE;
@@ -180,27 +194,12 @@ void mii_setup(struct net_device *dev)
 		
 }
 
-/* reset the MII */
-static void mii_soft_reset(struct net_device *dev, int PhyAddr) 
-{
-    int val;
-
-    mii_write(dev, PhyAddr, MII_BMCR, BMCR_RESET);
-    udelay(10); /* wait ~10usec */
-    do {
-        val = mii_read(dev, PhyAddr, MII_BMCR);
-    } while (val & BMCR_RESET);
-
-}
-
 int mii_init(struct net_device *dev)
 {
     BcmEnet_devctrl *pDevCtrl = netdev_priv(dev);
     volatile uniMacRegs *umac;
-	volatile rbufRegs * rbuf;
 
     umac = pDevCtrl->umac;
-	rbuf = pDevCtrl->rbuf;
 	pDevCtrl->mii.phy_id = pDevCtrl->phyAddr;
 	pDevCtrl->mii.phy_id_mask = 0x1f;
 	pDevCtrl->mii.reg_num_mask = 0x1f;
@@ -211,33 +210,48 @@ int mii_init(struct net_device *dev)
     switch(pDevCtrl->phyType) {
 
 		case BRCM_PHY_TYPE_INT:
-		case BRCM_PHY_TYPE_EXT_MII:
-            /* do we need to set mii clock? do soft reset of phy, default is 10Base-T */
 			pDevCtrl->mii.supports_gmii = 0;
+			pDevCtrl->sys->sys_port_ctrl = PORT_MODE_INT_EPHY;
+			/* enable APD */
+			pDevCtrl->ext->ext_pwr_mgmt |= EXT_PWR_DN_EN_LD;
+			pDevCtrl->ext->ext_pwr_mgmt |= EXT_PHY_RESET;
+			udelay(5);
+			pDevCtrl->ext->ext_pwr_mgmt &= ~EXT_PHY_RESET;
+			/* enable 64 clock MDIO */
+			mii_write(dev, pDevCtrl->phyAddr, 0x1d, 0x1000);
+			mii_read(dev, pDevCtrl->phyAddr, 0x1d);
+			printk(KERN_INFO "Config internal EPHY through MDIO\n");
+			break;
+		case BRCM_PHY_TYPE_EXT_MII:
+			pDevCtrl->mii.supports_gmii = 0;
+			pDevCtrl->sys->sys_port_ctrl = PORT_MODE_EXT_EPHY;
 			printk(KERN_INFO "Config EPHY through MDIO\n");
-            mii_soft_reset(dev, pDevCtrl->phyAddr);
             break;
 		case BRCM_PHY_TYPE_EXT_GMII:
-			rbuf->rgmii_oob_ctrl |= RGMII_MODE_EN;
-			rbuf->rgmii_oob_ctrl |= (1 << 16);	/* Don't shift tx clock by 90 degree */
+			GENET_RGMII_OOB_CTRL(pDevCtrl) |= RGMII_MODE_EN;
+			GENET_RGMII_OOB_CTRL(pDevCtrl) |= (1 << 16);	/* Don't shift tx clock by 90 degree */
 			pDevCtrl->mii.supports_gmii = 1;
+			pDevCtrl->sys->sys_port_ctrl = PORT_MODE_EXT_GPHY;
 			printk(KERN_INFO "Config GPHY through MDIO\n");
             break;
 		case BRCM_PHY_TYPE_EXT_GMII_IBS:
-			rbuf->rgmii_oob_ctrl |= RGMII_MODE_EN;
-			rbuf->rgmii_oob_ctrl |= (1 << 16);
+			GENET_RGMII_OOB_CTRL(pDevCtrl) |= RGMII_MODE_EN;
+			GENET_RGMII_OOB_CTRL(pDevCtrl) |= (1 << 16);
 			/* Use in-band signaling for auto config.*/
-			rbuf->rgmii_oob_ctrl |= OOB_DISABLE;
+			GENET_RGMII_OOB_CTRL(pDevCtrl) |= OOB_DISABLE;
 			umac->cmd |= CMD_AUTO_CONFIG;
 			pDevCtrl->mii.supports_gmii = 1;
+			pDevCtrl->sys->sys_port_ctrl = PORT_MODE_EXT_GPHY;
 			printk(KERN_INFO "Automatic Config GPHY \n");
             break;
 		case BRCM_PHY_TYPE_MOCA:
 			printk(KERN_INFO "Config MoCA...\n");
 			umac->cmd = umac->cmd  | (UMAC_SPEED_1000 << CMD_SPEED_SHIFT);
 			pDevCtrl->mii.force_media = 1;
+			pDevCtrl->sys->sys_port_ctrl = PORT_MODE_INT_GPHY;
 			break;
         default:
+			printk(KERN_ERR "unknown phy_type : %d\n", pDevCtrl->phyType);
             break;
     }
 

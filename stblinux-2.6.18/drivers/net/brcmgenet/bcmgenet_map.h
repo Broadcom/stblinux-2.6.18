@@ -30,35 +30,35 @@ extern "C" {
 #ifndef __ASSEMBLY__
 
 /* 64B Rx Status Block */
-typedef struct RxStatus
+typedef struct Status
 {
 	unsigned long length_status;		/* length and peripheral status */
 	unsigned long ext_status;			/* Extended status*/
-	unsigned long csum;					/* raw checksum */
-	unsigned long filter_idex;			/* Filter index */
+	unsigned long rx_csum;				/* partial rx checksum */
+	unsigned long filter_index;			/* Filter index */
 	unsigned long extracted_bytes[4];	/* Extracted byte 0 - 16 */
-	unsigned long unused[8];			/* unused */
-}RSB;
-
-#define RSB_PS_MASK			0x0FFF
-#define RSB_SOP				0x2000
-#define RSB_EOP				0x4000
-#define RSB_LENGTH_MASK		0xFFF
-#define RSB_LENGTH_SHIFT	16
-#define RSB_EXT_STATUS_MASK	0x1FFFFF
-#define RSB_CSUM_MASK		0xFFFF
-#define RSB_FILTER_IDX_MASK	0xFFFF
-
-/* 64B Tx status Block */
-typedef struct TxStatus
-{
-	unsigned long length_status;		/* ULP pointer and checksum offset */
-	unsigned long unused[15];
-}TSB;
-#define TSB_CSUM_MASK		0x0FFF
-#define TSB_ULP_MASK		0x0FFF
-#define TSB_ULP_SHIFT		16
-#define TSB_LV				0x80000000
+	unsigned long reserved[4];
+	unsigned long tx_csum_info;			/* Tx checksum info. */
+	unsigned long unused[3];			/* unused */
+}StatusBlock;
+/* Rx status */
+#define STATUS_RX_EXT_MASK		0x1FFFFF
+#define STATUS_RX_CSUM_MASK		0xFFFF
+#define STATUS_RX_CSUM_OK		0x10000		/* checksum ok */
+#define STATUS_RX_CSUM_FR		0x20000		/* Fragmented packet, partial checksum */
+#define STATUS_RX_PROTO_TCP		0
+#define STATUS_RX_PROTO_UDP		1
+#define STATUS_RX_PROTO_ICMP	2
+#define STATUS_RX_PROTO_OTHER	3
+#define STATUS_RX_PROTO_MASK	3
+#define STATUS_RX_PROTO_SHIFT	18
+#define STATUS_FILTER_INDEX_MASK	0xFFFF
+/* Tx status */
+#define STATUS_TX_CSUM_START_MASK	0X7FFF
+#define STATUS_TX_CSUM_START_SHIFT	16
+#define STATUS_TX_CSUM_PROTO_UDP	0x8000
+#define STATUS_TX_CSUM_OFFSET_MASK	0x7FFF
+#define STATUS_TX_CSUM_LV			0x80000000
 /*
 ** DMA Descriptor 
 */
@@ -173,17 +173,63 @@ typedef struct uniMacRegs {
 	unsigned long unused7[2];
 	unsigned long mdio_cmd;				/* (0x614  RO mdio command register.*/
 	unsigned long mdio_cfg;				/* (0x618) RW mdio configuration register */
+#ifdef CONFIG_BRCM_HAS_GENET2
+	unsigned long unused9;
+#else
 	unsigned long rbuf_ovfl_pkt_cnt;	/* (0x61c) RO rbuf overflow count. */
+#endif
 	unsigned long mpd_ctrl;				/* (0x620) RW Magic packet control */
 	unsigned long mpd_pw_ms;			/* (0x624) RW Magic packet password 47:32*/
 	unsigned long mpd_pw_ls;			/* (0x628) RW Magic packet password 31:0*/
-	unsigned long unused8[5];
+	unsigned long unused8[9];
 	unsigned long mdf_ctrl;				/* (0x650) RW MAC DA filter control*/
 	unsigned long mdf_addr[34];			/* (0x654 - 0x6d8) Desination MAC address registers */
 
 }uniMacRegs;
 
-/* unitMac rbuf registers */
+#ifdef CONFIG_BRCM_HAS_GENET2
+typedef struct tbufRegs
+{
+	unsigned long tbuf_ctrl;			/* (00) tx buffer control */
+	unsigned long unused0;
+	unsigned long tbuf_endian_ctrl;		/* (08) tx buffer endianess control*/
+	unsigned long tbuf_bp_mc;			/* (0c) tx buffer backpressure mask and control*/
+	unsigned long tbuf_pkt_rdy_thld;	/* (10) threshold for PKT_RDY , for jumbo frame, default 0x7C*/
+	unsigned long tbuf_energy_ctrl;		/* (14) */
+	unsigned long tbuf_ext_bp_stats;	/* (18) */
+	unsigned long tbuf_tsv_mask0;
+	unsigned long tbuf_tsv_mask1;
+	unsigned long tbuf_tsv_status0;
+	unsigned long tbuf_tsv_status1;
+}tbufRegs;
+
+typedef struct rbufRegs
+{
+	unsigned long rbuf_ctrl;			/* (00) rx buffer control register*/
+	unsigned long unused0;
+	unsigned long rbuf_pkt_rdy_thld;	/* (08) threshold which PKT_RDY asserted defualt 0x7c*/
+	unsigned long rbuf_status;			/* (0c) rx buffer status.*/
+	unsigned long rbuf_endian_ctrl;		/* (10) rx buffer endianess control register*/
+	unsigned long rbuf_chk_ctrl;		/* (14) raw checksum control register */
+	unsigned long rbuf_rxc_offset[8];	/* (18 - 34) rxc extraction offset registers, for filtering*/
+	unsigned long unused1[18];
+	unsigned long rbuf_ovfl_pkt_cnt;	/* (80) */
+	unsigned long rbuf_err_cnt;			/* (84) */
+	unsigned long rbuf_energy_ctrl;		/* (88) */
+	
+	unsigned long unused2[7];
+	unsigned long rbuf_pd_sram_ctrl;	/* (a8) */
+	unsigned long unused3[12];
+	unsigned long rbuf_test_mux_ctrl;	/* (dc) */
+}rbufRegs;
+
+typedef struct hfbRegs
+{
+	unsigned long hfb_ctrl;
+	unsigned long hfb_fltr_len[4];
+}hfbRegs;
+
+#else	/*! CONFIG_BRCM_HAS_GENET2 */
 typedef struct rbufRegs
 {
 	unsigned long rbuf_ctrl;			/* (00) rx buffer control register*/
@@ -211,6 +257,7 @@ typedef struct rbufRegs
 	unsigned long unused4[6];
 	unsigned long test_mux_ctrl;		/* (dc) ENET test mux control register*/
 }rbufRegs;
+#endif
 /* uniMac intrl2 registers */
 typedef struct intrl2Regs
 {
@@ -236,13 +283,25 @@ typedef struct intrl2Regs
 #define UMAC_RBUF_REG_OFFSET		0X0300
 #define UMAC_UMAC_REG_OFFSET		0x0800
 #define UMAC_HFB_OFFSET				0x1000
-#define UMAC_RDMA_REG_OFFSET		0xa000
-#define UMAC_TDMA_REG_OFFSET		0xb000
+
+#ifdef CONFIG_BRCM_HAS_GENET2
+#define UMAC_TBUF_REG_OFFSET		0x0600	
+#define UMAC_RDMA_REG_OFFSET		0x3000
+#define UMAC_TDMA_REG_OFFSET		0x4000
+#define UMAC_HFB_REG_OFFSET			0x2000
+#else
+#define UMAC_RDMA_REG_OFFSET		0x2000
+#define UMAC_TDMA_REG_OFFSET		0x3000
+#endif
 
 typedef struct SysRegs
 {
 	unsigned long sys_rev_ctrl;
 	unsigned long sys_port_ctrl;
+#ifdef CONFIG_BRCM_HAS_GENET2
+	unsigned long rbuf_flush_ctrl;
+	unsigned long tbuf_flush_ctrl;
+#endif
 }SysRegs;
 
 typedef struct GrBridgeRegs
@@ -258,11 +317,18 @@ typedef struct ExtRegs
 	unsigned long ext_pwr_mgmt;
 	unsigned long ext_emcg_ctrl;
 	unsigned long ext_test_ctrl;
+#ifdef CONFIG_BRCM_HAS_GENET2
+	unsigned long rgmii_oob_ctrl;
+	unsigned long rgmii_ib_status;
+	unsigned long rgmii_led_ctrl;
+	unsigned long ext_genet_pwr_mgmt;
+#else
 	unsigned long ext_in_ctrl;
 	unsigned long ext_fblp_ctrl;
 	unsigned long ext_stat0;
 	unsigned long ext_stat1;
 	unsigned long ext_ch_ctrl[6];
+#endif
 }ExtRegs;
 
 typedef struct rDmaRingRegs
@@ -296,8 +362,12 @@ typedef struct tDmaRingRegs
 typedef struct rDmaRegs
 {
 	rDmaRingRegs rDmaRings[17];
+#ifdef CONFIG_BRCM_HAS_GENET2
+	unsigned long rdma_ring_cfg;
+#endif
 	unsigned long rdma_ctrl;
 	unsigned long rdma_status;
+	unsigned long unused;
 	unsigned long rdma_scb_burst_size;
 	unsigned long rdma_activity;
 	unsigned long rdma_mask;
@@ -312,8 +382,14 @@ typedef struct rDmaRegs
 typedef struct tDmaRegs
 {
 	tDmaRingRegs tDmaRings[17];
+#ifdef CONFIG_BRCM_HAS_GENET2
+	unsigned long tdma_ring_cfg;
+#endif
 	unsigned long tdma_ctrl;
 	unsigned long tdma_status;
+#ifndef CONFIG_BRCM_HAS_GENET2
+	unsigned long unused;
+#endif
 	unsigned long tdma_scb_burst_size;
 	unsigned long tdma_activity;
 	unsigned long tdma_mask;

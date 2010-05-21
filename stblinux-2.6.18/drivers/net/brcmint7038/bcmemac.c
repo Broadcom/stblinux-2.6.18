@@ -610,6 +610,7 @@ static void tx_reclaim_timer(unsigned long arg)
     BcmEnet_devctrl *pDevCtrl = (BcmEnet_devctrl *)arg;
     int bdfilled;
     int linkState;
+	unsigned long flags;
 
     if (atomic_read(&pDevCtrl->rxDmaRefill) != 0) {
         atomic_set(&pDevCtrl->rxDmaRefill, 0);
@@ -622,7 +623,9 @@ static void tx_reclaim_timer(unsigned long arg)
 
     pDevCtrl->linkstatus_polltimer++;
     if ( pDevCtrl->linkstatus_polltimer >= POLLCNT_1SEC ) {
+		spin_lock_irqsave(&pDevCtrl->lock, flags);
         linkState = bcmIsEnetUp(pDevCtrl->dev);
+		spin_unlock_irqrestore(&pDevCtrl->lock, flags);
 
         if (linkState != pDevCtrl->linkState) {
             if (linkState != 0) {
@@ -633,7 +636,9 @@ static void tx_reclaim_timer(unsigned long arg)
                         pDevCtrl->rxDma->cfg |= DMA_ENABLE;                    
                     }
                 } else {
+					spin_lock_irqsave(&pDevCtrl->lock, flags);
                     unsigned long v = mii_read(pDevCtrl->dev, pDevCtrl->EnetInfo.ucPhyAddress, MII_AUX_CTRL_STATUS);
+					spin_unlock_irqrestore(&pDevCtrl->lock, flags);
                     if( (v & MII_AUX_CTRL_STATUS_FULL_DUPLEX) != 0) {
                         pDevCtrl->emac->txControl |= EMAC_FD;
                     }

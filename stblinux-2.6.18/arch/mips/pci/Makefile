@@ -42,7 +42,7 @@ obj-$(CONFIG_MIPS_BCM7400)  	+= pci-brcm97400d0.o ops-brcm97400d0.o fixup-brcm97
 obj-$(CONFIG_MIPS_BCM7405)  	+= pci-brcm97400d0.o ops-brcm97400d0.o fixup-brcm97400d0.o
 obj-$(CONFIG_MIPS_BCM7335)  	+= pci-brcm97400d0.o ops-brcm97400d0.o fixup-brcm97400d0.o
 obj-$(CONFIG_MIPS_BCM7336)  	+= pci-brcm97400d0.o ops-brcm97400d0.o fixup-brcm97400d0.o
-obj-$(CONFIG_MIPS_BCM7340)  	+= pci-brcm97400d0.o ops-brcm97400d0.o fixup-brcm97400d0.o
+#obj-$(CONFIG_MIPS_BCM7340)  	+= pci-brcm97400d0.o ops-brcm97400d0.o fixup-brcm97400d0.o
 obj-$(CONFIG_MIPS_BCM7420)  	+= pci-brcm97400d0.o ops-brcm97400d0.o fixup-brcm97400d0.o
 
 # Other STB chips

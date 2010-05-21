@@ -97,7 +97,7 @@ static DEFINE_SPINLOCK(sleep_lock);
 
 #endif
 // jipeng - if bcmsata2=1, but device only support SATA I, then downgrade to SATA I and reset SATA core
-#define	AUTO_NEG_SPEED			
+//#define	AUTO_NEG_SPEED			
 
 static unsigned int new_speed_mask = 0;
 

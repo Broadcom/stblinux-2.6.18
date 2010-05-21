@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.18-7.5
-# Mon Mar 15 13:01:41 2010
+# Fri Mar 19 15:40:01 2010
 #
 CONFIG_MIPS=y
 
@@ -26,7 +26,7 @@ CONFIG_MIPS_BCM7038CX=y
 # CONFIG_MIPS_BCM97459BX_NAND is not set
 # CONFIG_MIPS_BCM7335BX is not set
 # CONFIG_MIPS_BCM7335BX_NAND is not set
-# CONFIG_MIPS_BCM7340AX is not set
+# CONFIG_MIPS_BCM7340BX_NAND is not set
 # CONFIG_MIPS_BCM7336AX is not set
 # CONFIG_MIPS_BCM7420AX is not set
 # CONFIG_MIPS_BCM7420BX is not set

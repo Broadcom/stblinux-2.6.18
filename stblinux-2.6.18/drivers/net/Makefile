@@ -92,6 +92,10 @@ endif
 ifeq ($(CONFIG_MIPS_BCM7420BX_NAND),y)
 	obj-$(CONFIG_BCMUMAC) += brcmgenet/
 endif
+ifeq ($(CONFIG_MIPS_BCM7340),y)
+	obj-$(CONFIG_BCMGENET) += brcmgenet/
+endif
+	
 obj-$(CONFIG_SUNDANCE) += sundance.o
 obj-$(CONFIG_HAMACHI) += hamachi.o
 obj-$(CONFIG_NET) += Space.o loopback.o

@@ -840,14 +840,14 @@ endif
 
 #
 #
-# BCM97340A0
+# BCM97340B0
 #
-core-$(CONFIG_MIPS_BCM7340A0) += arch/mips/brcmstb/common/
-core-$(CONFIG_MIPS_BCM7340A0) += arch/mips/brcmstb/brcm97340a0/
-cflags-$(CONFIG_MIPS_BCM7340A0) += -Iinclude/asm-mips/mach-brcmstb
-load-$(CONFIG_MIPS_BCM7340A0) := 0x80001000
-ifdef CONFIG_MIPS_BCM7340A0
-UTS_MACHINE:=7340a0
+core-$(CONFIG_MIPS_BCM7340B0) += arch/mips/brcmstb/common/
+core-$(CONFIG_MIPS_BCM7340B0) += arch/mips/brcmstb/brcm97340b0/
+cflags-$(CONFIG_MIPS_BCM7340B0) += -Iinclude/asm-mips/mach-brcmstb
+load-$(CONFIG_MIPS_BCM7340B0) := 0x80001000
+ifdef CONFIG_MIPS_BCM7340B0
+UTS_MACHINE:=7340b0
 endif
 
 #

@@ -35,6 +35,11 @@ extern "C" {
 #define UMAC_SPEED_1000			2				/* 1000M bps */
 #define UMAC_SPEED_2500			3				/* 2500M bps */
 
+#define PORT_MODE_INT_EPHY		0
+#define PORT_MODE_INT_GPHY		1
+#define PORT_MODE_EXT_EPHY		2
+#define PORT_MODE_EXT_GPHY		3
+
 /* umac register group start */
 /* reg: umac->hdBkpCtrl */
 #define	HD_FC_EN				(1 << 0 )		/* Enable half-duplex flow control.*/
@@ -114,9 +119,9 @@ extern "C" {
 #define RBUF_STATUS_MPD_INTR_ACTIVE		(1 << 1 )	/* MPD(Magic Packet Detector) packet detected*/
 #define RBUF_STATUS_ACPI_INTR_ACTIVE	(1 << 2 )	/* ACPI (Pattern Matching )packet detected */
 /* reg: rbuf->rbuf_endian_ctrl */
-#define RBUF_ENDIAN_SWAP		(1 << 2 )		/* swap byte*/
-#define RBUF_ENDIAN_NOSWAP		(1 << 0 )		/* don't swap byte */
-#define RBUF_ENDIAN_MODE		(1 << 1 )		/* ignore endianess setting pin */
+#define RBUF_SWAP_EN			(1 << 2 )		/* swap byte*/
+#define RBUF_BIG_ENDIAN_MODE	(1 << 0 )		/* don't swap byte */
+#define RBUF_REG_MODE			(1 << 1 )		/* ignore endianess setting pin */
 /* reg: rbuf->rbuf_chk_ctrl */
 #define RBUF_RXCHK_EN			(1 << 0 )		/* enable raw checksum calculation */
 #define RBUF_SKIP_FCS			(1 << 4 )		/* skip last 4B when doing checksum */
@@ -174,13 +179,14 @@ extern "C" {
 #define UMAC_IRQ_TXDMA_PDONE	(1 << 17)
 #define UMAC_IRQ_TXDMA_BDONE	(1 << 18)
 
+#define DMA_RW_POINTER_MASK		0x1FF
 /* reg: rDmaRingRegs->rdma_producer_index */
 #define DMA_PRODUCER_INDEX_DISCARD_CNT_MASK		0xFFFF		/* For RDMA only */
 #define DMA_PRODUCER_INDEX_DISCARD_CNT_SHIFT	16			/* For RDMA only */
 #define DMA_BUFFER_DONE_CNT_MASK				0xFFFF		/* For TDMA only */
 #define DMA_BUFFER_DONE_CNT_SHIFT				16			/* For TDMA only */
 #define DMA_PRODUCER_INDEX_MASK					0xFFFF
-#define DMA_CONSUMER_IDNEX_MASK					0xFFFF
+#define DMA_CONSUMER_INDEX_MASK					0xFFFF
 /* reg: rDmaRingRegs->rdma_ring_buf_size */
 #define DMA_RING_SIZE_MASK						0xFFFF
 #define DMA_RING_SIZE_SHIFT						16
@@ -234,16 +240,18 @@ extern "C" {
 /* Tx/Rx Dma Descriptor common bits*/
 #define DMA_BUFLENGTH_MASK		0x0fff
 #define DMA_BUFLENGTH_SHIFT		16
-#define DMA_OWN					0x8000		/* cleared by DMA, set by SW */
+#define DMA_OWN					0x8000		/* cleared by DMA, set by SW , obsolete for GENET */
 #define DMA_EOP					0x4000		/* last buffer in packet */
-#define DMA_SOP					0x2000		/* First buffer in packet */
+#define DMA_SOP					0x2000		/* First buffer in packet, obsolete for GENET */
 #define DMA_WRAP				0x1000		/* Last BD */
 /* Tx specific Dma descriptor bits */
 #define DMA_TX_UNDERRUN			0x0200		/* Tx fifo underrun, set by DMA */
-#define DMA_TX_APPEND_CRC		0x0100
-#define DMA_TX_OW_CRC			0x0080		/* overrite CRC */
-#define DMA_TX_DO_CSUM			0x0040		/* calculate checksum */
+#define DMA_TX_APPEND_CRC		0x0040
+#define DMA_TX_OW_CRC			0x0020		/* overrite CRC */
+#define DMA_TX_DO_CSUM			0x0010		/* calculate checksum */
 #define DMA_TX_QTAG_MASK		0x001F		/* bit 4-0 OTAG, for MoCA classification.*/
+#define DMA_TX_QTAG_SHIFT		7
+
 /* Rx Specific Dma descriptor bits */
 #define DMA_RX_BRDCAST			0x0040		/* DA is broadcast.*/
 #define DMA_RX_MULT				0x0020		/* DA is multicast */

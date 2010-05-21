@@ -496,6 +496,19 @@ bcm9XXXX_parts[i].name, bcm9XXXX_parts[i].size, bcm9XXXX_parts[i].offset);
 	
 PRINTK("After adjustment\n");
 print_partition();
+
+#if defined(CONFIG_MIPS_BCM7340) && !defined(CONFIG_MTD_BRCMNAND_NOR_ACCESS)
+	/* use the new partition map if XOR bit is disabled */
+	if (BDEV_RD_F(EBI_CS_CONFIG_0, mask_en) == 0) {
+		bcm9XXXX_parts[0].offset = 0x400000;
+		bcm9XXXX_parts[0].size = ACTUAL_FLASH_SIZE - 0x400000;
+		bcm9XXXX_parts[0].name = "rootfs";
+		bcm9XXXX_parts[1].offset = 0x0;
+		bcm9XXXX_parts[1].size = ACTUAL_FLASH_SIZE;
+		bcm9XXXX_parts[1].name = "entire_flash";
+		gNumParts = 2;
+	}
+#endif
 	
 #if defined(CONFIG_MTD_BRCMNAND)
   #if defined(CONFIG_MTD_BRCMNAND_NOR_ACCESS)

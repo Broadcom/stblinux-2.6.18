@@ -42,7 +42,7 @@ unexport $(shell test -f config/cleanenv.pl && \
 CHIPS=7400d0 7400d0-smp 7401c0 7118a0 7403a0 97401c0-sw1 7038c0 7325b0 7325b0-smtc 7335b0 7335b0-smp 7336a0-smp 7405b0 7405b0-smp 7405d0-smp 7420a0 # 97398 7400a0 7400a0-smp 7318 # 7400d0-smp-nand
 PLATFORMS=$(addsuffix _be,$(CHIPS))
 # THT Must define the NAND platforms separately, since we want -be to precede -nand, as -nand does not really define a new platform
-NAND_PLATFORMS = 7400d0_be-nand 7401c0_be-nand 7118a0_be-nand 7405d0-smp_be-nand 7335b0-smp_be-nor-nand # 7400d0-smp-be-nand 
+NAND_PLATFORMS = 7400d0_be-nand 7401c0_be-nand 7118a0_be-nand 7405d0-smp_be-nand 7335b0-smp_be-nor-nand 7340b0-smp_be-nor-nand # 7400d0-smp-be-nand 
 OTHER_PLATFORMS = 7400d0-smp_be-discontig
 XFS_PLATFORMS = 7038c0_be-xfs 7401c0_be-xfs # 97398_be-xfs
 ALL_PLATFORMS = $(PLATFORMS) $(XFS_PLATFORMS) $(NAND_PLATFORMS) $(OTHER_PLATFORMS)

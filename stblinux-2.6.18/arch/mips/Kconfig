@@ -190,13 +190,16 @@ config MIPS_BCM7335BX_NAND
 	select MTD_BRCMNAND
 	select MTD_BLOCK_ROMBLOCK
 	
-config MIPS_BCM7340AX
-        bool "Support for BCM97340Ax with NOR flash"
+config MIPS_BCM7340BX_NAND
+        bool "Support for BCM97340Bx with NOR+NAND flash"
         select MIPS_BRCM97XXX
-        select MIPS_BCM7340A0
+        select MIPS_BCM7340B0
         select MIPS_BCM7340
-        select HW_HAS_PCI
+        #select HW_HAS_PCI
+		select BRCM_HAS_GENET
 	select BMIPS4380
+	#select MTD_BRCMNAND
+	select MTD_BLOCK_ROMBLOCK
 
 
 config MIPS_BCM7336AX
@@ -1684,13 +1687,13 @@ config MIPS_BCM7335
 	bool
 	depends MIPS_BCM7335B0
 
-config MIPS_BCM7340A0
+config MIPS_BCM7340B0
 	bool
-	depends MIPS_BCM7340AX
+	depends MIPS_BCM7340BX_NAND
 
 config MIPS_BCM7340
 	bool
-	depends MIPS_BCM7340A0
+	depends MIPS_BCM7340B0
 
 
 
@@ -2601,7 +2604,8 @@ config ARCH_FLATMEM_ENABLE
 config ARCH_DISCONTIGMEM_ENABLE
 	bool
 	default y if SGI_IP27 || MIPS_BCM7405 || MIPS_BCM7335 || MIPS_BCM7400D0 || MIPS_BCM3563C0 ||\
-	MIPS_BCM7440B0 || MIPS_BCM7601B0 || MIPS_BCM7336 || MIPS_BCM3548B0 || MIPS_BCM7635A0
+	MIPS_BCM7440B0 || MIPS_BCM7601B0 || MIPS_BCM7336 || MIPS_BCM3548B0 || MIPS_BCM7635A0 || \
+	MIPS_BCM7340B0
 	help
 	  Say Y to upport efficient handling of discontiguous physical memory,
 	  for architectures which are either NUMA (Non-Uniform Memory Access)
@@ -2968,6 +2972,23 @@ config APM
 	  APM in your BIOS).
 
 endmenu
+
+config BRCM_HAS_GENET
+	bool
+
+config BCMGENET
+	tristate "Broadcom STB 10/100/1000 MAC/PHY support"
+	depends on NET_ETHERNET
+	depends on BRCM_HAS_GENET && !BRCM_IKOS
+	default y
+	help 
+	   say Y to support the internal 10/100/100 GENET MAC/PHY on 
+	   Broadcom set-top chips. This driver also supports the datapath
+	   for the onchip MoCA transceiver.
+
+if BCMGENET
+	source drivers/net/brcmgenet/Kconfig
+endif
 
 source "net/Kconfig"
 

@@ -265,9 +265,11 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.idOptions = 0,
 		.timing1 = 0, .timing2 = 0,
 		.nop=4,
-		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_1,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_0,
 	},
 
+#if 0
+/* New chip with same ID */
 	{	/* 6 */
 		.chipId = SAMSUNG_K9K8G08U0A,
 		.mafId = FLASHTYPE_SAMSUNG,
@@ -276,9 +278,21 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.idOptions = 0,
 		.timing1 = 0, .timing2 = 0,
 		.nop=4,
-		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_1,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_0,
 	},
+*/
+#endif
 
+	{	/* 6 */
+		.chipId = SAMSUNG_K9F8G08U0M,
+		.mafId = FLASHTYPE_SAMSUNG,
+		.chipIdStr = "Samsung K9F8G08U0M",
+		.options = NAND_USE_FLASH_BBT,
+		.idOptions = BRCMNAND_ID_EXT_BYTES_TYPE2,
+		.timing1 = 0, .timing2 = 0,
+		.nop=4,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_0,
+	},
 
 	{	/* 7 */
 		.chipId = HYNIX_HY27UF082G2A,
@@ -456,7 +470,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.idOptions = 0,
 		.timing1 = 0, .timing2 = 0,
 		.nop=4,
-		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_1,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_0,
 	},
 
 	{	/* 23 */ 
@@ -467,7 +481,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.idOptions = 0,
 		.timing1 = 0, .timing2 = 0,
 		.nop=4,
-		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_1,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_0,
 	},
 
 	{	/* 24 */ 
@@ -478,7 +492,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.idOptions = 0,
 		.timing1 = 0, .timing2 = 0,
 		.nop=4,
-		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_1,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_0,
 	},
 	{	/* 25 */ 
 		.chipId = ST_NAND02GW3B,
@@ -488,7 +502,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.idOptions = 0,
 		.timing1 = 0, .timing2 = 0,
 		.nop=4,
-		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_1,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_0,
 	},
 	
 	{	/* 26 */ 
@@ -499,7 +513,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.idOptions = 0,
 		.timing1 = 0, .timing2 = 0,
 		.nop=4,
-		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_1,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_0,
 	},
 	{	/* 27 */ 
 		.chipId = ST_NAND08GW3B,
@@ -509,7 +523,7 @@ static brcmnand_chip_Id brcmnand_chips[] = {
 		.idOptions = 0,
 		.timing1 = 0, .timing2 = 0,
 		.nop=4,
-		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_1,
+		.ctrlVersion = CONFIG_MTD_BRCMNAND_VERS_2_0,
 	},
 		
 	{	/* 28 */
@@ -1760,9 +1774,9 @@ static int (*brcmnand_write_is_complete) (struct mtd_info*, int*) = brcmnand_ctr
  */
 static uint8_t *
 brcmnand_transfer_oob(struct brcmnand_chip *chip, uint8_t *oob,
-				  struct mtd_oob_ops *ops)
+				  struct mtd_oob_ops *ops, int len)
 {
-	size_t len = ops->ooblen;
+	//size_t len = ops->ooblen;
 
 	switch(ops->mode) {
 
@@ -2608,6 +2622,11 @@ brcmnand_edu_read_completion(struct mtd_info* mtd,
 			//local_irq_restore(irqflags);
 		}
 		edu_err_status = EDU_volatileRead(EDU_BASE_ADDRESS + EDU_ERR_STATUS);
+		
+		// Attemp to clear it, but has no effect, (VLSI PR2389) but we still do it for completeness: 	
+		EDU_volatileWrite(EDU_BASE_ADDRESS  + EDU_ERR_STATUS, 0x00000000);
+		EDU_volatileWrite(EDU_BASE_ADDRESS  + BCHP_HIF_INTR2_CPU_STATUS, HIF_INTR2_EDU_CLEAR_MASK);
+
 
 /**** WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR WAR */
 		/* Do a dummy read on a known good ECC sector to clear error */
@@ -4338,6 +4357,14 @@ brcmnand_isr_read_pages(struct mtd_info *mtd,
 	u_char* oob = inoutpp_oob ? *inoutpp_oob : NULL;
 	u_char* oobpoi = NULL;
 	u_char* buf = outp_buf;
+	int ooblen;
+
+	if (ops->mode == MTD_OOB_AUTO) {
+		ooblen = mtd->ecclayout->oobavail;
+	}
+	else {
+		ooblen = mtd->oobsize;
+	}
 
 
 	/* Paranoia */
@@ -4430,7 +4457,7 @@ __FUNCTION__, (uint32_t) buf, chip->buffers, offset + dataRead);
 #endif
 
 		if (unlikely(inoutpp_oob && *inoutpp_oob)) {
-			newoob = brcmnand_transfer_oob(chip, oob, ops);
+			newoob = brcmnand_transfer_oob(chip, oob, ops, ooblen);
 			chip->oob_poi += chip->eccOobSize;
 			oob = newoob;
 			// oobpoi stays the same
@@ -4521,9 +4548,15 @@ static int brcmnand_do_read_ops(struct mtd_info *mtd, loff_t from,
 	uint8_t *bufpoi, *oob, *buf;
 	int numPages;
 	int buffer_aligned = 0;
+	int ooblen;
 //int nonBatch = 0;
 
 
+	if (ops->mode == MTD_OOB_AUTO)
+		ooblen = mtd->ecclayout->oobavail;
+	else
+		ooblen = mtd->oobsize;
+	
 	stats = mtd->ecc_stats;
 
 	// THT: BrcmNAND controller treats multiple chip as one logical chip.
@@ -4585,7 +4618,7 @@ static int brcmnand_do_read_ops(struct mtd_info *mtd, loff_t from,
 
 				if (unlikely(oob)) {
 					/* if (ops->mode != MTD_OOB_RAW) */
-					oob = brcmnand_transfer_oob(chip, oob, ops);
+					oob = brcmnand_transfer_oob(chip, oob, ops, ooblen);
 					
 				}
 
@@ -4645,9 +4678,9 @@ static int brcmnand_do_read_ops(struct mtd_info *mtd, loff_t from,
 			if (unlikely(oob)) {
 				/* Raw mode does data:oob:data:oob */
 				if (ops->mode != MTD_OOB_RAW)
-					oob = brcmnand_transfer_oob(chip, oob, ops);
+					oob = brcmnand_transfer_oob(chip, oob, ops, ooblen);
 				else {
-					buf = brcmnand_transfer_oob(chip, buf, ops);
+					buf = brcmnand_transfer_oob(chip, buf, ops, ooblen);
 				}
 			}
 
@@ -4786,6 +4819,12 @@ static int brcmnand_do_read_oob(struct mtd_info *mtd, loff_t from,
 	int readlen = 0;
 	uint8_t *buf = ops->oobbuf;
 	int ret = 0;
+	int ooblen;
+
+	if (ops->mode == MTD_OOB_AUTO)
+		ooblen = mtd->ecclayout->oobavail;
+	else
+		ooblen = mtd->oobsize;
 
 if (gdebug > 3 ) 
 {printk("-->%s, offset=%0llx, buf=%p, len=%d, ooblen=%d\n", __FUNCTION__, from, buf, toBeReadlen, ops->ooblen);}
@@ -4809,17 +4848,17 @@ if (gdebug > 3 )
 			return ret;
 		}
 		
-		buf = brcmnand_transfer_oob(chip, &buf[readlen], ops);
+		buf = brcmnand_transfer_oob(chip, buf, ops, ooblen);
 
-		toBeReadlen -= mtd->ecclayout->oobavail;
-		readlen += mtd->ecclayout->oobavail;
+		toBeReadlen -= ooblen;
+		readlen += ooblen;
 
 		/* Increment page address */
 		realpage++;
 
 	}
 
-	ops->retlen = ops->len;
+	ops->retlen = ops->ooblen;
 	return ret;
 }
 

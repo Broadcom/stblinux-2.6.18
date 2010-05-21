@@ -366,8 +366,9 @@ device_initcall(bcmspi_initcall);
 
 #endif /* CONFIG_SPI_BCM7XXX || CONFIG_SPI_BCM7XXX_MODULE */
 
-#if	defined(CONFIG_BCMUMAC) || defined(CONFIG_BCMUMAC_MODULE)
-#ifdef BRCM_MOCA_SUPPORTED
+#if	defined(CONFIG_BCMUMAC) || defined(CONFIG_BCMGENET) || defined(CONFIG_BCMUMAC_MODULE) 
+
+#if defined(BRCM_MOCA_SUPPORTED) && !defined(CONFIG_MIPS_BCM7340)
 
 static void moca_bogus_release(struct device *dev)
 {
@@ -417,7 +418,7 @@ static struct platform_device moca_plat_dev = {
 static void umac_0_bogus_release(struct device *dev)
 {
 }
-#ifdef BRCM_UMAC_0_GPHY
+#if defined(BRCM_UMAC_0_GPHY) || defined(CONFIG_BCMGENET_0_GPHY)
 static struct bcmumac_platform_data umac_0_data = {
 	.phy_type = 	BRCM_PHY_TYPE_EXT_GMII,
 	.phy_id = 		BRCM_PHY_ID_AUTO,
@@ -458,7 +459,17 @@ static struct platform_device umac_0_plat_dev = {
 	.name =			"bcmumac",
 	.id =			0,
 	.num_resources =	ARRAY_SIZE(umac_0_resources),
-	.resource =		umac_0_resources,
+	.resource =			umac_0_resources,
+	.dev = {
+		.platform_data = &umac_0_data,
+		.release =	umac_0_bogus_release,
+	},
+};
+static struct platform_device genet_0_plat_dev = {
+	.name =			"bcmgenet",
+	.id =			0,
+	.num_resources =	ARRAY_SIZE(umac_0_resources),
+	.resource =			umac_0_resources,
 	.dev = {
 		.platform_data = &umac_0_data,
 		.release =	umac_0_bogus_release,
@@ -467,7 +478,7 @@ static struct platform_device umac_0_plat_dev = {
 
 #endif /* BRCM_UMAC_0_SUPPORTED */
 
-#ifdef BRCM_UMAC_1_SUPPORTED
+#if defined(BRCM_UMAC_1_SUPPORTED) && !defined(CONFIG_MIPS_BCM7340)
 
 static void umac_1_bogus_release(struct device *dev)
 {
@@ -515,10 +526,9 @@ static struct platform_device umac_1_plat_dev = {
 	},
 };
 
-#endif /* BRCM_UMAC_1_SUPPORTED */
+#endif /* BRCM_UMAC_1_SUPPORTED && !CONFIG_MIPS_BCM7340 */
 
 #if defined(BRCM_UMAC_0_SUPPORTED) || defined(BRCM_MOCA_SUPPORTED)
-
 static int __init umac_moca_initcall(void)
 {
 	u8 mac[6];
@@ -531,7 +541,7 @@ static int __init umac_moca_initcall(void)
 	BDEV_RD(BCHP_SUN_TOP_CTRL_SW_RESET);
 	BDEV_WR_F(SUN_TOP_CTRL_SW_RESET, enet_sw_reset, 0);
 #endif
-#if defined(BRCM_MOCA_SUPPORTED)
+#if defined(BRCM_MOCA_SUPPORTED) && !defined(CONFIG_MIPS_BCM7340)
 	BDEV_WR_F(SUN_TOP_CTRL_SW_RESET, moca_sw_reset, 0);
 	BDEV_WR_F(MOCA_HOSTMISC_SW_RESET, moca_enet_reset, 0);
 	BDEV_WR_F(CLK_SYS_PLL_1_CTRL, M3DIV, 11);
@@ -543,17 +553,21 @@ static int __init umac_moca_initcall(void)
 
 #if defined(BRCM_UMAC_0_SUPPORTED)
 	memcpy(&umac_0_data.macaddr, mac, 6);
+#if defined(CONFIG_MIPS_BCM7340)
+	platform_device_register(&genet_0_plat_dev);
+#else	
 	platform_device_register(&umac_0_plat_dev);
+#endif
 	mac[4]++;
 #endif
 
-#if defined(BRCM_UMAC_1_SUPPORTED)
+#if defined(BRCM_UMAC_1_SUPPORTED) && !defined(CONFIG_MIPS_BCM7340)
 	memcpy(&umac_1_data.macaddr, mac, 6);
 	platform_device_register(&umac_1_plat_dev);
 	mac[4]++;
 #endif
 
-#if defined(BRCM_MOCA_SUPPORTED)
+#if defined(BRCM_MOCA_SUPPORTED) && !defined(CONFIG_MIPS_BCM7340)
 	mac_to_u32(&moca_data.macaddr_hi, &moca_data.macaddr_lo, mac);
 	platform_device_register(&moca_plat_dev);
 	mac[4]++;

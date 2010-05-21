@@ -120,7 +120,9 @@ static uint32_t YCALCBLOCKS(uint64_t partition_size, uint32_t block_size)
 
 unsigned int yaffs_traceMask = YAFFS_TRACE_BAD_BLOCKS | YAFFS_TRACE_ALWAYS;
 unsigned int yaffs_wr_attempts = YAFFS_WR_ATTEMPTS;
-unsigned int yaffs_auto_checkpoint = 1;
+
+// SWLINUX-1559 Force sync() on SB write to avoid corrupted FS on sudden power loss.
+unsigned int yaffs_auto_checkpoint = 2;
 
 /* Module Parameters */
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 5, 0))

@@ -20,8 +20,6 @@
 #ifndef _BCMMII_H_
 #define _BCMMII_H_
 
-#include <asm/brcmstb/common/bcmtypes.h>
-
 /* BRCM EPHY Aux status summery Register */
 #define MII_BRCM_AUX_STAT_SUM				0x19
 #define MII_BRCM_AUX_FD						0x01
@@ -48,6 +46,6 @@
 
 extern void mii_setup(struct net_device *dev);
 extern int mii_init(struct net_device *dev);
-extern int mii_probe(struct net_device * dev, int phy_id);
+extern int mii_probe(struct net_device * dev, void * p);
 
 #endif /* _BCMMII_H_ */
