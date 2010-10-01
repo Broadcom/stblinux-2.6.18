@@ -139,7 +139,7 @@
 // Low level MLC test as compared to the high level test in mtd-abi.h
 #define NAND_IS_MLC(chip) ((chip)->cellinfo & NAND_CI_CELLTYPE_MSK)
 
-#define SAMSUNG_3RDID_MASK			0x30
+#define SAMSUNG_3RDID_NOP_MASK		0x30
 #define SAMSUNG_3RDID_NOP_1			0x00
 #define SAMSUNG_3RDID_NOP_2			0x10
 #define SAMSUNG_3RDID_NOP_4			0x20
@@ -228,7 +228,9 @@
 #define HYNIX_HY27UF081G2A      0xF1
 
 #define HYNIX_HY27UF082G2A      0xDA
-#define HYNIX_HY27UF084G2M     0xDC
+
+// #define HYNIX_HY27UF084G2M     0xDC /* replaced by the next one */
+#define HYNIX_HY27U4G8F2D		0xDC
 
 /* Hynix MLC flashes, same infos as Samsung, except the 5th Byte */
 #define HYNIX_HY27UT088G2A	0xD3
@@ -238,7 +240,7 @@
 
 /* Number of Planes, same as Samsung */
 
-/* Plane Size */
+/* Plane Size Type 2 */
 #define HYNIX_5THID_PLANESZ_MASK	0x70
 #define HYNIX_5THID_PLANESZ_512Mb	0x00
 #define HYNIX_5THID_PLANESZ_1Gb	0x10
@@ -249,6 +251,18 @@
 #define HYNIX_5THID_PLANESZ_RSVD2	0x60
 #define HYNIX_5THID_PLANESZ_RSVD3	0x70
 
+/* Legacy Hynix on H27U4G8F2D */
+/* Plane Size */
+#define HYNIX_5THID_LEG_PLANESZ_MASK		0x70
+#define HYNIX_5THID_LEG_PLANESZ_64Mb		0x00
+#define HYNIX_5THID_LEG_PLANESZ_128Mb	0x10
+#define HYNIX_5THID_LEG_PLANESZ_256Mb	0x20
+#define HYNIX_5THID_LEG_PLANESZ_512Mb	0x30
+#define HYNIX_5THID_LEG_PLANESZ_1Gb		0x40
+#define HYNIX_5THID_LEG_PLANESZ_2Gb		0x50
+#define HYNIX_5THID_LEG_PLANESZ_4Gb		0x60
+#define HYNIX_5THID_LEG_PLANESZ_8Gb		0x70
+
 
 /*--------- END Hynix MLC NAND flashes -----------------------*/
 
@@ -257,6 +271,71 @@
 //MT29F2G(08/16)AAB
 #define MICRON_MT29F2G08AAB     0xDA
 #define MICRON_MT29F2G16AAB     0xCA
+
+#define MICRON_MT29F1G08ABA	0xF1
+#define MICRON_MT29F2G08ABA	0xDA
+#define MICRON_MT29F4G08ABA	0xDC
+
+#define MICRON_3RDID_INT_CHIPNO_MASK	NAND_CI_CHIPNR_MSK
+
+#define MICRON_3RDID_CELLTYPE_MASK	NAND_CI_CELLTYPE_MSK
+#define MICRON_3RDID_CELLTYPE_SLC	0x00
+#define MICRON_3RDID_CELLTYPE_4LV	0x04
+//#define MICRON_3RDID_CELLTYPE_8LV	0x08
+//#define MICRON_3RDID_CELLTYPE_16LV	0x0C
+
+// Low level MLC test as compared to the high level test in mtd-abi.h
+#define NAND_IS_MLC(chip) ((chip)->cellinfo & NAND_CI_CELLTYPE_MSK)
+
+/* Nbr of simultaneously programmed pages */
+#define MICRON_3RDID_SIMPG_MASK		0x30
+#define MICRON_3RDID_SIMPG_1			0x00
+#define MICRON_3RDID_SIMPG_2			0x10
+//#define MICRON_3RDID_SIM_4			0x20
+//#define MICRON_3RDID_SIM_8			0x30
+
+#define MICRON_3RDID_INTERLEAVE		0x40
+
+#define MICRON_3RDID_CACHE_PROG		0x80
+
+#define MICRON_4THID_PAGESIZE_MASK	0x03
+#define MICRON_4THID_PAGESIZE_1KB		0x00
+#define MICRON_4THID_PAGESIZE_2KB		0x01
+#define MICRON_4THID_PAGESIZE_4KB		0x02
+#define MICRON_4THID_PAGESIZE_8KB		0x03
+
+#define MICRON_4THID_OOBSIZE_MASK	0x04
+#define MICRON_4THID_OOBSIZE_8B		0x00
+#define MICRON_4THID_OOBSIZE_16B		0x04
+
+#define MICRON_4THID_BLKSIZE_MASK		0x30
+#define MICRON_4THID_BLKSIZE_64KB		0x00
+#define MICRON_4THID_BLKSIZE_128KB	0x10
+#define MICRON_4THID_BLKSIZE_256KB	0x20
+#define MICRON_4THID_BLKSIZE_512KB	0x30
+
+/* Required ECC level */
+#define MICRON_5THID_ECCLVL_MASK		0x03
+#define MICRON_5THID_ECCLVL_4BITS		0x02
+
+#define MICRON_5THID_NRPLANE_MASK	0x0C
+#define MICRON_5THID_NRPLANE_1		0x00
+#define MICRON_5THID_NRPLANE_2		0x04
+#define MICRON_5THID_NRPLANE_4		0x08
+//#define SAMSUNG_5THID_NRPLANE_8		0x0C
+
+#define MICRON_5THID_PLANESZ_MASK	0x70
+#define MICRON_5THID_PLANESZ_64Mb	0x00
+#define MICRON_5THID_PLANESZ_128Mb	0x10
+#define MICRON_5THID_PLANESZ_256Mb	0x20
+#define MICRON_5THID_PLANESZ_512Mb	0x30
+#define MICRON_5THID_PLANESZ_1Gb		0x40
+#define MICRON_5THID_PLANESZ_2Gb		0x50
+#define MICRON_5THID_PLANESZ_4Gb		0x60
+#define MICRON_5THID_PLANESZ_8Gb		0x70
+
+#define MICRON_5THID_INT_ECC_MASK	0x80
+#define MICRON_5THID_INT_ECC_ENA		0x80
 
 //Spansion flashes
 #ifndef FLASHTYPE_SPANSION
@@ -277,6 +356,13 @@
 #define SPANSION_S30ML256P_16   0x55    //32MB x16 mode
 #define SPANSION_S30ML128P_08   0x73    //x8 mode
 #define SPANSION_S30ML128P_16   0x53    //x16 mode
+
+
+/* -------- Toshiba NAND E2PROM -----------------*/
+#define FLASHTYPE_TOSHIBA		0x98
+
+#define TOSHIBA_TC58NVG0S3ETA00	0xD1
+#define TOSHIBA_TC58NVG1S3ETAI5	0xDA
 
 //Command Opcode
 #define OP_PAGE_READ                0x01000000

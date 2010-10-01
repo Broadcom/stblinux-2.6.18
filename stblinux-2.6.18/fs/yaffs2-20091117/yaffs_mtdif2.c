@@ -26,6 +26,7 @@ const char *yaffs_mtdif2_c_version =
 #include "linux/time.h"
 
 #include "yaffs_packedtags2.h"
+#include "yaffs_getblockinfo.h"
 
 /* NB For use with inband tags....
  * We assume that the data buffer is of size totalBytersPerChunk so that we can also
@@ -101,17 +102,18 @@ int nandmtd2_WriteChunkWithTagsToNAND(yaffs_Device *dev, int chunkInNAND,
 int nandmtd2_ReadChunkWithTagsFromNAND(yaffs_Device *dev, int chunkInNAND,
 				       __u8 *data, yaffs_ExtendedTags *tags)
 {
-	struct mtd_info *mtd = (struct mtd_info *)(dev->genericDevice);
 #if (MTD_VERSION_CODE > MTD_VERSION(2, 6, 17))
 	struct mtd_oob_ops ops;
 #endif
 	size_t dummy;
 	int retval = 0;
 	int localData = 0;
+	yaffs_PackedTags2 pt;
+	yaffs_BlockInfo *bi;
+	int isBadB;
+	struct mtd_info *mtd = (struct mtd_info *)(dev->genericDevice);
 
 	loff_t addr = ((loff_t) chunkInNAND) * dev->totalBytesPerChunk;
-
-	yaffs_PackedTags2 pt;
 
 	int packed_tags_size = dev->noTagsECC ? sizeof(pt.t) : sizeof(pt);
 	void * packed_tags_ptr = dev->noTagsECC ? (void *) &pt.t: (void *)&pt;
@@ -127,11 +129,19 @@ int nandmtd2_ReadChunkWithTagsFromNAND(yaffs_Device *dev, int chunkInNAND,
 			localData = 1;
 			data = yaffs_GetTempBuffer(dev, __LINE__);
 		}
-
-
 	}
 
+	isBadB = mtd->block_isbad(mtd, chunkInNAND * dev->totalBytesPerChunk);
 
+	if (isBadB) {
+		bi = yaffs_GetBlockInfo(dev, chunkInNAND / dev->nChunksPerBlock);
+		bi->blockState = YAFFS_BLOCK_STATE_DEAD;
+		bi->sequenceNumber = 0;
+		if (localData)
+			yaffs_ReleaseTempBuffer(dev, data, __LINE__);
+		return YAFFS_FAIL;
+	} 
+	
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 17))
 	if (dev->inbandTags || (data && !tags))
 		retval = mtd->read(mtd, addr, dev->totalBytesPerChunk,

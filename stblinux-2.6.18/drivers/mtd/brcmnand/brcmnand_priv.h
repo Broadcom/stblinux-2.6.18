@@ -214,7 +214,7 @@ static __inline__ void ISR_volatileWrite(uint32_t addr, uint32_t data)
 
 static __inline__ void ISR_enable_irq(eduIsrNode_t* req)
 {
-	uint32_t intrMask; 
+	//uint32_t intrMask; 
 	//unsigned long flags;
 
 	//spin_lock_irqsave(&gEduIsrData.lock, flags);

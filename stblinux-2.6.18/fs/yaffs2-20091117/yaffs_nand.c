@@ -21,8 +21,7 @@ const char *yaffs_nand_c_version =
 #include "yaffs_getblockinfo.h"
 
 int yaffs_ReadChunkWithTagsFromNAND(yaffs_Device *dev, int chunkInNAND,
-					   __u8 *buffer,
-					   yaffs_ExtendedTags *tags)
+					   __u8 *buffer, yaffs_ExtendedTags *tags)
 {
 	int result;
 	yaffs_ExtendedTags localTags;
@@ -34,6 +33,8 @@ int yaffs_ReadChunkWithTagsFromNAND(yaffs_Device *dev, int chunkInNAND,
 	/* If there are no tags provided, use local tags to get prioritised gc working */
 	if (!tags)
 		tags = &localTags;
+		
+	//T(YAFFS_TRACE_ALWAYS, (TSTR(" #%d "), chunkInNAND));	
 
 	if (dev->readChunkWithTagsFromNAND)
 		result = dev->readChunkWithTagsFromNAND(dev, realignedChunkInNAND, buffer,
@@ -43,11 +44,17 @@ int yaffs_ReadChunkWithTagsFromNAND(yaffs_Device *dev, int chunkInNAND,
 									realignedChunkInNAND,
 									buffer,
 									tags);
+
+	if (!(result > 0))
+		T(YAFFS_TRACE_ALWAYS, (("FAIL  *** UNCORRECTABLE READ AT CHUNK %d BLOCK %d ***\n"), 
+		chunkInNAND, chunkInNAND/dev->nChunksPerBlock));	
+									
 	if (tags &&
 	   tags->eccResult > YAFFS_ECC_RESULT_NO_ERROR) {
 
 		yaffs_BlockInfo *bi = yaffs_GetBlockInfo(dev, chunkInNAND/dev->nChunksPerBlock);
-		yaffs_HandleChunkError(dev, bi);
+
+		yaffs_HandleChunkError(dev, bi,chunkInNAND/dev->nChunksPerBlock, 1);
 	}
 
 	return result;
@@ -57,7 +64,7 @@ int yaffs_WriteChunkWithTagsToNAND(yaffs_Device *dev,
 						   int chunkInNAND,
 						   const __u8 *buffer,
 						   yaffs_ExtendedTags *tags)
-{
+{	//MC chunkInNAND specifies where to write 
 
 	dev->nPageWrites++;
 
@@ -72,11 +79,11 @@ int yaffs_WriteChunkWithTagsToNAND(yaffs_Device *dev,
 			  (TSTR("Writing uninitialised tags" TENDSTR)));
 			YBUG();
 		}
-		T(YAFFS_TRACE_WRITE,
-		  (TSTR("Writing chunk %d tags %d %d" TENDSTR), chunkInNAND,
-		   tags->objectId, tags->chunkId));
+		//T(YAFFS_TRACE_ALWAYS,
+		//  (TSTR("Writing chunkInNAND %d tags objId %d chuId %d" TENDSTR), chunkInNAND,
+		//   tags->objectId, tags->chunkId));
 	} else {
-		T(YAFFS_TRACE_ERROR, (TSTR("Writing with no tags" TENDSTR)));
+		T(YAFFS_TRACE_ALWAYS, (TSTR("Writing with no tags" TENDSTR)));
 		YBUG();
 	}
 
@@ -123,9 +130,7 @@ int yaffs_EraseBlockInNAND(struct yaffs_DeviceStruct *dev,
 	int result;
 
 	blockInNAND -= dev->blockOffset;
-
 	dev->nBlockErasures++;
-
 	result = dev->eraseBlockInNAND(dev, blockInNAND);
 
 	return result;

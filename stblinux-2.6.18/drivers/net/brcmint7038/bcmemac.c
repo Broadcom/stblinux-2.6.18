@@ -636,8 +636,9 @@ static void tx_reclaim_timer(unsigned long arg)
                         pDevCtrl->rxDma->cfg |= DMA_ENABLE;                    
                     }
                 } else {
+					unsigned long v;
 					spin_lock_irqsave(&pDevCtrl->lock, flags);
-                    unsigned long v = mii_read(pDevCtrl->dev, pDevCtrl->EnetInfo.ucPhyAddress, MII_AUX_CTRL_STATUS);
+                    v = mii_read(pDevCtrl->dev, pDevCtrl->EnetInfo.ucPhyAddress, MII_AUX_CTRL_STATUS);
 					spin_unlock_irqrestore(&pDevCtrl->lock, flags);
                     if( (v & MII_AUX_CTRL_STATUS_FULL_DUPLEX) != 0) {
                         pDevCtrl->emac->txControl |= EMAC_FD;
@@ -1242,14 +1243,8 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
     struct sk_buff *skb;
     unsigned long dmaFlag;
     unsigned char *pBuf;
-    int len;
-    int bdfilled;
-    unsigned int packetLength = 0;
-    uint32 rxpktgood = 0;
-    uint32 rxpktprocessed = 0;
-    uint32 rxpktmax = budget + (budget / 2);
-    int brcm_hdr_len = 0;
-    int brcm_fcs_len = 0;
+    int len = 0, bdfilled = 0, brcm_hdr_len = 0, brcm_fcs_len = 0;
+    uint32 rxpktgood = 0, rxpktprocessed = 0;
 
     loopCount = 0;
 
@@ -1281,6 +1276,12 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
             pDevCtrl->stats.rx_dropped++;
             pDevCtrl->stats.rx_errors++;
 
+			/* decrement user count, so assign_rx_buffers() can recycle this skb. */
+        	pBuf = (unsigned char *)(phys_to_virt(EMAC_SWAP32(pDevCtrl->rxBdReadPtr->address)));
+        	skb = (struct sk_buff *)*(unsigned long *)(pBuf-4);
+			if(atomic_read(&skb->users) > 1) {
+				atomic_dec(&skb->users);
+			}
         	pDevCtrl->rxBdReadPtr->length_status &= EMAC_SWAP32(0xffff0000); //clear status.
         	pDevCtrl->rxBdReadPtr->address = EMAC_SWAP32(0);
             IncRxBDptr(pDevCtrl->rxBdReadPtr, pDevCtrl);
@@ -1318,10 +1319,11 @@ static uint32 bcmemac_rx(void *ptr, uint32 budget)
 
 		skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len - 2);
 #else
-		if(pDevCtrl->emac->rxControl & EMAC_PROM)
-			skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len - 2);
-		else
-        	skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len);
+		if(pDevCtrl->bIPHdrOptimize)
+       		skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len - 2);
+ 		else
+       		skb_trim(skb, len - ETH_CRC_LEN - brcm_hdr_len - brcm_fcs_len );
+		
 #endif
 
 #ifdef DUMP_DATA
@@ -1501,8 +1503,7 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
 {
     struct sk_buff *skb;
     uint16  bdsfilled=0;
-    int devInUsed;
-    int i;
+    int i, devInUsed, skb_prealloc;
 
     /*
      * check assign_rx_buffers is in process?
@@ -1523,6 +1524,7 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
         }
 
         skb = pDevCtrl->skb_pool[pDevCtrl->nextskb++];
+		skb_prealloc = 1;
         if (pDevCtrl->nextskb == MAX_RX_BUFS)
             pDevCtrl->nextskb = 0;
 
@@ -1541,6 +1543,12 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
                 }
             }
             if (i == MAX_RX_BUFS) {
+				printk(KERN_WARNING "Falling back to dynamic skb allocation\n");
+				skb = dev_alloc_skb(pDevCtrl->rxBufLen + 4 + 256);
+				if(!skb) {
+					printk(KERN_ERR "Failed to allocate skb, try again later\n");
+				}
+				skb_prealloc = 0;
                 /* no free skb available now */
                 /* rxDma is empty, set flag and let timer function to refill later */
                 atomic_set(&pDevCtrl->rxDmaRefill, 1);
@@ -1549,25 +1557,29 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
         }
 
         atomic_set(&pDevCtrl->rxDmaRefill, 0);
-        skb_headerinit(skb, NULL, 0);  /* clean state */
+		if(skb_prealloc) {
+        	skb_headerinit(skb, NULL, 0);  /* clean state */
 
-        /* init the skb, in case other app. modified the skb pointer */
-        skb->data = skb->tail = skb->head;
-        skb->end = skb->data + (skb->truesize - sizeof(struct sk_buff));
-        skb->len = 0;
-        skb->data_len = 0;
-        skb->cloned = 0;
-
+        	/* init the skb, in case other app. modified the skb pointer */
+        	skb->data = skb->tail = skb->head;
+        	skb->end = skb->data + (skb->truesize - sizeof(struct sk_buff));
+        	skb->len = 0;
+        	skb->data_len = 0;
+        	skb->cloned = 0;
+        	/*
+         	* Set the user count to two so when the upper layer frees the
+         	* socket buffer, only the user count is decremented.
+         	*/
+			if(atomic_read(&skb->users) == 1)
+        		atomic_inc(&skb->users);
+		}else if(!skb) {
+			return bdsfilled;
+		}
+		
         handleAlignment(pDevCtrl, skb);
 
         skb_put(skb, pDevCtrl->rxBufLen);
 
-        /*
-         * Set the user count to two so when the upper layer frees the
-         * socket buffer, only the user count is decremented.
-         */
-		if(atomic_read(&skb->users) == 1)
-        	atomic_inc(&skb->users);
 
         /* kept count of any BD's we refill */
         bdsfilled++;

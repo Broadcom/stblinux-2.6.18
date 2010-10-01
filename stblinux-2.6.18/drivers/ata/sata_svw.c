@@ -2049,9 +2049,9 @@ static int k2_pmp_hp_poll(struct ata_port *ap)
 		return(0);
 #endif /* CONFIG_BRCM_PM */
 
-	if(!pp->do_port_srst)
+	if(!pp->do_port_srst && ata_link_online(&ap->link))
 	{
-		int status = ata_busy_wait(ap, ATA_BUSY | ATA_DRQ, 3000);
+		int status = ata_busy_wait(ap, ATA_BUSY | ATA_DRQ, 300);
 
 		if(!(status & (ATA_BUSY | ATA_DRQ)))
 		{

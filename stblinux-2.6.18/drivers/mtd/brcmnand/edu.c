@@ -70,6 +70,24 @@ int edu_debug = 0;
 
 extern int gdebug;
 
+uint32_t EDU_volatileRead(uint32_t addr)
+{
+        
+         volatile uint32_t* pAddr;
+        
+        pAddr = (volatile uint32_t *)addr;
+        
+        return *(uint32_t *)pAddr;
+}
+
+void EDU_volatileWrite(uint32_t addr, uint32_t data)
+{
+        volatile uint32_t* pAddr;
+
+        pAddr = (volatile uint32_t *)addr;
+        *pAddr = (volatile uint32_t)data;
+}
+
 
 
 // Debugging 3548
@@ -181,6 +199,7 @@ printk("Write must be aligned on 128B (addr=%08x)\n", addr);
 }
 
 
+#if 0
 /*
  * THT: Just calling virt_to_phys() will not work on VM allocated addresses (0xC000_0000-0xCFFF_FFFF)
  * On the other hand, we cannot call kmalloc to allocate the BBT, because of its size.
@@ -207,9 +226,7 @@ if (edu_debug > 3) printk("-->%s: addr=%08lx\n", __FUNCTION__, addr);
 	// address falls in MEM0.
 		paddr =  virt_to_phys(vaddr);
 
-if ((edu_debug > 3) /*|| ((0 == (addr & 0xFFF)) && save_addr != addr) */) 
-{printk("paddr= virt_to_phys(vaddr=%08x) = %08lx\n", addr, paddr);
-}
+
 if (edu_debug > 3) {show_stack(current,NULL);dump_stack();}
 
 save_addr = addr;
@@ -307,7 +324,7 @@ error_out:
 
 }
 
-
+#endif
 
 /*************************************** Internals *******************************************/
 #ifdef EDU_DEBUG
@@ -353,7 +370,7 @@ void EDU_waitForNoPendingAndActiveBit(void)
         volatile uint32_t rd_data=0, i=0; 
         unsigned long timeout;
 
-int saveDbgLvl = edu_debug;
+//nt saveDbgLvl = edu_debug;
 
         //PRINTK("Start Polling!\n");
         __sync();
@@ -383,7 +400,7 @@ void EDU_reset_done(void)
 {
 	volatile uint32_t rd_data;
 
-int saveDbgLvl = edu_debug;
+//int saveDbgLvl = edu_debug;
 
 	rd_data = EDU_volatileRead(EDU_BASE_ADDRESS  + EDU_DONE);
 
@@ -609,23 +626,7 @@ void EDU_issue_command(uint32_t dram_addr, uint32_t ext_addr,uint8 cmd)
 }
 
 
-uint32_t EDU_volatileRead(uint32_t addr)
-{
-        
-         volatile uint32_t* pAddr;
-        
-        pAddr = (volatile uint32_t *)addr;
-        
-        return *(uint32_t *)pAddr;
-}
 
-void EDU_volatileWrite(uint32_t addr, uint32_t data)
-{
-        volatile uint32_t* pAddr;
-
-        pAddr = (volatile uint32_t *)addr;
-        *pAddr = (volatile uint32_t)data;
-}
 
 uint32_t EDU_get_error_status_register(void)
 {

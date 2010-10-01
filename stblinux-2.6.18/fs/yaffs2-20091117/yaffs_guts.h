@@ -60,6 +60,7 @@
 
 #define YAFFS_NOBJECT_BUCKETS		256
 
+#define YAFFS_MAX_CHECKPOINT_BLOCKS	 20
 
 #define YAFFS_OBJECT_SPACE		0x40000
 
@@ -85,7 +86,6 @@
 #define YAFFS_OBJECTID_SB_HEADER	0x10
 #define YAFFS_OBJECTID_CHECKPOINT_DATA	0x20
 #define YAFFS_SEQUENCE_CHECKPOINT_DATA  0x21
-
 /* */
 
 #define YAFFS_MAX_SHORT_OP_CACHES	20
@@ -233,8 +233,8 @@ struct yaffs_NANDSpare {
 typedef enum {
 	YAFFS_BLOCK_STATE_UNKNOWN = 0,
 
-	YAFFS_BLOCK_STATE_SCANNING,
-	YAFFS_BLOCK_STATE_NEEDS_SCANNING,
+	YAFFS_BLOCK_STATE_SCANNING,								//1
+	YAFFS_BLOCK_STATE_NEEDS_SCANNING,						//2
 	/* The block might have something on it (ie it is allocating or full, perhaps empty)
 	 * but it needs to be scanned to determine its true state.
 	 * This state is only valid during yaffs_Scan.
@@ -242,37 +242,46 @@ typedef enum {
 	 * However, if this state is returned on a YAFFS2 device, then we expect a sequence number
 	 */
 
-	YAFFS_BLOCK_STATE_EMPTY,
+	YAFFS_BLOCK_STATE_EMPTY,								//3
 	/* This block is empty */
 
-	YAFFS_BLOCK_STATE_ALLOCATING,
+	YAFFS_BLOCK_STATE_ALLOCATING,							//4
 	/* This block is partially allocated.
 	 * At least one page holds valid data.
 	 * This is the one currently being used for page
 	 * allocation. Should never be more than one of these
 	 */
 
-	YAFFS_BLOCK_STATE_FULL,
+	YAFFS_BLOCK_STATE_FULL,									//5
 	/* All the pages in this block have been allocated.
 	 */
 
-	YAFFS_BLOCK_STATE_DIRTY,
+	YAFFS_BLOCK_STATE_DIRTY,								//6
 	/* All pages have been allocated and deleted.
 	 * Erase me, reuse me.
 	 */
 
-	YAFFS_BLOCK_STATE_CHECKPOINT,
+	YAFFS_BLOCK_STATE_CHECKPOINT,							//7
 	/* This block is assigned to holding checkpoint data.
 	 */
 
-	YAFFS_BLOCK_STATE_COLLECTING,
+	YAFFS_BLOCK_STATE_COLLECTING,							//8
 	/* This block is being garbage collected */
 
-	YAFFS_BLOCK_STATE_DEAD
+	YAFFS_BLOCK_STATE_DEAD,									//9			
 	/* This block has failed and is not in use */
+	
+	YAFFS_BLOCK_STATE_OLD1CHECKPOINT,						//10
+	//MC backup checkpoint block
+
+	YAFFS_BLOCK_STATE_OLD2CHECKPOINT,						//11
+	//MC backup checkpoint block 
+	
+	YAFFS_BLOCK_STATE_ALMOST_DIRTY                          //12
+	//MC no deletions are allowed yet for this block (power loss issues)
 } yaffs_BlockState;
 
-#define	YAFFS_NUMBER_OF_BLOCK_STATES (YAFFS_BLOCK_STATE_DEAD + 1)
+#define	YAFFS_NUMBER_OF_BLOCK_STATES (YAFFS_BLOCK_STATE_ALMOST_DIRTY + 1)
 
 
 typedef struct {
@@ -521,6 +530,18 @@ typedef struct {
 	__u32 fileSizeOrEquivalentObjectId;
 } yaffs_CheckpointObject;
 
+
+struct interruptedWrites {
+	int objectId;  							//MC objectId of the partially written object
+	int chunkId;							//MC chunkID (in the file)
+	int blkNum;
+	int oldChunkNAND;						//MC chunk in NAND 
+	int newChunkNAND;						//MC to be used later
+	char *name;								//MC name of the object
+	// ...
+};
+
+
 /*--------------------- Temporary buffers ----------------
  *
  * These are chunk-sized working buffers. Each device has a few
@@ -674,7 +695,16 @@ struct yaffs_DeviceStruct {
 	__u32 checkpointSum;
 	__u32 checkpointXor;
 
+	int lastSeqNumBefChk;				//MC last sequence number before the committed checkpoint
+	int lastChkBlocksTried[YAFFS_MAX_CHECKPOINT_BLOCKS];
+										//MC last checkpoint blocks read in checkpointRestore()
+	int old2Masked[YAFFS_MAX_CHECKPOINT_BLOCKS];	
+										//MC old2 blocks masked
+	int old1Masked[YAFFS_MAX_CHECKPOINT_BLOCKS];
+										//MC old1 blocks masked
+	
 	int nCheckpointBlocksRequired; /* Number of blocks needed to store current checkpoint set */
+
 
 	/* Block Info */
 	yaffs_BlockInfo *blockInfo;
@@ -857,7 +887,7 @@ int yaffs_FlushFile(yaffs_Object *obj, int updateTime, int dataSync);
 void yaffs_FlushEntireDeviceCache(yaffs_Device *dev);
 
 int yaffs_CheckpointSave(yaffs_Device *dev);
-int yaffs_CheckpointRestore(yaffs_Device *dev);
+int yaffs_CheckpointRestore(yaffs_Device *dev, int recovery);
 
 /* Directory operations */
 yaffs_Object *yaffs_MknodDirectory(yaffs_Object *parent, const YCHAR *name,
@@ -907,7 +937,7 @@ void yaffs_GutsTest(yaffs_Device *dev);
 void yaffs_InitialiseTags(yaffs_ExtendedTags *tags);
 void yaffs_DeleteChunk(yaffs_Device *dev, int chunkId, int markNAND, int lyn);
 int yaffs_CheckFF(__u8 *buffer, int nBytes);
-void yaffs_HandleChunkError(yaffs_Device *dev, yaffs_BlockInfo *bi);
+void yaffs_HandleChunkError(yaffs_Device *dev, yaffs_BlockInfo *bi, int blockInNand, int read);
 
 __u8 *yaffs_GetTempBuffer(yaffs_Device *dev, int lineNo);
 void yaffs_ReleaseTempBuffer(yaffs_Device *dev, __u8 *buffer, int lineNo);

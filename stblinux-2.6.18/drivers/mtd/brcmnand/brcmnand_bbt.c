@@ -275,7 +275,7 @@ PRINTK("%s: calling read_ecc len=%d, bits=%d, num=%d, totallen=%d\n", __FUNCTION
 		res = mtd->read(mtd, from, len, &retlen, buf);
 		if (res < 0) {
 			if (retlen != len) {
-				printk (KERN_ERR "%s: Error reading bad block table, retlen=%d\n", __FUNCTION__);
+				printk (KERN_ERR "%s: Error reading bad block table, retlen=%d\n", __FUNCTION__, retlen);
 				return res;
 			}
 			printk (KERN_ERR "%s: ECC error while reading bad block table\n", __FUNCTION__);
@@ -510,8 +510,18 @@ static int brcmnand_scan_block_fast(struct mtd_info *mtd, struct nand_bbt_descr 
 	struct mtd_oob_ops ops;
 	int j, ret;
 	int dir;
+	struct brcmnand_chip *this = mtd->priv; 
 
-	if (!MTD_IS_MLC(mtd)) { // SLC: First and 2nd page
+	/*
+	 * THT 8/23/2010 Changed to use low level test.  
+	 * Apparently new Micron chips are SLC, but behaves like an MLC flash (requires BCH-4).
+	 * The old high level test would look for the BI indicator at the wrong page.
+	 *
+	 * if (!MTD_IS_MLC(mtd)) { // SLC: First and 2nd page
+	 *	dir = 1;
+	 * }
+	*/
+	if (!NAND_IS_MLC(this)) { // SLC: First and 2nd page
 		dir = 1;
 	}
 	else { // MLC: Read last page (and next to last page).
@@ -799,7 +809,7 @@ static int brcmnand_write_bbt(struct mtd_info *mtd, uint8_t *buf,
 	loff_t to;
 	struct mtd_oob_ops ops;
 
-bbt_outofspace_retry:
+//bbt_outofspace_retry:
 
 DEBUG(MTD_DEBUG_LEVEL3, "-->%s\n", __FUNCTION__);
 	ops.ooblen = mtd->oobsize;
@@ -1432,12 +1442,12 @@ int brcmnand_reconstruct_bbt (struct mtd_info *mtd, int whichbbt)
 {
 	struct brcmnand_chip *this = mtd->priv;
 	int len, res = 0, writeops = 0;
-	int chip, chipsel;
+//	int chip, chipsel;
 	uint8_t *buf = NULL;
 	struct nand_bbt_descr *td = this->bbt_td;
 	struct nand_bbt_descr *md = this->bbt_md;
 	uint32_t bbtSize;
-	uint32_t block;
+//	uint32_t block;
 	uint64_t bOffset, startBlock, badBlock = 0; 
 	int modified = 0;
 
@@ -1866,7 +1876,7 @@ printk("%s: gClearBBT=clearbbt, start=%0llx, end=%0llx\n", __FUNCTION__,
 	bOffsetStart, bOffsetEnd);
 #elif defined(TEST_INVALIDATE_BBT0)
 {
-uint32_t oob0[32];
+uint32_t oob0[NAND_MAX_OOBSIZE];
 uint8_t* oob = (uint8_t*) &oob0[0];
 uint32_t acc0;
 uint64_t bbt0Page = ((uint64_t) 0x7ff80000) >> this->page_shift;
@@ -2086,7 +2096,7 @@ PRINTK("%s: gClearBBT=%d, size=%016llx, erasesize=%08x\n",
 		 * The exception are the blocks in the BBT area, which are reserved
 		  */
 		else {
-			unsigned char oobbuf[64];
+			unsigned char oobbuf[NAND_MAX_OOBSIZE];
 			//int autoplace = 0;
 			//int raw = 1;
 			//struct nand_oobinfo oobsel;
@@ -2123,9 +2133,24 @@ PRINTK("%s: gClearBBT=%d, size=%016llx, erasesize=%08x\n",
 			
 			for (i=0; i<numpages; i++, page += i*dir) {
 				int res;
+				
 				//int retlen = 0;
 
 				res = this->read_page_oob(mtd, oobbuf, page);
+
+				/*
+				 * Retry with ECC disabled, since bad blocks would likely
+				 * fail ECC checks
+				 */
+				if (res) {
+					uint32_t acc0;
+
+					acc0 = brcmnand_disable_ecc();
+					res = this->read_page_oob(mtd, oobbuf, page);
+					brcmnand_restore_ecc(acc0);
+					// res would always be zero here, unless there is a HW error
+				}
+				
 				if (!res) {
 					if (check_short_pattern (oobbuf, this->badblock_pattern)) {
 						isBadBlock = 1;

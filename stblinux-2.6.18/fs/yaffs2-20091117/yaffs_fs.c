@@ -118,10 +118,8 @@ static uint32_t YCALCBLOCKS(uint64_t partition_size, uint32_t block_size)
 #include "yaffs_mtdif1.h"
 #include "yaffs_mtdif2.h"
 
-unsigned int yaffs_traceMask = YAFFS_TRACE_BAD_BLOCKS | YAFFS_TRACE_ALWAYS;
+unsigned int yaffs_traceMask = YAFFS_TRACE_BAD_BLOCKS | YAFFS_TRACE_ALWAYS | YAFFS_TRACE_BUG;
 unsigned int yaffs_wr_attempts = YAFFS_WR_ATTEMPTS;
-
-// SWLINUX-1559 Force sync() on SB write to avoid corrupted FS on sudden power loss.
 unsigned int yaffs_auto_checkpoint = 2;
 
 /* Module Parameters */
@@ -614,7 +612,6 @@ static void yaffs_delete_inode(struct inode *inode)
 {
 	yaffs_Object *obj = yaffs_InodeToObject(inode);
 	yaffs_Device *dev;
-
 	T(YAFFS_TRACE_OS,
 		("yaffs_delete_inode: ino %d, count %d %s\n", (int)inode->i_ino,
 		atomic_read(&inode->i_count),
@@ -1164,7 +1161,6 @@ static ssize_t yaffs_hold_space(struct file *f)
 
 	int nFreeChunks;
 
-
 	obj = yaffs_DentryToObject(f->f_dentry);
 
 	dev = obj->myDev;
@@ -1178,10 +1174,6 @@ static ssize_t yaffs_hold_space(struct file *f)
 	yaffs_DirUnlockRead(dev);
 
 	return (nFreeChunks > 20) ? 1 : 0;
-}
-
-static void yaffs_release_space(struct file *f)
-{
 }
 
 static int yaffs_readdir(struct file *f, void *dirent, filldir_t filldir)
@@ -1261,11 +1253,7 @@ static int yaffs_readdir(struct file *f, void *dirent, filldir_t filldir)
 
 			yaffs_GrossUnlock(dev);
 
-			if (filldir(dirent,
-					name,
-					strlen(name),
-					offset,
-					yaffs_GetObjectInode(l),
+			if (filldir(dirent, name, strlen(name), offset, yaffs_GetObjectInode(l),
 					yaffs_GetObjectType(l)) < 0)
 				goto out;
 

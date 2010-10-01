@@ -983,8 +983,8 @@ int jffs2_check_oob_empty(struct jffs2_sb_info *c,
 
 #ifdef CONFIG_MTD_BRCMNAND
 	oobsize = c->mtd->ecclayout->oobavail;
-	ops.len = NR_OOB_SCAN_PAGES * oobsize;
-	ops.ooblen = oobsize;
+	ops.len = 0; // THT 9/18/10, 2618-7.7: Make it same protocol as 2.6.31
+	ops.ooblen = NR_OOB_SCAN_PAGES * oobsize;
 	ops.oobbuf = c->oobbuf;
 	ops.ooboffs = 0;
 	ops.datbuf = NULL;
@@ -1064,7 +1064,7 @@ int jffs2_check_nand_cleanmarker (struct jffs2_sb_info *c,
 
 #ifdef CONFIG_MTD_BRCMNAND
 	oobsize = c->mtd->ecclayout->oobavail;
-	ops.len = oobsize;
+	ops.len = 0; // Make it same as 2.6.31, so that the 2 NAND driver versions are consistent
 	ops.ooblen = oobsize;
 	ops.oobbuf = c->oobbuf;
 	ops.ooboffs = 0;

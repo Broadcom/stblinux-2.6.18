@@ -55,6 +55,13 @@ static atomic_t v = ATOMIC_INIT(1);
 #define PRINTK5(...)
 #define PRINTK6(...)
 #endif
+
+
+extern uint32_t EDU_volatileRead(uint32_t addr);
+
+extern int brcmnand_edu_write_war(struct mtd_info *mtd,
+        const void* buffer, const u_char* oobarea, loff_t offset, uint32_t intr_status, 
+        int needBBT);
  
 
  // Wakes up the sleeping calling thread.
@@ -129,8 +136,8 @@ ISR_queue_write_request(struct mtd_info *mtd,
 	list_add_tail(node, &gJobQ.jobQ);
 	spin_lock_init(&entry->lock);
 	entry->mtd = mtd;
-	entry->buffer = buffer;
-	entry->oobarea = oobarea;
+	entry->buffer = (void*) buffer;
+	entry->oobarea = (u_char*) oobarea;
 	entry->offset = offset;
 	entry->ret = -1;
 	entry->refCount = 1;
@@ -391,7 +398,7 @@ PRINTK("==> %s: Awaken rd_data=%08x, intrMask=%08x, cmd=%d, flashAddr=%08x\n", _
 
 		// Do we need to do WAR for EDU, since EDU stop dead in its track regardless of the kind of errors.  Bummer!
 		if (req->status & HIF_INTR2_EDU_ERR) {
-			uint32_t edu_err_status;
+			//uint32_t edu_err_status;
 
 			/*
 			 * We need to do WAR for EDU, which just stops dead on its tracks if there is any error, correctable or not.
@@ -514,7 +521,7 @@ ISR_wait_for_queue_completion(void)
 	unsigned long to_jiffies = 3*HZ; /* 3 secs */
 	//unsigned long cur_jiffies = jiffies;
 	unsigned long expired = jiffies + to_jiffies;
-	int cmd;
+	//int cmd;
 	eduIsrNode_t* req;
 	eduIsrNode_t saveReq;
 	int submitted;
