@@ -51,9 +51,9 @@ static void deleteBlockChk(yaffs_Device *dev, int blk)
 		bi->gcPrioritise = 0;
 		blkBits = dev->chunkBits + (dev->chunkBitmapStride * (blk - dev->internalStartBlock));
 		memset(blkBits, 0, dev->chunkBitmapStride);
-		//T(YAFFS_TRACE_ALWAYS,
-		//(("\nINFO  Erased block %d, ex-state %d, ex-pgInUse %d" TENDSTR), 
-		//blk, previousState, previousPages));
+		T(YAFFS_TRACE_CHECKPOINT,
+		(("\nINFO  Erased block %d, ex-state %d, ex-pgInUse %d" TENDSTR), 
+		blk, previousState, previousPages));
 	} else {
 		dev->nFreeChunks -= dev->nChunksPerBlock;	/* We lost a block of free space */
 
@@ -92,7 +92,7 @@ static int yaffs_CheckpointSpaceOk(yaffs_Device *dev)
 	int blocksAvailable = dev->nErasedBlocks - dev->nReservedBlocks;
 
 	T(YAFFS_TRACE_CHECKPOINT,
-		(TSTR("checkpt blocks available = %d" TENDSTR),
+		(TSTR("INFO  checkpt blocks available = %d" TENDSTR),
 		blocksAvailable));
 
 	return (blocksAvailable <= 0) ? 0 : 1;
@@ -101,33 +101,45 @@ static int yaffs_CheckpointSpaceOk(yaffs_Device *dev)
 
 static int yaffs_CheckpointErase(yaffs_Device *dev)
 {
-	int i, chk = 0, old1 = 0, old2 = 0, yscData = 0, chunk, realignedChunk;
+	int i, chk = 0, old1 = 0, old2 = 0, yscData = 0, chunk, realignedChunk, result;
 	yaffs_ExtendedTags tags;
 
 	if (!dev->eraseBlockInNAND)
 		return 0;
 	
+	//MC sanity check on tags
 	for (i = dev->internalStartBlock; i <= dev->internalEndBlock; i++) {
 		yaffs_BlockInfo *bi = yaffs_GetBlockInfo(dev, i);
-		chunk = i * dev->nChunksPerBlock;
-		realignedChunk = chunk - dev->chunkOffset;
-		dev->readChunkWithTagsFromNAND(dev, realignedChunk,	NULL, &tags);
-		if (tags.sequenceNumber == YAFFS_SEQUENCE_CHECKPOINT_DATA){
-			yscData++;		
-			if (bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT) 	chk++;
-			if (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) old1++;
-			if (bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT) old2++;
-		}
-		else{
-			if ((bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT)	|| 
-			   (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) || 
-			   (bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT))
-				bi->blockState = YAFFS_BLOCK_STATE_DIRTY;
+		if (bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT		||
+			bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT	||
+			bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT) { 	//MC let's look in this 
+			chunk = i * dev->nChunksPerBlock;
+			realignedChunk = chunk - dev->chunkOffset;
+			result = dev->readChunkWithTagsFromNAND(dev, realignedChunk, NULL, &tags);
+			if (!(result > 0))	{								//MC uncorr check and recovery
+				T(YAFFS_TRACE_CHECKPOINT, 
+				  (("INFO  calling EmptyBlock from checkpointErase(1), chunk %d\n"),
+				   realignedChunk));
+				EmptyBlock(dev, realignedChunk/dev->nChunksPerBlock);
+			}
+			if (tags.sequenceNumber == YAFFS_SEQUENCE_CHECKPOINT_DATA){
+				yscData++;		
+				if (bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT) 	chk++;
+				if (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) old1++;
+				if (bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT) old2++;
+			}
+			else{
+				if ((bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT) 	|| 
+					(bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) || 
+					(bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT))
+					bi->blockState = YAFFS_BLOCK_STATE_DIRTY;
+			}
 		}
 	} 
-	//T(YAFFS_TRACE_ALWAYS,
-	//(TSTR("\nINFO  STATISTICS BEFORE checkpointErase(), chk %d old1 %d old2 %d yscdata %d"TENDSTR),
-	//chk, old1, old2, yscData));
+	
+	T(YAFFS_TRACE_CHECKPOINT,
+	(TSTR("\nINFO  STATISTICS BEFORE checkpointErase(), chk %d old1 %d old2 %d yscdata %d"TENDSTR),
+	chk, old1, old2, yscData));
 	
 	for (i = dev->internalStartBlock; i <= dev->internalEndBlock; i++) {
 		yaffs_BlockInfo *bi = yaffs_GetBlockInfo(dev, i);
@@ -136,43 +148,32 @@ static int yaffs_CheckpointErase(yaffs_Device *dev)
 
 			 chunk = i * dev->nChunksPerBlock;
 			 realignedChunk = chunk - dev->chunkOffset;
-			 dev->readChunkWithTagsFromNAND(dev, realignedChunk, NULL, &tags);
+			result = dev->readChunkWithTagsFromNAND(dev, realignedChunk, NULL, &tags);
+			if (!(result > 0))	{										//MC uncorr check and recovery
+				T(YAFFS_TRACE_CHECKPOINT, (("INFO  calling EmptyBlock from checkpointErase(2), chunk %d \n"),
+				realignedChunk));
+				EmptyBlock(dev, realignedChunk/dev->nChunksPerBlock);
+			}
 			 if (tags.sequenceNumber == YAFFS_SEQUENCE_CHECKPOINT_DATA) {
 				//MC this is really an old2 checkpoint block
-				//T(YAFFS_TRACE_ALWAYS, (TSTR("INFO  Erasing OLD2 checkpt block %d"TENDSTR), i));
+				T(YAFFS_TRACE_CHECKPOINT, (TSTR("INFO  Erasing OLD2 checkpt block %d"TENDSTR), i));
 				deleteBlockChk(dev, i);
 			}
 		}
 	
 		if (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) { 
-			//T(YAFFS_TRACE_ALWAYS, (TSTR("INFO  Block %d OLD1 -> OLD2"TENDSTR), i));
+			T(YAFFS_TRACE_CHECKPOINT, (TSTR("INFO  Block %d OLD1 -> OLD2"TENDSTR), i));
 			bi->blockState = YAFFS_BLOCK_STATE_OLD2CHECKPOINT;
 		}
 		
 		if ((bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT)&&
 		    !(old2 > 0 && chk > 0) && !(old1 > 0 && chk > 0)) {  
 			//MC avoid chkErase at boot time after uncommitted chkpt
-			//T(YAFFS_TRACE_ALWAYS, (TSTR("INFO  Block %d CHK -> OLD1"TENDSTR), i));
+			T(YAFFS_TRACE_CHECKPOINT, (TSTR("INFO  Block %d CHK -> OLD1"TENDSTR), i));
 			bi->blockState = YAFFS_BLOCK_STATE_OLD1CHECKPOINT;
 			
 		}
 	}
-
-	//MC stats after checkpointErase()
-	//chk = 0, old1 = 0, old2 = 0, yscData = 0;
-	//for (i = dev->internalStartBlock; i <= dev->internalEndBlock; i++) {
-	//	yaffs_BlockInfo *bi = yaffs_GetBlockInfo(dev, i);
-	//	if (bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT) chk++;
-	//	if (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) old1++;
-	//	if (bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT) old2++;
-	//	chunk = i * dev->nChunksPerBlock;
-	//	realignedChunk = chunk - dev->chunkOffset;
-	//	dev->readChunkWithTagsFromNAND(dev, realignedChunk,	NULL, &tags);
-	//	if (tags.sequenceNumber == YAFFS_SEQUENCE_CHECKPOINT_DATA) yscData++;
-	//}
-	//dev->blocksInCheckpoint = yscData;
-	//T(YAFFS_TRACE_ALWAYS, (TSTR("\nINFO  STATISTICS AFTER checkpointErase(), chk %d old1 %d old2 %d yscdata %d"TENDSTR), chk, old1, old2, yscData));
-
 	return 1;
 }
 
@@ -181,9 +182,6 @@ static void yaffs_CheckpointFindNextErasedBlock(yaffs_Device *dev)
 {
 	int  i;
 	int blocksAvailable = dev->nErasedBlocks - dev->nReservedBlocks;
-	T(YAFFS_TRACE_CHECKPOINT,
-		(TSTR("allocating checkpt block: erased %d reserved %d avail %d next %d "TENDSTR),
-		dev->nErasedBlocks, dev->nReservedBlocks, blocksAvailable, dev->checkpointNextBlock));
 
 	if (dev->checkpointNextBlock >= 0 &&
 			dev->checkpointNextBlock <= dev->internalEndBlock &&
@@ -195,8 +193,8 @@ static void yaffs_CheckpointFindNextErasedBlock(yaffs_Device *dev)
 			    bi->pagesInUse == 0) {                           //MC this condition should avoid 
 				dev->checkpointNextBlock = i + 1;                //   uncorrectable errors ... 
 				dev->checkpointCurrentBlock = i;
-				//T(YAFFS_TRACE_ALWAYS, (("allocating checkpt block %d pgInUse %d"TENDSTR),
-				//i, bi->pagesInUse));
+				T(YAFFS_TRACE_CHECKPOINT, (("INFO  Allocating checkpt block %d pgInUse %d"TENDSTR),
+				i, bi->pagesInUse));
 				return;
 			}
 		}
@@ -240,8 +238,8 @@ static void yaffs_CheckpointFindNextCheckpointBlock(yaffs_Device *dev, int recov
 					}					
 			
 			if ((skip) || (bi->blockState == YAFFS_BLOCK_STATE_ALMOST_DIRTY)) {  //MC strange case 
-				//T(YAFFS_TRACE_ALWAYS, 
-				//(TSTR("\nINFO  Skipped block %d because is masked"TENDSTR), i));
+				T(YAFFS_TRACE_CHECKPOINT, 
+				(TSTR("\nINFO  Skipped block %d because is masked"TENDSTR), i));
 				continue; 					//MC don't use as checkpoint a block 
 			}							    //   that has been masked in recovery 
 											//   phase. 
@@ -253,8 +251,8 @@ static void yaffs_CheckpointFindNextCheckpointBlock(yaffs_Device *dev, int recov
 				dev->checkpointBlockList[dev->blocksInCheckpoint] = i;
 				dev->blocksInCheckpoint++;
 			
-				//T(YAFFS_TRACE_ALWAYS, (TSTR("\nINFO  Found checkpt block %d blockSN %d "TENDSTR),
-				//i, bi->sequenceNumber));
+				T(YAFFS_TRACE_CHECKPOINT, (TSTR("\nINFO  Found checkpt block %d blockSN %d "TENDSTR),
+				i, bi->sequenceNumber));
 				return;
 			}
 		}
@@ -332,14 +330,14 @@ int yaffs_GetCheckpointSum(yaffs_Device *dev, __u32 *sum)
 
 static int yaffs_CheckpointFlushBuffer(yaffs_Device *dev)
 {
-	int chunk;
-	int realignedChunk;
-
+	int chunk, realignedChunk;
+	int result; 
 	yaffs_ExtendedTags tags;
-
-	if (dev->checkpointCurrentBlock < 0) {
-		yaffs_CheckpointFindNextErasedBlock(dev); //MC find next block where the chkpt can be written
-		dev->checkpointCurrentChunk = 0;
+	
+	again: 															//MC case of corrupted write on
+	if (dev->checkpointCurrentBlock < 0) {							//   the previous attempt.
+		yaffs_CheckpointFindNextErasedBlock(dev);                   //MC find next block where 
+		dev->checkpointCurrentChunk = 0;							//   the chkpt can be written.
 	}
 
 	if (dev->checkpointCurrentBlock < 0)
@@ -360,16 +358,24 @@ static int yaffs_CheckpointFlushBuffer(yaffs_Device *dev)
 
 	chunk = dev->checkpointCurrentBlock * dev->nChunksPerBlock + dev->checkpointCurrentChunk;
 
-	//T(YAFFS_TRACE_ALWAYS, (TSTR("INFO  Chkp w buffer chunk %d(currBLOCK %d: curCHUNK %d) objid %d chId %d" TENDSTR),
-	//chunk, dev->checkpointCurrentBlock, dev->checkpointCurrentChunk, tags.objectId, tags.chunkId));
+	T(YAFFS_TRACE_CHECKPOINT, (TSTR("INFO  Chkp w buffer chunk %d(currBLOCK %d: curCHUNK %d) objid %d chId %d" TENDSTR),
+	chunk, dev->checkpointCurrentBlock, dev->checkpointCurrentChunk, tags.objectId, tags.chunkId));
 	
 	realignedChunk = chunk - dev->chunkOffset;
-
 	dev->nPageWrites++;
+	
     //MC here is where the chkpt blocks are written on NAND
-	dev->writeChunkWithTagsToNAND(dev, realignedChunk,
-			dev->checkpointBuffer, &tags);
-	dev->checkpointByteOffset = 0;
+	result = dev->writeChunkWithTagsToNAND(dev, realignedChunk, dev->checkpointBuffer, &tags);
+	if (!(result > 0))	{											//MC attempt to write a checkpoint
+		T(YAFFS_TRACE_ALWAYS, (("WARN  Attempt to write a checkpoint in uncorr block %d chunk %d\n"),
+		 dev->checkpointCurrentBlock, chunk));
+		EmptyBlock(dev, dev->checkpointCurrentBlock);				//   on a corrupted chunk: clean 
+		dev->checkpointCurrentBlock = -1;							//   the block and try again.
+		dev->nPageWrites--;
+		goto again;													
+	}
+	
+	dev->checkpointByteOffset = 0;									
 	dev->checkpointPageSequence++;
 	dev->checkpointCurrentChunk++;
 	if (dev->checkpointCurrentChunk >= dev->nChunksPerBlock) {
@@ -520,28 +526,38 @@ int yaffs_CheckpointRead(yaffs_Device *dev, void *data, int nBytes, int recovery
 
 int yaffs_CheckpointClose(yaffs_Device *dev, int ok)
 {
-	int i;
+	int i, result, chunk, realignedChunk;
 	yaffs_ExtendedTags tags;
-	//T(YAFFS_TRACE_ALWAYS, (TSTR("\n***** MC checkpointClose()"TENDSTR)));
+	T(YAFFS_TRACE_CHECKPOINT, (TSTR("\nINFO  MC checkpointClose()"TENDSTR)));
 	
 	//MC sanity check on tags
 	int chk = 0, old1 = 0, old2 = 0, yscData = 0;
 	for (i = dev->internalStartBlock; i <= dev->internalEndBlock; i++) {
 		yaffs_BlockInfo *bi = yaffs_GetBlockInfo(dev, i);
-		int chunk = i * dev->nChunksPerBlock;
-		int realignedChunk = chunk - dev->chunkOffset;
-		dev->readChunkWithTagsFromNAND(dev, realignedChunk,	NULL, &tags);
-		if (tags.sequenceNumber == YAFFS_SEQUENCE_CHECKPOINT_DATA){
-																	yscData++;		
-			if (bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT) 	chk++;
-			if (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) old1++;
-			if (bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT) old2++;
-		}
-		else{
-			if ((bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT) 	|| 
-			   (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) || 
-			   (bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT))
-				bi->blockState = YAFFS_BLOCK_STATE_DIRTY;
+		if (bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT		||
+			bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT	||
+			bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT) { 	//MC let's look in this 
+			chunk = i * dev->nChunksPerBlock;
+			realignedChunk = chunk - dev->chunkOffset;
+			result = dev->readChunkWithTagsFromNAND(dev, realignedChunk, NULL, &tags);
+			if (!(result > 0))	{								//MC uncorr check and recovery
+				T(YAFFS_TRACE_CHECKPOINT, 
+				 (("INFO  calling EmptyBlock from checkpointClose(1), chunk %d\n"),
+				 realignedChunk));
+				EmptyBlock(dev, realignedChunk/dev->nChunksPerBlock);
+			}
+			if (tags.sequenceNumber == YAFFS_SEQUENCE_CHECKPOINT_DATA){
+																		yscData++;		
+				if (bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT) 	chk++;
+				if (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) old1++;
+				if (bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT) old2++;
+			}
+			else{
+				if ((bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT) 	|| 
+				   (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) || 
+				   (bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT))
+					bi->blockState = YAFFS_BLOCK_STATE_DIRTY;
+			}
 		}
 	} 
 	
@@ -558,11 +574,16 @@ int yaffs_CheckpointClose(yaffs_Device *dev, int ok)
 					//MC making sure that we're deleting really a checkpoint block, not data
 					int chunk = i * dev->nChunksPerBlock;
 					int realignedChunk = chunk - dev->chunkOffset;
-					dev->readChunkWithTagsFromNAND(dev, realignedChunk,NULL, &tags);
+					result = dev->readChunkWithTagsFromNAND(dev, realignedChunk,NULL, &tags);
+					if (!(result > 0))	{										//MC uncorr check and recovery
+						T(YAFFS_TRACE_CHECKPOINT, (("INFO  calling EmptyBlock from checkpointClose(2), chunk %d \n"),
+						realignedChunk));
+						EmptyBlock(dev, realignedChunk/dev->nChunksPerBlock);	
+					}
 					//MC FIXME here i should check if the chunk is uncorr
 					if (tags.sequenceNumber == YAFFS_SEQUENCE_CHECKPOINT_DATA){
 						//MC this is really an old2 checkpoint block
-						//T(YAFFS_TRACE_ALWAYS, (TSTR("INFO  Erasing OLD checkpt block %d"TENDSTR), i));
+						T(YAFFS_TRACE_CHECKPOINT, (TSTR("INFO  Erasing OLD checkpt block %d"TENDSTR), i));
 						deleteBlockChk(dev, i);
 					}
 				}
@@ -578,8 +599,8 @@ int yaffs_CheckpointClose(yaffs_Device *dev, int ok)
 				bi = yaffs_GetBlockInfo(dev, blk);
 			if (bi && bi->blockState == YAFFS_BLOCK_STATE_EMPTY){
 				bi->blockState = YAFFS_BLOCK_STATE_CHECKPOINT;
-				//T(YAFFS_TRACE_ALWAYS, (TSTR("INFO  Block %d is a checkpoint, bSN %d " TENDSTR),
-				//blk, bi->sequenceNumber));
+				T(YAFFS_TRACE_CHECKPOINT, (TSTR("INFO  Block %d is a checkpoint, bSN %d " TENDSTR),
+				blk, bi->sequenceNumber));
 			}
 		}
 
@@ -589,24 +610,6 @@ int yaffs_CheckpointClose(yaffs_Device *dev, int ok)
 	
 	dev->nFreeChunks -= dev->blocksInCheckpoint * dev->nChunksPerBlock;
 	dev->nErasedBlocks -= dev->blocksInCheckpoint;
-
-	//MC stats after checkpointClose()
-	//chk = 0, old1 = 0, old2 = 0, yscData = 0;
-	//for (i = dev->internalStartBlock; i <= dev->internalEndBlock; i++) {
-	//	yaffs_BlockInfo *bi = yaffs_GetBlockInfo(dev, i);
-	//	int chunk = i * dev->nChunksPerBlock;
-	//	int realignedChunk = chunk - dev->chunkOffset;
-	//	dev->readChunkWithTagsFromNAND(dev, realignedChunk,	NULL, &tags);
-	//	if (tags.sequenceNumber == YAFFS_SEQUENCE_CHECKPOINT_DATA) {
-	//																	yscData++;
-	//		if (bi->blockState == YAFFS_BLOCK_STATE_CHECKPOINT) 		chk++;
-	//		if (bi->blockState == YAFFS_BLOCK_STATE_OLD1CHECKPOINT) 	old1++;
-	//		if (bi->blockState == YAFFS_BLOCK_STATE_OLD2CHECKPOINT) 	old2++;	
-	//	}
-	//} 
-	//dev->blocksInCheckpoint = yscData;
-	//T(YAFFS_TRACE_ALWAYS, (TSTR("\nINFO  STATISTICS AFTER checkpointclose(), chk %d old1 %d old2 %d yscdata %d"TENDSTR), chk, old1, old2, yscData));
-	//T(YAFFS_TRACE_CHECKPOINT, (TSTR("INFO  Checkpoint byte count %d" TENDSTR),dev->checkpointByteCount));
 
 	if (dev->checkpointBuffer) {
 		/* free the buffer */

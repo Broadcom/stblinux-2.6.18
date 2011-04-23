@@ -206,6 +206,27 @@ static struct nand_ecclayout brcmnand_oob_bch8_4k = {
 			}
 };
 
+/*
+ * Micron 2K page SLC with on-die ECC, uses 8 ECC bytes per 512B ECC step
+ */
+static struct nand_ecclayout brcmnand_oob_ondie_ecc_2k = {
+	.eccbytes	= 8*4,  /* 8*4 = 32 bytes */
+	.eccpos		= { 
+		8,9,10,11,12,13,14,15,
+		24,25,26,27,28,29,30,31,
+		40,41,42,43,44,45,46,47,
+		56,57,58,59,60,61,62,63
+		},
+	.oobfree	= { /* 0  used for BBT and/or manufacturer bad block marker, 
+	                    * first slice loses 1 byte for BBT */
+				{.offset=2, .length=6}, 			/* BI at offsets 0,1 */
+				{.offset=18,.length=6}, 		/* 2nd slice  */
+				{.offset=34, .length=6},		/* 3rd slice  */
+				{.offset=50, .length=6},		/* 4th slice */
+	            		{.offset=0, .length=0}			/* End marker */
+			}
+};
+
 #else
 /* MLC not supported in 2.6.12 */
 

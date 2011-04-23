@@ -1552,7 +1552,6 @@ static int assign_rx_buffers(BcmEnet_devctrl *pDevCtrl)
                 /* no free skb available now */
                 /* rxDma is empty, set flag and let timer function to refill later */
                 atomic_set(&pDevCtrl->rxDmaRefill, 1);
-                break;
             }
         }
 

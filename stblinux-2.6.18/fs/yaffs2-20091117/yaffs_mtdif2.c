@@ -63,8 +63,11 @@ int nandmtd2_WriteChunkWithTagsToNAND(yaffs_Device *dev, int chunkInNAND,
 	 * If we're using inband tags, then the tags are stuffed into
 	 * the end of the data buffer.
 	 */
-	if (!data || !tags)
-		BUG();
+	if (!data || !tags) {
+		// SWLINUX-1824:
+		// BUG();
+		return YAFFS_FAIL;
+	}
 	else if (dev->inbandTags) {
 		yaffs_PackedTags2TagsPart *pt2tp;
 		pt2tp = (yaffs_PackedTags2TagsPart *)(data + dev->nDataBytesPerChunk);

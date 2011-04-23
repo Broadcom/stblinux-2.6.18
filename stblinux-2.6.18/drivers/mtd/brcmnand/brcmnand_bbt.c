@@ -1772,6 +1772,25 @@ static struct nand_bbt_descr bbt_bch4_mirror_descr = {
 	.pattern = mirror_pattern
 };
 
+static struct nand_bbt_descr bbt_ondieECC_main_descr = {
+	.options = NAND_BBT_LASTBLOCK | NAND_BBT_CREATE | NAND_BBT_WRITE
+		| NAND_BBT_2BIT | NAND_BBT_VERSION /* | NAND_BBT_PERCHIP */,
+	.offs =	2, 
+	.len = 4,
+	.veroffs = 6,  
+	.maxblocks = 4,
+	.pattern = bbt_pattern
+};
+static struct nand_bbt_descr bbt_ondieECC_mirror_descr = {
+	.options = NAND_BBT_LASTBLOCK | NAND_BBT_CREATE | NAND_BBT_WRITE
+		| NAND_BBT_2BIT | NAND_BBT_VERSION /* | NAND_BBT_PERCHIP */,
+	.offs =	2, 
+	.len = 4,
+	.veroffs = 6,  
+	.maxblocks = 4,
+	.pattern = mirror_pattern
+};
+
 
 
 static int brcmnand_displayBBT(struct mtd_info* mtd)
@@ -2286,7 +2305,18 @@ int brcmnand_default_bbt (struct mtd_info *mtd)
 
 	/* Is a flash based bad block table requested ? */
 	if (this->options & NAND_USE_FLASH_BBT) {
-		if (this->ecclevel == BRCMNAND_ECC_HAMMING) {
+		if (this->ondieECC) {
+			/* Use the default pattern descriptors */
+			if (!this->bbt_td) {
+				this->bbt_td = &bbt_ondieECC_main_descr;
+				this->bbt_md = &bbt_ondieECC_mirror_descr;
+			}
+			if (!this->badblock_pattern) { /* Same bad block pattern as regular SLC flashes */
+				this->badblock_pattern = &largepage_flashbased;
+			}
+printk("%s: bbt_td = bbt_ondieECC_main_descr\n", __FUNCTION__);
+		}
+		else if (this->ecclevel == BRCMNAND_ECC_HAMMING) {
 			/* Use the default pattern descriptors */
 			if (!this->bbt_td) {
 				this->bbt_td = &bbt_main_descr;

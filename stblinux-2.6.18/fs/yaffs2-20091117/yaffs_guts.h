@@ -76,6 +76,8 @@
 
 #define YAFFS_SHORT_NAME_LENGTH		15
 
+#define YAFFS_MAX_TOEMPTY			700
+
 /* Some special object ids for pseudo objects */
 #define YAFFS_OBJECTID_ROOT		1
 #define YAFFS_OBJECTID_LOSTNFOUND	2
@@ -96,7 +98,8 @@
  * Small-page devices have 32 pages per block; large-page devices have 64.
  * Default to something in the order of 5 to 10 blocks worth of chunks.
  */
-#define YAFFS_WR_ATTEMPTS		(5*64)
+#define YAFFS_WR_ATTEMPTS		(10*64)			//MC increased the number of write attempts,
+												//   because of uncorr chunks.
 
 /* Sequence numbers are used in YAFFS2 to determine block allocation order.
  * The range is limited slightly to help distinguish bad numbers from good.
@@ -264,7 +267,7 @@ typedef enum {
 	YAFFS_BLOCK_STATE_CHECKPOINT,							//7
 	/* This block is assigned to holding checkpoint data.
 	 */
-
+	 
 	YAFFS_BLOCK_STATE_COLLECTING,							//8
 	/* This block is being garbage collected */
 
@@ -277,11 +280,14 @@ typedef enum {
 	YAFFS_BLOCK_STATE_OLD2CHECKPOINT,						//11
 	//MC backup checkpoint block 
 	
-	YAFFS_BLOCK_STATE_ALMOST_DIRTY                          //12
+	YAFFS_BLOCK_STATE_ALMOST_DIRTY,                         //12
 	//MC no deletions are allowed yet for this block (power loss issues)
+	
+	YAFFS_BLOCK_STATE_RESERVE								//13
+	//MC used when the system runs out of space
 } yaffs_BlockState;
 
-#define	YAFFS_NUMBER_OF_BLOCK_STATES (YAFFS_BLOCK_STATE_ALMOST_DIRTY + 1)
+#define	YAFFS_NUMBER_OF_BLOCK_STATES (YAFFS_BLOCK_STATE_RESERVE + 1)
 
 
 typedef struct {
@@ -694,26 +700,25 @@ struct yaffs_DeviceStruct {
 	int checkpointMaxBlocks;
 	__u32 checkpointSum;
 	__u32 checkpointXor;
-
+	
 	int lastSeqNumBefChk;				//MC last sequence number before the committed checkpoint
 	int lastChkBlocksTried[YAFFS_MAX_CHECKPOINT_BLOCKS];
 										//MC last checkpoint blocks read in checkpointRestore()
-	int old2Masked[YAFFS_MAX_CHECKPOINT_BLOCKS];	
-										//MC old2 blocks masked
-	int old1Masked[YAFFS_MAX_CHECKPOINT_BLOCKS];
-										//MC old1 blocks masked
+	int old2Masked[YAFFS_MAX_CHECKPOINT_BLOCKS];		//MC old2 blocks masked
+	int old1Masked[YAFFS_MAX_CHECKPOINT_BLOCKS];		//MC old1 blocks masked
+	int toEmpty[YAFFS_MAX_TOEMPTY];						//MC blocks to empty
 	
 	int nCheckpointBlocksRequired; /* Number of blocks needed to store current checkpoint set */
-
+	
 
 	/* Block Info */
 	yaffs_BlockInfo *blockInfo;
-	__u8 *chunkBits;	/* bitmap of chunks in use */
-	unsigned blockInfoAlt:1;	/* was allocated using alternative strategy */
-	unsigned chunkBitsAlt:1;	/* was allocated using alternative strategy */
-	int chunkBitmapStride;	/* Number of bytes of chunkBits per block.
-				 * Must be consistent with nChunksPerBlock.
-				 */
+	__u8 *chunkBits;					/* bitmap of chunks in use */
+	unsigned blockInfoAlt:1;			/* was allocated using alternative strategy */
+	unsigned chunkBitsAlt:1;			/* was allocated using alternative strategy */
+	int chunkBitmapStride;				/* Number of bytes of chunkBits per block.
+										 * Must be consistent with nChunksPerBlock.
+										*/
 
 	int nErasedBlocks;
 	int allocationBlock;	/* Current block being allocated off */

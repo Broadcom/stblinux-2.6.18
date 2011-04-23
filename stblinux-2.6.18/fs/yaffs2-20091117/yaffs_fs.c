@@ -1035,17 +1035,17 @@ static void yaffs_FillInodeFromObject(struct inode *inode, yaffs_Object *obj)
 #endif
 			break;
 		case S_IFREG:	/* file */
-			inode->i_op = &yaffs_file_inode_operations;
+			inode->i_op = (struct inode_operations*) &yaffs_file_inode_operations;
 			inode->i_fop = &yaffs_file_operations;
 			inode->i_mapping->a_ops =
 				&yaffs_file_address_operations;
 			break;
 		case S_IFDIR:	/* directory */
-			inode->i_op = &yaffs_dir_inode_operations;
+			inode->i_op = (struct inode_operations*) &yaffs_dir_inode_operations;
 			inode->i_fop = &yaffs_dir_operations;
 			break;
 		case S_IFLNK:	/* symlink */
-			inode->i_op = &yaffs_symlink_inode_operations;
+			inode->i_op = (struct inode_operations*) &yaffs_symlink_inode_operations;
 			break;
 		}
 
@@ -1638,7 +1638,7 @@ static int yaffs_statfs(struct super_block *sb, struct statfs *buf)
 		uint64_t bytesInDev;
 		uint64_t bytesFree;
 
-		bytesInDev = ((uint64_t)((dev->endBlock - dev->startBlock + 1))) *
+		bytesInDev = ((uint64_t)((dev->endBlock - dev->startBlock))) *
 			((uint64_t)(dev->nChunksPerBlock * dev->nDataBytesPerChunk));
 
 		do_div(bytesInDev, sb->s_blocksize); /* bytesInDev becomes the number of blocks */
@@ -1654,7 +1654,7 @@ static int yaffs_statfs(struct super_block *sb, struct statfs *buf)
 	} else if (sb->s_blocksize > dev->nDataBytesPerChunk) {
 
 		buf->f_blocks =
-			(dev->endBlock - dev->startBlock + 1) *
+			(dev->endBlock - dev->startBlock) *
 			dev->nChunksPerBlock /
 			(sb->s_blocksize / dev->nDataBytesPerChunk);
 		buf->f_bfree =
@@ -1662,7 +1662,7 @@ static int yaffs_statfs(struct super_block *sb, struct statfs *buf)
 			(sb->s_blocksize / dev->nDataBytesPerChunk);
 	} else {
 		buf->f_blocks =
-			(dev->endBlock - dev->startBlock + 1) *
+			(dev->endBlock - dev->startBlock) *
 			dev->nChunksPerBlock *
 			(dev->nDataBytesPerChunk / sb->s_blocksize);
 
@@ -2028,7 +2028,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 	yaffs_options options;
 
 	sb->s_magic = YAFFS_MAGIC;
-	sb->s_op = &yaffs_super_ops;
+	sb->s_op = (struct super_operations*) &yaffs_super_ops;
 	sb->s_flags |= MS_NOATIME;
 
 	if (!sb)
@@ -2221,11 +2221,14 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 		do_div(tmpdiv, mtd->erasesize);
 		nBlocks = (int) tmpdiv;
 		dev->spareBytesPerChunk = mtd->ecclayout->oobavail;
-		
-	    if (WRITE_SIZE(mtd) < YAFFS_MIN_YAFFS2_CHUNK_SIZE)
-	    	{	//Small Page NAND
+
+	      /*
+	        * Micron ondie-ECC only have 24 free OOB bytes per page
+	        */
+	       if (WRITE_SIZE(mtd) < YAFFS_MIN_YAFFS2_CHUNK_SIZE ||
+			dev->spareBytesPerChunk < YAFFS_MIN_YAFFS2_SPARE_SIZE)
+	    	{	//Small Page NAND & Micron ondieECC
 			// Calculate how many pages can satisfy YAFFS_MIN_YAFFS2_SPARE_SIZE
-			
 
 			dev->totalBytesPerChunk = yaffs_calcChunkSize(
 				&dev->spareBytesPerChunk, WRITE_SIZE(mtd), mtd->erasesize);
@@ -2241,6 +2244,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 		   
 		else { // Large Page NAND & MLC
 			dev->totalBytesPerChunk = WRITE_SIZE(mtd);
+		
 			// param->spareBytesPerChunk already initialized above
 			
 //printk("%s: nBlocks: %d, mtd->size = %d, mtd->erasesize = %d,  WRITE_SIZE(mtd)=%d\n", 
@@ -2374,7 +2378,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 	if (!inode)
 		return NULL;
 
-	inode->i_op = &yaffs_dir_inode_operations;
+	inode->i_op = (struct inode_operations*) &yaffs_dir_inode_operations;
 	inode->i_fop = &yaffs_dir_operations;
 
 	T(YAFFS_TRACE_OS, ("yaffs_read_super: got root inode\n"));

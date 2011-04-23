@@ -73,7 +73,7 @@ when	who what
  *	1f80_0000	1fbf_ffff		4MB			Linux Kernel	CFE
  *	start of flash	1f7f_ffff		flashSize-8MB	rootfs		Linux File System
  */
-#define SMALLEST_FLASH_SIZE	(16<<20)
+#define SMALLEST_FLASH_SIZE	(32<<20)
 #define DEFAULT_RESERVED_SIZE 	(8<<20) 
 #define DEFAULT_SPLASH_SIZE 	(1<<20)
 #define DEFAULT_BBT0_SIZE_MB	(1)
@@ -152,7 +152,7 @@ static struct mtd_partition bcm7XXX_no_xor_partition[] =
 	/* XOR disabled: Everything is shifted down 4MB */
 	{ name: N_ROOTFS,	offset: 0x00400000,			size: DEFAULT_ROOTFS_SIZE - (DEFAULT_BBT0_SIZE_MB <<20) },	// Less 1MB for BBT
 	{ name: N_ALL,		offset: 0,					size: DEFAULT_ROOTFS_SIZE - (DEFAULT_BBT0_SIZE_MB <<20) },
-	{ name: N_KERNEL,	offset: 0x00b00000,			size: 4<<20 }, 
+	{ name: N_KERNEL,	offset: 0x01b00000,			size: 4<<20 }, 
 	/* BBT0 1MB not mountable by anyone */
 
 	/* Following partitions only present on flash with size > 512MB */
@@ -270,9 +270,23 @@ brcmnanddrv_setup_mtd_partitions(struct brcmnand_info* nandinfo, int *numParts)
 			*numParts = 3;
 		} 
 		else {
-			bcm7XXX_nand_parts[ALL_PART].size = ((512-DEFAULT_BBT1_SIZE_MB)<<20);
+			bcm7XXX_nand_parts[ALL_PART].size = ((512-DEFAULT_BBT0_SIZE_MB)<<20);
+			bcm7XXX_nand_parts[DATA_PART].offset = (512<<20);
+			bcm7XXX_nand_parts[DATA_PART].size = device_size(mtd) 
+				- (uint64_t) (DEFAULT_BBT1_SIZE_MB<<20) - (512<<20);
 			*numParts = 4;
 		}
+/* THT Adjust Kernel and rootfs partitions based on actual flash size */
+#if 1
+		bcm7XXX_nand_parts[ROOTFS_PART].size = bcm7XXX_nand_parts[ALL_PART].size
+			 - bcm7XXX_nand_parts[KERNEL_PART].size -bcm7XXX_nand_parts[ROOTFS_PART].offset;
+		bcm7XXX_nand_parts[KERNEL_PART].offset = bcm7XXX_nand_parts[ROOTFS_PART].size
+			+ bcm7XXX_nand_parts[ROOTFS_PART].offset;
+#endif
+PRINTK("%s: NAND on CS1: numparts=%d\n", __FUNCTION__, *numParts);
+print_partition(*numParts);
+
+/* END THT */		
 		for (i=0; i<*numParts;i++) {
 			bcm7XXX_nand_parts[i].ecclayout = mtd->ecclayout;
 		}

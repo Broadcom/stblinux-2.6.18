@@ -113,6 +113,8 @@
 #define SAMSUNG_K9F2G08U0A      0xDA
 #define SAMSUNG_K9K8G08U0A      0xD3
 #define SAMSUNG_K9F8G08U0M	0xD3
+#define SAMSUNG_K9K8G08U0D      0xD3
+#define SAMSUNG_K9F4G08U0D      0xDC
 
 
 //K9F5608(R/U/D)0D
@@ -276,6 +278,9 @@
 #define MICRON_MT29F2G08ABA	0xDA
 #define MICRON_MT29F4G08ABA	0xDC
 
+#define MICRON_MT29F8G08ABA	0x38
+#define MICRON_MT29F8G08ADA	0xD3	/* With on-die ECC */
+
 #define MICRON_3RDID_INT_CHIPNO_MASK	NAND_CI_CHIPNR_MSK
 
 #define MICRON_3RDID_CELLTYPE_MASK	NAND_CI_CELLTYPE_MSK
@@ -337,6 +342,41 @@
 #define MICRON_5THID_INT_ECC_MASK	0x80
 #define MICRON_5THID_INT_ECC_ENA		0x80
 
+
+/*
+ * Micron M61A ID encoding will be phased out in favor of ONFI
+ */
+ #define MICRON_M61A_2NDID_VOLTAGE_MASK		0x0F
+ #define MICRON_M61A_2NDID_3_3V				0x08
+
+/* Not strictly followed, must rely on 5th ID byte for density */
+#define MICRON_M61A_2NDID_DENSITY_MASK		0xF0
+#define MICRON_M61A_2NDID_2Gb					0x10
+#define MICRON_M61A_2NDID_4Gb					0x20 
+#define MICRON_M61A_2NDID_8Gb					0x30 
+#define MICRON_M61A_2NDID_16Gb				0x40 
+
+/* M61A_3RDID_SLC is same as standard Samsung Type 1 */
+/* M61A_4THID_PAGESIZE same as standard Samsung Type 1 */
+
+#define MICRON_M61A_4THID_OOBSIZE_MASK		0x0C
+#define MICRON_M61A_4THID_OOBSIZE_28B		0x04	/* 224 per 4KB page */
+
+/* Pages per block ==> Block Size */
+#define MICRON_M61A_4THID_PGPBLK_MASK		0x70
+#define MICRON_M61A_4THID_128PG_PERBLK		0x20	/* 128 pages per block =512KB blkSize*/
+
+#define MICRON_M61A_4THID_MULTI_LUN_MASK	0x80
+#define MICRON_M61A_4THID_MLUN_SUPPORTED	0x80	/* 128 pages per block */
+
+
+#define MICRON_M61A_5THID_PLN_PER_LUN_MASK	0x03
+#define MICRON_M61A_5THID_2PLN				0x01	/* 2 planes per LUN */
+
+#define MICRON_M61A_5THID_BLK_PER_LUN_MASK	0x1C
+#define MICRON_M61A_5THID_2048BLKS			0x04	/* 2048 blks per LUN */
+
+
 //Spansion flashes
 #ifndef FLASHTYPE_SPANSION
     #define FLASHTYPE_SPANSION      0x01
@@ -363,6 +403,7 @@
 
 #define TOSHIBA_TC58NVG0S3ETA00	0xD1
 #define TOSHIBA_TC58NVG1S3ETAI5	0xDA
+#define TOSHIBA_TC58NVG3S0ETA00	0xD3
 
 //Command Opcode
 #define OP_PAGE_READ                0x01000000
@@ -579,8 +620,8 @@ struct brcmnand_chip {
 	int64_t		pagebuf; /* Cached page number.  This can be a 36 bit signed integer. 
 						  * -1LL denotes NULL/invalidated page cache. */
 	int			oobavail; // Number of free bytes per page
-	int			disableECC;	/* Turn on for 100% valid chips that don't need ECC 
-						 * might need in future for Spansion flash */
+	int			ondieECC;	/* Turn on for 100% valid chips that don't need ECC 
+						 	 * might need in future for Spansion flash */
 				
 	struct nand_ecclayout	*ecclayout;
 
